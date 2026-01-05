@@ -29,10 +29,12 @@ class AuthApi {
     required String refreshToken,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
-      '/auth/refresh',
-      data: {'refreshToken': refreshToken},
+      '/auth/token/refresh',
+      data: {'refresh_token': refreshToken},
     );
+
     final data = res.data ?? <String, dynamic>{};
     return RefreshResponse.fromJson(data);
   }
+
 }

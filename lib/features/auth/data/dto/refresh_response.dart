@@ -1,16 +1,11 @@
 class RefreshResponse {
   final String accessToken;
-  final String? refreshToken;
 
-  const RefreshResponse({
-    required this.accessToken,
-    this.refreshToken,
-  });
+  const RefreshResponse({required this.accessToken});
 
   factory RefreshResponse.fromJson(Map<String, dynamic> json) {
     return RefreshResponse(
-      accessToken: (json['accessToken'] ?? json['access_token'] ?? '') as String,
-      refreshToken: (json['refreshToken'] ?? json['refresh_token']) as String?,
+      accessToken: (json['access_token'] ?? json['accessToken'] ?? '') as String,
     );
   }
 }
