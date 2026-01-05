@@ -7,5 +7,6 @@ class TreeController extends AutoDisposeAsyncNotifier<void> {
   @override
   Future<void> build(String userId) async {
     // TODO: /profiles/:id/tree endpoint -> nodes + chaput list
+    return null;
   }
 }

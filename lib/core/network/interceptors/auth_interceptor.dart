@@ -76,9 +76,6 @@ class AuthInterceptor extends Interceptor {
       final res = await authApi.refresh(refreshToken: refresh);
 
       await tokenStorage.saveAccessToken(res.accessToken);
-      if (res.refreshToken != null && res.refreshToken!.isNotEmpty) {
-        await tokenStorage.saveRefreshToken(res.refreshToken!);
-      }
 
       _refreshCompleter!.complete();
     } catch (e, st) {

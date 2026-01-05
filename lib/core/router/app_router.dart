@@ -2,55 +2,55 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/application/auth_controller.dart';
-import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/home/presentation/screens/home_shell.dart';
+import '../../features/onboarding/presentation/screens/boot_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'routes.dart';
 
-/// Riverpod değişikliklerinde GoRouter'ı refresh etmek için basit notifier
-class RouterRefreshNotifier extends ChangeNotifier {
-  void refresh() => notifyListeners();
-}
-
-final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
-  final notifier = RouterRefreshNotifier();
-
-  // Auth state değiştikçe router refresh et
-  ref.listen(authControllerProvider, (prev, next) {
-    notifier.refresh();
-  });
-
-  ref.onDispose(notifier.dispose);
-  return notifier;
-});
-
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final refreshNotifier = ref.watch(routerRefreshNotifierProvider);
-
   return GoRouter(
-    initialLocation: Routes.home,
-    refreshListenable: refreshNotifier,
-    redirect: (context, state) {
-      final authAsync = ref.read(authControllerProvider);
-      final session = authAsync.valueOrNull;
-      final loggedIn = session != null;
-
-      final goingToLogin = state.matchedLocation == Routes.login;
-
-      if (!loggedIn && !goingToLogin) return Routes.login;
-      if (loggedIn && goingToLogin) return Routes.home;
-
-      return null;
-    },
+    initialLocation: Routes.boot,
     routes: [
       GoRoute(
-        path: Routes.login,
-        builder: (context, state) => const LoginScreen(),
+        path: Routes.boot,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const BootScreen(),
+        ),
+      ),
+      GoRoute(
+        path: Routes.onboarding,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const OnboardingScreen(),
+        ),
       ),
       GoRoute(
         path: Routes.home,
-        builder: (context, state) => const HomeShell(),
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const HomeShell(),
+        ),
       ),
     ],
   );
 });
+
+CustomTransitionPage _fadePage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    transitionDuration: const Duration(milliseconds: 260),
+    reverseTransitionDuration: const Duration(milliseconds: 220),
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      return FadeTransition(
+        opacity: curved,
+        child: child,
+      );
+    },
+  );
+}

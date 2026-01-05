@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/device/device_id_service.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 import '../data/auth_api.dart';
 import '../data/auth_repository_impl.dart';
@@ -27,16 +28,15 @@ class AuthController extends AsyncNotifier<Session?> {
     if (refresh != null && refresh.isNotEmpty) {
       try {
         final refreshed = await _repo.refresh(refreshToken: refresh);
-        // userId storage’da varsa koru
-        if (userId != null && userId.isNotEmpty) {
+
+        // Refresh endpoint sadece access_token döndürüyor.
+        // Refresh token aynı kalıyor, storage’da tutmaya devam ediyoruz.
+        if (userId != null && userId.isNotEmpty && refreshed.accessToken.isNotEmpty) {
           await _tokenStorage.saveAccessToken(refreshed.accessToken);
-          if (refreshed.refreshToken != null && refreshed.refreshToken!.isNotEmpty) {
-            await _tokenStorage.saveRefreshToken(refreshed.refreshToken!);
-          }
           return Session(userId: userId, accessToken: refreshed.accessToken);
         }
       } catch (_) {
-        // ignore -> fallthrough
+        // ignore -> fallthrough (boot flow zaten yönlendirecek)
       }
     }
 
@@ -51,10 +51,13 @@ class AuthController extends AsyncNotifier<Session?> {
     state = await AsyncValue.guard(() async {
       final res = await _repo.login(username: username, password: password);
 
+      final deviceId = await ref.read(deviceIdServiceProvider).getOrCreate();
+
       await _tokenStorage.saveSession(
         userId: res.userId,
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
+        deviceId: deviceId,
       );
 
       return Session(userId: res.userId, accessToken: res.accessToken);
