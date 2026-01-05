@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/screens/home_shell.dart';
 import '../../features/onboarding/presentation/screens/boot_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/register_screen.dart';
+
 import 'routes.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -30,6 +33,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadePage(
           state: state,
           child: const HomeShell(),
+        ),
+      ),
+      GoRoute(
+        path: Routes.login,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const LoginScreen(),
+        ),
+      ),
+      GoRoute(
+        path: Routes.register,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const RegisterScreen(),
         ),
       ),
     ],

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class GlassEmailInput extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
-  final VoidCallback onSubmit;
+  final Future<void> Function() onSubmit;
   final double radius;
 
   const GlassEmailInput({
@@ -42,7 +42,10 @@ class GlassEmailInput extends StatelessWidget {
                     style: const TextStyle(color: Colors.white),
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => onSubmit(),
+                    onSubmitted: (_) async {
+                      debugPrint('⌨️ TextField submitted');
+                      await onSubmit();
+                    },
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
@@ -57,7 +60,7 @@ class GlassEmailInput extends StatelessWidget {
                 size: _fieldHeight,
                 radius: (radius - 4).clamp(0, 999),
                 icon: Icons.arrow_forward_ios_rounded,
-                onTap: onSubmit,
+                onTap: () => onSubmit(),
               ),
             ],
           ),
@@ -67,12 +70,11 @@ class GlassEmailInput extends StatelessWidget {
   }
 }
 
-/// Aynı yükseklikte kare, cam buton
 class GlassSquareIconButton extends StatelessWidget {
   final double size;
   final double radius;
   final IconData icon;
-  final VoidCallback onTap;
+  final Future<void> Function() onTap;
 
   const GlassSquareIconButton({
     super.key,
@@ -84,22 +86,28 @@ class GlassSquareIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.45),
-              borderRadius: BorderRadius.circular(radius),
-              border: Border.all(color: Colors.white.withOpacity(0.18)),
-            ),
-            child: Center(
-              child: Icon(icon, size: 16, color: Colors.white),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            debugPrint('➡️ GlassArrowButton tapped'); // DEBUG
+            await onTap();
+          },
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.45),
+                borderRadius: BorderRadius.circular(radius),
+                border: Border.all(color: Colors.white.withOpacity(0.18)),
+              ),
+              child: Center(
+                child: Icon(icon, size: 16, color: Colors.white),
+              ),
             ),
           ),
         ),

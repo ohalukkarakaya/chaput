@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/ui/video/video_background.dart';
 import '../../../../core/ui/widgets/glass_email_input.dart';
 
-class OnboardingScreen extends StatefulWidget {
+import '../../../../core/router/routes.dart';
+import '../../data/internal_users_api.dart';
+
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   static const double _logoSize = 32; // UI'da görünen dp
   final _emailController = TextEditingController();
 
@@ -20,11 +28,43 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  void _onSubmit() {
+  Future<void> _onSubmit() async {
     final email = _emailController.text.trim();
-    // TODO: email validate + next step (login/signup)
-    debugPrint('Email submitted: $email');
+
+    final isValid = email.contains('@') && email.contains('.com');
+    if (!isValid) {
+      HapticFeedback.heavyImpact();
+      return;
+    }
+
+    try {
+      final api = ref.read(internalUsersApiProvider);
+      final result = await api.lookupEmail(email);
+
+      switch (result) {
+        case EmailLookupResult.userNotFound:
+        // user yok -> register
+          context.pushReplacement(Routes.register);
+          return;
+
+        case EmailLookupResult.userFoundComplete:
+        // user var -> login
+          HapticFeedback.selectionClick(); // küçük onay
+          context.pushReplacement(Routes.login);
+          return;
+
+        case EmailLookupResult.userFoundNeedsProfileSetup:
+        // MVP: profil setup ekranı yoksa register'a yönlendir
+          context.pushReplacement(Routes.register);
+          return;
+      }
+    } on DioException {
+      HapticFeedback.heavyImpact();
+    } catch (_) {
+      HapticFeedback.heavyImpact();
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
