@@ -117,3 +117,94 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+
+###############################################################################
+# Flutter
+###############################################################################
+.flutter_build/
+
+# Flutter version management
+.fvm/
+.fvmrc
+
+###############################################################################
+# IntelliJ IDEA / Android Studio (JetBrains)
+###############################################################################
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/shelf/
+.idea/**/dictionaries/
+.idea/**/aws.xml
+
+###############################################################################
+# VS Code (opsiyonel ama temiz kalsın)
+###############################################################################
+.vscode/
+
+###############################################################################
+# Android
+###############################################################################
+android/.gradle/
+android/local.properties
+android/key.properties
+android/.idea/
+android/**/build/
+android/captures/
+android/.settings/
+android/.classpath
+android/.project
+
+# Android Studio profiling
+android/**/profile/
+
+###############################################################################
+# iOS / macOS
+###############################################################################
+ios/Flutter/ephemeral/
+ios/Flutter/.last_build_id
+ios/Pods/
+ios/.symlinks/
+ios/DerivedData/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# Xcode
+*.xcworkspace
+*.xcuserstate
+*.xcuserdata/
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+DerivedData/
+
+###############################################################################
+# macOS
+###############################################################################
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+###############################################################################
+# Firebase / Secrets (ileride eklenirse)
+###############################################################################
+google-services.json
+GoogleService-Info.plist
+*.env
+.env.*
+
+###############################################################################
+# Logs & crash dumps
+###############################################################################
+crashlytics-build.properties
