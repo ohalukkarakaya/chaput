@@ -1,3 +1,4 @@
+import 'package:chaput/core/i18n/app_localizations.dart';
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 
@@ -100,7 +101,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     16,
                     16,
                     16,
-                    16 + keyboard, // ✅ input her zaman klavyenin üstünde
+                    16 + keyboard, // input her zaman klavyenin üstünde
                   ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
@@ -112,7 +113,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Hoş Geldin 👋',
+                            context.t('onboarding.welcome_title'),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize:  30,
@@ -122,7 +123,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           ),
                           SizedBox(height: 8),
                           Text(
-                            'Gecikme, arkadaşların seni bekliyor!',
+                            context.t('onboarding.welcome_subtitle'),
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.80),
                               fontSize: 16,
@@ -134,8 +135,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
                           EmailCtaForm(
                             controller: _emailController,
-                            hint: 'Email',
-                            buttonText: 'Continue',
+                            hint: context.t('common.email'),
+                            buttonText: context.t('common.continue'),
                             onSubmit: _onSubmit,
                           ),
 

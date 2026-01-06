@@ -1,0 +1,13 @@
+{
+  "onboarding.welcome_title": "Hoş Geldin 👋",
+  "onboarding.welcome_subtitle": "Gecikme, arkadaşların seni bekliyor!",
+  "common.email": "Email",
+  "common.continue": "Devam",
+  "code.title": "Kodu gir",
+  "code.subtitle": "{email} adresine 6 haneli kod gönderdik.",
+  "code.verify": "Doğrula",
+  "code.resend": "Kodu tekrar gönder",
+  "code.resend_in": "Tekrar gönder ({seconds}s)",
+  "errors.invalid_email": "Geçersiz email",
+  "errors.generic": "Bir şey ters gitti. Tekrar dene."
+}

@@ -1,0 +1,13 @@
+{
+  "onboarding.welcome_title": "Welcome 👋",
+  "onboarding.welcome_subtitle": "Don’t be late, your friends are waiting!",
+  "common.email": "Email",
+  "common.continue": "Continue",
+  "code.title": "Enter the code",
+  "code.subtitle": "We sent a 6-digit code to {email}.",
+  "code.verify": "Verify",
+  "code.resend": "Resend code",
+  "code.resend_in": "Resend ({seconds}s)",
+  "errors.invalid_email": "Invalid email",
+  "errors.generic": "Something went wrong. Try again."
+}

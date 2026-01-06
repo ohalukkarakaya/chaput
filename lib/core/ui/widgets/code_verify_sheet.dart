@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:chaput/core/i18n/app_localizations.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -319,7 +320,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${widget.email} adresine 6 haneli kod gönderdik.',
+                    context.t('code.subtitle', params: {'email': widget.email}),
                     style: TextStyle(
                       color: Colors.black.withOpacity(0.65),
                       fontSize: 13,
@@ -376,7 +377,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
 
                   if (isLocked) ...[
                     Text(
-                      'Tekrar denemek için ${_lockSeconds}s bekle.',
+                      context.t('code.resend_in', params: {'seconds': _lockSeconds.toString()}),
                       style: TextStyle(
                         color: Colors.black.withOpacity(0.65),
                         fontSize: 13,
@@ -403,14 +404,14 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                          : const Text(
-                        'Doğrula',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                          : Text(
+                            context.t('code.verify'),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                     ),
                   ),
 
@@ -419,7 +420,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                   TextButton(
                     onPressed: canResend ? _resend : null,
                     child: Text(
-                      canResend ? 'Kodu tekrar gönder' : 'Tekrar gönder (${_resendSeconds}s)',
+                      canResend ? context.t('code.resend') : context.t('code.resend_in', params: {'seconds': _resendSeconds.toString()}),
                       style: TextStyle(
                         color: Colors.black.withOpacity(canResend ? 0.9 : 0.35),
                         fontWeight: FontWeight.w700,
