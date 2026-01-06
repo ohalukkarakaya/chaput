@@ -40,6 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       body: VideoBackground(
+        assetPath: 'assets/videos/chaput_bg.M4V',
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16),

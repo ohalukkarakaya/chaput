@@ -1,57 +1,52 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../auth/application/auth_controller.dart';
-import 'home_feed_screen.dart';
+import '../../../../core/router/routes.dart';
+import '../../../../core/storage/secure_storage_provider.dart';
+import '../../../auth/data/auth_api.dart';
 
-class HomeShell extends ConsumerStatefulWidget {
+class HomeShell extends ConsumerWidget {
   const HomeShell({super.key});
 
   @override
-  ConsumerState<HomeShell> createState() => _HomeShellState();
-}
-
-class _HomeShellState extends ConsumerState<HomeShell> {
-  int _index = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = const [
-      HomeFeedScreen(),
-      _PlaceholderScreen(title: 'Search (MVP sonra)'),
-      _PlaceholderScreen(title: 'My Tree (MVP sonra)'),
-    ];
-
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chaput'),
-        actions: [
-          IconButton(
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
+        title: const Text('Home'),
       ),
-      body: pages[_index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.search_outlined), label: 'Search'),
-          NavigationDestination(icon: Icon(Icons.account_tree_outlined), label: 'Tree'),
-        ],
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () async {
+            final storage = ref.read(tokenStorageProvider);
+            final refresh = await storage.readRefreshToken();
+
+            if (refresh == null || refresh.isEmpty) {
+              // zaten yoksa onboarding'e at
+              if (context.mounted) context.go(Routes.onboarding);
+              return;
+            }
+
+            try {
+              final api = ref.read(authApiProvider);
+              await api.logout(refreshToken: refresh);
+
+              // 200 geldiyse lokal refresh/access temizle
+              await storage.clear();
+              if (context.mounted) context.go(Routes.onboarding);
+            } on DioException {
+              // 401 invalid_refresh_token olsa bile lokal temizleyip onboarding’e atmak mantıklı
+              await storage.clear();
+              if (context.mounted) context.go(Routes.onboarding);
+            } catch (_) {
+              await storage.clear();
+              if (context.mounted) context.go(Routes.onboarding);
+            }
+          },
+          child: const Text('Logout'),
+        ),
       ),
     );
-  }
-}
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const _PlaceholderScreen({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text(title));
   }
 }
