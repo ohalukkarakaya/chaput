@@ -103,6 +103,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: VideoBackground(
+        assetPath: 'assets/videos/chaput_bg.M4V',
         overlayOpacity: 0.55,
         child: Center(
           child: Hero(

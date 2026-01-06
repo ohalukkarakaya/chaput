@@ -6,15 +6,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/device/device_id_service.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/video/video_background.dart';
-import '../../../../core/ui/widgets/avatar_scatter_row.dart';
-import '../../../../core/ui/widgets/curated_avatar_strip.dart';
+import '../../../../core/ui/widgets/code_verify_sheet.dart';
 import '../../../../core/ui/widgets/email_cta_form.dart';
 
 
 import '../../../../core/router/routes.dart';
-import '../../../../core/ui/widgets/fading_video_header.dart';
+import '../../../auth/data/auth_api.dart';
 import '../../data/internal_users_api.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -43,26 +43,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
 
     try {
-      final api = ref.read(internalUsersApiProvider);
-      final result = await api.lookupEmail(email);
+      final deviceId = await ref.read(deviceIdServiceProvider).getOrCreate();
+      final authApi = ref.read(authApiProvider);
 
-      switch (result) {
-        case EmailLookupResult.userNotFound:
-        // user yok -> register
-          context.pushReplacement(Routes.register);
-          return;
+      // 1.1 request code
+      await authApi.requestLoginCode(email: email, deviceId: deviceId);
+      HapticFeedback.selectionClick();
 
-        case EmailLookupResult.userFoundComplete:
-        // user var -> login
-          HapticFeedback.selectionClick(); // küçük onay
-          context.pushReplacement(Routes.login);
-          return;
+      // Sheet: resend + verify içeride
+      final verified = await showCodeVerifySheet(
+        context: context,
+        email: email,
+        onResend: () => authApi.requestLoginCode(email: email, deviceId: deviceId),
+        onVerify: (code) => authApi.verifyLoginCode(email: email, deviceId: deviceId, code: code),
+      );
 
-        case EmailLookupResult.userFoundNeedsProfileSetup:
-        // MVP: profil setup ekranı yoksa register'a yönlendir
-          context.pushReplacement(Routes.register);
-          return;
-      }
+      if (!mounted) return;
+      if (verified == null) return; // dismiss yok ama defensive
+
+      // tokens kaydet
+      final storage = ref.read(tokenStorageProvider);
+      await storage.saveAccessToken(verified.accessToken);
+      await storage.saveRefreshToken(verified.refreshToken);
+
+      context.go(Routes.home);
     } on DioException {
       HapticFeedback.heavyImpact();
     } catch (_) {
@@ -71,67 +75,73 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
 
+
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final keyboard = mq.viewInsets.bottom;
+    final isKeyboardOpen = keyboard > 0;
 
     return Scaffold(
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       body: VideoBackground(
+        assetPath: 'assets/videos/chaput_bg.M4V',
         overlayOpacity: 0.45,
         child: SafeArea(
           bottom: false,
           child: Stack(
             children: [
-              // ✅ Alt içerik (metin + form) her zaman en altta
               Align(
                 alignment: Alignment.bottomCenter,
-                child: Padding(
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
                   padding: EdgeInsets.fromLTRB(
                     16,
                     16,
                     16,
-                    16 + keyboard, // ✅ klavye açılınca yukarı taşır
+                    16 + keyboard, // ✅ input her zaman klavyenin üstünde
                   ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min, // ✅ sadece ihtiyacı kadar yer kaplasın
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'Hoş Geldin 👋',
-                          textAlign: TextAlign.left,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            height: 1.1,
-                            fontWeight: FontWeight.w700,
+                    child: SingleChildScrollView(
+                      reverse: true,
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Hoş Geldin 👋',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize:  30,
+                              height: 1.1,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Gecikme, arkadaşların seni bekliyor!',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.80),
-                            fontSize: 16,
-                            height: 1.35,
-                            fontWeight: FontWeight.w400,
+                          SizedBox(height: 8),
+                          Text(
+                            'Gecikme, arkadaşların seni bekliyor!',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.80),
+                              fontSize: 16,
+                              height: 1.25,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 18),
+                          SizedBox(height: 18),
 
-                        SafeArea(
-                          bottom: true,
-                          child: EmailCtaForm(
+                          EmailCtaForm(
                             controller: _emailController,
                             hint: 'Email',
                             buttonText: 'Continue',
                             onSubmit: _onSubmit,
                           ),
-                        ),
-                      ],
+
+                          SizedBox(height: isKeyboardOpen ? 0 : 32),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -142,7 +152,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
     );
   }
-
 }
 
 /// Görselin altı asla kesilmesin:
