@@ -32,6 +32,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   uuid: ^4.5.1
+  file_picker: ^10.2.0
 
 dev_dependencies:
   flutter_test:
@@ -51,7 +52,13 @@ flutter:
 
   assets:
     - assets/videos/chaput_bg.M4V
+    - assets/images/
     - assets/images/chaput_logo_256px_h.png
+    - assets/images/chaput_tying_lady.png
+    - assets/images/avatar_assets/
+    - assets/images/avatar_assets/background/
+    - assets/images/avatar_assets/male/
+    - assets/images/avatar_assets/female/
 
   fonts:
     - family: Qanelas

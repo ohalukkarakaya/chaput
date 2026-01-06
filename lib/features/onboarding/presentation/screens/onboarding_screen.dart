@@ -1,3 +1,4 @@
+import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 
 import 'package:dio/dio.dart';
@@ -5,10 +6,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/video/video_background.dart';
-import '../../../../core/ui/widgets/glass_email_input.dart';
+import '../../../../core/ui/widgets/avatar_scatter_row.dart';
+import '../../../../core/ui/widgets/curated_avatar_strip.dart';
+import '../../../../core/ui/widgets/email_cta_form.dart';
+
 
 import '../../../../core/router/routes.dart';
+import '../../../../core/ui/widgets/fading_video_header.dart';
 import '../../data/internal_users_api.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -19,7 +25,6 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  static const double _logoSize = 32; // UI'da görünen dp
   final _emailController = TextEditingController();
 
   @override
@@ -68,30 +73,66 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final keyboard = mq.viewInsets.bottom;
+
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: VideoBackground(
+        overlayOpacity: 0.45,
         child: SafeArea(
+          bottom: false,
           child: Stack(
             children: [
-              // Sol üst logo
-              Positioned(
-                top: 12,
-                left: 16,
-                child: Hero(
-                    tag: 'chaput_logo',
-                    child: _Logo(size: _logoSize)
-                ),
-              ),
-
-              // Alt email input + ok butonu
+              // ✅ Alt içerik (metin + form) her zaman en altta
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-                  child: GlassEmailInput(
-                    controller: _emailController,
-                    hintText: 'Email',
-                    onSubmit: _onSubmit,
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    16 + keyboard, // ✅ klavye açılınca yukarı taşır
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min, // ✅ sadece ihtiyacı kadar yer kaplasın
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Hoş Geldin 👋',
+                          textAlign: TextAlign.left,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            height: 1.1,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Gecikme, arkadaşların seni bekliyor!',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.80),
+                            fontSize: 16,
+                            height: 1.35,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        SafeArea(
+                          bottom: true,
+                          child: EmailCtaForm(
+                            controller: _emailController,
+                            hint: 'Email',
+                            buttonText: 'Continue',
+                            onSubmit: _onSubmit,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -101,20 +142,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
     );
   }
+
 }
 
-class _Logo extends StatelessWidget {
-  final double size;
-  const _Logo({required this.size});
+/// Görselin altı asla kesilmesin:
+/// - BoxFit.cover kullanıyoruz
+/// - Alignment.bottomCenter ile altı sabitliyoruz
+/// Böylece taşan kısım ÜSTTEN kırpılır.
+class _TopCroppedHeaderImage extends StatelessWidget {
+  final String assetPath;
+
+  const _TopCroppedHeaderImage({required this.assetPath});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Image.asset(
-        'assets/images/chaput_logo_256px_h.png',
-        fit: BoxFit.contain,
+    return ClipRect(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Image.asset(
+          assetPath,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+          alignment: Alignment.bottomCenter,
+        ),
       ),
     );
   }
