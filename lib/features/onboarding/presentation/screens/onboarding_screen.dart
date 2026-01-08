@@ -1,5 +1,6 @@
+import 'dart:developer';
+
 import 'package:chaput/core/i18n/app_localizations.dart';
-import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 
 import 'package:dio/dio.dart';
@@ -8,15 +9,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/device/device_id_service.dart';
+import '../../../../core/router/routes.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/video/video_background.dart';
 import '../../../../core/ui/widgets/code_verify_sheet.dart';
 import '../../../../core/ui/widgets/email_cta_form.dart';
 
-
-import '../../../../core/router/routes.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../data/internal_users_api.dart';
+import '../../presentation/widgets/signup_sheet.dart';
+import '../../../me/data/me_api.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -34,6 +36,100 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
+  Future<void> _startLoginFlow({
+    required String email,
+    required String deviceId,
+  }) async {
+    final authApi = ref.read(authApiProvider);
+    final storage = ref.read(tokenStorageProvider);
+
+    log('ONB: login flow -> request code');
+    await authApi.requestLoginCode(email: email, deviceId: deviceId);
+    HapticFeedback.selectionClick();
+
+    final verified = await showCodeVerifySheet(
+      context: context,
+      email: email,
+      onResend: () => authApi.requestLoginCode(email: email, deviceId: deviceId),
+      onVerify: (code) => authApi.verifyLoginCode(email: email, deviceId: deviceId, code: code),
+    );
+
+    if (!mounted) return;
+    if (verified == null) return;
+
+    await storage.saveAccessToken(verified.accessToken);
+    await storage.saveRefreshToken(verified.refreshToken);
+
+    log('ONB: login success -> home');
+    context.go(Routes.home);
+  }
+
+  Future<void> _startSignupFlow({
+    required String email,
+    required String deviceId,
+  }) async {
+    final authApi = ref.read(authApiProvider);
+    final storage = ref.read(tokenStorageProvider);
+
+    // 1) sheet (dismissible) -> iptal edilirse onboarding’de kal
+    final draft = await showSignupSheet(context: context, email: email);
+    if (!mounted) return;
+    if (draft == null) {
+      log('ONB: signup sheet dismissed -> stay onboarding');
+      return;
+    }
+
+    // 2) signup code iste
+    log('ONB: signup flow -> request signup code');
+    await authApi.requestSignupCode(email: email, deviceId: deviceId);
+    HapticFeedback.selectionClick();
+
+    // 3) signup verify (✅ /signup/verify-code)
+    final verified = await showCodeVerifySheet(
+      context: context,
+      email: email,
+      onResend: () => authApi.requestSignupCode(email: email, deviceId: deviceId),
+      onVerify: (code) => authApi.verifySignupCode(
+        email: email,
+        deviceId: deviceId,
+        code: code,
+      ),
+    );
+
+    if (!mounted) return;
+    if (verified == null) return;
+
+    // 4) tokens kaydet
+    await storage.saveAccessToken(verified.accessToken);
+    await storage.saveRefreshToken(verified.refreshToken);
+
+    // 5) gender -> default avatar (✅ POST /me/default-avatar)
+    final meApi = ref.read(meApiProvider);
+    try {
+      log('ONB: set default avatar gender=${draft.gender}');
+      await meApi.setDefaultAvatarByGender(gender: draft.gender);
+    } on DioException catch (e, st) {
+      // 409 already_set -> ignore
+      if (e.response?.statusCode != 409) {
+        log('ONB: /me/default-avatar error', error: e, stackTrace: st);
+        rethrow;
+      }
+    }
+
+    // 6) profile patch
+    final birthIso = draft.birthDate.toIso8601String().substring(0, 10);
+    log('ONB: update profile fullName=${draft.fullName} username=${draft.username} birth=$birthIso');
+
+    await meApi.updateFullName(fullName: draft.fullName.toLowerCase());
+    await meApi.updateUsername(username: draft.username.toLowerCase());
+    await meApi.updateBirthDate(birthDateIso: birthIso);
+
+
+    if (!mounted) return;
+    log('ONB: signup completed -> home');
+    context.go(Routes.home);
+  }
+
   Future<void> _onSubmit() async {
     final email = _emailController.text.trim();
 
@@ -43,39 +139,35 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       return;
     }
 
+    final deviceId = await ref.read(deviceIdServiceProvider).getOrCreate();
+
     try {
-      final deviceId = await ref.read(deviceIdServiceProvider).getOrCreate();
-      final authApi = ref.read(authApiProvider);
-
-      // 1.1 request code
-      await authApi.requestLoginCode(email: email, deviceId: deviceId);
-      HapticFeedback.selectionClick();
-
-      // Sheet: resend + verify içeride
-      final verified = await showCodeVerifySheet(
-        context: context,
-        email: email,
-        onResend: () => authApi.requestLoginCode(email: email, deviceId: deviceId),
-        onVerify: (code) => authApi.verifyLoginCode(email: email, deviceId: deviceId, code: code),
-      );
+      // 0) lookup
+      final lookupApi = ref.read(internalUsersApiProvider);
+      log('ONB: lookup-email -> $email');
+      final lookup = await lookupApi.lookupEmail(email);
+      log('ONB: lookup result = $lookup');
 
       if (!mounted) return;
-      if (verified == null) return; // dismiss yok ama defensive
 
-      // tokens kaydet
-      final storage = ref.read(tokenStorageProvider);
-      await storage.saveAccessToken(verified.accessToken);
-      await storage.saveRefreshToken(verified.refreshToken);
+      switch (lookup) {
+        case EmailLookupResult.userFoundComplete:
+          await _startLoginFlow(email: email, deviceId: deviceId);
+          return;
 
-      context.go(Routes.home);
-    } on DioException {
+        case EmailLookupResult.userNotFound:
+        case EmailLookupResult.userFoundNeedsProfileSetup:
+          await _startSignupFlow(email: email, deviceId: deviceId);
+          return;
+      }
+    } on DioException catch (e, st) {
+      log('ONB: Dio error', error: e, stackTrace: st);
       HapticFeedback.heavyImpact();
-    } catch (_) {
+    } catch (e, st) {
+      log('ONB: Unknown error', error: e, stackTrace: st);
       HapticFeedback.heavyImpact();
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -97,12 +189,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: AnimatedPadding(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    16,
-                    16,
-                    16 + keyboard, // input her zaman klavyenin üstünde
-                  ),
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + keyboard),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: SingleChildScrollView(
@@ -114,14 +201,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         children: [
                           Text(
                             context.t('onboarding.welcome_title'),
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
-                              fontSize:  30,
+                              fontSize: 30,
                               height: 1.1,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           Text(
                             context.t('onboarding.welcome_subtitle'),
                             style: TextStyle(
@@ -131,15 +218,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               fontWeight: FontWeight.w400,
                             ),
                           ),
-                          SizedBox(height: 18),
-
+                          const SizedBox(height: 18),
                           EmailCtaForm(
                             controller: _emailController,
                             hint: context.t('common.email'),
                             buttonText: context.t('common.continue'),
                             onSubmit: _onSubmit,
                           ),
-
                           SizedBox(height: isKeyboardOpen ? 0 : 32),
                         ],
                       ),
@@ -149,32 +234,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Görselin altı asla kesilmesin:
-/// - BoxFit.cover kullanıyoruz
-/// - Alignment.bottomCenter ile altı sabitliyoruz
-/// Böylece taşan kısım ÜSTTEN kırpılır.
-class _TopCroppedHeaderImage extends StatelessWidget {
-  final String assetPath;
-
-  const _TopCroppedHeaderImage({required this.assetPath});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Image.asset(
-          assetPath,
-          width: double.infinity,
-          height: double.infinity,
-          fit: BoxFit.cover,
-          alignment: Alignment.bottomCenter,
         ),
       ),
     );
