@@ -70,4 +70,43 @@ class AuthApi {
     return RefreshResponse.fromJson(data);
   }
 
+  Future<void> requestSignupCode({
+    required String email,
+    required String deviceId,
+  }) async {
+    await _dio.post(
+      '/signup/request-code', // sende /signup/request-code ise burayı değiştir
+      data: {
+        'email': email,
+        'device_id': deviceId,
+      },
+      options: Options(headers: {'Content-Type': 'application/json'}),
+    );
+  }
+
+  Future<LoginVerifyResponse> verifySignupCode({
+    required String email,
+    required String deviceId,
+    required String code,
+  }) async {
+    try{
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/signup/verify-code', // SignupController::verifyCode
+        data: {
+          'email': email,
+          'device_id': deviceId,
+          'code': code,
+        },
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+
+      return LoginVerifyResponse.fromJson(res.data ?? const {});
+    }on DioException catch (e) {
+      print('status: ${e.response?.statusCode}');
+      print('data: ${e.response?.data}');
+      rethrow;
+    }
+  }
+
+
 }
