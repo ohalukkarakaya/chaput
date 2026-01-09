@@ -16,6 +16,7 @@ import '../../../../core/ui/widgets/code_verify_sheet.dart';
 import '../../../../core/ui/widgets/email_cta_form.dart';
 
 import '../../../auth/data/auth_api.dart';
+import '../../../me/application/me_controller.dart';
 import '../../data/internal_users_api.dart';
 import '../../presentation/widgets/signup_sheet.dart';
 import '../../../me/data/me_api.dart';
@@ -60,8 +61,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await storage.saveAccessToken(verified.accessToken);
     await storage.saveRefreshToken(verified.refreshToken);
 
-    log('ONB: login success -> home');
-    context.go(Routes.home);
+    try {
+      await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+      if (!mounted) return;
+      context.go(Routes.home);
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      // 401/404 -> controller clear yaptı; onboarding'de kal
+      log('ONB: /me failed status=$code', error: e);
+      HapticFeedback.heavyImpact();
+    } catch (e) {
+      log('ONB: /me unknown fail', error: e);
+      HapticFeedback.heavyImpact();
+    }
   }
 
   Future<void> _startSignupFlow({
@@ -126,8 +138,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
 
     if (!mounted) return;
-    log('ONB: signup completed -> home');
-    context.go(Routes.home);
+    try {
+      await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+      if (!mounted) return;
+      context.go(Routes.home);
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      // 401/404 -> controller clear yaptı; onboarding'de kal
+      log('ONB: /me failed status=$code', error: e);
+      HapticFeedback.heavyImpact();
+    } catch (e) {
+      log('ONB: /me unknown fail', error: e);
+      HapticFeedback.heavyImpact();
+    }
   }
 
   Future<void> _onSubmit() async {

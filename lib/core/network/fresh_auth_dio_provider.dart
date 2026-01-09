@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,20 +7,20 @@ import '../storage/secure_storage_provider.dart';
 final freshAuthDioProvider = Provider<Dio>((ref) {
   final storage = ref.read(tokenStorageProvider);
 
-  final base = Dio(BaseOptions(
-    baseUrl: 'http://localhost:8080',
+  final dio = Dio(BaseOptions(
+    baseUrl: 'http://192.168.178.81:8080', // sende neyse
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));
 
-  // refresh için recursive olmayan ayrı dio
+  // refresh için ayrı dio (recursive olmasın)
   final refreshDio = Dio(BaseOptions(
-    baseUrl: 'http://localhost:8080',
+    baseUrl: dio.options.baseUrl,
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));
 
-  base.interceptors.add(
+  dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
         final refresh = await storage.readRefreshToken();
@@ -28,27 +29,49 @@ final freshAuthDioProvider = Provider<Dio>((ref) {
         }
 
         try {
-          final res = await refreshDio.post<Map<String, dynamic>>(
+          final r = await refreshDio.post(
             '/auth/token/refresh',
             data: {'refresh_token': refresh},
-            options: Options(headers: {'Content-Type': 'application/json'}),
+            options: Options(contentType: Headers.jsonContentType),
           );
 
-          final access = (res.data?['access_token'] ?? '') as String;
+          // ✅ robust parse
+          String access = '';
+          final data = r.data;
+
+          if (data is Map) {
+            access = (data['access_token'] ?? '') as String;
+          } else if (data is String) {
+            // bazı backendlere göre body string olabiliyor
+            // burada en azından loglayalım
+            access = '';
+          }
+
+          log('[Chaput] ✅(AUTH) refresh access len=${access.length}');
+
           if (access.isNotEmpty) {
             await storage.saveAccessToken(access);
-            options.headers['Authorization'] = 'Bearer $access';
+
+            // ✅ HEADER MERGE: mevcut header’ları ezme
+            options.headers = {
+              ...options.headers,
+              'Authorization': 'Bearer $access',
+            };
+
+            // Debug: gerçekten eklenmiş mi?
+            log('[Chaput] ➡️ AUTH header set for ${options.method} ${options.path}');
+          } else {
+            log('[Chaput] ⚠️ refresh 200 but access_token empty');
           }
 
           return handler.next(options);
-        } catch (_) {
-          // refresh patladıysa request’i yine de gönderme yerine:
-          // (istersen burada onboarding’e yönlendirme tetiklenebilir)
+        } catch (e) {
+          log('[Chaput] ❌ refresh failed -> sending request without token', error: e);
           return handler.next(options);
         }
       },
     ),
   );
 
-  return base;
+  return dio;
 });
