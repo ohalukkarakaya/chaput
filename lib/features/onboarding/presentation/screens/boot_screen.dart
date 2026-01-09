@@ -8,6 +8,7 @@ import '../../../../core/router/routes.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/video/video_background.dart';
 import '../../../auth/data/auth_api.dart';
+import '../../../me/application/me_controller.dart';
 
 class BootScreen extends ConsumerStatefulWidget {
   const BootScreen({super.key});
@@ -66,10 +67,29 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       }
 
       await storage.saveAccessToken(res.accessToken);
-      debugPrint('BOOT: refresh OK -> HOME');
+      await storage.saveAccessToken(res.accessToken);
+      debugPrint('BOOT: refresh OK -> /me fetch');
 
-      _navigated = true;
-      context.pushReplacement(Routes.home);
+      try {
+        await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+        debugPrint('BOOT: /me OK -> HOME');
+
+        _navigated = true;
+        if (mounted) context.pushReplacement(Routes.home);
+      } on DioException catch (e) {
+        final code = e.response?.statusCode;
+
+        // 401/404: hard logout zaten controller içinde clear'ledi
+        debugPrint('BOOT: /me failed status=$code -> onboarding, error= $e');
+
+        _navigated = true;
+        if (mounted) context.pushReplacement(Routes.onboarding);
+      } catch (e) {
+        debugPrint('BOOT: /me unknown fail -> onboarding, error= $e');
+        _navigated = true;
+        if (mounted) context.pushReplacement(Routes.onboarding);
+      }
+
     } on DioException catch (e, st) {
       final code = e.response?.statusCode;
       final data = e.response?.data;

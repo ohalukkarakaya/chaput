@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/fresh_auth_dio_provider.dart';
+import '../domain/me_models.dart';
 
 final meApiProvider = Provider<MeApi>((ref) {
   return MeApi(ref.read(freshAuthDioProvider));
@@ -10,6 +11,11 @@ final meApiProvider = Provider<MeApi>((ref) {
 class MeApi {
   final Dio _dio;
   MeApi(this._dio);
+
+  Future<MeResponse> getMe() async {
+    final res = await _dio.get<Map<String, dynamic>>('/me');
+    return MeResponse.fromJson(res.data ?? const {});
+  }
 
   Future<String?> setDefaultAvatarByGender({required String gender}) async {
     final res = await _dio.post<Map<String, dynamic>>(

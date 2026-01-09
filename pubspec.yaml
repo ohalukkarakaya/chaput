@@ -55,6 +55,7 @@ flutter:
 
   assets:
     - assets/videos/chaput_bg.M4V
+    - assets/videos/chaput_bg_2.mp4
     - assets/images/
     - assets/images/chaput_logo_256px_h.png
     - assets/images/chaput_tying_lady.png
