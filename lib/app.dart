@@ -15,7 +15,24 @@ class ChaputApp extends ConsumerWidget {
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
+      themeMode: ThemeMode.light,
+        theme: ThemeData(
+        brightness: Brightness.light, // ✅ her zaman light
+
+        useMaterial3: true,
+
+        scaffoldBackgroundColor: Colors.white,
+
+        colorScheme: const ColorScheme.light(
+          primary: Colors.black,
+          secondary: Colors.black,
+          surface: Colors.white,
+          background: Colors.white,
+          onBackground: Colors.black,
+          onSurface: Colors.black,
+          onPrimary: Colors.white,
+        )
+      ),
       darkTheme: AppTheme.dark(),
       routerConfig: router,
       localizationsDelegates: const [

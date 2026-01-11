@@ -55,25 +55,36 @@ class _VideoBackgroundState extends State<VideoBackground> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Klavye/padding değişse bile video katmanı aynı kalsın
+    final mq = MediaQuery.of(context);
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        FutureBuilder<void>(
-          future: _init,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done || !_controller.value.isInitialized) {
-              return const ColoredBox(color: Colors.black);
-            }
+        // ✅ Video'yu insets'ten bağımsız çiz
+        MediaQuery(
+          data: mq.copyWith(
+            viewInsets: EdgeInsets.zero,
+            padding: EdgeInsets.zero,
+            viewPadding: EdgeInsets.zero,
+          ),
+          child: FutureBuilder<void>(
+            future: _init,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done || !_controller.value.isInitialized) {
+                return const ColoredBox(color: Colors.black);
+              }
 
-            return FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _controller.value.size.width,
-                height: _controller.value.size.height,
-                child: VideoPlayer(_controller),
-              ),
-            );
-          },
+              return FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _controller.value.size.width,
+                  height: _controller.value.size.height,
+                  child: VideoPlayer(_controller),
+                ),
+              );
+            },
+          ),
         ),
 
         // ✅ Overlay dokunmayı bloklamasın
@@ -84,8 +95,10 @@ class _VideoBackgroundState extends State<VideoBackground> with WidgetsBindingOb
           ),
         ),
 
+        // ✅ Üst içerik normal MediaQuery ile kalsın (klavye vs. burada yönetilir)
         widget.child,
       ],
     );
   }
+
 }
