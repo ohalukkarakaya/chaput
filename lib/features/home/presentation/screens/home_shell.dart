@@ -10,7 +10,8 @@ import '../../../../core/ui/video/video_background.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../user_search/presentation/search_overlay.dart';
-import '../../../user_search/presentation/search_screen.dart';
+import '../../../recommended_users/application/recommended_user_controller.dart';
+import '../../../../core/ui/widgets/glow_shimmer_card.dart';
 
 class HomeShell extends ConsumerWidget {
   const HomeShell({super.key});
@@ -24,7 +25,9 @@ class HomeShell extends ConsumerWidget {
         overlayOpacity: 0.45,
         child: SafeArea(
           child: Stack(
+            clipBehavior: Clip.none,
             children: [
+              // ✅ Search bar (üst orta)
               Positioned(
                 top: 12,
                 left: 16,
@@ -35,17 +38,17 @@ class HomeShell extends ConsumerWidget {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 520),
                       child: Hero(
-                        tag: SearchScreen.heroTag,
+                        tag: SearchOverlay.heroTag,
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              Navigator.of(context).push(_SearchOverlayRoute());
-                            },
+                            onTap: () =>
+                                Navigator.of(context).push(_SearchOverlayRoute()),
                             child: Container(
                               height: 46,
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.92),
                                 borderRadius: BorderRadius.circular(16),
@@ -56,7 +59,9 @@ class HomeShell extends ConsumerWidget {
                                   const SizedBox(width: 8),
                                   Text(
                                     'Search users...',
-                                    style: TextStyle(color: Colors.black.withOpacity(0.55)),
+                                    style: TextStyle(
+                                      color: Colors.black.withOpacity(0.55),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -69,36 +74,54 @@ class HomeShell extends ConsumerWidget {
                 ),
               ),
 
-              /// 🔴 Logout butonu (AYNEN KALDI)
-              Center(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final storage = ref.read(tokenStorageProvider);
-                    final refresh = await storage.readRefreshToken();
-
-                    if (refresh == null || refresh.isEmpty) {
-                      if (context.mounted) context.go(Routes.onboarding);
-                      return;
-                    }
-
-                    try {
-                      final api = ref.read(authApiProvider);
-                      await api.logout(refreshToken: refresh);
-
-                      await storage.clear();
-                      if (context.mounted) context.go(Routes.onboarding);
-                    } on DioException {
-                      await storage.clear();
-                      if (context.mounted) context.go(Routes.onboarding);
-                    } catch (_) {
-                      await storage.clear();
-                      if (context.mounted) context.go(Routes.onboarding);
-                    }
-                  },
-                  child: const Text('Logout'),
+              // ✅ Önerilen kullanıcı kartı (TAM ORTA)
+              Align(
+                alignment: Alignment.center,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: _RecommendedUserCard(),
+                  ),
                 ),
               ),
 
+              // ✅ Logout butonu SOL ALT
+              Positioned(
+                left: 16,
+                bottom: 16,
+                child: SafeArea(
+                  top: false,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final storage = ref.read(tokenStorageProvider);
+                      final refresh = await storage.readRefreshToken();
+
+                      if (refresh == null || refresh.isEmpty) {
+                        if (context.mounted) context.go(Routes.onboarding);
+                        return;
+                      }
+
+                      try {
+                        final api = ref.read(authApiProvider);
+                        await api.logout(refreshToken: refresh);
+
+                        await storage.clear();
+                        if (context.mounted) context.go(Routes.onboarding);
+                      } on DioException {
+                        await storage.clear();
+                        if (context.mounted) context.go(Routes.onboarding);
+                      } catch (_) {
+                        await storage.clear();
+                        if (context.mounted) context.go(Routes.onboarding);
+                      }
+                    },
+                    child: const Text('Logout'),
+                  ),
+                ),
+              ),
+
+              // ✅ Avatar sağ alt
               Positioned(
                 right: 16,
                 bottom: 16,
@@ -109,7 +132,6 @@ class HomeShell extends ConsumerWidget {
                     return meAsync.when(
                       data: (me) {
                         if (me == null) return const SizedBox();
-
                         final user = me.user;
 
                         return ChaputCircleAvatar(
@@ -118,7 +140,8 @@ class HomeShell extends ConsumerWidget {
                           radius: 999,
                           borderWidth: 2,
                           isDefaultAvatar: user.profilePhotoUrl == null,
-                          imageUrl: user.profilePhotoUrl ?? user.defaultAvatar!,
+                          imageUrl:
+                          user.profilePhotoUrl ?? user.defaultAvatar!,
                         );
                       },
                       loading: () => const SizedBox(
@@ -139,19 +162,142 @@ class HomeShell extends ConsumerWidget {
   }
 }
 
+class _RecommendedUserCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recAsync = ref.watch(recommendedUserControllerProvider);
+
+    Widget wrap(Widget child) => GlowShimmerCard(
+      radius: 22,
+      glassOpacity: 0.18,
+      glowSigma: 24,
+      glowOpacity: 0.55,
+      child: child,
+    );
+
+    return recAsync.when(
+      loading: () => wrap(
+        Row(
+          children: const [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Finding someone for you…",
+                style:
+                TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+      error: (e, _) => wrap(
+        Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white70),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "Couldn’t load recommendation",
+                style:
+                TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: () => ref
+                  .read(recommendedUserControllerProvider.notifier)
+                  .refresh(),
+              child: const Text("Retry"),
+            ),
+          ],
+        ),
+      ),
+      data: (u) {
+        if (u == null) {
+          return wrap(
+            Row(
+              children: [
+                const Icon(Icons.people_outline, color: Colors.white70),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    "No recommendation right now",
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => ref
+                      .read(recommendedUserControllerProvider.notifier)
+                      .refresh(),
+                  child: const Text("Refresh"),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return wrap(
+          Row(
+            children: [
+              ChaputCircleAvatar(
+                width: 40,
+                height: 40,
+                radius: 999,
+                borderWidth: 2,
+                isDefaultAvatar: u.profilePhotoKey == null,
+                imageUrl: u.profilePhotoKey ?? u.defaultAvatar,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      u.fullName,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      u.username == null ? '—' : '@${u.username}',
+                      style:
+                      const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: const Text("Open"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _SearchOverlayRoute extends PageRouteBuilder<void> {
   _SearchOverlayRoute()
       : super(
-    opaque: false, // ✅ arka plan değişmesin
+    opaque: false,
     barrierDismissible: true,
-    barrierColor: Colors.transparent, // ✅ renk değiştirme yok
+    barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 220),
     reverseTransitionDuration: const Duration(milliseconds: 180),
-    pageBuilder: (context, animation, secondaryAnimation) {
-      return const SearchOverlay();
-    },
+    pageBuilder: (context, animation, secondaryAnimation) =>
+    const SearchOverlay(),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+      final curved =
+      CurvedAnimation(parent: animation, curve: Curves.easeOut);
       return FadeTransition(
         opacity: curved,
         child: ScaleTransition(
