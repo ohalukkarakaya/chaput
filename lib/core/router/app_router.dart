@@ -8,6 +8,7 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 
+import '../../features/profile/presentation/screens/profile_screen.dart';
 import 'routes.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -34,6 +35,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           state: state,
           child: const HomeShell(),
         ),
+      ),
+      GoRoute(
+        path: Routes.profile,
+        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: Routes.login,

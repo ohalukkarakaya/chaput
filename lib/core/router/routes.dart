@@ -5,4 +5,5 @@ class Routes {
   static const boot = '/';
   static const tree = '/u/:userId';
   static const home = '/home';
+  static const profile = '/profile';
 }

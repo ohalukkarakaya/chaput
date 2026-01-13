@@ -244,13 +244,16 @@ class _RecommendedUserCard extends ConsumerWidget {
         return wrap(
           Row(
             children: [
-              ChaputCircleAvatar(
-                width: 40,
-                height: 40,
-                radius: 999,
-                borderWidth: 2,
-                isDefaultAvatar: u.profilePhotoKey == null,
-                imageUrl: u.profilePhotoKey ?? u.defaultAvatar,
+              GestureDetector(
+                onTap: () => context.push(Routes.profile),
+                child: ChaputCircleAvatar(
+                  width: 40,
+                  height: 40,
+                  radius: 999,
+                  borderWidth: 2,
+                  isDefaultAvatar: u.profilePhotoKey == null,
+                  imageUrl: u.profilePhotoKey ?? u.defaultAvatar,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
