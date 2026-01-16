@@ -9,6 +9,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../network/dio_provider.dart';
 import 'routes.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -37,8 +38,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: Routes.profile,
-        builder: (context, state) => const ProfileScreen(),
+        name: 'profile',
+        path: '/profile/:userId',
+        builder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          final container = ProviderScope.containerOf(context);
+          final dio = container.read(dioProvider); // sende dioProvider nasıl ise
+          return ProfileScreen(userId: userId, dio: dio);
+        },
       ),
       GoRoute(
         path: Routes.login,

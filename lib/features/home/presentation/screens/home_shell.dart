@@ -245,7 +245,7 @@ class _RecommendedUserCard extends ConsumerWidget {
           Row(
             children: [
               GestureDetector(
-                onTap: () => context.push(Routes.profile),
+                onTap: () async => context.push(await Routes.profile(u.id)),
                 child: ChaputCircleAvatar(
                   width: 40,
                   height: 40,
