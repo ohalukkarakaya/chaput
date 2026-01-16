@@ -5,5 +5,7 @@ class Routes {
   static const boot = '/';
   static const tree = '/u/:userId';
   static const home = '/home';
-  static const profile = '/profile';
+  static const profileBase = '/profile';
+
+  static Future<String> profile(String userId) async => '$profileBase/$userId';
 }

@@ -1,26 +1,40 @@
 import 'dart:developer';
 import 'dart:math' as math;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
+import '../../../../core/network/dio_provider.dart';
 import '../../domain/tree_catalog.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+// ✅ BUNU KENDİ PROJENDEKİ AUTH’LU DIO PROVIDER İLE DEĞİŞTİR
+// final authedDioProvider = Provider<Dio>((ref) => throw UnimplementedError());
+
+class ProfileScreen extends ConsumerStatefulWidget {
+  const ProfileScreen({
+    super.key,
+    required this.userId,
+    required this.dio,
+  });
+
+  final String userId;
+  final Dio dio;
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  late final three.ThreeJS threeJs;
-
-  int treeId = 2;
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  three.ThreeJS? _threeJs;
 
   bool _ready = false;
+  bool _loadingTree = true;
   String? _error;
+
+  int? _treeId; // endpoint'ten gelecek (1..6)
 
   three.Group? _treeGroup;
   three.Mesh? _ground;
@@ -35,11 +49,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   double _startPitch = -0.20;
   double _startRadius = 3.0;
 
-  // limits (dinamik)
+  // zoom limits
   double _minRadius = 0.6;
   double _maxRadius = 12.0;
 
-  // pitch limits (hard)
+  // pitch limits
   static const double _minPitchHard = -1.15;
   static const double _maxPitch = 0.45;
 
@@ -51,45 +65,150 @@ class _ProfileScreenState extends State<ProfileScreen> {
   double _modelMaxDim = 1.0;
 
   // ground collision
-  double _groundY = 0.0; // model oturtunca 0 olacak
-  static const double _camGroundMargin = 0.02; // kamera zemine yapışmasın
+  double _groundY = 0.0; // model oturtunca 0
+  static const double _camGroundMargin = 0.06; // zemine yapışmasın
 
   @override
   void initState() {
     super.initState();
+    _boot();
+  }
 
-    threeJs = three.ThreeJS(
-      setup: _setup,
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // ✅ farklı user profile açıldıysa: tree id yeniden çek + ThreeJS’i baştan kur
+    if (oldWidget.userId != widget.userId) {
+      _boot();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposeThree();
+    three.loading.clear();
+    super.dispose();
+  }
+
+  void _disposeThree() {
+    _threeJs?.dispose();
+    _threeJs = null;
+    _treeGroup = null;
+    _ground = null;
+    _ready = false;
+  }
+
+  Future<void> _boot() async {
+    // önce her şeyi temizle
+    setState(() {
+      _error = null;
+      _loadingTree = true;
+      _treeId = null;
+    });
+
+    _disposeThree();
+
+    // 1) tree_id çek
+    final tid = await _fetchUserTreeId(widget.userId);
+    if (!mounted) return;
+
+    if (tid == null) {
+      setState(() {
+        _loadingTree = false;
+        _error ??= 'tree_id alınamadı';
+      });
+      return;
+    }
+
+    setState(() {
+      _treeId = tid;
+      _loadingTree = false;
+    });
+
+    // 2) tree_id geldikten sonra ThreeJS oluştur (1 kere!)
+    _createThreeJsAndInit();
+  }
+
+  Future<int?> _fetchUserTreeId(String userId) async {
+    try {
+      // ✅ KENDİ PROJENDEKİ AUTH DIO’YU OKU (refresh + access otomatik)
+      final dio = ref.read(dioProvider);
+
+      final res = await dio.get('/users/$userId/tree');
+
+      final data = res.data;
+      if (data is! Map) return null;
+
+      final ok = data['ok'] == true;
+      if (!ok) {
+        setState(() => _error = data['error']?.toString() ?? 'unknown_error');
+        return null;
+      }
+
+      // backend tree_id string döndürüyor demiştin
+      final raw = data['tree_id']?.toString();
+
+      // Sende TreeCatalog.resolve(treeId.toString()) var.
+      // Biz burada int'e çevirelim: "2" -> 2
+      // Eğer backend farklı bir format dönerse (hex vs), burada map etmen gerekir.
+      final parsed = int.tryParse(raw ?? '');
+      if (parsed == null) {
+        setState(() => _error = 'tree_id parse edilemedi: $raw');
+        return null;
+      }
+
+      return parsed;
+    } on DioException catch (e) {
+      log('tree_id fetch DioException: $e');
+      setState(() => _error = 'tree_id fetch failed: ${e.response?.statusCode}');
+      return null;
+    } catch (e, st) {
+      log('tree_id fetch error: $e', stackTrace: st);
+      setState(() => _error = e.toString());
+      return null;
+    }
+  }
+
+  void _createThreeJsAndInit() {
+    final tid = _treeId;
+    if (tid == null) return;
+
+    late final three.ThreeJS js;
+
+    js = three.ThreeJS(
+      setup: () => _setup(threeJsRef: js, treeId: tid),
       onSetupComplete: () {
         if (!mounted) return;
         setState(() => _ready = true);
       },
     );
+
+    setState(() {
+      _threeJs = js;
+    });
   }
 
-  @override
-  void dispose() {
-    threeJs.dispose();
-    three.loading.clear();
-    super.dispose();
-  }
-
-  Future<void> _setup() async {
+  Future<void> _setup({
+    required three.ThreeJS threeJsRef,
+    required int treeId,
+  }) async {
     try {
       final preset = TreeCatalog.resolve(treeId.toString());
+
       // ---------------- Scene ----------------
-      threeJs.scene = three.Scene();
+      threeJsRef.scene = three.Scene();
 
       // ---------------- Camera ----------------
-      threeJs.camera = three.PerspectiveCamera(
+      threeJsRef.camera = three.PerspectiveCamera(
         45,
-        threeJs.width / threeJs.height,
+        threeJsRef.width / threeJsRef.height,
         0.01,
         2000,
       );
 
       // ---------------- Renderer (SHADOW MAP ON) ----------------
-      final r = threeJs.renderer;
+      final r = threeJsRef.renderer;
       if (r != null) {
         r.setClearColor(three_math.Color.fromHex32(preset.bgColor), 1);
         r.shadowMap.enabled = true;
@@ -97,17 +216,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // ---------------- Lights ----------------
-      threeJs.scene.add(three.AmbientLight(0xffffff, 0.75));
+      threeJsRef.scene.add(three.AmbientLight(0xffffff, 0.75));
 
       final dir = three.DirectionalLight(0xffffff, 0.95);
       dir.position.setValues(2.5, 6.0, 3.5);
       dir.castShadow = true;
 
-      // shadow quality
       dir.shadow!.mapSize.width = 2048;
       dir.shadow!.mapSize.height = 2048;
 
-      // (sonra modele göre güncellenecek)
       dir.shadow!.camera?.near = 0.2;
       dir.shadow!.camera?.far = 80;
       dir.shadow!.camera?.left = -10;
@@ -115,12 +232,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       dir.shadow!.camera?.top = 10;
       dir.shadow!.camera?.bottom = -10;
 
-      threeJs.scene.add(dir);
+      threeJsRef.scene.add(dir);
 
       // ---------------- Load GLB ----------------
       final loader = three.GLTFLoader(flipY: true).setPath('assets/tree_models/');
       final gltf = await loader.fromAsset(preset.assetPath);
-      if (gltf == null) throw Exception('GLB null (tree_002.glb)');
+      if (gltf == null) throw Exception('GLB null (${preset.assetPath})');
 
       final tree = gltf.scene;
 
@@ -129,8 +246,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final b1 = _computeObjectBounds(tree);
       final size1 = _sizeOfBounds(b1);
 
-      // --- B) Auto-scale: hedef yükseklik
-      const targetHeight = 0.55; // küçük dursun
+      // --- B) Auto-scale (hedef yükseklik)
+      const targetHeight = 0.55;
       final scale = (size1.y == 0) ? 1.0 : (targetHeight / size1.y);
       tree.scale.setValues(scale, scale, scale);
       tree.updateMatrixWorld(true);
@@ -142,7 +259,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _modelHeight = size2.y.clamp(0.1, 1000.0);
       _modelMaxDim = math.max(size2.x, math.max(size2.y, size2.z)).clamp(0.1, 1000.0);
 
-      // --- D) Model'i yere oturt + XZ merkezle
+      // --- D) Model’i yere oturt + XZ merkezle
       final centerX = (b2.min.x + b2.max.x) * 0.5;
       final centerZ = (b2.min.z + b2.max.z) * 0.5;
       final minY = b2.min.y;
@@ -152,28 +269,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
       tree.position.y -= minY; // ✅ minY -> 0
       tree.updateMatrixWorld(true);
 
-      // --- E) final bounds (artık minY ~ 0)
+      // --- E) final bounds (minY ~ 0)
       final b3 = _computeObjectBounds(tree);
       final size3 = _sizeOfBounds(b3);
 
       _modelHeight = size3.y.clamp(0.1, 1000.0);
       _modelMaxDim = math.max(size3.x, math.max(size3.y, size3.z)).clamp(0.1, 1000.0);
 
-      // ground artık 0
       _groundY = 0.0;
 
-      // Target: orta-üst
+      // Target
       final targetY = (_modelHeight * 0.55).clamp(0.20, 2.0);
       _target = three.Vector3(0, targetY, 0);
 
-      // Kamera mesafesi
+      // Camera distance
       final fovRad = (45.0 * math.pi) / 180.0;
       final distance = (_modelMaxDim / 2) / math.tan(fovRad / 2);
 
-      // biraz daha uzak olsun
+      // başlangıçta biraz uzak
       _radius = (distance * 2.1).clamp(0.8, 50.0);
 
-      // Zoom sınırları (zoom-in kesin çalışsın)
       _minRadius = (_radius * 0.28).clamp(0.28, 6.0);
       _maxRadius = (_radius * 3.2).clamp(2.0, 90.0);
 
@@ -181,7 +296,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _treeGroup = three.Group();
       _treeGroup!.add(tree);
 
-      // ✅ Mesh kontrolünü doğru yap (isMesh yok)
       _treeGroup!.traverse((obj) {
         if (obj is three.Mesh) {
           obj.castShadow = true;
@@ -189,9 +303,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       });
 
-      threeJs.scene.add(_treeGroup!);
+      threeJsRef.scene.add(_treeGroup!);
 
-      // ---------------- Ground (tam dibinde) ----------------
+      // ---------------- Ground ----------------
       final groundSize = (_modelMaxDim * 20).clamp(10.0, 200.0);
 
       final geo = three.PlaneGeometry(groundSize, groundSize);
@@ -202,17 +316,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final g = three.Mesh(geo, mat);
       g.rotation.x = -math.pi / 2;
-
-      // ✅ model minY=0 => ground y=0 (+ z-fight offset)
       g.position.setValues(0, 0.001, 0);
 
       g.receiveShadow = true;
       g.castShadow = false;
 
       _ground = g;
-      threeJs.scene.add(_ground!);
+      threeJsRef.scene.add(_ground!);
 
-      // ---------------- Directional shadow frustum'u modele göre ayarla ----------------
+      // shadow frustum (modele göre)
       final half = (_modelMaxDim * 3.5).clamp(3.0, 40.0);
       dir.shadow!.camera?.left = -half;
       dir.shadow!.camera?.right = half;
@@ -221,19 +333,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       dir.shadow!.camera?.near = 0.2;
       dir.shadow!.camera?.far = (half * 7).clamp(40.0, 260.0);
 
-      // -------- FOG (ufuk çizgisini yok eder) --------
-      threeJs.scene.fog = three.Fog(
-        preset.bgColor, // bg ile AYNI renk
-        _radius * 0.9,         // burada sis başlar
-        _radius * 1.8,         // burada tamamen kaybolur
+      // fog (ufuk çizgisi yok)
+      threeJsRef.scene.fog = three.Fog(
+        preset.bgColor,
+        _radius * 0.9,
+        _radius * 1.8,
       );
 
-      // İlk kamera update
-      _updateCamera();
+      // ilk kamera update
+      _updateCamera(threeJsRef);
 
       // render loop
-      threeJs.addAnimationEvent((dt) {
-        _updateCamera(); // collision clamp burada çalışıyor
+      threeJsRef.addAnimationEvent((dt) {
+        _updateCamera(threeJsRef);
       });
     } catch (e, st) {
       log('ThreeJS error: $e', stackTrace: st);
@@ -242,20 +354,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _updateCamera() {
-    // ✅ Zemin çarpışma: cameraY >= groundY + margin
+  void _updateCamera(three.ThreeJS threeJsRef) {
+    // zemin collision
     final minY = _groundY + _camGroundMargin;
 
-    // targetY + radius*sin(pitch) >= minY
     final rhs = (minY - _target.y) / (_radius == 0 ? 0.0001 : _radius);
-
-    // asin domain clamp
     final clampedRhs = rhs.clamp(-0.999, 0.999);
-
-    // pitch alt sınırı (zemin için)
     final dynamicMinPitch = math.asin(clampedRhs);
 
-    // hard limit ile birleştir
     final minPitch = math.max(_minPitchHard, dynamicMinPitch);
     _pitch = _pitch.clamp(minPitch, _maxPitch);
 
@@ -268,11 +374,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final y = _target.y + _radius * sp;
     final z = _target.z + _radius * cp * cy;
 
-    threeJs.camera.position.setValues(x, y, z);
-    threeJs.camera.lookAt(_target);
+    threeJsRef.camera.position.setValues(x, y, z);
+    threeJsRef.camera.lookAt(_target);
   }
 
-  // ✅ Scale = orbit + pinch zoom (tek gesture)
   void _onScaleStart(ScaleStartDetails d) {
     _startYaw = _yaw;
     _startPitch = _pitch;
@@ -286,30 +391,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final dx = d.focalPointDelta.dx / (w == 0 ? 1 : w);
     final dy = d.focalPointDelta.dy / (h == 0 ? 1 : h);
 
-    // sağ-sol
     _yaw -= dx * 3.2;
-
-    // yukarı-aşağı (ters olmasın)
     _pitch += dy * 2.2;
 
-    // pinch zoom:
-    // scale > 1 => yakınlaş => radius küçül
-    // scale < 1 => uzaklaş => radius büyül
     final s = d.scale;
     _radius = (_startRadius / s).clamp(_minRadius, _maxRadius);
 
-    _updateCamera();
+    final threeJsRef = _threeJs;
+    if (threeJsRef != null) _updateCamera(threeJsRef);
   }
 
   @override
   Widget build(BuildContext context) {
-    final preset = TreeCatalog.resolve(treeId.toString());
+    final tid = _treeId;
+    final preset = (tid == null) ? null : TreeCatalog.resolve(tid.toString());
 
     return Scaffold(
-      backgroundColor: Color(preset.bgColor),
+      backgroundColor: Color((preset?.bgColor ?? 0xFF000000)),
       body: Stack(
         children: [
-          Positioned.fill(child: threeJs.build()),
+          Positioned.fill(
+            child: _threeJs == null ? const SizedBox.shrink() : _threeJs!.build(),
+          ),
 
           // gesture overlay
           Positioned.fill(
@@ -324,7 +427,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          // back
           SafeArea(
             child: Align(
               alignment: Alignment.topLeft,
@@ -335,7 +437,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          if (_error == null && !_ready)
+          // loading
+          if (_error == null && (_loadingTree || !_ready))
             const Center(
               child: SizedBox(
                 width: 22,
@@ -344,6 +447,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
+          // error
           if (_error != null)
             Center(
               child: Padding(
@@ -409,7 +513,6 @@ _Bounds _computeObjectBounds(three.Object3D root) {
     final bb = geometry.boundingBox;
     if (bb == null) return;
 
-    // 8 corner
     final corners = <three.Vector3>[
       three.Vector3(bb.min.x, bb.min.y, bb.min.z),
       three.Vector3(bb.min.x, bb.min.y, bb.max.z),
