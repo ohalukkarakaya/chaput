@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
+import '../../domain/tree_catalog.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -14,6 +16,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late final three.ThreeJS threeJs;
+
+  int treeId = 2;
 
   bool _ready = false;
   String? _error;
@@ -72,6 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _setup() async {
     try {
+      final preset = TreeCatalog.resolve(treeId.toString());
       // ---------------- Scene ----------------
       threeJs.scene = three.Scene();
 
@@ -86,7 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // ---------------- Renderer (SHADOW MAP ON) ----------------
       final r = threeJs.renderer;
       if (r != null) {
-        r.setClearColor(three_math.Color.fromHex32(0x000000), 1);
+        r.setClearColor(three_math.Color.fromHex32(preset.bgColor), 1);
         r.shadowMap.enabled = true;
         r.shadowMap.type = three.PCFSoftShadowMap;
       }
@@ -114,7 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // ---------------- Load GLB ----------------
       final loader = three.GLTFLoader(flipY: true).setPath('assets/tree_models/');
-      final gltf = await loader.fromAsset('tree_002.glb');
+      final gltf = await loader.fromAsset(preset.assetPath);
       if (gltf == null) throw Exception('GLB null (tree_002.glb)');
 
       final tree = gltf.scene;
@@ -191,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final geo = three.PlaneGeometry(groundSize, groundSize);
       final mat = three.MeshStandardMaterial();
-      mat.color = three.Color(0x000000);
+      mat.color = three_math.Color.fromHex32(preset.bgColor);
       mat.roughness = 1.0;
       mat.metalness = 0.0;
 
@@ -215,6 +220,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       dir.shadow!.camera?.bottom = -half;
       dir.shadow!.camera?.near = 0.2;
       dir.shadow!.camera?.far = (half * 7).clamp(40.0, 260.0);
+
+      // -------- FOG (ufuk çizgisini yok eder) --------
+      threeJs.scene.fog = three.Fog(
+        preset.bgColor, // bg ile AYNI renk
+        _radius * 0.9,         // burada sis başlar
+        _radius * 1.8,         // burada tamamen kaybolur
+      );
 
       // İlk kamera update
       _updateCamera();
@@ -291,8 +303,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final preset = TreeCatalog.resolve(treeId.toString());
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Color(preset.bgColor),
       body: Stack(
         children: [
           Positioned.fill(child: threeJs.build()),
