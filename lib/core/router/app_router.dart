@@ -42,9 +42,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/profile/:userId',
         builder: (context, state) {
           final userId = state.pathParameters['userId']!;
-          final container = ProviderScope.containerOf(context);
-          final dio = container.read(dioProvider); // sende dioProvider nasıl ise
-          return ProfileScreen(userId: userId, dio: dio);
+          return ProfileScreen(userId: userId);
         },
       ),
       GoRoute(
