@@ -1,6 +1,8 @@
 import 'dart:developer';
 import 'dart:math' as math;
+import 'dart:ui';
 
+import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:three_js/three_js.dart' as three;
@@ -336,15 +338,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     final showLoading = st.isLoading || (tid != null && !_threeReady && _threeError == null);
 
+    final user = (st.profileJson?['user'] is Map) ? (st.profileJson!['user'] as Map) : null;
+
+    final fullName = user?['full_name']?.toString() ?? '';
+    final username = user?['username']?.toString() ?? '';
+    final followerCount = st.profileJson?['follower_count'] ?? 0;
+    final followingCount = st.profileJson?['following_count'] ?? 0;
+    final defaultAvatar = user?['default_avatar'];
+    final profilePhotoKey = user?['profile_photo_key']?.toString();
+    final bio = user?['bio']?.toString() ?? '';
+
+    final isFollowing = st.profileJson?['viewer_state']['is_following'] == true;
+    final isMe = st.profileJson?['viewer_state']['is_me'] == true;
+    final isBlocked = st.profileJson?['viewer_state']['is_blocked'] == true;
+
+    final double topInset = MediaQuery.of(context).padding.top;
+    const double topBarHeight = 72;
+
     return Scaffold(
       backgroundColor: bg,
       body: Stack(
+        fit: StackFit.expand,
         children: [
+          // ThreeJS TAM EKRAN
           Positioned.fill(
-            child: _threeJs == null ? const SizedBox.shrink() : _threeJs!.build(),
+            child: _threeJs == null
+                ? const SizedBox.shrink()
+                : SizedBox.expand(
+                  child: _threeJs!.build(),
+                ),
           ),
 
-          Positioned.fill(
+          // Gesture ALANI (top bar ALTINDAN başlar)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: topInset + topBarHeight,
+            bottom: 0,
             child: IgnorePointer(
               ignoring: !_threeReady,
               child: GestureDetector(
@@ -356,51 +386,173 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
 
+          // TOP BAR (overlay – yer kaplamaz)
           SafeArea(
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(6, 10, 14, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipOval(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Material(
+                        color: Colors.white.withOpacity(0.35),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          onTap: () => Navigator.of(context).pop(),
+                          customBorder: const CircleBorder(),
+                          child: const SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Icon(
+                                Icons.chevron_left,
+                                size: 30,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: 12,
+                          sigmaY: 12,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.35), // cam hissi
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.25),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // AVATAR
+                              defaultAvatar != null
+                              ? ChaputCircleAvatar(
+                                  isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
+                                  imageUrl: profilePhotoKey != null && profilePhotoKey != ""
+                                      ? profilePhotoKey
+                                      : defaultAvatar,
+                                )
+                              : const SizedBox(),
+
+                              const SizedBox(width: 10),
+
+                              // ORTA ALAN
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                fullName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              Text(
+                                                '@$username',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.black.withOpacity(0.65),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        TextButton(
+                                          onPressed: () {
+                                            if (isBlocked) {
+                                              null;
+                                            } else if (isFollowing) {
+                                              // unfollow
+                                            } else {
+                                              // follow
+                                            }
+                                          },
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 6),
+                                            backgroundColor: isBlocked
+                                                ? Colors.red.shade200
+                                                : isFollowing
+                                                ? Colors.grey.shade300
+                                                : Colors.black,
+                                            foregroundColor:
+                                            isFollowing ? Colors.black : Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isBlocked
+                                                ? 'Engellenmiş'
+                                                : isMe
+                                                ? 'Ayarlar'
+                                                : isFollowing
+                                                ? 'Takibi Bırak'
+                                                : 'Takip Et',
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    if (bio.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        bio,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.black.withOpacity(0.8),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                ],
               ),
             ),
           ),
-
-          if (st.error != null)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  st.error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
-              ),
-            ),
-
-          if (_threeError != null && st.error == null)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  _threeError!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
-              ),
-            ),
-
-          if (st.error == null && _threeError == null && showLoading)
-            const Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              ),
-            ),
         ],
       ),
     );
+
   }
 }
 
