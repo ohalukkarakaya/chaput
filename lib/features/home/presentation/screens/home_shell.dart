@@ -241,6 +241,8 @@ class _RecommendedUserCard extends ConsumerWidget {
           );
         }
 
+        final isLoading = recAsync.isLoading;
+
         return wrap(
           Row(
             children: [
@@ -276,9 +278,17 @@ class _RecommendedUserCard extends ConsumerWidget {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                label: const Text("Open"),
+                onPressed: isLoading
+                    ? null
+                    : () => ref.read(recommendedUserControllerProvider.notifier).refresh(),
+                icon: isLoading
+                    ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(isLoading ? "Yükleniyor" : "Yenile"),
               ),
             ],
           ),
