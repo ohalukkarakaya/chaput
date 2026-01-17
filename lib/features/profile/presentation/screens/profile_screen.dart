@@ -1,27 +1,21 @@
 import 'dart:developer';
 import 'dart:math' as math;
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
-import '../../../../core/network/dio_provider.dart';
+import '../../../user/application/profile_controller.dart';
 import '../../domain/tree_catalog.dart';
-
-// ✅ BUNU KENDİ PROJENDEKİ AUTH’LU DIO PROVIDER İLE DEĞİŞTİR
-// final authedDioProvider = Provider<Dio>((ref) => throw UnimplementedError());
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
     super.key,
     required this.userId,
-    required this.dio,
   });
 
   final String userId;
-  final Dio dio;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -30,16 +24,15 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   three.ThreeJS? _threeJs;
 
-  bool _ready = false;
-  bool _loadingTree = true;
-  String? _error;
+  bool _threeReady = false;
+  String? _threeError;
 
-  int? _treeId; // endpoint'ten gelecek (1..6)
+  String? _lastTreeId;
 
   three.Group? _treeGroup;
   three.Mesh? _ground;
 
-  // orbit state
+  // orbit
   double _yaw = 0.0;
   double _pitch = -0.20;
   double _radius = 3.0;
@@ -57,7 +50,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const double _minPitchHard = -1.15;
   static const double _maxPitch = 0.45;
 
-  // target (lookAt)
+  // target
   three.Vector3 _target = three.Vector3(0, 0.9, 0);
 
   // model dims
@@ -65,22 +58,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   double _modelMaxDim = 1.0;
 
   // ground collision
-  double _groundY = 0.0; // model oturtunca 0
-  static const double _camGroundMargin = 0.06; // zemine yapışmasın
-
-  @override
-  void initState() {
-    super.initState();
-    _boot();
-  }
+  double _groundY = 0.0;
+  static const double _camGroundMargin = 0.06;
 
   @override
   void didUpdateWidget(covariant ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // ✅ farklı user profile açıldıysa: tree id yeniden çek + ThreeJS’i baştan kur
     if (oldWidget.userId != widget.userId) {
-      _boot();
+      _disposeThree(); // user değiştiyse 3D sıfırla
+      _lastTreeId = null;
+      _threeError = null;
+      _threeReady = false;
     }
   }
 
@@ -96,91 +85,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _threeJs = null;
     _treeGroup = null;
     _ground = null;
-    _ready = false;
+    _threeReady = false;
   }
 
-  Future<void> _boot() async {
-    // önce her şeyi temizle
-    setState(() {
-      _error = null;
-      _loadingTree = true;
-      _treeId = null;
-    });
+  void _createThreeIfNeeded(String treeId) {
+    // aynı tree ise yeniden kurma
+    if (_lastTreeId == treeId && _threeJs != null) return;
+
+    _lastTreeId = treeId;
+    _threeError = null;
+    _threeReady = false;
 
     _disposeThree();
 
-    // 1) tree_id çek
-    final tid = await _fetchUserTreeId(widget.userId);
-    if (!mounted) return;
-
-    if (tid == null) {
-      setState(() {
-        _loadingTree = false;
-        _error ??= 'tree_id alınamadı';
-      });
-      return;
-    }
-
-    setState(() {
-      _treeId = tid;
-      _loadingTree = false;
-    });
-
-    // 2) tree_id geldikten sonra ThreeJS oluştur (1 kere!)
-    _createThreeJsAndInit();
-  }
-
-  Future<int?> _fetchUserTreeId(String userId) async {
-    try {
-      // ✅ KENDİ PROJENDEKİ AUTH DIO’YU OKU (refresh + access otomatik)
-      final dio = ref.read(dioProvider);
-
-      final res = await dio.get('/users/$userId/tree');
-
-      final data = res.data;
-      if (data is! Map) return null;
-
-      final ok = data['ok'] == true;
-      if (!ok) {
-        setState(() => _error = data['error']?.toString() ?? 'unknown_error');
-        return null;
-      }
-
-      // backend tree_id string döndürüyor demiştin
-      final raw = data['tree_id']?.toString();
-
-      // Sende TreeCatalog.resolve(treeId.toString()) var.
-      // Biz burada int'e çevirelim: "2" -> 2
-      // Eğer backend farklı bir format dönerse (hex vs), burada map etmen gerekir.
-      final parsed = int.tryParse(raw ?? '');
-      if (parsed == null) {
-        setState(() => _error = 'tree_id parse edilemedi: $raw');
-        return null;
-      }
-
-      return parsed;
-    } on DioException catch (e) {
-      log('tree_id fetch DioException: $e');
-      setState(() => _error = 'tree_id fetch failed: ${e.response?.statusCode}');
-      return null;
-    } catch (e, st) {
-      log('tree_id fetch error: $e', stackTrace: st);
-      setState(() => _error = e.toString());
-      return null;
-    }
-  }
-
-  void _createThreeJsAndInit() {
-    final tid = _treeId;
-    if (tid == null) return;
-
     late final three.ThreeJS js;
-
     js = three.ThreeJS(
-      setup: () => _setup(threeJsRef: js, treeId: tid),
+      setup: () => _setup(threeJsRef: js, treeId: treeId),
       onSetupComplete: () {
         if (!mounted) return;
-        setState(() => _ready = true);
+        setState(() => _threeReady = true);
       },
     );
 
@@ -191,15 +114,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _setup({
     required three.ThreeJS threeJsRef,
-    required int treeId,
+    required String treeId,
   }) async {
     try {
-      final preset = TreeCatalog.resolve(treeId.toString());
+      final preset = TreeCatalog.resolve(treeId);
 
-      // ---------------- Scene ----------------
+      // Scene
       threeJsRef.scene = three.Scene();
 
-      // ---------------- Camera ----------------
+      // Camera
       threeJsRef.camera = three.PerspectiveCamera(
         45,
         threeJsRef.width / threeJsRef.height,
@@ -207,7 +130,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         2000,
       );
 
-      // ---------------- Renderer (SHADOW MAP ON) ----------------
+      // Renderer + shadows
       final r = threeJsRef.renderer;
       if (r != null) {
         r.setClearColor(three_math.Color.fromHex32(preset.bgColor), 1);
@@ -215,7 +138,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         r.shadowMap.type = three.PCFSoftShadowMap;
       }
 
-      // ---------------- Lights ----------------
+      // Lights
       threeJsRef.scene.add(three.AmbientLight(0xffffff, 0.75));
 
       final dir = three.DirectionalLight(0xffffff, 0.95);
@@ -234,42 +157,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       threeJsRef.scene.add(dir);
 
-      // ---------------- Load GLB ----------------
+      // Load GLB
       final loader = three.GLTFLoader(flipY: true).setPath('assets/tree_models/');
       final gltf = await loader.fromAsset(preset.assetPath);
       if (gltf == null) throw Exception('GLB null (${preset.assetPath})');
 
       final tree = gltf.scene;
 
-      // --- A) Bounds (ilk)
+      // A) bounds
       tree.updateMatrixWorld(true);
       final b1 = _computeObjectBounds(tree);
       final size1 = _sizeOfBounds(b1);
 
-      // --- B) Auto-scale (hedef yükseklik)
+      // B) scale
       const targetHeight = 0.55;
       final scale = (size1.y == 0) ? 1.0 : (targetHeight / size1.y);
       tree.scale.setValues(scale, scale, scale);
       tree.updateMatrixWorld(true);
 
-      // --- C) bounds after scale
+      // C) bounds after scale
       final b2 = _computeObjectBounds(tree);
       final size2 = _sizeOfBounds(b2);
 
       _modelHeight = size2.y.clamp(0.1, 1000.0);
       _modelMaxDim = math.max(size2.x, math.max(size2.y, size2.z)).clamp(0.1, 1000.0);
 
-      // --- D) Model’i yere oturt + XZ merkezle
+      // D) ground + center
       final centerX = (b2.min.x + b2.max.x) * 0.5;
       final centerZ = (b2.min.z + b2.max.z) * 0.5;
       final minY = b2.min.y;
 
       tree.position.x -= centerX;
       tree.position.z -= centerZ;
-      tree.position.y -= minY; // ✅ minY -> 0
+      tree.position.y -= minY; // minY -> 0
       tree.updateMatrixWorld(true);
 
-      // --- E) final bounds (minY ~ 0)
+      // E) final bounds
       final b3 = _computeObjectBounds(tree);
       final size3 = _sizeOfBounds(b3);
 
@@ -278,21 +201,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       _groundY = 0.0;
 
-      // Target
+      // target
       final targetY = (_modelHeight * 0.55).clamp(0.20, 2.0);
       _target = three.Vector3(0, targetY, 0);
 
-      // Camera distance
+      // radius
       final fovRad = (45.0 * math.pi) / 180.0;
       final distance = (_modelMaxDim / 2) / math.tan(fovRad / 2);
-
-      // başlangıçta biraz uzak
       _radius = (distance * 2.1).clamp(0.8, 50.0);
 
       _minRadius = (_radius * 0.28).clamp(0.28, 6.0);
       _maxRadius = (_radius * 3.2).clamp(2.0, 90.0);
 
-      // ---------------- Group + Shadows ----------------
+      // Group + shadows
       _treeGroup = three.Group();
       _treeGroup!.add(tree);
 
@@ -305,10 +226,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       threeJsRef.scene.add(_treeGroup!);
 
-      // ---------------- Ground ----------------
+      // Ground
       final groundSize = (_modelMaxDim * 20).clamp(10.0, 200.0);
-
       final geo = three.PlaneGeometry(groundSize, groundSize);
+
       final mat = three.MeshStandardMaterial();
       mat.color = three_math.Color.fromHex32(preset.bgColor);
       mat.roughness = 1.0;
@@ -317,14 +238,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final g = three.Mesh(geo, mat);
       g.rotation.x = -math.pi / 2;
       g.position.setValues(0, 0.001, 0);
-
       g.receiveShadow = true;
       g.castShadow = false;
 
       _ground = g;
       threeJsRef.scene.add(_ground!);
 
-      // shadow frustum (modele göre)
+      // Shadow frustum
       final half = (_modelMaxDim * 3.5).clamp(3.0, 40.0);
       dir.shadow!.camera?.left = -half;
       dir.shadow!.camera?.right = half;
@@ -333,29 +253,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       dir.shadow!.camera?.near = 0.2;
       dir.shadow!.camera?.far = (half * 7).clamp(40.0, 260.0);
 
-      // fog (ufuk çizgisi yok)
+      // Fog
       threeJsRef.scene.fog = three.Fog(
         preset.bgColor,
         _radius * 0.9,
         _radius * 1.8,
       );
 
-      // ilk kamera update
       _updateCamera(threeJsRef);
 
-      // render loop
       threeJsRef.addAnimationEvent((dt) {
         _updateCamera(threeJsRef);
       });
     } catch (e, st) {
-      log('ThreeJS error: $e', stackTrace: st);
+      log('ThreeJS setup error: $e', stackTrace: st);
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _threeError = e.toString());
     }
   }
 
   void _updateCamera(three.ThreeJS threeJsRef) {
-    // zemin collision
     final minY = _groundY + _camGroundMargin;
 
     final rhs = (minY - _target.y) / (_radius == 0 ? 0.0001 : _radius);
@@ -397,27 +314,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final s = d.scale;
     _radius = (_startRadius / s).clamp(_minRadius, _maxRadius);
 
-    final threeJsRef = _threeJs;
-    if (threeJsRef != null) _updateCamera(threeJsRef);
+    final js = _threeJs;
+    if (js != null) _updateCamera(js);
   }
 
   @override
   Widget build(BuildContext context) {
-    final tid = _treeId;
-    final preset = (tid == null) ? null : TreeCatalog.resolve(tid.toString());
+    final st = ref.watch(profileControllerProvider(widget.userId));
+
+    // treeId geldiyse: three init (1 kere) -> post frame
+    final tid = st.treeId;
+    if (tid != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _createThreeIfNeeded(tid);
+      });
+    }
+
+    final preset = (tid == null) ? null : TreeCatalog.resolve(tid);
+    final bg = Color(preset?.bgColor ?? 0xFF000000);
+
+    final showLoading = st.isLoading || (tid != null && !_threeReady && _threeError == null);
 
     return Scaffold(
-      backgroundColor: Color((preset?.bgColor ?? 0xFF000000)),
+      backgroundColor: bg,
       body: Stack(
         children: [
           Positioned.fill(
             child: _threeJs == null ? const SizedBox.shrink() : _threeJs!.build(),
           ),
 
-          // gesture overlay
           Positioned.fill(
             child: IgnorePointer(
-              ignoring: !_ready,
+              ignoring: !_threeReady,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onScaleStart: _onScaleStart,
@@ -437,26 +366,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
 
-          // loading
-          if (_error == null && (_loadingTree || !_ready))
+          if (st.error != null)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  st.error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            ),
+
+          if (_threeError != null && st.error == null)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  _threeError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            ),
+
+          if (st.error == null && _threeError == null && showLoading)
             const Center(
               child: SizedBox(
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              ),
-            ),
-
-          // error
-          if (_error != null)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
               ),
             ),
         ],
