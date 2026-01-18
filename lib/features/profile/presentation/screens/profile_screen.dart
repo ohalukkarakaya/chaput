@@ -44,6 +44,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late three.Vector3 _snapFromTarget;
   late three.Vector3 _snapToTarget;
 
+  late three.Vector3 _snapFromCenter;
+  late three.Vector3 _snapToCenter;
+
   double _defaultRadius = 3.0;
   double _snapFromRadius = 3.0;
   double _snapToRadius = 3.0;
@@ -77,8 +80,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const double _maxPitch = 0.45;
 
   // orbit merkez (ağacın merkezi) + bakış hedefi
-  three.Vector3 _orbitCenter = three.Vector3(0, 0.9, 0);
-  three.Vector3 _lookAt = three.Vector3(0, 0.9, 0);
+  three.Vector3 _treeCenter = three.Vector3(0, 0.9, 0);  // sabit: ağacın merkezi
+  three.Vector3 _orbitCenter = three.Vector3(0, 0.9, 0); // dinamik: treeCenter <-> focusAnchor
+  three.Vector3 _lookAt = three.Vector3(0, 0.9, 0);      // genelde orbitCenter ile aynı gider
+
+  bool _centerShiftActive = false;
+  double _centerShiftT = 0.0;
+
+  late three.Vector3 _shiftFromCenter;
+  late three.Vector3 _shiftToCenter;
+
+  late three.Vector3 _shiftFromLookAt;
+  late three.Vector3 _shiftToLookAt;
+
+  static const double _centerShiftDuration = 0.12; // hızlı geçiş
 
   // model dims
   double _modelHeight = 1.0;
@@ -231,8 +246,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       // orbit merkez
       final targetY = (_modelHeight * 0.55).clamp(0.20, 2.0);
-      _orbitCenter = three.Vector3(0, targetY, 0);
+      _treeCenter = three.Vector3(0, targetY, 0);
+
+      // ilk başta normal merkez
+      _orbitCenter = _treeCenter.clone();
       _lookAt = _orbitCenter.clone();
+
 
 
       // radius
@@ -263,7 +282,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _focusAnchor = _pickRandomLeafAnchor(_treeGroup!);
 
       if (_focusAnchor != null) {
-        _jumpViewToAnchor(); // <-- ilk açılışta doğru hizalama
+        _setFocusModeInstant();
       } else {
         _showFocusMarker = false;
       }
@@ -307,6 +326,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _updateCamera(threeJsRef);
 
       threeJsRef.addAnimationEvent((dt) {
+        _tickCenterShift(dt);
         _tickSnap(dt);
         _updateCamera(threeJsRef);
       });
@@ -365,6 +385,84 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     _showFocusMarker = false; // snap bitince tekrar açılacak
     _snapViewToAnchor();      // animasyonlu dön + zoom reset
+  }
+
+  void _startCenterShift({
+    required three.Vector3 toCenter,
+    required three.Vector3 toLookAt,
+  }) {
+    _centerShiftActive = true;
+    _centerShiftT = 0.0;
+
+    _shiftFromCenter = _orbitCenter.clone();
+    _shiftToCenter = toCenter.clone();
+
+    _shiftFromLookAt = _lookAt.clone();
+    _shiftToLookAt = toLookAt.clone();
+  }
+
+  void _tickCenterShift(double dt) {
+    if (!_centerShiftActive) return;
+
+    _centerShiftT += dt / _centerShiftDuration;
+    if (_centerShiftT >= 1.0) {
+      _centerShiftT = 1.0;
+      _centerShiftActive = false;
+    }
+
+    final t = _centerShiftT;
+    final s = t * t * (3 - 2 * t); // smoothstep
+
+    _orbitCenter = three.Vector3(
+      _shiftFromCenter.x + (_shiftToCenter.x - _shiftFromCenter.x) * s,
+      _shiftFromCenter.y + (_shiftToCenter.y - _shiftFromCenter.y) * s,
+      _shiftFromCenter.z + (_shiftToCenter.z - _shiftFromCenter.z) * s,
+    );
+
+    _lookAt = three.Vector3(
+      _shiftFromLookAt.x + (_shiftToLookAt.x - _shiftFromLookAt.x) * s,
+      _shiftFromLookAt.y + (_shiftToLookAt.y - _shiftFromLookAt.y) * s,
+      _shiftFromLookAt.z + (_shiftToLookAt.z - _shiftFromLookAt.z) * s,
+    );
+  }
+
+  void _setFocusModeInstant() {
+    if (_focusAnchor == null) return;
+
+    _orbitCenter = _focusAnchor!.clone();
+    _lookAt = _orbitCenter.clone();
+
+    // kamera açısı: anchor'ın treeCenter'a göre "ön" tarafına gelsin
+    _yawPitchForFocus(frontByTreeCenter: true);
+
+    _radius = _defaultRadius.clamp(_minRadius, _maxRadius);
+    _showFocusMarker = true;
+  }
+
+  void _startTreeModeFast() {
+    // kullanıcı dokununca hızlıca tree center’a geç
+    _startCenterShift(
+      toCenter: _treeCenter,
+      toLookAt: _treeCenter,
+    );
+  }
+
+  void _yawPitchForFocus({required bool frontByTreeCenter}) {
+    if (_focusAnchor == null) return;
+
+    final v = _focusAnchor!.clone().sub(_treeCenter);
+    final len = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    if (len < 1e-6) return;
+
+    v.x /= len; v.y /= len; v.z /= len;
+
+    // kamerayı anchor'ın "ön" tarafına al (treeCenter'a göre)
+    final camDir = frontByTreeCenter
+        ? three.Vector3(-v.x, -v.y, -v.z)
+        : three.Vector3(v.x, v.y, v.z);
+
+    _yaw = math.atan2(camDir.x, camDir.z);
+    _pitch = math.asin(camDir.y).clamp(_minPitchHard, _maxPitch);
   }
 
 
@@ -427,6 +525,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required three.Vector3 lookAt,
     required double radius,
   }) {
+    _snapFromCenter = _orbitCenter.clone();
+    _snapToCenter = _focusAnchor!.clone();
+
     _snapActive = true;
     _snapT = 0.0;
 
@@ -520,6 +621,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _snapFromLookAt.z + (_snapToLookAt.z - _snapFromLookAt.z) * s,
     );
 
+    _orbitCenter = three.Vector3(
+      _snapFromCenter.x + (_snapToCenter.x - _snapFromCenter.x) * s,
+      _snapFromCenter.y + (_snapToCenter.y - _snapFromCenter.y) * s,
+      _snapFromCenter.z + (_snapToCenter.z - _snapFromCenter.z) * s,
+    );
+
+    // focus'ta lookAt = center daha iyi hissettirir
+    _lookAt = _orbitCenter.clone();
+
+
     _radius = (_snapFromRadius + (_snapToRadius - _snapFromRadius) * s)
         .clamp(_minRadius, _maxRadius);
   }
@@ -532,6 +643,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _showFocusMarker = false;
     _snapActive = false;
 
+    _startTreeModeFast();
+
     _startYaw = _yaw;
     _startPitch = _pitch;
     _startRadius = _radius;
@@ -539,7 +652,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _onScaleEnd(ScaleEndDetails d) {
     _isInteracting = false;
-    _showFocusMarker = true;
+    _showFocusMarker = false;
     _snapViewToAnchor();
   }
 
