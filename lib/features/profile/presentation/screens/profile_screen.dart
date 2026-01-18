@@ -24,6 +24,30 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  // ================= FOCUS / ANCHOR =================
+  three.Vector3? _focusAnchor; // leaf üstündeki world-space nokta
+  final ValueNotifier<Offset?> _focusScreen = ValueNotifier<Offset?>(null);
+
+  bool _isInteracting = false;
+  bool _showFocusMarker = false;
+
+// snap-back animasyonu
+  late double _snapFromYaw, _snapToYaw;
+  late double _snapFromPitch, _snapToPitch;
+
+  late three.Vector3 _snapFromLookAt;
+  late three.Vector3 _snapToLookAt;
+
+  bool _snapActive = false;
+  double _snapT = 0.0;
+
+  late three.Vector3 _snapFromTarget;
+  late three.Vector3 _snapToTarget;
+
+  double _defaultRadius = 3.0;
+  double _snapFromRadius = 3.0;
+  double _snapToRadius = 3.0;
+
   three.ThreeJS? _threeJs;
 
   bool _threeReady = false;
@@ -52,8 +76,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const double _minPitchHard = -1.15;
   static const double _maxPitch = 0.45;
 
-  // target
-  three.Vector3 _target = three.Vector3(0, 0.9, 0);
+  // orbit merkez (ağacın merkezi) + bakış hedefi
+  three.Vector3 _orbitCenter = three.Vector3(0, 0.9, 0);
+  three.Vector3 _lookAt = three.Vector3(0, 0.9, 0);
 
   // model dims
   double _modelHeight = 1.0;
@@ -79,6 +104,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void dispose() {
     _disposeThree();
     three.loading.clear();
+    _focusScreen.dispose();
     super.dispose();
   }
 
@@ -203,9 +229,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       _groundY = 0.0;
 
-      // target
+      // orbit merkez
       final targetY = (_modelHeight * 0.55).clamp(0.20, 2.0);
-      _target = three.Vector3(0, targetY, 0);
+      _orbitCenter = three.Vector3(0, targetY, 0);
+      _lookAt = _orbitCenter.clone();
+
 
       // radius
       final fovRad = (45.0 * math.pi) / 180.0;
@@ -227,6 +255,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       });
 
       threeJsRef.scene.add(_treeGroup!);
+
+      // ====== Focus anchor ======
+      _defaultRadius = _radius;
+
+      _treeGroup!.updateMatrixWorld(true);
+      _focusAnchor = _pickRandomLeafAnchor(_treeGroup!);
+
+      if (_focusAnchor != null) {
+        _jumpViewToAnchor(); // <-- ilk açılışta doğru hizalama
+      } else {
+        _showFocusMarker = false;
+      }
+
+
 
       // Ground
       final groundSize = (_modelMaxDim * 20).clamp(10.0, 200.0);
@@ -265,6 +307,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _updateCamera(threeJsRef);
 
       threeJsRef.addAnimationEvent((dt) {
+        _tickSnap(dt);
         _updateCamera(threeJsRef);
       });
     } catch (e, st) {
@@ -274,10 +317,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  three.Vector3? _pickRandomLeafAnchor(three.Object3D root) {
+    final leafMeshes = <three.Mesh>[];
+
+    root.traverse((obj) {
+      if (obj is three.Mesh) {
+        final name = obj.name.toLowerCase();
+        if (name.contains('leaves') || name.contains('leaf')) {
+          leafMeshes.add(obj);
+        }
+      }
+    });
+
+    if (leafMeshes.isEmpty) return null;
+
+    final rnd = math.Random();
+    final mesh = leafMeshes[rnd.nextInt(leafMeshes.length)];
+    final geo = mesh.geometry;
+
+    if (geo is! three.BufferGeometry) return null;
+
+    final pos = geo.attributes['position'];
+    if (pos == null) return null;
+
+    final count = pos.count;
+    if (count <= 0) return null;
+
+    final i = rnd.nextInt(count);
+
+    final local = three.Vector3(
+      pos.getX(i),
+      pos.getY(i),
+      pos.getZ(i),
+    );
+
+    local.applyMatrix4(mesh.matrixWorld);
+    return local;
+  }
+
+  void _pickNewRandomAnchorAndSnap() {
+    if (_treeGroup == null) return;
+
+    _treeGroup!.updateMatrixWorld(true);
+    _focusAnchor = _pickRandomLeafAnchor(_treeGroup!);
+
+    if (_focusAnchor == null) return;
+
+    _showFocusMarker = false; // snap bitince tekrar açılacak
+    _snapViewToAnchor();      // animasyonlu dön + zoom reset
+  }
+
+
   void _updateCamera(three.ThreeJS threeJsRef) {
     final minY = _groundY + _camGroundMargin;
 
-    final rhs = (minY - _target.y) / (_radius == 0 ? 0.0001 : _radius);
+    final rhs = (minY - _orbitCenter.y) / (_radius == 0 ? 0.0001 : _radius);
     final clampedRhs = rhs.clamp(-0.999, 0.999);
     final dynamicMinPitch = math.asin(clampedRhs);
 
@@ -289,19 +383,166 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final cy = math.cos(_yaw);
     final sy = math.sin(_yaw);
 
-    final x = _target.x + _radius * cp * sy;
-    final y = _target.y + _radius * sp;
-    final z = _target.z + _radius * cp * cy;
+    final x = _orbitCenter.x + _radius * cp * sy;
+    final y = _orbitCenter.y + _radius * sp;
+    final z = _orbitCenter.z + _radius * cp * cy;
 
     threeJsRef.camera.position.setValues(x, y, z);
-    threeJsRef.camera.lookAt(_target);
+    threeJsRef.camera.lookAt(_lookAt);
+    _updateFocusScreenPosition(threeJsRef);
   }
 
+  void _updateFocusScreenPosition(three.ThreeJS js) {
+    final markerAllowed = _showFocusMarker && !_isInteracting && !_snapActive;
+
+    if (!markerAllowed || _focusAnchor == null) {
+      _focusScreen.value = null;
+      return;
+    }
+
+    final p = _focusAnchor!.clone();
+    p.project(js.camera);
+
+    if (p.z > 1) {
+      _focusScreen.value = null;
+      return;
+    }
+
+    final sx = (p.x + 1) * 0.5 * js.width;
+    final sy = (1 - (p.y + 1) * 0.5) * js.height;
+
+    _focusScreen.value = Offset(sx, sy);
+  }
+
+  double _lerpAngle(double a, double b, double t) {
+    var d = (b - a);
+    while (d > math.pi) d -= 2 * math.pi;
+    while (d < -math.pi) d += 2 * math.pi;
+    return a + d * t;
+  }
+
+  void _startSnapBackTo({
+    required double yaw,
+    required double pitch,
+    required three.Vector3 lookAt,
+    required double radius,
+  }) {
+    _snapActive = true;
+    _snapT = 0.0;
+
+    _snapFromYaw = _yaw;
+    _snapToYaw = yaw;
+
+    _snapFromPitch = _pitch;
+    _snapToPitch = pitch;
+
+    _snapFromLookAt = _lookAt.clone();
+    _snapToLookAt = lookAt.clone();
+
+    _snapFromRadius = _radius;
+    _snapToRadius = radius;
+  }
+
+  void _snapViewToAnchor() {
+    if (_focusAnchor == null) return;
+
+    // orbitCenter -> anchor yönü
+    final v = _focusAnchor!.clone().sub(_orbitCenter);
+    final len = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    if (len < 1e-6) return;
+
+    v.x /= len;
+    v.y /= len;
+    v.z /= len;
+
+    // kameranın yönü anchor'a doğru bakarken, kamerayı anchor'ın "önüne" al
+    final camDir = three.Vector3(-v.x, -v.y, -v.z);
+
+    final desiredYaw = math.atan2(camDir.x, camDir.z);
+    final desiredPitch = math.asin(camDir.y).clamp(_minPitchHard, _maxPitch);
+
+    _startSnapBackTo(
+      yaw: desiredYaw,
+      pitch: desiredPitch,
+      lookAt: _focusAnchor!.clone(),
+      radius: _defaultRadius,
+    );
+  }
+
+  void _jumpViewToAnchor() {
+    if (_focusAnchor == null) return;
+
+    // orbitCenter -> anchor yönü
+    final v = _focusAnchor!.clone().sub(_orbitCenter);
+    final len = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    if (len < 1e-6) return;
+
+    v.x /= len;
+    v.y /= len;
+    v.z /= len;
+
+    // kamerayı anchor'ın "ön" tarafına al
+    final camDir = three.Vector3(-v.x, -v.y, -v.z);
+
+    _yaw = math.atan2(camDir.x, camDir.z);
+    _pitch = math.asin(camDir.y).clamp(_minPitchHard, _maxPitch);
+
+    _lookAt = _focusAnchor!.clone();
+    _radius = _defaultRadius.clamp(_minRadius, _maxRadius);
+
+    // marker ilk açılışta görünür olsun (ama snap yoksa)
+    _showFocusMarker = true;
+  }
+
+  void _tickSnap(double dt) {
+    if (!_snapActive || _isInteracting) return;
+
+    const duration = 0.35;
+    _snapT += dt / duration;
+
+    if (_snapT >= 1.0) {
+      _snapT = 1.0;
+      _snapActive = false;
+
+      _showFocusMarker = true;
+    }
+
+    final t = _snapT;
+    final s = t * t * (3 - 2 * t); // smoothstep
+
+    _yaw = _lerpAngle(_snapFromYaw, _snapToYaw, s);
+    _pitch = (_snapFromPitch + (_snapToPitch - _snapFromPitch) * s)
+        .clamp(_minPitchHard, _maxPitch);
+
+    _lookAt = three.Vector3(
+      _snapFromLookAt.x + (_snapToLookAt.x - _snapFromLookAt.x) * s,
+      _snapFromLookAt.y + (_snapToLookAt.y - _snapFromLookAt.y) * s,
+      _snapFromLookAt.z + (_snapToLookAt.z - _snapFromLookAt.z) * s,
+    );
+
+    _radius = (_snapFromRadius + (_snapToRadius - _snapFromRadius) * s)
+        .clamp(_minRadius, _maxRadius);
+  }
+
+
+
+
   void _onScaleStart(ScaleStartDetails d) {
+    _isInteracting = true;
+    _showFocusMarker = false;
+    _snapActive = false;
+
     _startYaw = _yaw;
     _startPitch = _pitch;
     _startRadius = _radius;
   }
+
+  void _onScaleEnd(ScaleEndDetails d) {
+    _isInteracting = false;
+    _showFocusMarker = true;
+    _snapViewToAnchor();
+  }
+
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
     final w = MediaQuery.of(context).size.width;
@@ -381,6 +622,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 behavior: HitTestBehavior.opaque,
                 onScaleStart: _onScaleStart,
                 onScaleUpdate: _onScaleUpdate,
+                onScaleEnd: _onScaleEnd,
                 child: const SizedBox.expand(),
               ),
             ),
@@ -481,6 +723,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                                   color: Colors.black.withOpacity(0.65),
                                                 ),
                                               ),
+                                              const SizedBox(height: 6),
+                                              Wrap(
+                                                spacing: 8,
+                                                runSpacing: 6,
+                                                children: [
+                                                  _StatChip(
+                                                    value: followerCount,
+                                                    label: 'Takipçi',
+                                                    onTap: () {},
+                                                  ),
+                                                  _StatChip(
+                                                    value: followingCount,
+                                                    label: 'Takip',
+                                                    onTap: () {},
+                                                  ),
+                                                ],
+                                              ),
+
                                             ],
                                           ),
                                         ),
@@ -522,19 +782,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         ),
                                       ],
                                     ),
-
-                                    if (bio.isNotEmpty) ...[
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        bio,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.black.withOpacity(0.8),
-                                        ),
-                                      ),
-                                    ],
                                   ],
                                 ),
                               ),
@@ -549,6 +796,85 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
           ),
+
+          // MARKER (sadece marker ignore pointer)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ValueListenableBuilder<Offset?>(
+                valueListenable: _focusScreen,
+                builder: (_, off, __) {
+                  if (off == null) return const SizedBox.shrink();
+
+                  return Stack(
+                    children: [
+                      Positioned(
+                        left: off.dx - 5,
+                        top: off.dy - 5,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                                color: Colors.white.withOpacity(0.6),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+
+// BUTON (marker'dan tamamen bağımsız)
+          Positioned(
+            right: 14,
+            bottom: 14,
+            child: SafeArea(
+              child: IgnorePointer(
+                ignoring: !_threeReady,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Material(
+                      color: Colors.white.withOpacity(0.35),
+                      child: InkWell(
+                        onTap: _pickNewRandomAnchorAndSnap,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.auto_awesome, size: 18, color: Colors.black),
+                              SizedBox(width: 8),
+                              Text(
+                                "Yeni nokta",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+
         ],
       ),
     );
@@ -628,4 +954,74 @@ _Bounds _computeObjectBounds(three.Object3D root) {
   });
 
   return _Bounds(min, max);
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.value,
+    required this.label,
+    this.onTap,
+  });
+
+  final int value;
+  final String label;
+  final VoidCallback? onTap;
+
+  String _compact(int n) {
+    if (n >= 1000000000) return '${(n / 1000000000).toStringAsFixed(1).replaceAll('.0', '')}B';
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
+    return '$n';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = _compact(value);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          constraints: const BoxConstraints(minHeight: 28), // daha stabil
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.18),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                v,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black.withOpacity(0.65),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
