@@ -23,7 +23,13 @@ class ProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen>
+    with SingleTickerProviderStateMixin {
+
+  late final AnimationController _profileCardCtrl;
+  late final Animation<double> _profileCardT;
+  bool _profileCardOpen = false;
+
   // ================= FOCUS / ANCHOR =================
   three.Vector3? _focusAnchor; // leaf üstündeki world-space nokta
   final ValueNotifier<Offset?> _focusScreen = ValueNotifier<Offset?>(null);
@@ -104,6 +110,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const double _camGroundMargin = 0.06;
 
   @override
+  void initState() {
+    super.initState();
+    _profileCardCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+      reverseDuration: const Duration(milliseconds: 160),
+    );
+    _profileCardT = CurvedAnimation(
+      parent: _profileCardCtrl,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+  }
+
+  @override
   void didUpdateWidget(covariant ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
@@ -120,7 +141,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _disposeThree();
     three.loading.clear();
     _focusScreen.dispose();
+    _profileCardCtrl.dispose();
     super.dispose();
+  }
+
+  void _toggleProfileCard() {
+    setState(() => _profileCardOpen = !_profileCardOpen);
+    if (_profileCardOpen) {
+      _profileCardCtrl.forward(from: 0);
+    } else {
+      _profileCardCtrl.reverse(from: 1);
+    }
   }
 
   void _disposeThree() {
@@ -749,166 +780,220 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipOval(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Material(
-                        color: Colors.white.withOpacity(0.35),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          onTap: () => Navigator.of(context).pop(),
-                          customBorder: const CircleBorder(),
-                          child: const SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Center(
-                              child: Icon(
-                                Icons.chevron_left,
-                                size: 30,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                  // Back button (aynı)
+                  IgnorePointer(
+                    ignoring: _profileCardOpen, // kart açıkken tıklanmasın
+                    child: ClipOval(
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(
-                          sigmaX: 12,
-                          sigmaY: 12,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.35), // cam hissi
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.25),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // AVATAR
-                              defaultAvatar != null
-                              ? ChaputCircleAvatar(
-                                  isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
-                                  imageUrl: profilePhotoKey != null && profilePhotoKey != ""
-                                      ? profilePhotoKey
-                                      : defaultAvatar,
-                                )
-                              : const SizedBox(),
-
-                              const SizedBox(width: 10),
-
-                              // ORTA ALAN
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                fullName,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                              Text(
-                                                '@$username',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.black.withOpacity(0.65),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Wrap(
-                                                spacing: 8,
-                                                runSpacing: 6,
-                                                children: [
-                                                  _StatChip(
-                                                    value: followerCount,
-                                                    label: 'Takipçi',
-                                                    onTap: () {},
-                                                  ),
-                                                  _StatChip(
-                                                    value: followingCount,
-                                                    label: 'Takip',
-                                                    onTap: () {},
-                                                  ),
-                                                ],
-                                              ),
-
-                                            ],
-                                          ),
-                                        ),
-
-                                        TextButton(
-                                          onPressed: () {
-                                            if (isBlocked) {
-                                              null;
-                                            } else if (isFollowing) {
-                                              // unfollow
-                                            } else {
-                                              // follow
-                                            }
-                                          },
-                                          style: TextButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 6),
-                                            backgroundColor: isBlocked
-                                                ? Colors.red.shade200
-                                                : isFollowing
-                                                ? Colors.grey.shade300
-                                                : Colors.black,
-                                            foregroundColor:
-                                            isFollowing ? Colors.black : Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            isBlocked
-                                                ? 'Engellenmiş'
-                                                : isMe
-                                                ? 'Ayarlar'
-                                                : isFollowing
-                                                ? 'Takibi Bırak'
-                                                : 'Takip Et',
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Material(
+                          color: Colors.white.withOpacity(0.35),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: () => Navigator.of(context).pop(),
+                            customBorder: const CircleBorder(),
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Center(
+                                child: Icon(Icons.chevron_left, size: 30, color: Colors.black),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-
                 ],
               ),
             ),
           ),
+
+          // SMALL AVATAR (sağ üst)
+          Positioned(
+            top: topInset + 10,
+            right: 14,
+            child: IgnorePointer(
+              ignoring: _profileCardOpen, // kart açıkken tıklanmasın
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 120),
+                opacity: _profileCardOpen ? 0.0 : 1.0, // kart açılınca kaybol
+                child: ClipOval(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Material(
+                      color: Colors.white.withOpacity(0.35),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        onTap: _toggleProfileCard,
+                        customBorder: const CircleBorder(),
+                        child: SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Center(
+                            child: ClipOval(
+                              child: (defaultAvatar != null)
+                                  ? ChaputCircleAvatar(
+                                      isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
+                                      imageUrl: profilePhotoKey != null && profilePhotoKey != ""
+                                          ? profilePhotoKey
+                                          : defaultAvatar,
+                                    )
+                                  : const ColoredBox(color: Colors.transparent),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+
+          // Expanded profile card overlay
+          Positioned(
+            left: 8,
+            right: 8,
+            top: topInset + 10, // geri+avatar hizasının biraz altı
+            child: IgnorePointer(
+              ignoring: !_profileCardOpen,
+              child: AnimatedBuilder(
+                animation: _profileCardT,
+                builder: (_, __) {
+                  final t = _profileCardT.value;
+
+                  // ufak slide + fade
+                  final dy = (1 - t) * -10; // yukarıdan gelsin
+                  return Opacity(
+                    opacity: t,
+                    child: Transform.translate(
+                      offset: Offset(0, dy),
+                      child: Transform.scale(
+                        scale: 0.98 + 0.02 * t,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                            child: Material(
+                              color: Colors.white.withOpacity(0.35),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Hero DESTINATION avatar (kart içindeki mevcut konum)
+                                    InkWell(
+                                      onTap: _toggleProfileCard,
+                                      customBorder: const CircleBorder(),
+                                      child: SizedBox(
+                                        width: 44,
+                                        height: 44,
+                                        child: ClipOval(
+                                          child: (defaultAvatar != null)
+                                              ? ChaputCircleAvatar(
+                                            isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
+                                            imageUrl: profilePhotoKey != null && profilePhotoKey != ""
+                                                ? profilePhotoKey
+                                                : defaultAvatar,
+                                          )
+                                              : const ColoredBox(color: Colors.transparent),
+                                        ),
+                                      ),
+                                    ),
+
+                                    const SizedBox(width: 10),
+
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      fullName,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                                    ),
+                                                    Text(
+                                                      '@$username',
+                                                      style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.65)),
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 6,
+                                                      children: [
+                                                        _StatChip(value: followerCount, label: 'Takipçi', onTap: () {}),
+                                                        _StatChip(value: followingCount, label: 'Takip', onTap: () {}),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+
+                                              TextButton(
+                                                onPressed: () {
+                                                  if (isBlocked) {
+                                                    null;
+                                                  } else if (isFollowing) {
+                                                    // unfollow
+                                                  } else {
+                                                    // follow
+                                                  }
+                                                },
+                                                style: TextButton.styleFrom(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                  backgroundColor: isBlocked
+                                                      ? Colors.red.shade200
+                                                      : isFollowing
+                                                      ? Colors.grey.shade300
+                                                      : Colors.black,
+                                                  foregroundColor: isFollowing ? Colors.black : Colors.white,
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                ),
+                                                child: Text(
+                                                  isBlocked
+                                                      ? 'Engellenmiş'
+                                                      : isMe
+                                                      ? 'Ayarlar'
+                                                      : isFollowing
+                                                      ? 'Takibi Bırak'
+                                                      : 'Takip Et',
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
 
           // MARKER (sadece marker ignore pointer)
           Positioned.fill(
@@ -952,7 +1037,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             bottom: 14,
             child: SafeArea(
               child: IgnorePointer(
-                ignoring: !_threeReady,
+                ignoring: !_threeReady || _profileCardOpen,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: BackdropFilter(
