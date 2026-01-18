@@ -18,7 +18,7 @@ class ChaputApp extends ConsumerWidget {
       themeMode: ThemeMode.light,
         theme: ThemeData(
         brightness: Brightness.light, // ✅ her zaman light
-
+        fontFamily: 'Qanelas',
         useMaterial3: true,
 
         scaffoldBackgroundColor: Colors.white,
@@ -33,7 +33,7 @@ class ChaputApp extends ConsumerWidget {
           onPrimary: Colors.white,
         )
       ),
-      darkTheme: AppTheme.dark(),
+      darkTheme: AppTheme.light(),
       routerConfig: router,
       localizationsDelegates: const [
         AppLocalizationsDelegate(),
