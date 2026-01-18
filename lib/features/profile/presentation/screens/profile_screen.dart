@@ -1092,7 +1092,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             bottom: 14,
             child: SafeArea(
               child: IgnorePointer(
-                ignoring: !_threeReady || _profileCardOpen,
+                ignoring: !_threeReady,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: BackdropFilter(
