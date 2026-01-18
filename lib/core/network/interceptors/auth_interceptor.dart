@@ -5,6 +5,13 @@ import '../../storage/token_storage.dart';
 import '../../../features/auth/data/auth_api.dart';
 import '../../utils/logger.dart';
 
+import 'dart:async';
+import 'package:dio/dio.dart';
+
+import '../../storage/token_storage.dart';
+import '../../../features/auth/data/auth_api.dart';
+import '../../utils/logger.dart';
+
 class AuthInterceptor extends Interceptor {
   final TokenStorage tokenStorage;
   final AuthApi authApi;

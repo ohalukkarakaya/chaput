@@ -2,11 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 /// ✅ Glass + shimmer border + glow
-/// Kullanım:
-/// GlowShimmerCard(
-///   radius: 22,
-///   child: ...
-/// )
+/// ✅ Shimmer döngüsü bitince X ms bekler, sonra yeniden başlar.
 class GlowShimmerCard extends StatefulWidget {
   const GlowShimmerCard({
     super.key,
@@ -17,17 +13,25 @@ class GlowShimmerCard extends StatefulWidget {
     this.padding = const EdgeInsets.all(16),
 
     // glass
+    this.enableBlur = true,
     this.blurSigma = 16,
     this.glassColor = Colors.white,
     this.glassOpacity = 0.18,
 
     // shimmer/border
     this.borderWidth = 1.8,
-    this.duration = const Duration(milliseconds: 1400),
+    this.duration = const Duration(milliseconds: 1900),
+
+    /// ✅ NEW: animasyon bittiğinde bekleme (min 500ms istemiştin)
+    this.gap = const Duration(milliseconds: 2500),
 
     // glow
     this.glowSigma = 22,
     this.glowOpacity = 0.55,
+
+    this.enableInnerShimmer = true,
+    this.innerShimmerOpacity = 0.10,
+    this.innerShimmerSoftness = 0.55,
   });
 
   final Widget child;
@@ -35,6 +39,7 @@ class GlowShimmerCard extends StatefulWidget {
   final double radius;
   final EdgeInsets padding;
 
+  final bool enableBlur;
   final double blurSigma;
   final Color glassColor;
   final double glassOpacity;
@@ -42,8 +47,15 @@ class GlowShimmerCard extends StatefulWidget {
   final double borderWidth;
   final Duration duration;
 
+  /// ✅ NEW
+  final Duration gap;
+
   final double glowSigma;
   final double glowOpacity;
+
+  final bool enableInnerShimmer;
+  final double innerShimmerOpacity; // 0.06 - 0.14 güzel aralık
+  final double innerShimmerSoftness; // 0.35 - 0.75
 
   @override
   State<GlowShimmerCard> createState() => _GlowShimmerCardState();
@@ -53,10 +65,22 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
+  Duration get _cycleDuration => widget.duration + widget.gap;
+
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: widget.duration)..repeat();
+    _c = AnimationController(vsync: this, duration: _cycleDuration)..repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant GlowShimmerCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.duration != widget.duration || oldWidget.gap != widget.gap) {
+      _c
+        ..duration = _cycleDuration
+        ..repeat();
+    }
   }
 
   @override
@@ -69,7 +93,6 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
   Widget build(BuildContext context) {
     final r = BorderRadius.circular(widget.radius);
 
-    // Shimmer gradient renkleri (mor/pembe neon)
     const shimmerColors = [
       Color(0x00FFFFFF),
       Color(0xFFB86BFF),
@@ -82,10 +105,18 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
     return AnimatedBuilder(
       animation: _c,
       builder: (_, __) {
-        // 0..1
-        final t = _c.value;
+        final totalMs = _cycleDuration.inMilliseconds.toDouble().clamp(1, double.infinity);
+        final activeMs = widget.duration.inMilliseconds.toDouble().clamp(1, totalMs);
 
-        // shimmer'ı sağa kaydır
+        // 0..totalMs
+        final elapsedMs = _c.value * totalMs;
+
+        // ✅ animasyon kısmındaysak akar, gap kısmındaysak donar
+        final double t = (elapsedMs <= activeMs)
+            ? (elapsedMs / activeMs) // 0..1
+            : 1.0; // gap boyunca son pozisyonda sabit
+
+        // İstersen bu range'i daha sakin yapmak için (-0.85/1.7) kullanabilirsin.
         final begin = Alignment(-1.2 + 2.4 * t, -1);
         final end = Alignment(1.2 + 2.4 * t, 1);
 
@@ -94,6 +125,47 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
           end: end,
           colors: shimmerColors,
           stops: const [0.00, 0.20, 0.45, 0.60, 0.80, 1.00],
+        );
+
+        final body = Container(
+          decoration: BoxDecoration(
+            borderRadius: r,
+            color: widget.glassColor.withOpacity(widget.glassOpacity),
+          ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: widget.padding,
+                child: widget.child,
+              ),
+
+              // ✅ INNER SHIMMER
+              if (widget.enableInnerShimmer)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: widget.innerShimmerOpacity,
+                      child: ShaderMask(
+                        blendMode: BlendMode.srcATop,
+                        shaderCallback: (bounds) {
+                          return LinearGradient(
+                            begin: begin,
+                            end: end,
+                            colors: shimmerColors.map((c) {
+                              return c.withOpacity(
+                                (c.opacity) * widget.innerShimmerSoftness,
+                              );
+                            }).toList(),
+                            stops: const [0.00, 0.20, 0.45, 0.60, 0.80, 1.00],
+                          ).createShader(bounds);
+                        },
+                        child: Container(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
 
         return Stack(
@@ -115,23 +187,18 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
               ),
             ),
 
-            // ✅ Glass body (blur)
+            // ✅ Glass body (blur opsiyonel)
             ClipRRect(
               borderRadius: r,
-              child: BackdropFilter(
+              child: widget.enableBlur
+                  ? BackdropFilter(
                 filter: ImageFilter.blur(
                   sigmaX: widget.blurSigma,
                   sigmaY: widget.blurSigma,
                 ),
-                child: Container(
-                  padding: widget.padding,
-                  decoration: BoxDecoration(
-                    borderRadius: r,
-                    color: widget.glassColor.withOpacity(widget.glassOpacity),
-                  ),
-                  child: widget.child,
-                ),
-              ),
+                child: body,
+              )
+                  : body,
             ),
 
             // ✅ Sharp shimmer border
@@ -177,7 +244,6 @@ class _BorderPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    // border'ı içeriden çiz (taşma azalsın)
     final rrect = RRect.fromRectAndRadius(
       rect.deflate(stroke / 2),
       Radius.circular(radius),
@@ -193,11 +259,6 @@ class _BorderPainter extends CustomPainter {
       paint.maskFilter = MaskFilter.blur(BlurStyle.normal, blurSigma);
     }
 
-    // Glow daha “yumuşak” dursun diye bir tık daha transparan
-    if (isGlow) {
-      paint.color = Colors.white.withOpacity(glowOpacity);
-    }
-
     canvas.drawRRect(rrect, paint);
   }
 
@@ -207,6 +268,7 @@ class _BorderPainter extends CustomPainter {
         oldDelegate.stroke != stroke ||
         oldDelegate.blurSigma != blurSigma ||
         oldDelegate.glowOpacity != glowOpacity ||
-        oldDelegate.gradient != gradient;
+        oldDelegate.gradient != gradient ||
+        oldDelegate.isGlow != isGlow;
   }
 }
