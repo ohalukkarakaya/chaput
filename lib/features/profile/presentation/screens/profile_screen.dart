@@ -30,6 +30,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   late final Animation<double> _profileCardT;
   bool _profileCardOpen = false;
 
+  bool _pendingTreeModeShift = false;
+  bool _treeModeShiftDoneThisGesture = false;
+
+
   // ================= FOCUS / ANCHOR =================
   three.Vector3? _focusAnchor; // leaf üstündeki world-space nokta
   final ValueNotifier<Offset?> _focusScreen = ValueNotifier<Offset?>(null);
@@ -309,14 +313,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       // ====== Focus anchor ======
       _defaultRadius = _radius;
 
-      _treeGroup!.updateMatrixWorld(true);
-      _focusAnchor = _pickRandomLeafAnchor(_treeGroup!);
+      // İlk açılışta seçili nokta YOK
+      _focusAnchor = null;
+      _showFocusMarker = false;
 
-      if (_focusAnchor != null) {
-        _setFocusModeInstant();
-      } else {
-        _showFocusMarker = false;
-      }
+      // merkez treeCenter'da kalsın
+      _orbitCenter = _treeCenter.clone();
+      _lookAt = _orbitCenter.clone();
 
 
 
@@ -407,15 +410,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _pickNewRandomAnchorAndSnap() {
-    if (_treeGroup == null) return;
+    _centerShiftActive = false;
+    _pendingTreeModeShift = false;
+    _treeModeShiftDoneThisGesture = false;
+    _isInteracting = false;
 
-    _treeGroup!.updateMatrixWorld(true);
-    _focusAnchor = _pickRandomLeafAnchor(_treeGroup!);
+    final g = _treeGroup;
+    if (g == null) return;
 
+    g.updateMatrixWorld(true);
+    final newAnchor = _pickRandomLeafAnchor(g);
+    if (newAnchor == null) return;
+
+    // ✅ hedef anchor değişsin ama kamera/merkez anında zıplamasın
+    _focusAnchor = newAnchor;
+
+    _showFocusMarker = false; // snap bitince açılacak
+
+    // ✅ mevcut durumdan -> yeni anchor'a smooth geç
+    _startSnapToNewAnchor();
+  }
+
+  void _startSnapToNewAnchor() {
     if (_focusAnchor == null) return;
 
-    _showFocusMarker = false; // snap bitince tekrar açılacak
-    _snapViewToAnchor();      // animasyonlu dön + zoom reset
+    // "yeni anchor" için ideal yaw/pitch'i treeCenter'a göre hesapla
+    final v = _focusAnchor!.clone().sub(_treeCenter);
+    final len = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    if (len < 1e-6) return;
+
+    v.x /= len;
+    v.y /= len;
+    v.z /= len;
+
+    final camDir = three.Vector3(-v.x, -v.y, -v.z);
+    final desiredYaw = math.atan2(camDir.x, camDir.z);
+    final desiredPitch = math.asin(camDir.y).clamp(_minPitchHard, _maxPitch);
+
+    // ✅ Snap hedefi: orbitCenter + lookAt = newAnchor
+    _startSnapBackTo(
+      yaw: desiredYaw,
+      pitch: desiredPitch,
+      lookAt: _focusAnchor!.clone(),
+      radius: _defaultRadius,
+    );
   }
 
   void _startCenterShift({
@@ -556,6 +594,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required three.Vector3 lookAt,
     required double radius,
   }) {
+    if (_focusAnchor == null) return;
     _snapFromCenter = _orbitCenter.clone();
     _snapToCenter = _focusAnchor!.clone();
 
@@ -579,7 +618,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (_focusAnchor == null) return;
 
     // orbitCenter -> anchor yönü
-    final v = _focusAnchor!.clone().sub(_orbitCenter);
+    final v = _focusAnchor!.clone().sub(_treeCenter);
     final len = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
     if (len < 1e-6) return;
 
@@ -646,12 +685,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _pitch = (_snapFromPitch + (_snapToPitch - _snapFromPitch) * s)
         .clamp(_minPitchHard, _maxPitch);
 
-    _lookAt = three.Vector3(
-      _snapFromLookAt.x + (_snapToLookAt.x - _snapFromLookAt.x) * s,
-      _snapFromLookAt.y + (_snapToLookAt.y - _snapFromLookAt.y) * s,
-      _snapFromLookAt.z + (_snapToLookAt.z - _snapFromLookAt.z) * s,
-    );
-
     _orbitCenter = three.Vector3(
       _snapFromCenter.x + (_snapToCenter.x - _snapFromCenter.x) * s,
       _snapFromCenter.y + (_snapToCenter.y - _snapFromCenter.y) * s,
@@ -674,7 +707,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _showFocusMarker = false;
     _snapActive = false;
 
-    _startTreeModeFast();
+    // Sadece "seçili nokta varsa" ve "gerçek drag başlarsa" yapacağız.
+    _pendingTreeModeShift = (_focusAnchor != null);
+    _treeModeShiftDoneThisGesture = false;
 
     _startYaw = _yaw;
     _startPitch = _pitch;
@@ -683,9 +718,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _onScaleEnd(ScaleEndDetails d) {
     _isInteracting = false;
+    _pendingTreeModeShift = false;
+    _treeModeShiftDoneThisGesture = false;
+
+    if (_focusAnchor == null) {
+      _showFocusMarker = false;
+      return;
+    }
+
     _showFocusMarker = false;
     _snapViewToAnchor();
   }
+
 
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
@@ -694,6 +738,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final dx = d.focalPointDelta.dx / (w == 0 ? 1 : w);
     final dy = d.focalPointDelta.dy / (h == 0 ? 1 : h);
+
+    // Drag gerçekten başladı mı? (küçük eşik)
+    final moved = (d.focalPointDelta.dx.abs() + d.focalPointDelta.dy.abs()) > 0.8;
+    final scaled = (d.scale - 1.0).abs() > 0.002;
+
+    if (_pendingTreeModeShift && !_treeModeShiftDoneThisGesture && (moved || scaled)) {
+      _startTreeModeFast();                // artık tree center’a hızlı geç
+      _treeModeShiftDoneThisGesture = true;
+      _pendingTreeModeShift = false;
+    }
+
 
     _yaw -= dx * 3.2;
     _pitch += dy * 2.2;
