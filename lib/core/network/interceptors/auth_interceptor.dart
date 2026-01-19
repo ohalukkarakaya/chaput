@@ -94,24 +94,41 @@ class AuthInterceptor extends Interceptor {
     }
   }
 
-  Future<Response<dynamic>> _retry(Dio dio, RequestOptions requestOptions, String accessToken) async {
+  Future<Response<dynamic>> _retry(
+      Dio dio,
+      RequestOptions ro,
+      String accessToken,
+      ) async {
+    final base = (ro.baseUrl.isNotEmpty) ? ro.baseUrl : dio.options.baseUrl;
+
+    if (base.isEmpty) {
+      throw StateError('Dio baseUrl boş. retry yapılamaz.');
+    }
+
+    // ✅ ABSOLUTE URI üret (No host specified fix)
+    final uri = Uri.parse(base).resolve(ro.path);
+
     final options = Options(
-      method: requestOptions.method,
-      headers: Map<String, dynamic>.from(requestOptions.headers)
+      method: ro.method,
+      headers: Map<String, dynamic>.from(ro.headers)
         ..['Authorization'] = 'Bearer $accessToken',
-      responseType: requestOptions.responseType,
-      contentType: requestOptions.contentType,
-      followRedirects: requestOptions.followRedirects,
-      receiveTimeout: requestOptions.receiveTimeout,
-      sendTimeout: requestOptions.sendTimeout,
-      validateStatus: requestOptions.validateStatus,
+      responseType: ro.responseType,
+      contentType: ro.contentType,
+      followRedirects: ro.followRedirects,
+      receiveTimeout: ro.receiveTimeout,
+      sendTimeout: ro.sendTimeout,
+      validateStatus: ro.validateStatus,
     );
 
-    return dio.request<dynamic>(
-      requestOptions.path,
-      data: requestOptions.data,
-      queryParameters: requestOptions.queryParameters,
+    // ✅ requestUri: baseUrl/path birleşimi garanti
+    return dio.requestUri<dynamic>(
+      uri,
+      data: ro.data,
       options: options,
+      cancelToken: ro.cancelToken,
+      onReceiveProgress: ro.onReceiveProgress,
+      onSendProgress: ro.onSendProgress,
     );
+
   }
 }
