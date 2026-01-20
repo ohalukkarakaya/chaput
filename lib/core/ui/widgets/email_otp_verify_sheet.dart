@@ -15,12 +15,13 @@ Future<bool?> showEmailOtpVerifySheet({
   return showModalBottomSheet<bool?>(
     context: context,
     isScrollControlled: true,
-    isDismissible: false,
-    enableDrag: false,
+    isDismissible: true,
+    enableDrag: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.transparent,
     builder: (_) {
       return _BlurBarrier(
+        onClose: () => Navigator.of(context).pop(false),
         child: _EmailOtpSheet(
           email: email,
           onResend: onResend,
@@ -33,15 +34,17 @@ Future<bool?> showEmailOtpVerifySheet({
 
 class _BlurBarrier extends StatelessWidget {
   final Widget child;
-  const _BlurBarrier({required this.child});
+  final VoidCallback onClose;
+  const _BlurBarrier({required this.child, required this.onClose});
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         Positioned.fill(
-          child: AbsorbPointer(
-            absorbing: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onClose,
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
               child: Container(color: Colors.black.withOpacity(0.25)),
