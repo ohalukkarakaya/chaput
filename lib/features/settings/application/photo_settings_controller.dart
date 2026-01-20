@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../me/application/me_controller.dart';
+import '../../user/application/profile_controller.dart';
 import '../data/settings_api.dart';
 import '../data/settings_api_provider.dart';
 
@@ -65,6 +66,16 @@ class PhotoSettingsController extends AutoDisposeNotifier<PhotoSettingsState> {
     return 'Bir şey ters gitti. Tekrar dene.';
   }
 
+  String? _loggedInUserId() {
+    final meAsync = ref.read(meControllerProvider);
+
+    // meControllerProvider AsyncValue ise:
+    return meAsync.maybeWhen(
+      data: (me) => me?.user?.userId,
+      orElse: () => null,
+    );
+  }
+
   Future<bool> uploadPhotoFromPath(String path) async {
     state = state.copyWith(isLoading: true, busyAction: 'upload', errorMessage: null);
     try {
@@ -73,6 +84,11 @@ class PhotoSettingsController extends AutoDisposeNotifier<PhotoSettingsState> {
 
       // ✅ refresh me (UI değil controller)
       await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+
+      final meId = _loggedInUserId();
+      if (meId != null && meId.isNotEmpty) {
+        ref.invalidate(profileControllerProvider(meId));
+      }
 
       state = state.copyWith(isLoading: false, busyAction: null, errorMessage: null);
       return true;
@@ -92,6 +108,10 @@ class PhotoSettingsController extends AutoDisposeNotifier<PhotoSettingsState> {
     try {
       await _api.deleteMePhoto();
       await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+      final meId = _loggedInUserId();
+      if (meId != null && meId.isNotEmpty) {
+        ref.invalidate(profileControllerProvider(meId));
+      }
       state = state.copyWith(isLoading: false, busyAction: null, errorMessage: null);
       return true;
     } on DioException catch (e) {

@@ -27,7 +27,7 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
   void initState() {
     super.initState();
 
-    // ✅ her açılışta önceki sonuçları sil
+    // her açılışta önceki sonuçları sil
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(userSearchControllerProvider.notifier).clear();
       if (mounted) _focusNode.requestFocus();
@@ -260,10 +260,10 @@ class _ResultsList extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // ✅ Avatar
+              // Avatar
               ChaputCircleAvatar(
                 isDefaultAvatar: u.profilePhotoKey == null,
-                imageUrl: u.profilePhotoKey ?? u.defaultAvatar,
+                imageUrl: u.profilePhotoUrl ?? u.defaultAvatar,
                 width: 42,
                 height: 42,
                 radius: 999,
