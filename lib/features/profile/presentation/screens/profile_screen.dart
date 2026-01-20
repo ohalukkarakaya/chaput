@@ -1048,82 +1048,84 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                               ),
                                             ),
 
-                                            TextButton(
-                                              onPressed: _uiFollowLoading
-                                                  ? null
-                                                  : () async {
-                                                if (isMe) {
-                                                  context.push(Routes.settings);
-                                                  return;
-                                                }
-                                                if (isBlocked) return;
-                                                if (username.isEmpty) return;
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                // FOLLOW / UNFOLLOW
+                                                TextButton(
+                                                  onPressed: _uiFollowLoading
+                                                      ? null
+                                                      : () async {
+                                                    if (isBlocked) return;
 
-                                                // ---------- OPTIMISTIC UI ----------
-                                                setState(() {
-                                                  _uiFollowLoading = true;
+                                                    setState(() {
+                                                      _uiFollowLoading = true;
+                                                      if (effectiveIsFollowing) {
+                                                        _uiIsFollowing = false;
+                                                        _uiFollowerDelta -= 1;
+                                                      } else {
+                                                        _uiIsFollowing = true;
+                                                        _uiFollowerDelta += 1;
+                                                      }
+                                                    });
 
-                                                  if (effectiveIsFollowing) {
-                                                    _uiIsFollowing = false;
-                                                    _uiFollowerDelta -= 1;
-                                                  } else {
-                                                    _uiIsFollowing = true;
-                                                    _uiFollowerDelta += 1;
-                                                  }
-                                                });
-
-                                                try {
-                                                  final ctrl = ref.read(
-                                                    followControllerProvider(username).notifier,
-                                                  );
-
-                                                  if (effectiveIsFollowing) {
-                                                    await ctrl.unfollow();
-                                                  } else {
-                                                    await ctrl.follow();
-                                                  }
-                                                } catch (_) {
-                                                  // ---------- ROLLBACK ----------
-                                                  setState(() {
-                                                    _uiIsFollowing = null;
-                                                    _uiFollowerDelta = 0;
-                                                  });
-                                                } finally {
-                                                  setState(() {
-                                                    _uiFollowLoading = false;
-                                                  });
-                                                }
-                                              },
-                                              style: TextButton.styleFrom(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                backgroundColor: isBlocked
-                                                    ? Colors.red.shade200
-                                                    : effectiveIsFollowing
-                                                    ? Colors.grey.shade300
-                                                    : Colors.black,
-                                                foregroundColor:
-                                                effectiveIsFollowing ? Colors.black : Colors.white,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(12),
+                                                    try {
+                                                      final ctrl = ref.read(
+                                                        followControllerProvider(username).notifier,
+                                                      );
+                                                      if (effectiveIsFollowing) {
+                                                        await ctrl.unfollow();
+                                                      } else {
+                                                        await ctrl.follow();
+                                                      }
+                                                    } catch (_) {
+                                                      setState(() {
+                                                        _uiIsFollowing = null;
+                                                        _uiFollowerDelta = 0;
+                                                      });
+                                                    } finally {
+                                                      setState(() {
+                                                        _uiFollowLoading = false;
+                                                      });
+                                                    }
+                                                  },
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                    backgroundColor: isBlocked
+                                                        ? Colors.red.shade200
+                                                        : effectiveIsFollowing
+                                                        ? Colors.grey.shade300
+                                                        : Colors.black,
+                                                    foregroundColor:
+                                                    effectiveIsFollowing ? Colors.black : Colors.white,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                  ),
+                                                  child: _uiFollowLoading
+                                                      ? const SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                  )
+                                                      : Text(
+                                                    isBlocked
+                                                        ? 'Engellenmiş'
+                                                        : effectiveIsFollowing
+                                                        ? 'Takibi Bırak'
+                                                        : 'Takip Et',
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
                                                 ),
-                                              ),
-                                              child: _uiFollowLoading
-                                                  ? const SizedBox(
-                                                width: 14,
-                                                height: 14,
-                                                child: CircularProgressIndicator(strokeWidth: 2),
-                                              )
-                                                  : Text(
-                                                isBlocked
-                                                    ? 'Engellenmiş'
-                                                    : isMe
-                                                    ? 'Ayarlar'
-                                                    : effectiveIsFollowing
-                                                    ? 'Takibi Bırak'
-                                                    : 'Takip Et',
-                                                style: const TextStyle(fontSize: 12),
-                                              ),
-                                            ),
+
+                                                // --- THREE DOT MENU ---
+                                                if (!isMe) ...[
+                                                  const SizedBox(width: 6),
+                                                  _MoreActionsButton(username: username),
+                                                ],
+                                              ],
+                                            )
+
                                           ],
                                         ),
                                       ],
@@ -1368,6 +1370,151 @@ class _StatChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MoreActionsButton extends StatelessWidget {
+  const _MoreActionsButton({
+    required this.username,
+  });
+
+  final String username;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      radius: 20,
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _ProfileActionsSheet(username: username),
+        );
+      },
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.more_vert,
+          size: 18,
+          color: Colors.black,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileActionsSheet extends StatelessWidget {
+  const _ProfileActionsSheet({
+    required this.username,
+  });
+
+  final String username;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      padding: EdgeInsets.only(
+        top: 8,
+        bottom: bottomInset > 0 ? bottomInset : 12,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SheetHandle(),
+
+          _ActionTile(
+            icon: Icons.remove_circle_outline,
+            title: 'Kısıtla',
+            subtitle: 'Bu kullanıcının etkileşimleri sınırlandırılır',
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: restrict API
+            },
+          ),
+
+          _ActionTile(
+            icon: Icons.block,
+            title: 'Engelle',
+            subtitle: 'Bu kullanıcı seni göremez ve etkileşemez',
+            destructive: true,
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: block API
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive ? Colors.red : Colors.black;
+
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.black.withOpacity(0.6),
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }
