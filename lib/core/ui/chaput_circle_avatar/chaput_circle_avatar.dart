@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../features/image_video_helpers/image_video_helpers.dart';
+import '../../../features/helpers/image_video_helpers/image_video_helpers.dart';
 import '../../constants/app_colors.dart';
 import '../../utils/parse_default_avatar_url.dart';
 import 'chaput_default_avatar.dart';
@@ -71,7 +71,7 @@ class _ChaputCircleAvatarState extends State<ChaputCircleAvatar> {
                   : ClipRRect(
                     borderRadius: BorderRadius.all( Radius.circular( widget.radius ) ),
                     child: Image.network(
-                      '${ImageVideoHelpers.mediaServerBaseUrlHelper()}getAsset?assetPath=${widget.imageUrl}',
+                      '${ImageVideoHelpers.mediaServerBaseUrlHelper()}${widget.imageUrl}',
                       fit: BoxFit.cover,
                     ),
                   )

@@ -5,9 +5,11 @@ import 'dart:ui';
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
+import '../../../../core/router/routes.dart';
 import '../../../user/application/profile_controller.dart';
 import '../../domain/tree_catalog.dart';
 
@@ -786,6 +788,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final followingCount = st.profileJson?['following_count'] ?? 0;
     final defaultAvatar = user?['default_avatar'];
     final profilePhotoKey = user?['profile_photo_key']?.toString();
+    final profilePhotoUrl = user?['profile_photo_url'] as String?;
     final bio = user?['bio']?.toString() ?? '';
 
     final isFollowing = st.profileJson?['viewer_state']['is_following'] == true;
@@ -890,8 +893,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               child: (defaultAvatar != null)
                                   ? ChaputCircleAvatar(
                                       isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
-                                      imageUrl: profilePhotoKey != null && profilePhotoKey != ""
-                                          ? profilePhotoKey
+                                      imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
+                                          ? profilePhotoUrl
                                           : defaultAvatar,
                                     )
                                   : const ColoredBox(color: Colors.transparent),
@@ -974,8 +977,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                         child: (defaultAvatar != null)
                                             ? ChaputCircleAvatar(
                                           isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
-                                          imageUrl: profilePhotoKey != null && profilePhotoKey != ""
-                                              ? profilePhotoKey
+                                          imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
+                                              ? profilePhotoUrl
                                               : defaultAvatar,
                                         )
                                             : const ColoredBox(color: Colors.transparent),
@@ -1022,9 +1025,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
                                             TextButton(
                                               onPressed: () {
-                                                if (isBlocked) {
-                                                  null;
-                                                } else if (isFollowing) {
+                                                if (isMe) {
+                                                  context.push(Routes.settings);
+                                                  return;
+                                                }
+
+                                                if (isBlocked) return;
+
+                                                if (isFollowing) {
                                                   // unfollow
                                                 } else {
                                                   // follow
@@ -1044,10 +1052,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                 isBlocked
                                                     ? 'Engellenmiş'
                                                     : isMe
-                                                    ? 'Ayarlar'
-                                                    : isFollowing
-                                                    ? 'Takibi Bırak'
-                                                    : 'Takip Et',
+                                                      ? 'Ayarlar'
+                                                      : isFollowing
+                                                        ? 'Takibi Bırak'
+                                                        : 'Takip Et',
                                                 style: const TextStyle(fontSize: 12),
                                               ),
                                             ),
