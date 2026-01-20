@@ -18,6 +18,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import 'package:chaput/core/router/routes.dart';
 
+final privateAccountSwitchProvider = StateProvider.autoDispose<bool>((ref) => false);
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -47,7 +48,9 @@ class SettingsScreen extends ConsumerWidget {
                 
                     final defaultAvatar = user?.defaultAvatar;
                     final profilePhotoUrl = user?.profilePhotoUrl;
-                
+
+                    final isPrivateUi = ref.watch(privateAccountSwitchProvider);
+
                     return _SettingsShell(
                       child: _SettingsContent(
                         title: formatFullName(fullName),
@@ -101,6 +104,15 @@ class SettingsScreen extends ConsumerWidget {
                             await storage.clear();
                             if (context.mounted) context.go(Routes.onboarding);
                           }
+                        },
+
+                        privateAccountValue: isPrivateUi,
+                        onPrivateAccountChanged: (v) {
+                          ref.read(privateAccountSwitchProvider.notifier).state = v;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Private account: $v (UI only)')),
+                          );
                         },
 
                       ),
@@ -183,6 +195,9 @@ class _SettingsContent extends StatelessWidget {
   final VoidCallback onCloseAccount;
   final VoidCallback onLogout;
 
+  final bool privateAccountValue;
+  final ValueChanged<bool> onPrivateAccountChanged;
+
   const _SettingsContent({
     required this.title,
     required this.subtitle,
@@ -196,6 +211,8 @@ class _SettingsContent extends StatelessWidget {
     required this.onPauseAccount,
     required this.onCloseAccount,
     required this.onLogout,
+    required this.privateAccountValue,
+    required this.onPrivateAccountChanged,
   });
 
   @override
@@ -262,7 +279,6 @@ class _SettingsContent extends StatelessWidget {
 
                           const SizedBox(height: 8),
 
-                          // 👇 description (WRAPS, NEVER OVERLAPS AVATAR)
                           Text(
                             'Manage your account settings here. You can update your profile, privacy preferences, and archived items anytime.',
                             style: TextStyle(
@@ -347,6 +363,13 @@ class _SettingsContent extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
+
+                _PrivateAccountRow(
+                  value: privateAccountValue,          // şimdilik hep kapalı
+                  enabled: true,        // şimdilik disabled (kontroller sonra)
+                  onChanged: onPrivateAccountChanged
+                ),
+                const SizedBox(height: 12),
 
                 RichText(
                   text: TextSpan(
@@ -612,6 +635,83 @@ class _ErrorCard extends StatelessWidget {
       child: Text(
         'Could not load settings',
         style: TextStyle(color: Colors.black.withOpacity(0.65), fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+class _PrivateAccountRow extends StatelessWidget {
+  const _PrivateAccountRow({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final opacity = enabled ? 1.0 : 0.55;
+
+    return Opacity(
+      opacity: opacity,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.black.withOpacity(0.06)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.lock_outline,
+                  size: 18,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Private account',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Only approved followers can see your content',
+                      style: TextStyle(
+                        color: Colors.black.withOpacity(0.55),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Switch
+              Switch.adaptive(
+                value: value,
+                onChanged: enabled ? onChanged : null,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
