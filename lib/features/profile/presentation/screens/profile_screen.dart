@@ -10,8 +10,11 @@ import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
 import '../../../../core/router/routes.dart';
+import '../../../social/application/follow_state.dart';
 import '../../../user/application/profile_controller.dart';
 import '../../domain/tree_catalog.dart';
+
+import '../../../social/application/follow_controller.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -795,6 +798,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final isMe = st.profileJson?['viewer_state']['is_me'] == true;
     final isBlocked = st.profileJson?['viewer_state']['is_blocked'] == true;
 
+    final followState = ref.watch(
+      followControllerProvider(username),
+    );
+
+    bool effectiveIsFollowing = isFollowing;
+
+    if (followState is FollowIdle && followState.isFollowing != null) {
+      effectiveIsFollowing = followState.isFollowing!;
+    }
+
+    final followLoading = followState is FollowLoading;
+
+
     final double topInset = MediaQuery.of(context).padding.top;
     const double topBarHeight = 72;
 
@@ -1024,18 +1040,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                             ),
 
                                             TextButton(
-                                              onPressed: () {
+                                              onPressed: followLoading
+                                                  ? null
+                                                  : () async {
                                                 if (isMe) {
                                                   context.push(Routes.settings);
                                                   return;
                                                 }
-
                                                 if (isBlocked) return;
 
-                                                if (isFollowing) {
-                                                  // unfollow
+                                                final ctrl = ref.read(
+                                                  followControllerProvider(username).notifier,
+                                                );
+
+                                                if (effectiveIsFollowing) {
+                                                  await ctrl.unfollow();
                                                 } else {
-                                                  // follow
+                                                  await ctrl.follow();
                                                 }
                                               },
                                               style: TextButton.styleFrom(
