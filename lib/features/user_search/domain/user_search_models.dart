@@ -4,6 +4,7 @@ class UserSearchItem {
   final String? username;
   final String defaultAvatar;
   final String? profilePhotoKey;
+  final String? profilePhotoUrl;
   final bool isPublic;
 
   UserSearchItem({
@@ -12,6 +13,7 @@ class UserSearchItem {
     required this.username,
     required this.defaultAvatar,
     required this.profilePhotoKey,
+    this.profilePhotoUrl,
     required this.isPublic,
   });
 
@@ -22,6 +24,7 @@ class UserSearchItem {
       username: json['username'] as String?,
       defaultAvatar: (json['default_avatar'] ?? '') as String,
       profilePhotoKey: json['profile_photo_key'] as String?,
+      profilePhotoUrl: json['profile_photo_url'] as String?,
       isPublic: (json['is_public'] ?? false) as bool,
     );
   }

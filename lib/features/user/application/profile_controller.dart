@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
 import '../data/profile_api.dart';
-import '../../../../core/network/dio_provider.dart'; // ✅ kendi dio provider dosyan
+import '../../../../core/network/dio_provider.dart';
 
 class ProfileState {
   const ProfileState({
@@ -34,30 +34,32 @@ class ProfileState {
   static const empty = ProfileState(isLoading: false);
 }
 
+/// ✅ API'yi provider üzerinden ver (late final patlamasın)
+final profileApiProvider = Provider<ProfileApi>((ref) {
+  final Dio dio = ref.read(dioProvider);
+  return ProfileApi(dio);
+});
+
 final profileControllerProvider =
 AutoDisposeNotifierProviderFamily<ProfileController, ProfileState, String>(
   ProfileController.new,
 );
 
 class ProfileController extends AutoDisposeFamilyNotifier<ProfileState, String> {
-  late final ProfileApi _api;
+  ProfileApi get _api => ref.read(profileApiProvider);
 
   @override
   ProfileState build(String userId) {
-    final Dio dio = ref.read(dioProvider); // kendi dio provider’ın
-    _api = ProfileApi(dio);
-
     // ✅ önce state'i initialize et
     final initial = ProfileState.empty.copyWith(isLoading: true);
 
-    // ✅ sonra fetch'i bir sonraki tick'te başlat (state artık hazır olacak)
+    // ✅ sonra fetch'i bir sonraki tick'te başlat
     Future.microtask(() => _fetch(userId));
 
     return initial;
   }
 
   Future<void> _fetch(String userId) async {
-    // burada artık state initialized
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -69,8 +71,12 @@ class ProfileController extends AutoDisposeFamilyNotifier<ProfileState, String> 
       final profile = results[0] as Map<String, dynamic>;
       final tree = results[1] as Map<String, dynamic>;
 
-      if (profile['ok'] != true) throw Exception(profile['error'] ?? 'profile_error');
-      if (tree['ok'] != true) throw Exception(tree['error'] ?? 'tree_error');
+      if (profile['ok'] != true) {
+        throw Exception(profile['error'] ?? 'profile_error');
+      }
+      if (tree['ok'] != true) {
+        throw Exception(tree['error'] ?? 'tree_error');
+      }
 
       state = state.copyWith(
         isLoading: false,
