@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/ui/backgrounds/animated_mesh_background.dart';
 
+import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../user_search/presentation/search_overlay.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
@@ -445,30 +446,4 @@ class _SearchOverlayRoute extends PageRouteBuilder<void> {
       );
     },
   );
-}
-
-String formatFullName(String fullName) {
-  final parts = fullName
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((e) => e.isNotEmpty)
-      .toList();
-
-  if (parts.isEmpty) return '';
-
-  if (parts.length == 1) {
-    return parts.first.toUpperCase();
-  }
-
-  return parts.asMap().entries.map((entry) {
-    final index = entry.key;
-    final word = entry.value;
-
-    if (index == parts.length - 1) {
-      return word.toUpperCase();
-    }
-
-    final lower = word.toLowerCase();
-    return lower[0].toUpperCase() + lower.substring(1);
-  }).join(' ');
 }

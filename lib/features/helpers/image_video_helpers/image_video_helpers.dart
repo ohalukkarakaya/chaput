@@ -6,14 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
-import '../../core/config/env.dart';
-
+import '../../../core/config/env.dart';
 
 
 class ImageVideoHelpers {
 
   static String mediaServerBaseUrlHelper(){
-    return Env.apiBaseUrl + '/media/';
+    return Env.apiBaseUrl;
   }
 
   static bool isImage(String url) {
@@ -27,7 +26,7 @@ class ImageVideoHelpers {
   static Widget getThumbnail(String url) {
     if (isImage(url)) {
       return Image.network(
-        '${ImageVideoHelpers.mediaServerBaseUrlHelper()}getAsset?assetPath=$url',
+        '${ImageVideoHelpers.mediaServerBaseUrlHelper()}$url',
         fit: BoxFit.cover,
       );
     } else if (isVideo(url)) {
@@ -46,7 +45,7 @@ class ImageVideoHelpers {
   }
 
   static getFullUrl(String url) {
-    return '${ImageVideoHelpers.mediaServerBaseUrlHelper()}getAsset?assetPath=$url';
+    return '${ImageVideoHelpers.mediaServerBaseUrlHelper()}$url';
   }
 
   static getVideo(String url) async {

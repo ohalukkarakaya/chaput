@@ -7,8 +7,10 @@ import '../../features/onboarding/presentation/screens/boot_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
-
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
+
+
 import '../network/dio_provider.dart';
 import 'routes.dart';
 
@@ -57,6 +59,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadePage(
           state: state,
           child: const RegisterScreen(),
+        ),
+      ),
+      GoRoute(
+        path: Routes.settings,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const SettingsScreen(),
         ),
       ),
     ],
