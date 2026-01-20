@@ -38,6 +38,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _pendingTreeModeShift = false;
   bool _treeModeShiftDoneThisGesture = false;
 
+  bool? _uiIsFollowing;
+  int _uiFollowerDelta = 0;
+  bool _uiFollowLoading = false;
+
 
   // ================= FOCUS / ANCHOR =================
   three.Vector3? _focusAnchor; // leaf üstündeki world-space nokta
@@ -794,15 +798,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final profilePhotoUrl = user?['profile_photo_url'] as String?;
     final bio = user?['bio']?.toString() ?? '';
 
+
     final isFollowing = st.profileJson?['viewer_state']['is_following'] == true;
     final isMe = st.profileJson?['viewer_state']['is_me'] == true;
     final isBlocked = st.profileJson?['viewer_state']['is_blocked'] == true;
 
+    final int effectiveFollowerCount =
+    (followerCount + _uiFollowerDelta).clamp(0, 1 << 30);
+
+    bool effectiveIsFollowing = _uiIsFollowing ?? isFollowing;
+
+
     final followState = ref.watch(
       followControllerProvider(username),
     );
-
-    bool effectiveIsFollowing = isFollowing;
 
     if (followState is FollowIdle && followState.isFollowing != null) {
       effectiveIsFollowing = followState.isFollowing!;
@@ -1031,7 +1040,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                     spacing: 8,
                                                     runSpacing: 6,
                                                     children: [
-                                                      _StatChip(value: followerCount, label: 'Takipçi', onTap: () {}),
+                                                      _StatChip(value: effectiveFollowerCount, label: 'Takipçi', onTap: () {}),
                                                       _StatChip(value: followingCount, label: 'Takip', onTap: () {}),
                                                     ],
                                                   ),
@@ -1040,7 +1049,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                             ),
 
                                             TextButton(
-                                              onPressed: followLoading
+                                              onPressed: _uiFollowLoading
                                                   ? null
                                                   : () async {
                                                 if (isMe) {
@@ -1048,35 +1057,70 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                   return;
                                                 }
                                                 if (isBlocked) return;
+                                                if (username.isEmpty) return;
 
-                                                final ctrl = ref.read(
-                                                  followControllerProvider(username).notifier,
-                                                );
+                                                // ---------- OPTIMISTIC UI ----------
+                                                setState(() {
+                                                  _uiFollowLoading = true;
 
-                                                if (effectiveIsFollowing) {
-                                                  await ctrl.unfollow();
-                                                } else {
-                                                  await ctrl.follow();
+                                                  if (effectiveIsFollowing) {
+                                                    _uiIsFollowing = false;
+                                                    _uiFollowerDelta -= 1;
+                                                  } else {
+                                                    _uiIsFollowing = true;
+                                                    _uiFollowerDelta += 1;
+                                                  }
+                                                });
+
+                                                try {
+                                                  final ctrl = ref.read(
+                                                    followControllerProvider(username).notifier,
+                                                  );
+
+                                                  if (effectiveIsFollowing) {
+                                                    await ctrl.unfollow();
+                                                  } else {
+                                                    await ctrl.follow();
+                                                  }
+                                                } catch (_) {
+                                                  // ---------- ROLLBACK ----------
+                                                  setState(() {
+                                                    _uiIsFollowing = null;
+                                                    _uiFollowerDelta = 0;
+                                                  });
+                                                } finally {
+                                                  setState(() {
+                                                    _uiFollowLoading = false;
+                                                  });
                                                 }
                                               },
                                               style: TextButton.styleFrom(
                                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                                 backgroundColor: isBlocked
                                                     ? Colors.red.shade200
-                                                    : isFollowing
+                                                    : effectiveIsFollowing
                                                     ? Colors.grey.shade300
                                                     : Colors.black,
-                                                foregroundColor: isFollowing ? Colors.black : Colors.white,
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                foregroundColor:
+                                                effectiveIsFollowing ? Colors.black : Colors.white,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
                                               ),
-                                              child: Text(
+                                              child: _uiFollowLoading
+                                                  ? const SizedBox(
+                                                width: 14,
+                                                height: 14,
+                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                              )
+                                                  : Text(
                                                 isBlocked
                                                     ? 'Engellenmiş'
                                                     : isMe
-                                                      ? 'Ayarlar'
-                                                      : isFollowing
-                                                        ? 'Takibi Bırak'
-                                                        : 'Takip Et',
+                                                    ? 'Ayarlar'
+                                                    : effectiveIsFollowing
+                                                    ? 'Takibi Bırak'
+                                                    : 'Takip Et',
                                                 style: const TextStyle(fontSize: 12),
                                               ),
                                             ),
