@@ -1048,83 +1048,98 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                               ),
                                             ),
 
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                // FOLLOW / UNFOLLOW
-                                                TextButton(
-                                                  onPressed: _uiFollowLoading
-                                                      ? null
-                                                      : () async {
-                                                    if (isBlocked) return;
-
-                                                    setState(() {
-                                                      _uiFollowLoading = true;
-                                                      if (effectiveIsFollowing) {
-                                                        _uiIsFollowing = false;
-                                                        _uiFollowerDelta -= 1;
-                                                      } else {
-                                                        _uiIsFollowing = true;
-                                                        _uiFollowerDelta += 1;
-                                                      }
-                                                    });
-
-                                                    try {
-                                                      final ctrl = ref.read(
-                                                        followControllerProvider(username).notifier,
-                                                      );
-                                                      if (effectiveIsFollowing) {
-                                                        await ctrl.unfollow();
-                                                      } else {
-                                                        await ctrl.follow();
-                                                      }
-                                                    } catch (_) {
-                                                      setState(() {
-                                                        _uiIsFollowing = null;
-                                                        _uiFollowerDelta = 0;
-                                                      });
-                                                    } finally {
-                                                      setState(() {
-                                                        _uiFollowLoading = false;
-                                                      });
-                                                    }
-                                                  },
-                                                  style: TextButton.styleFrom(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                    backgroundColor: isBlocked
-                                                        ? Colors.red.shade200
-                                                        : effectiveIsFollowing
-                                                        ? Colors.grey.shade300
-                                                        : Colors.black,
-                                                    foregroundColor:
-                                                    effectiveIsFollowing ? Colors.black : Colors.white,
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(12),
-                                                    ),
-                                                  ),
-                                                  child: _uiFollowLoading
-                                                      ? const SizedBox(
-                                                    width: 14,
-                                                    height: 14,
-                                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                                  )
-                                                      : Text(
-                                                    isBlocked
-                                                        ? 'Engellenmiş'
-                                                        : effectiveIsFollowing
-                                                        ? 'Takibi Bırak'
-                                                        : 'Takip Et',
-                                                    style: const TextStyle(fontSize: 12),
+                                            // ================= ACTION BUTTON =================
+                                            if (isMe)
+                                              TextButton(
+                                                onPressed: () {
+                                                  context.push(Routes.settings);
+                                                },
+                                                style: TextButton.styleFrom(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                  backgroundColor: Colors.black,
+                                                  foregroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(12),
                                                   ),
                                                 ),
+                                                child: const Text(
+                                                  'Ayarlar',
+                                                  style: TextStyle(fontSize: 12),
+                                                ),
+                                              )
+                                            else
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  // FOLLOW / UNFOLLOW
+                                                  TextButton(
+                                                    onPressed: _uiFollowLoading
+                                                        ? null
+                                                        : () async {
+                                                      if (isBlocked) return;
 
-                                                // --- THREE DOT MENU ---
-                                                if (!isMe) ...[
+                                                      setState(() {
+                                                        _uiFollowLoading = true;
+                                                        if (effectiveIsFollowing) {
+                                                          _uiIsFollowing = false;
+                                                          _uiFollowerDelta -= 1;
+                                                        } else {
+                                                          _uiIsFollowing = true;
+                                                          _uiFollowerDelta += 1;
+                                                        }
+                                                      });
+
+                                                      try {
+                                                        final ctrl = ref.read(
+                                                          followControllerProvider(username).notifier,
+                                                        );
+                                                        if (effectiveIsFollowing) {
+                                                          await ctrl.unfollow();
+                                                        } else {
+                                                          await ctrl.follow();
+                                                        }
+                                                      } catch (_) {
+                                                        setState(() {
+                                                          _uiIsFollowing = null;
+                                                          _uiFollowerDelta = 0;
+                                                        });
+                                                      } finally {
+                                                        setState(() {
+                                                          _uiFollowLoading = false;
+                                                        });
+                                                      }
+                                                    },
+                                                    style: TextButton.styleFrom(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                      backgroundColor: isBlocked
+                                                          ? Colors.red.shade200
+                                                          : effectiveIsFollowing
+                                                          ? Colors.grey.shade300
+                                                          : Colors.black,
+                                                      foregroundColor:
+                                                      effectiveIsFollowing ? Colors.black : Colors.white,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                    ),
+                                                    child: _uiFollowLoading
+                                                        ? const SizedBox(
+                                                      width: 14,
+                                                      height: 14,
+                                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                                    )
+                                                        : Text(
+                                                      effectiveIsFollowing ? 'Takibi Bırak' : 'Takip Et',
+                                                      style: const TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+
                                                   const SizedBox(width: 6),
+
+                                                  // THREE DOT MENU
                                                   _MoreActionsButton(username: username),
                                                 ],
-                                              ],
-                                            )
+                                              ),
 
                                           ],
                                         ),
