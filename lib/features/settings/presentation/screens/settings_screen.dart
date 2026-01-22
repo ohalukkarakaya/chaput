@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:async';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/features/settings/presentation/screens/photo_settings_screen.dart';
@@ -10,6 +11,7 @@ import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
+import '../../application/privacy_controller.dart';
 import 'archive_chaputs_screen.dart';
 import 'blocked_restricted_screen.dart';
 import 'email_change_screen.dart';
@@ -18,7 +20,6 @@ import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import 'package:chaput/core/router/routes.dart';
 
-final privateAccountSwitchProvider = StateProvider.autoDispose<bool>((ref) => false);
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -49,7 +50,16 @@ class SettingsScreen extends ConsumerWidget {
                     final defaultAvatar = user?.defaultAvatar;
                     final profilePhotoUrl = user?.profilePhotoUrl;
 
-                    final isPrivateUi = ref.watch(privateAccountSwitchProvider);
+                    final privacySt = ref.watch(privacyControllerProvider);
+
+                    // backend: isPublic? -> private = !isPublic
+                    final bool privateAccountValue = (privacySt.isPublic == null)
+                        ? false // yüklenene kadar kapalı göster (istersen skeleton da yaparız)
+                        : !(privacySt.isPublic!);
+
+                    // switch disabled: yüklenmemişken veya request sırasında istersen disable edebilirsin
+                    final bool privateSwitchEnabled = privacySt.isPublic != null && !privacySt.isLoading;
+
 
                     return _SettingsShell(
                       child: _SettingsContent(
@@ -106,15 +116,22 @@ class SettingsScreen extends ConsumerWidget {
                           }
                         },
 
-                        privateAccountValue: isPrivateUi,
-                        onPrivateAccountChanged: (v) {
-                          ref.read(privateAccountSwitchProvider.notifier).state = v;
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Private account: $v (UI only)')),
+                        privateAccountValue: privateAccountValue,
+                        privateSwitchEnabled: privateSwitchEnabled,
+                        onPrivateAccountChanged: privateSwitchEnabled
+                            ? (v) {
+                          unawaited(
+                            ref.read(privacyControllerProvider.notifier).setPrivate(v)
+                                .catchError((_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Privacy update failed')),
+                                );
+                              }
+                            }),
                           );
-                        },
-
+                        }
+                            : null,
                       ),
                     );
                   },
@@ -196,7 +213,8 @@ class _SettingsContent extends StatelessWidget {
   final VoidCallback onLogout;
 
   final bool privateAccountValue;
-  final ValueChanged<bool> onPrivateAccountChanged;
+  final ValueChanged<bool>? onPrivateAccountChanged;
+  final bool privateSwitchEnabled;
 
   const _SettingsContent({
     required this.title,
@@ -213,6 +231,7 @@ class _SettingsContent extends StatelessWidget {
     required this.onLogout,
     required this.privateAccountValue,
     required this.onPrivateAccountChanged,
+    required this.privateSwitchEnabled,
   });
 
   @override
@@ -365,9 +384,9 @@ class _SettingsContent extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 _PrivateAccountRow(
-                  value: privateAccountValue,          // şimdilik hep kapalı
-                  enabled: true,        // şimdilik disabled (kontroller sonra)
-                  onChanged: onPrivateAccountChanged
+                  value: privateAccountValue,
+                  enabled: privateSwitchEnabled,
+                  onChanged: onPrivateAccountChanged,
                 ),
                 const SizedBox(height: 12),
 
