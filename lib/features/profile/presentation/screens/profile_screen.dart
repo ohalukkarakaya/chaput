@@ -45,7 +45,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool? _uiIsFollowing;
   int _uiFollowerDelta = 0;
   bool _uiFollowLoading = false;
-
+  bool? _uiRequestedFollow;
 
   // ================= FOCUS / ANCHOR =================
   three.Vector3? _focusAnchor; // leaf üstündeki world-space nokta
@@ -803,13 +803,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final profilePhotoUrl = user?['profile_photo_url'] as String?;
     final bio = user?['bio']?.toString() ?? '';
 
+    bool _asBool(dynamic v) => v == true || v == 1 || v == '1';
 
-    final isFollowing = st.profileJson?['viewer_state']['is_following'] == true;
-    final isMe = st.profileJson?['viewer_state']['is_me'] == true;
-    final isBlocked = st.profileJson?['viewer_state']['is_blocked'] == true;
+    final isPublic = _asBool(user?['is_public']);
+    final isPrivateTarget = !isPublic;
+
     final viewerState = (st.profileJson?['viewer_state'] is Map)
         ? (st.profileJson!['viewer_state'] as Map)
         : null;
+
+    final isFollowing = viewerState?['is_following'] == true;
+    final isMe = viewerState?['is_me'] == true;
+    final isBlocked = viewerState?['is_blocked'] == true;
+    final iRequestedFollow = viewerState?['i_requested_follow'] == true;
+
 
     final iRestrictedHim = viewerState?['i_restricted_him'] == true;
     final heRestrictedMe = viewerState?['he_restricted_me'] == true;
@@ -819,10 +826,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
 
 
-    final int effectiveFollowerCount =
-    (followerCount + _uiFollowerDelta).clamp(0, 1 << 30);
-
+    final int effectiveFollowerCount =  (followerCount + _uiFollowerDelta).clamp(0, 1 << 30);
     bool effectiveIsFollowing = _uiIsFollowing ?? isFollowing;
+    final effectiveRequestedFollow = _uiRequestedFollow ?? iRequestedFollow;
+
 
 
     final followState = ref.watch(
@@ -838,6 +845,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final double topInset = MediaQuery.of(context).padding.top;
     const double topBarHeight = 72;
+
+    final bool showRequestMode = !isMe && isPrivateTarget && !effectiveIsFollowing;
+
+    final bool requestAlreadySent = showRequestMode && effectiveRequestedFollow;
+
+    final bool followButtonDisabled = _uiFollowLoading || isBlocked || requestAlreadySent;
+
 
     return Scaffold(
       backgroundColor: bg,
@@ -1089,13 +1103,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                 children: [
                                                   // FOLLOW / UNFOLLOW
                                                   TextButton(
-                                                    onPressed: _uiFollowLoading
+                                                    onPressed: followButtonDisabled
                                                         ? null
                                                         : () async {
                                                       if (isBlocked) return;
 
+                                                      setState(() => _uiFollowLoading = true);
+
+                                                      // PRIVATE + not following: follow -> request gönderme modu
+                                                      if (showRequestMode) {
+                                                        // optimistic: anında "İstek Gönderildi"
+                                                        setState(() => _uiRequestedFollow = true);
+
+                                                        try {
+                                                          final ctrl = ref.read(
+                                                            followControllerProvider(username).notifier,
+                                                          );
+
+                                                          // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
+                                                          await ctrl.follow();
+
+                                                        } catch (_) {
+                                                          // rollback
+                                                          setState(() => _uiRequestedFollow = null);
+                                                        } finally {
+                                                          setState(() => _uiFollowLoading = false);
+                                                        }
+                                                        return;
+                                                      }
+
+                                                      // PUBLIC veya zaten following/unfollow normal akış
                                                       setState(() {
-                                                        _uiFollowLoading = true;
                                                         if (effectiveIsFollowing) {
                                                           _uiIsFollowing = false;
                                                           _uiFollowerDelta -= 1;
@@ -1120,20 +1158,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                           _uiFollowerDelta = 0;
                                                         });
                                                       } finally {
-                                                        setState(() {
-                                                          _uiFollowLoading = false;
-                                                        });
+                                                        setState(() => _uiFollowLoading = false);
                                                       }
                                                     },
+
                                                     style: TextButton.styleFrom(
                                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                                       backgroundColor: isBlocked
                                                           ? Colors.red.shade200
+                                                          : requestAlreadySent
+                                                          ? Colors.blue
                                                           : effectiveIsFollowing
                                                           ? Colors.grey.shade300
                                                           : Colors.black,
-                                                      foregroundColor:
-                                                      effectiveIsFollowing ? Colors.black : Colors.white,
+                                                      foregroundColor: requestAlreadySent
+                                                          ? Colors.white
+                                                          : (effectiveIsFollowing ? Colors.black : Colors.white),
+
+                                                      // disabled iken de beyaz kalsın
+                                                      disabledForegroundColor: requestAlreadySent ? Colors.white : Colors.white70,
+
+                                                      // disabled iken arka plan da mavi kalsın
+                                                      disabledBackgroundColor: requestAlreadySent ? Colors.blue : Colors.grey.shade300,
+
                                                       shape: RoundedRectangleBorder(
                                                         borderRadius: BorderRadius.circular(12),
                                                       ),
@@ -1145,7 +1192,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                       child: CircularProgressIndicator(strokeWidth: 2),
                                                     )
                                                         : Text(
-                                                      effectiveIsFollowing ? 'Takibi Bırak' : 'Takip Et',
+                                                      requestAlreadySent
+                                                          ? 'İstek Gönderildi'
+                                                          : (effectiveIsFollowing ? 'Takibi Bırak' : 'Takip Et'),
                                                       style: const TextStyle(fontSize: 12),
                                                     ),
                                                   ),
