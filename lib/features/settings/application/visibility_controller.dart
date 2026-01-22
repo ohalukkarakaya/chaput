@@ -217,4 +217,54 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
+
+  Future<void> removeVisibility({
+    required String userId, // hex
+    required VisibilityKind kind,
+    required String? username, // blocked için gerekli
+  }) async {
+
+    final prev = state;
+
+    // optimistic: listeden çıkar
+    final newItems = state.items
+        .where((it) => !(it.userId == userId && it.kind == kind))
+        .toList(growable: false);
+
+    final stillExists = newItems.any((it) => it.userId == userId);
+    final newUsersById = stillExists
+        ? state.usersById
+        : (Map<String, LiteUser>.from(state.usersById)..remove(userId));
+
+    state = state.copyWith(
+      error: null,
+      items: newItems,
+      usersById: newUsersById,
+    );
+
+    try {
+      if (kind == VisibilityKind.blocked) {
+        final u = username;
+        if (u == null || u.isEmpty) {
+          throw Exception('missing_username_for_unblock');
+        }
+        await _blocks.unblockByUsername(u);
+        return;
+      }
+
+      // restricted -> toggle ile kaldır
+      final restrictedNow = await _restrictions.toggle(userHex: userId);
+      if (restrictedNow == true) {
+        // hala restricted döndüyse kaldırma başarısız
+        throw Exception('restriction_toggle_failed');
+      }
+    } catch (e, st) {
+      log('visibility remove failed: $e', stackTrace: st);
+
+      // rollback
+      state = prev.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
+
 }

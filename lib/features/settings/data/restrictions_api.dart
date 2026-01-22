@@ -28,6 +28,12 @@ class RestrictionsApi {
     final nextCursor = data['next_cursor']?.toString();
     return (items: items, nextCursor: (nextCursor == 'null') ? null : nextCursor);
   }
+
+  Future<bool> toggle({required String userHex}) async {
+    final res = await _dio.post('/me/restrictions/$userHex');
+    final data = (res.data as Map).cast<String, dynamic>();
+    return data['restricted'] == true;
+  }
 }
 
 final restrictionsApiProvider = Provider<RestrictionsApi>((ref) {
