@@ -34,7 +34,7 @@ class ProfileState {
   static const empty = ProfileState(isLoading: false);
 }
 
-/// ✅ API'yi provider üzerinden ver (late final patlamasın)
+/// API'yi provider üzerinden ver (late final patlamasın)
 final profileApiProvider = Provider<ProfileApi>((ref) {
   final Dio dio = ref.read(dioProvider);
   return ProfileApi(dio);
@@ -50,10 +50,10 @@ class ProfileController extends AutoDisposeFamilyNotifier<ProfileState, String> 
 
   @override
   ProfileState build(String userId) {
-    // ✅ önce state'i initialize et
+    // önce state'i initialize et
     final initial = ProfileState.empty.copyWith(isLoading: true);
 
-    // ✅ sonra fetch'i bir sonraki tick'te başlat
+    // sonra fetch'i bir sonraki tick'te başlat
     Future.microtask(() => _fetch(userId));
 
     return initial;

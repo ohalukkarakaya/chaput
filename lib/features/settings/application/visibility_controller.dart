@@ -93,7 +93,8 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
         )),
         ...restrRes.items.map((e) => VisibilityItem(
           userId: e['user_id']?.toString() ?? '',
-          createdAt: (e['created_at'] as num?)?.toInt() ?? 0,
+          createdAt: DateTime.tryParse(e['created_at'] ?? '')
+              ?.millisecondsSinceEpoch ?? 0,
           kind: VisibilityKind.restricted,
         )),
       ].where((e) => e.userId.isNotEmpty).toList(growable: false);

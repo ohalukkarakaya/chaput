@@ -14,6 +14,7 @@ import '../../../recommended_users/application/recommended_user_controller.dart'
 import '../../../social/application/block_controller.dart';
 import '../../../social/application/follow_state.dart';
 import '../../../social/application/restrictions_controller.dart';
+import '../../../social/application/ui_restriction_override_provider.dart';
 import '../../../user/application/profile_controller.dart';
 import '../../domain/tree_catalog.dart';
 
@@ -806,6 +807,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final isFollowing = st.profileJson?['viewer_state']['is_following'] == true;
     final isMe = st.profileJson?['viewer_state']['is_me'] == true;
     final isBlocked = st.profileJson?['viewer_state']['is_blocked'] == true;
+    final viewerState = (st.profileJson?['viewer_state'] is Map)
+        ? (st.profileJson!['viewer_state'] as Map)
+        : null;
+
+    final iRestrictedHim = viewerState?['i_restricted_him'] == true;
+    final heRestrictedMe = viewerState?['he_restricted_me'] == true;
+
+    final uiRestrictedOverride = ref.watch(uiRestrictedOverrideProvider(widget.userId));
+    final effectiveIRestrictedHim = uiRestrictedOverride ?? iRestrictedHim;
+
+
 
     final int effectiveFollowerCount =
     (followerCount + _uiFollowerDelta).clamp(0, 1 << 30);
@@ -1141,7 +1153,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                   const SizedBox(width: 6),
 
                                                   // THREE DOT MENU
-                                                  _MoreActionsButton(username: username, userId: userId),
+                                                  _MoreActionsButton(
+                                                      username: username,
+                                                      userId: userId,
+                                                      iRestrictedHim: effectiveIRestrictedHim,
+                                                  ),
                                                 ],
                                               ),
 
@@ -1397,10 +1413,12 @@ class _MoreActionsButton extends StatelessWidget {
   const _MoreActionsButton({
     required this.username,
     required this.userId,
+    required this.iRestrictedHim,
   });
 
   final String username;
   final String userId;
+  final bool iRestrictedHim;
 
   @override
   Widget build(BuildContext context) {
@@ -1410,7 +1428,11 @@ class _MoreActionsButton extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           backgroundColor: Colors.transparent,
-          builder: (_) => _ProfileActionsSheet(username: username, userId: userId),
+          builder: (_) => _ProfileActionsSheet(
+            username: username,
+            userId: userId,
+            iRestrictedHim: iRestrictedHim,
+          ),
         );
       },
       child: Container(
@@ -1434,10 +1456,12 @@ class _ProfileActionsSheet extends ConsumerWidget {
   const _ProfileActionsSheet({
     required this.username,
     required this.userId,
+    required this.iRestrictedHim,
   });
 
   final String username;
   final String userId;
+  final bool iRestrictedHim;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1447,6 +1471,7 @@ class _ProfileActionsSheet extends ConsumerWidget {
     final restrictSt = ref.watch(restrictionsControllerProvider);
 
     final busy = blockSt is BlockActionLoading || restrictSt is RestrictLoading;
+    final bool restrictDisabled = busy || iRestrictedHim;
 
     return Container(
       padding: EdgeInsets.only(
@@ -1464,32 +1489,28 @@ class _ProfileActionsSheet extends ConsumerWidget {
 
           _ActionTile(
             icon: Icons.remove_circle_outline,
-            title: 'Kısıtla',
-            subtitle: 'Bu kullanıcının etkileşimleri sınırlandırılır',
-            onTap: busy
-                ? () {}
-                : () async {
+            title: iRestrictedHim ? 'Zaten kısıtlı' : 'Kısıtla',
+            subtitle: iRestrictedHim
+                ? 'Bu kullanıcıyı zaten kısıtladın'
+                : 'Bu kullanıcının etkileşimleri sınırlandırılır',
+            enabled: !restrictDisabled, // ✅ disabled = gri + pasif
+            onTap: () async {
+              ref.read(uiRestrictedOverrideProvider(userId).notifier).state = true;
               Navigator.pop(context);
-
               try {
-                // (Opsiyonel) Sen blockta istediğin gibi burada da önce refresh atmak istersen:
-                // await ref.read(recommendedUserControllerProvider.notifier).refresh();
-
-                final restricted = await ref
+                final restrictedNow = await ref
                     .read(restrictionsControllerProvider.notifier)
                     .toggle(userId);
-
-                // İstersen burada snack:
-                // if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                //   SnackBar(content: Text(restricted ? 'Kısıtlandı' : 'Kısıt kaldırıldı')),
-                // );
-
-                // Restrict’te sayfadan çıkmak istiyor musun?
-                // İstemiyorsan pop yapma. İstersen:
-                // if (context.mounted) Navigator.of(context).pop();
-              } catch (_) {}
+                if (restrictedNow != true) {
+                  ref.read(uiRestrictedOverrideProvider(userId).notifier).state = null;
+                }
+              } catch (_) {
+                ref.read(uiRestrictedOverrideProvider(userId).notifier).state = null;
+              }
             },
           ),
+
+
 
           _ActionTile(
             icon: Icons.block,
@@ -1544,6 +1565,7 @@ class _ActionTile extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.destructive = false,
+    this.enabled = true,
   });
 
   final IconData icon;
@@ -1551,12 +1573,16 @@ class _ActionTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final bool destructive;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive ? Colors.red : Colors.black;
+    final color = !enabled
+        ? Colors.grey
+        : (destructive ? Colors.red : Colors.black);
 
     return ListTile(
+      enabled: enabled,
       leading: Icon(icon, color: color),
       title: Text(
         title,
@@ -1569,10 +1595,10 @@ class _ActionTile extends StatelessWidget {
         subtitle,
         style: TextStyle(
           fontSize: 12,
-          color: Colors.black.withOpacity(0.6),
+          color: enabled ? Colors.black.withOpacity(0.6) : Colors.grey,
         ),
       ),
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
     );
   }
 }
