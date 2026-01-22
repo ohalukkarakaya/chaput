@@ -1,3 +1,4 @@
+import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,8 +39,7 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  _WhiteCard(
-                    child: Padding(
+                  Padding(
                       padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
                       child: Row(
                         children: [
@@ -58,12 +58,10 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                  ),
                   const SizedBox(height: 12),
 
                   Expanded(
-                    child: _WhiteCard(
-                      child: st.error != null
+                    child: st.error != null
                           ? Padding(
                         padding: const EdgeInsets.all(18),
                         child: Column(
@@ -106,11 +104,12 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                               isDefaultAvatar: (u?.profilePhotoKey == null || u?.profilePhotoKey == ''),
                               createdAt: it.createdAt,
                               kind: it.kind,
+                              userId: it.userId,
+                              username: username,
                             );
                           },
                         ),
                       ),
-                    ),
                   ),
                 ],
               ),
@@ -122,13 +121,15 @@ class BlockedRestrictedScreen extends ConsumerWidget {
   }
 }
 
-class _UserRow extends StatelessWidget {
+class _UserRow extends ConsumerWidget {
   final String title;
   final String subtitle;
   final String avatarUrl;
   final bool isDefaultAvatar;
   final int createdAt;
   final VisibilityKind kind;
+  final String userId;
+  final String? username;
 
   const _UserRow({
     required this.title,
@@ -137,10 +138,12 @@ class _UserRow extends StatelessWidget {
     required this.isDefaultAvatar,
     required this.createdAt,
     required this.kind,
+    required this.userId,
+    required this.username,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final chipText = (kind == VisibilityKind.blocked) ? 'Blocked' : 'Restricted';
     final chipBg = (kind == VisibilityKind.blocked)
         ? Colors.red.withOpacity(0.10)
@@ -157,20 +160,9 @@ class _UserRow extends StatelessWidget {
       child: Row(
         children: [
           // Avatar (şimdilik basit circle, sen projede ChaputCircleAvatar ile değiştirirsin)
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: Colors.black,
-            child: ClipOval(
-              child: avatarUrl.isEmpty
-                  ? const SizedBox(width: 44, height: 44)
-                  : Image.network(
-                avatarUrl,
-                width: 44,
-                height: 44,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox(width: 44, height: 44),
-              ),
-            ),
+          ChaputCircleAvatar(
+            isDefaultAvatar: isDefaultAvatar,
+            imageUrl: avatarUrl,
           ),
           const SizedBox(width: 12),
 
@@ -191,7 +183,7 @@ class _UserRow extends StatelessWidget {
 
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(999)),
+            decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(7)),
             child: Text(chipText, style: TextStyle(color: chipFg, fontWeight: FontWeight.w900, fontSize: 12)),
           ),
 
@@ -199,7 +191,20 @@ class _UserRow extends StatelessWidget {
 
           // “Remove” (sonra eklenecekmiş gibi tasarla)
           TextButton(
-            onPressed: null, // disabled for now
+            onPressed: () async {
+              try {
+                await ref.read(visibilityControllerProvider.notifier).removeVisibility(
+                  userId: userId,
+                  kind: kind,
+                  username: username,
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Remove failed: $e')),
+                );
+              }
+            },
             child: const Text('Remove'),
           ),
         ],

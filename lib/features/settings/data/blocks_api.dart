@@ -28,6 +28,14 @@ class BlocksApi {
     final nextAfter = (data['next_after'] as num?)?.toInt() ?? 0;
     return (items: items, nextAfter: nextAfter);
   }
+
+  Future<void> blockByUsername(String username) async {
+    await _dio.post('/users/$username/block');
+  }
+
+  Future<void> unblockByUsername(String username) async {
+    await _dio.delete('/users/$username/block');
+  }
 }
 
 final blocksApiProvider = Provider<BlocksApi>((ref) {

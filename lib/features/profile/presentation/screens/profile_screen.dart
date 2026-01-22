@@ -10,7 +10,10 @@ import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
 import '../../../../core/router/routes.dart';
+import '../../../recommended_users/application/recommended_user_controller.dart';
+import '../../../social/application/block_controller.dart';
 import '../../../social/application/follow_state.dart';
+import '../../../social/application/restrictions_controller.dart';
 import '../../../user/application/profile_controller.dart';
 import '../../domain/tree_catalog.dart';
 
@@ -789,6 +792,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final user = (st.profileJson?['user'] is Map) ? (st.profileJson!['user'] as Map) : null;
 
+    final userId = user?['id']?.toString() ?? '';
     final fullName = user?['full_name']?.toString() ?? '';
     final username = user?['username']?.toString() ?? '';
     final followerCount = st.profileJson?['follower_count'] ?? 0;
@@ -1137,7 +1141,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                   const SizedBox(width: 6),
 
                                                   // THREE DOT MENU
-                                                  _MoreActionsButton(username: username),
+                                                  _MoreActionsButton(username: username, userId: userId),
                                                 ],
                                               ),
 
@@ -1392,9 +1396,11 @@ class _StatChip extends StatelessWidget {
 class _MoreActionsButton extends StatelessWidget {
   const _MoreActionsButton({
     required this.username,
+    required this.userId,
   });
 
   final String username;
+  final String userId;
 
   @override
   Widget build(BuildContext context) {
@@ -1404,7 +1410,7 @@ class _MoreActionsButton extends StatelessWidget {
         showModalBottomSheet(
           context: context,
           backgroundColor: Colors.transparent,
-          builder: (_) => _ProfileActionsSheet(username: username),
+          builder: (_) => _ProfileActionsSheet(username: username, userId: userId),
         );
       },
       child: Container(
@@ -1424,16 +1430,23 @@ class _MoreActionsButton extends StatelessWidget {
   }
 }
 
-class _ProfileActionsSheet extends StatelessWidget {
+class _ProfileActionsSheet extends ConsumerWidget {
   const _ProfileActionsSheet({
     required this.username,
+    required this.userId,
   });
 
   final String username;
+  final String userId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    final blockSt = ref.watch(blockControllerProvider);
+    final restrictSt = ref.watch(restrictionsControllerProvider);
+
+    final busy = blockSt is BlockActionLoading || restrictSt is RestrictLoading;
 
     return Container(
       padding: EdgeInsets.only(
@@ -1442,9 +1455,7 @@ class _ProfileActionsSheet extends StatelessWidget {
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1455,9 +1466,28 @@ class _ProfileActionsSheet extends StatelessWidget {
             icon: Icons.remove_circle_outline,
             title: 'Kısıtla',
             subtitle: 'Bu kullanıcının etkileşimleri sınırlandırılır',
-            onTap: () {
+            onTap: busy
+                ? () {}
+                : () async {
               Navigator.pop(context);
-              // TODO: restrict API
+
+              try {
+                // (Opsiyonel) Sen blockta istediğin gibi burada da önce refresh atmak istersen:
+                // await ref.read(recommendedUserControllerProvider.notifier).refresh();
+
+                final restricted = await ref
+                    .read(restrictionsControllerProvider.notifier)
+                    .toggle(userId);
+
+                // İstersen burada snack:
+                // if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                //   SnackBar(content: Text(restricted ? 'Kısıtlandı' : 'Kısıt kaldırıldı')),
+                // );
+
+                // Restrict’te sayfadan çıkmak istiyor musun?
+                // İstemiyorsan pop yapma. İstersen:
+                // if (context.mounted) Navigator.of(context).pop();
+              } catch (_) {}
             },
           ),
 
@@ -1466,11 +1496,24 @@ class _ProfileActionsSheet extends StatelessWidget {
             title: 'Engelle',
             subtitle: 'Bu kullanıcı seni göremez ve etkileşemez',
             destructive: true,
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: block API
+            onTap: busy
+                ? () {}
+                : () async {
+              final rootNav = Navigator.of(context, rootNavigator: true);
+
+              rootNav.pop();
+
+              try {
+                await ref.read(recommendedUserControllerProvider.notifier).refresh();
+
+                await ref.read(blockControllerProvider.notifier).blockUser(username);
+
+                // ✅ artık sheet context'i umrumuzda değil, rootNav ile profile pop
+                rootNav.pop(); // profile pop
+              } catch (_) {}
             },
           ),
+
         ],
       ),
     );

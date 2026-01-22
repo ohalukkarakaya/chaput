@@ -3,7 +3,7 @@ class LiteUser {
   final String? username;
   final String fullName;
   final String? bio;
-  final bool defaultAvatar;
+  final String defaultAvatar;
   final String? profilePhotoKey;
 
   const LiteUser({
@@ -21,7 +21,7 @@ class LiteUser {
       username: j['username'] as String?,
       fullName: (j['full_name'] ?? '') as String,
       bio: j['bio'] as String?,
-      defaultAvatar: (j['default_avatar'] ?? true) as bool,
+      defaultAvatar: (j['default_avatar'] ?? true) as String,
       profilePhotoKey: j['profile_photo_key'] as String?,
     );
   }
