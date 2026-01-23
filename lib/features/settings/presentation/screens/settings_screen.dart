@@ -11,6 +11,7 @@ import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
+import '../../application/account_controller.dart';
 import '../../application/privacy_controller.dart';
 import 'archive_chaputs_screen.dart';
 import 'blocked_restricted_screen.dart';
@@ -44,7 +45,8 @@ class SettingsScreen extends ConsumerWidget {
                   error: (_, __) => const _SettingsShell(child: _ErrorCard()),
                   data: (me) {
                     final user = me?.user;
-                    final username = user?.username ?? '—';
+                    final username = user?.username ?? '';
+                    final usernameLabel = username.isEmpty ? '—' : '@$username';
                     final fullName = user?.fullName ?? '—';
                 
                     final defaultAvatar = user?.defaultAvatar;
@@ -64,7 +66,7 @@ class SettingsScreen extends ConsumerWidget {
                     return _SettingsShell(
                       child: _SettingsContent(
                         title: formatFullName(fullName),
-                        subtitle: '@$username',
+                        subtitle: usernameLabel,
                         avatarUrl: (profilePhotoUrl != null && profilePhotoUrl.isNotEmpty)
                             ? profilePhotoUrl
                             : (defaultAvatar ?? ''),
@@ -90,8 +92,81 @@ class SettingsScreen extends ConsumerWidget {
                             MaterialPageRoute(builder: (_) => const ArchiveChaputsScreen()),
                           );
                         },
-                        onPauseAccount: () {},
-                        onCloseAccount: () {},
+                        onPauseAccount: () async {
+                          if (username.isEmpty) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Username not available')),
+                              );
+                            }
+                            return;
+                          }
+
+                          final ok = await _confirmUsernameDialog(
+                            context,
+                            expectedUsername: username,
+                            title: 'Pause account',
+                            description: 'To pause your account, type your username to confirm.',
+                            confirmLabel: 'Pause',
+                          );
+                          if (!ok) return;
+
+                          try {
+                            await ref.read(accountControllerProvider.notifier).freezeMe();
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Account paused')),
+                              );
+                            }
+
+                            await _logoutNow(context, ref);
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Pause failed')),
+                              );
+                            }
+                          }
+                        },
+
+                        onCloseAccount: () async {
+                          if (username.isEmpty) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Username not available')),
+                              );
+                            }
+                            return;
+                          }
+
+                          final ok = await _confirmUsernameDialog(
+                            context,
+                            expectedUsername: username,
+                            title: 'Close account',
+                            description: 'This will permanently delete your account. Type your username to confirm.',
+                            confirmLabel: 'Delete',
+                          );
+                          if (!ok) return;
+
+                          try {
+                            await ref.read(accountControllerProvider.notifier).deleteMeHard();
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Account deleted')),
+                              );
+                            }
+
+                            await _logoutNow(context, ref);
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Delete failed')),
+                              );
+                            }
+                          }
+                        },
                         onLogout: () async {
                           final storage = ref.read(tokenStorageProvider);
                           final refresh = await storage.readRefreshToken();
@@ -143,6 +218,46 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<bool> _confirmUsernameDialog(
+      BuildContext context, {
+        required String expectedUsername,
+        required String title,
+        required String description,
+        required String confirmLabel,
+      }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return _UsernameConfirmDialog(
+          expectedUsername: expectedUsername,
+          title: title,
+          description: description,
+          confirmLabel: confirmLabel,
+        );
+      },
+    );
+
+    return ok == true;
+  }
+
+  Future<void> _logoutNow(BuildContext context, WidgetRef ref) async {
+    final storage = ref.read(tokenStorageProvider);
+    final refresh = await storage.readRefreshToken();
+
+    try {
+      if (refresh != null && refresh.isNotEmpty) {
+        final api = ref.read(authApiProvider);
+        await api.logout(refreshToken: refresh);
+      }
+    } catch (_) {
+      // ignore
+    }
+
+    await storage.clear();
+    if (context.mounted) context.go(Routes.onboarding);
+  }
 }
 
 class _SettingsShell extends StatelessWidget {
@@ -174,6 +289,82 @@ class _SettingsShell extends StatelessWidget {
     );
   }
 }
+
+class _UsernameConfirmDialog extends StatefulWidget {
+  const _UsernameConfirmDialog({
+    required this.expectedUsername,
+    required this.title,
+    required this.description,
+    required this.confirmLabel,
+  });
+
+  final String expectedUsername;
+  final String title;
+  final String description;
+  final String confirmLabel;
+
+  @override
+  State<_UsernameConfirmDialog> createState() => _UsernameConfirmDialogState();
+}
+
+class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
+  late final TextEditingController c;
+  String? errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    c = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(widget.description),
+            const SizedBox(height: 12),
+            TextField(
+              controller: c,
+              decoration: InputDecoration(
+                labelText: 'Username',
+                hintText: 'Enter your username',
+                errorText: errorText,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final input = c.text.trim();
+            if (input != widget.expectedUsername) {
+              setState(() => errorText = 'Username does not match');
+              return;
+            }
+            Navigator.of(context).pop(true);
+          },
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
+  }
+}
+
 
 class _SoftBlob extends StatelessWidget {
   final double width;
@@ -390,42 +581,62 @@ class _SettingsContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
 
-                RichText(
-                  text: TextSpan(
-                    style: TextStyle(
-                      color: Colors.black.withOpacity(0.60),
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                      fontSize: 13,
+                Wrap(
+                  children: [
+                    Text(
+                      'You can pause your account if you need a break ',
+                      style: TextStyle(
+                        color: Colors.black.withOpacity(0.60),
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        fontSize: 13,
+                      ),
                     ),
-                    children: [
-                      const TextSpan(text: 'You can pause your account if you need a break '),
-
-                      TextSpan(
-                        text: 'from here',
-                        style: const TextStyle(
+                    InkWell(
+                      onTap: onPauseAccount,
+                      child: const Text(
+                        'from here',
+                        style: TextStyle(
                           decoration: TextDecoration.underline,
-                          color: Color(0xffF4B400), // sarı
+                          color: Color(0xffF4B400),
                           fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.25,
                         ),
-                        recognizer: TapGestureRecognizer()..onTap = onPauseAccount,
                       ),
-
-                      const TextSpan(text: ', or close it permanently '),
-
-                      TextSpan(
-                        text: 'from here',
-                        style: const TextStyle(
+                    ),
+                    Text(
+                      ', or close it permanently ',
+                      style: TextStyle(
+                        color: Colors.black.withOpacity(0.60),
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        fontSize: 13,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: onCloseAccount,
+                      child: const Text(
+                        'from here',
+                        style: TextStyle(
                           decoration: TextDecoration.underline,
-                          color: Color(0xffE53935), // kırmızı
+                          color: Color(0xffE53935),
                           fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.25,
                         ),
-                        recognizer: TapGestureRecognizer()..onTap = onCloseAccount,
                       ),
-
-                      const TextSpan(text: '.'),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      '.',
+                      style: TextStyle(
+                        color: Colors.black.withOpacity(0.60),
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 16),
