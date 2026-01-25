@@ -10,6 +10,7 @@ import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
 import '../../../../core/router/routes.dart';
+import '../../../me/application/me_controller.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
 import '../../../social/application/block_controller.dart';
 import '../../../social/application/follow_state.dart';
@@ -46,6 +47,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   int _uiFollowerDelta = 0;
   bool _uiFollowLoading = false;
   bool? _uiRequestedFollow;
+
+  // ===== COMPOSER (Chaput bağla) =====
+  final TextEditingController _msgCtrl = TextEditingController();
+  final FocusNode _msgFocus = FocusNode();
+
+  bool _composerOpen = false;                 // input bar açık mı?
+  three.Vector3? _draftAnchor;                // mesaj varken hatırlanan anchor
+  three.Vector3? _activeAnchor;               // şu an focus olunan anchor (genelde _focusAnchor)
+
+  bool get _composerHasKeyboard => MediaQuery.of(context).viewInsets.bottom > 0;
+  double _composerPitchBias = 0.0;
 
   // ================= FOCUS / ANCHOR =================
   three.Vector3? _focusAnchor; // leaf üstündeki world-space nokta
@@ -146,6 +158,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
+    _msgFocus.addListener(() {
+      if (!_msgFocus.hasFocus) {
+        _onComposerUnfocus();
+      } else {
+        _onComposerFocus();
+      }
+    });
   }
 
   @override
@@ -166,6 +185,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     three.loading.clear();
     _focusScreen.dispose();
     _profileCardCtrl.dispose();
+    _msgCtrl.dispose();
+    _msgFocus.dispose();
     super.dispose();
   }
 
@@ -380,12 +401,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _radius * 1.8,
       );
 
-      _updateCamera(threeJsRef);
+      _updateCamera(threeJsRef, 0.0);
 
       threeJsRef.addAnimationEvent((dt) {
         _tickCenterShift(dt);
         _tickSnap(dt);
-        _updateCamera(threeJsRef);
+        _updateCamera(threeJsRef, dt);
       });
     } catch (e, st) {
       log('ThreeJS setup error: $e', stackTrace: st);
@@ -432,6 +453,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return local;
   }
 
+  // ===== MARKER STABILIZER =====
+  Offset? _lastProjected;
+  double _stableFor = 0.0;
+
+  // Ne kadar süre stabil kalınca marker açılsın (arttır: 0.6, 0.8, 1.0)
+  static const double _needStableSeconds = 0.35;
+
+  // Piksel toleransı (azalt: daha hassas, arttır: daha toleranslı)
+  static const double _stablePxEps = 1.5;
+
+  void _resetMarkerStabilizer() {
+    _lastProjected = null;
+    _stableFor = 0.0;
+    _showFocusMarker = false;
+  }
+
+
   void _pickNewRandomAnchorAndSnap() {
     _centerShiftActive = false;
     _pendingTreeModeShift = false;
@@ -450,8 +488,80 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     _showFocusMarker = false; // snap bitince açılacak
 
+    _resetMarkerStabilizer();
+
     // ✅ mevcut durumdan -> yeni anchor'a smooth geç
     _startSnapToNewAnchor();
+  }
+
+  bool _isBlankDraft() {
+    // sadece whitespace ise boş kabul
+    return _msgCtrl.text.trim().isEmpty;
+  }
+
+  void _openComposer() {
+    if (_composerOpen) return;
+    setState(() => _composerOpen = true);
+
+    // klavyeyi aç
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FocusScope.of(context).requestFocus(_msgFocus);
+    });
+  }
+
+  void _closeComposer() {
+    if (!_composerOpen) return;
+    setState(() => _composerOpen = false);
+    FocusScope.of(context).unfocus();
+  }
+
+  void _onComposerFocus() {
+    // Eğer mesaj var ve daha önce anchor hatırlanmışsa, aynı anchor’a geri focus ol
+    if (_draftAnchor != null) {
+      _focusAnchor = _draftAnchor!.clone();
+      _showFocusMarker = false;
+      _resetMarkerStabilizer();
+      _snapViewToAnchor(); // geri focus
+    }
+  }
+
+  void _onComposerUnfocus() {
+    // composer açık değilse ignore
+    if (!_composerOpen) return;
+
+    final hasText = !_isBlankDraft();
+
+    if (!hasText) {
+      // 1) mesaj yoksa: temizle, kapat, anchor unut, model unfocus
+      _msgCtrl.clear();
+      _draftAnchor = null;
+
+      // focus tamamen kapansın
+      _focusAnchor = null;
+      _showFocusMarker = false;
+      _snapActive = false;
+
+      // orbit’i tree center’a geri al
+      _startCenterShift(toCenter: _treeCenter, toLookAt: _treeCenter);
+
+      setState(() => _composerOpen = false);
+      return;
+    }
+
+    // 2) mesaj varsa: anchor hatırla, ama model "sanki nokta yok" moduna çıksın
+    if (_focusAnchor != null) {
+      _draftAnchor = _focusAnchor!.clone();
+    }
+
+    // model focus modundan çıksın (marker yok)
+    _focusAnchor = null;
+    _showFocusMarker = false;
+    _snapActive = false;
+
+    _startCenterShift(toCenter: _treeCenter, toLookAt: _treeCenter);
+
+    // composer açık kalsın, sadece unfocus edildi (UI aynı kalsın)
   }
 
   void _startSnapToNewAnchor() {
@@ -558,18 +668,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
 
-  void _updateCamera(three.ThreeJS threeJsRef) {
+  void _updateCamera(three.ThreeJS js, double dt) {
     final minY = _groundY + _camGroundMargin;
 
+    // 1) ground constraint ile base pitch clamp
     final rhs = (minY - _orbitCenter.y) / (_radius == 0 ? 0.0001 : _radius);
-    final clampedRhs = rhs.clamp(-0.999, 0.999);
-    final dynamicMinPitch = math.asin(clampedRhs);
-
+    final dynamicMinPitch = math.asin(rhs.clamp(-0.999, 0.999));
     final minPitch = math.max(_minPitchHard, dynamicMinPitch);
+
     _pitch = _pitch.clamp(minPitch, _maxPitch);
 
-    final cp = math.cos(_pitch);
-    final sp = math.sin(_pitch);
+    // 2) composer bias sadece hesaplanır (pitch'i burada değiştirmez!)
+    _adjustCameraForComposer(js);
+
+    // 3) final pitch = base + bias (tek noktada)
+    final finalPitch = (_pitch + _composerPitchBias).clamp(minPitch, _maxPitch);
+
+    final cp = math.cos(finalPitch);
+    final sp = math.sin(finalPitch);
     final cy = math.cos(_yaw);
     final sy = math.sin(_yaw);
 
@@ -577,9 +693,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final y = _orbitCenter.y + _radius * sp;
     final z = _orbitCenter.z + _radius * cp * cy;
 
-    threeJsRef.camera.position.setValues(x, y, z);
-    threeJsRef.camera.lookAt(_lookAt);
-    _updateFocusScreenPosition(threeJsRef);
+    js.camera.position.setValues(x, y, z);
+    js.camera.lookAt(_lookAt);
+
+    // 4) marker HER ZAMAN final kamera ile hesaplanır
+    _updateFocusScreenPosition(js, dt);
   }
 
   void _applySilhouetteIfNeeded() {
@@ -613,26 +731,94 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
-  void _updateFocusScreenPosition(three.ThreeJS js) {
-    final markerAllowed = _showFocusMarker && !_isInteracting && !_snapActive;
-
-    if (!markerAllowed || _focusAnchor == null) {
+  void _updateFocusScreenPosition(three.ThreeJS js, double dt) {
+    // Marker gösterme koşulları
+    if (_focusAnchor == null || _isInteracting || _snapActive) {
       _focusScreen.value = null;
+      _resetMarkerStabilizer();
       return;
     }
 
-    final p = _focusAnchor!.clone();
-    p.project(js.camera);
+    // (İstersen composer açıkken de gizle)
+    // if (_composerOpen) { _focusScreen.value = null; _resetMarkerStabilizer(); return; }
 
+    final p = _focusAnchor!.clone()..project(js.camera);
+
+    // Kameranın arkasındaysa
     if (p.z > 1) {
       _focusScreen.value = null;
+      _resetMarkerStabilizer();
       return;
     }
 
     final sx = (p.x + 1) * 0.5 * js.width;
     final sy = (1 - (p.y + 1) * 0.5) * js.height;
 
-    _focusScreen.value = Offset(sx, sy);
+    final now = Offset(sx, sy);
+
+    // Stabilite ölçümü
+    if (_lastProjected != null) {
+      final dx = (now.dx - _lastProjected!.dx).abs();
+      final dy = (now.dy - _lastProjected!.dy).abs();
+      final stable = (dx <= _stablePxEps && dy <= _stablePxEps);
+
+      if (stable) {
+        _stableFor += dt;
+      } else {
+        _stableFor = 0.0;
+      }
+    }
+
+    _lastProjected = now;
+
+    // Yeterince stabil kalınca göster
+    if (_stableFor >= _needStableSeconds) {
+      _showFocusMarker = true;
+      _focusScreen.value = now;
+    } else {
+      _showFocusMarker = false;
+      _focusScreen.value = null;
+    }
+  }
+
+  void _adjustCameraForComposer(three.ThreeJS js) {
+    if (!_composerOpen) {
+      _composerPitchBias = 0.0;
+      return;
+    }
+    if (_focusAnchor == null) return;
+
+    final kb = MediaQuery.of(context).viewInsets.bottom;
+    if (kb <= 0) {
+      _composerPitchBias = 0.0;
+      return;
+    }
+
+    // 1) anchor'ın ekran Y'sini ölç
+    final p = _focusAnchor!.clone()..project(js.camera);
+    if (p.z > 1) return;
+
+    final sy = (1 - (p.y + 1) * 0.5) * js.height;
+
+    // 2) görünür alan
+    final visibleH = js.height - kb;
+    if (visibleH <= 0) return;
+
+    // 3) hedef Y (üst yarıda kalsın)
+    final targetY = visibleH * 0.42;
+
+    final diff = sy - targetY;
+
+    // deadzone
+    const dead = 8.0;
+    if (diff.abs() < dead) return;
+
+    // 4) diff -> hedef bias (küçük)
+    // çok agresif olmasın diye clamp
+    final desiredBias = (-diff * 0.0009).clamp(-0.22, 0.22);
+
+    // 5) bias'a smooth yaklaş (damping)
+    _composerPitchBias = _composerPitchBias + (desiredBias - _composerPitchBias) * 0.12;
   }
 
   double _lerpAngle(double a, double b, double t) {
@@ -728,8 +914,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (_snapT >= 1.0) {
       _snapT = 1.0;
       _snapActive = false;
-
-      _showFocusMarker = true;
     }
 
     final t = _snapT;
@@ -760,6 +944,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _isInteracting = true;
     _showFocusMarker = false;
     _snapActive = false;
+
+    _resetMarkerStabilizer();
 
     // Sadece "seçili nokta varsa" ve "gerçek drag başlarsa" yapacağız.
     _pendingTreeModeShift = (_focusAnchor != null);
@@ -811,12 +997,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _radius = (_startRadius / s).clamp(_minRadius, _maxRadius);
 
     final js = _threeJs;
-    if (js != null) _updateCamera(js);
+    if (js != null) _updateCamera(js, 1 / 60);
   }
 
   @override
   Widget build(BuildContext context) {
     final st = ref.watch(profileControllerProvider(widget.userId));
+    final meAsync = ref.watch(meControllerProvider);
 
     // treeId geldiyse: three init (1 kere) -> post frame
     final tid = st.treeId;
@@ -903,64 +1090,114 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final bool followButtonDisabled = _uiFollowLoading || isBlocked || requestAlreadySent;
 
+    final kb = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: bg,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // ThreeJS TAM EKRAN
-          Positioned.fill(
-            child: _threeJs == null
-                ? const SizedBox.shrink()
-                : SizedBox.expand(
-                  child: _threeJs!.build(),
-                ),
-          ),
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          FocusScope.of(context).unfocus();
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // ThreeJS TAM EKRAN
+            Positioned.fill(
+              child: _threeJs == null
+                  ? const SizedBox.shrink()
+                  : SizedBox.expand(
+                    child: _threeJs!.build(),
+                  ),
+            ),
 
-          // Gesture ALANI (top bar ALTINDAN başlar)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: topInset + topBarHeight,
-            bottom: 0,
-            child: IgnorePointer(
-              ignoring: !_threeReady,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: _onScaleStart,
-                onScaleUpdate: _onScaleUpdate,
-                onScaleEnd: _onScaleEnd,
-                child: const SizedBox.expand(),
+            // Gesture ALANI (top bar ALTINDAN başlar)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: topInset + topBarHeight,
+              bottom: 0,
+              child: IgnorePointer(
+                ignoring: !_threeReady,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onScaleStart: _onScaleStart,
+                  onScaleUpdate: _onScaleUpdate,
+                  onScaleEnd: _onScaleEnd,
+                  child: const SizedBox.expand(),
+                ),
               ),
             ),
-          ),
 
-          // TOP BAR (overlay – yer kaplamaz)
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(6, 10, 14, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Back button (aynı)
-                  IgnorePointer(
-                    ignoring: _profileCardOpen, // kart açıkken tıklanmasın
-                    child: ClipOval(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Material(
-                          color: Colors.white.withOpacity(0.35),
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            onTap: () => Navigator.of(context).pop(),
-                            customBorder: const CircleBorder(),
-                            child: const SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: Center(
-                                child: Icon(Icons.chevron_left, size: 30, color: Colors.black),
+            // TOP BAR (overlay – yer kaplamaz)
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 10, 14, 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Back button (aynı)
+                    IgnorePointer(
+                      ignoring: _profileCardOpen, // kart açıkken tıklanmasın
+                      child: ClipOval(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: Material(
+                            color: Colors.white.withOpacity(0.35),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              onTap: () => Navigator.of(context).pop(),
+                              customBorder: const CircleBorder(),
+                              child: const SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Center(
+                                  child: Icon(Icons.chevron_left, size: 30, color: Colors.black),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // SMALL AVATAR (sağ üst)
+            Positioned(
+              top: topInset + 10,
+              right: 14,
+              child: IgnorePointer(
+                ignoring: _profileCardOpen, // kart açıkken tıklanmasın
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 120),
+                  opacity: _profileCardOpen ? 0.0 : 1.0, // kart açılınca kaybol
+                  child: ClipOval(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Material(
+                        color: Colors.white.withOpacity(0.35),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          onTap: _toggleProfileCard,
+                          customBorder: const CircleBorder(),
+                          child: SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: ClipOval(
+                                child: (defaultAvatar != null)
+                                    ? ChaputCircleAvatar(
+                                        isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
+                                        imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
+                                            ? profilePhotoUrl
+                                            : defaultAvatar,
+                                      )
+                                    : const ColoredBox(color: Colors.transparent),
                               ),
                             ),
                           ),
@@ -968,399 +1205,418 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          // SMALL AVATAR (sağ üst)
-          Positioned(
-            top: topInset + 10,
-            right: 14,
-            child: IgnorePointer(
-              ignoring: _profileCardOpen, // kart açıkken tıklanmasın
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 120),
-                opacity: _profileCardOpen ? 0.0 : 1.0, // kart açılınca kaybol
-                child: ClipOval(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Material(
-                      color: Colors.white.withOpacity(0.35),
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        onTap: _toggleProfileCard,
-                        customBorder: const CircleBorder(),
-                        child: SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Center(
-                            child: ClipOval(
-                              child: (defaultAvatar != null)
-                                  ? ChaputCircleAvatar(
-                                      isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
-                                      imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
-                                          ? profilePhotoUrl
-                                          : defaultAvatar,
-                                    )
-                                  : const ColoredBox(color: Colors.transparent),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
               ),
             ),
-          ),
 
 
-          // Expanded profile card overlay
-          Positioned(
-            left: 0,
-            right: 0,
-            top: topInset + 10,
+            // Expanded profile card overlay
+            Positioned(
+              left: 0,
+              right: 0,
+              top: topInset + 10,
 
-            child: IgnorePointer(
-              ignoring: !_profileCardOpen,
-              child: AnimatedBuilder(
-                animation: _profileCardT,
-                builder: (_, __) {
-                  final t = _profileCardT.value;
+              child: IgnorePointer(
+                ignoring: !_profileCardOpen,
+                child: AnimatedBuilder(
+                  animation: _profileCardT,
+                  builder: (_, __) {
+                    final t = _profileCardT.value;
 
-                  // ufak slide + fade
-                  final dy = (1 - t) * -10; // yukarıdan gelsin
-                  return Opacity(
-                    opacity: t,
-                    child: Transform.translate(
-                      offset: Offset(0, dy),
-                      child: Transform.scale(
-                        scale: 0.98 + 0.02 * t,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Positioned(
-                              left: 0,
-                              right: 0,
+                    // ufak slide + fade
+                    final dy = (1 - t) * -10; // yukarıdan gelsin
+                    return Opacity(
+                      opacity: t,
+                      child: Transform.translate(
+                        offset: Offset(0, dy),
+                        child: Transform.scale(
+                          scale: 0.98 + 0.02 * t,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned(
+                                left: 0,
+                                right: 0,
 
-                              // Bu layer'ın üstü, bulunduğu Positioned'ın üstünden
-                              // topInset+10 yukarı çıkıp ekranın en üstüne oturur:
-                              top: -(topInset + 10),
+                                // Bu layer'ın üstü, bulunduğu Positioned'ın üstünden
+                                // topInset+10 yukarı çıkıp ekranın en üstüne oturur:
+                                top: -(topInset + 10),
 
-                              // Altı: içerik yüksekliği kadar kalsın diye 0
-                              bottom: 0,
+                                // Altı: içerik yüksekliği kadar kalsın diye 0
+                                bottom: 0,
 
-                              child: ClipRRect(
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.35),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.25),
-                                        width: 1,
+                                child: ClipRRect(
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.35),
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.25),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // ✅ İÇERİK: senin mevcut içerik aynen
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    InkWell(
+                                      onTap: _toggleProfileCard,
+                                      customBorder: const CircleBorder(),
+                                      child: SizedBox(
+                                        width: 44,
+                                        height: 44,
+                                        child: ClipOval(
+                                          child: (defaultAvatar != null)
+                                              ? ChaputCircleAvatar(
+                                            isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
+                                            imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
+                                                ? profilePhotoUrl
+                                                : defaultAvatar,
+                                          )
+                                              : const ColoredBox(color: Colors.transparent),
+                                        ),
+                                      ),
+                                    ),
+
+                                    const SizedBox(width: 10),
+
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      fullName,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                                    ),
+                                                    Text(
+                                                      '@$username',
+                                                      style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.65)),
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 6,
+                                                      children: [
+                                                        _StatChip(value: effectiveFollowerCount, label: 'Takipçi', onTap: () {}),
+                                                        _StatChip(value: followingCount, label: 'Takip', onTap: () {}),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+
+                                              // ================= ACTION BUTTON =================
+                                              if (isMe)
+                                                TextButton(
+                                                  onPressed: () {
+                                                    context.push(Routes.settings);
+                                                  },
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                    backgroundColor: Colors.black,
+                                                    foregroundColor: Colors.white,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                  ),
+                                                  child: const Text(
+                                                    'Ayarlar',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                )
+                                              else
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    // FOLLOW / UNFOLLOW
+                                                    TextButton(
+                                                      onPressed: followButtonDisabled
+                                                          ? null
+                                                          : () async {
+                                                        if (isBlocked) return;
+
+                                                        setState(() => _uiFollowLoading = true);
+
+                                                        // PRIVATE + not following: follow -> request gönderme modu
+                                                        if (showRequestMode) {
+                                                          // optimistic: anında "İstek Gönderildi"
+                                                          setState(() => _uiRequestedFollow = true);
+
+                                                          try {
+                                                            final ctrl = ref.read(
+                                                              followControllerProvider(username).notifier,
+                                                            );
+
+                                                            // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
+                                                            await ctrl.follow();
+
+                                                          } catch (_) {
+                                                            // rollback
+                                                            setState(() => _uiRequestedFollow = null);
+                                                          } finally {
+                                                            setState(() => _uiFollowLoading = false);
+                                                          }
+                                                          return;
+                                                        }
+
+                                                        // PUBLIC veya zaten following/unfollow normal akış
+                                                        setState(() {
+                                                          if (effectiveIsFollowing) {
+                                                            _uiIsFollowing = false;
+                                                            _uiFollowerDelta -= 1;
+                                                          } else {
+                                                            _uiIsFollowing = true;
+                                                            _uiFollowerDelta += 1;
+                                                          }
+                                                        });
+
+                                                        try {
+                                                          final ctrl = ref.read(
+                                                            followControllerProvider(username).notifier,
+                                                          );
+                                                          if (effectiveIsFollowing) {
+                                                            await ctrl.unfollow();
+                                                          } else {
+                                                            await ctrl.follow();
+                                                          }
+                                                        } catch (_) {
+                                                          setState(() {
+                                                            _uiIsFollowing = null;
+                                                            _uiFollowerDelta = 0;
+                                                          });
+                                                        } finally {
+                                                          setState(() => _uiFollowLoading = false);
+                                                        }
+                                                      },
+
+                                                      style: TextButton.styleFrom(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                        backgroundColor: isBlocked
+                                                            ? Colors.red.shade200
+                                                            : requestAlreadySent
+                                                            ? Colors.blue
+                                                            : effectiveIsFollowing
+                                                            ? Colors.grey.shade300
+                                                            : Colors.black,
+                                                        foregroundColor: requestAlreadySent
+                                                            ? Colors.white
+                                                            : (effectiveIsFollowing ? Colors.black : Colors.white),
+
+                                                        // disabled iken de beyaz kalsın
+                                                        disabledForegroundColor: requestAlreadySent ? Colors.white : Colors.white70,
+
+                                                        // disabled iken arka plan da mavi kalsın
+                                                        disabledBackgroundColor: requestAlreadySent ? Colors.blue : Colors.grey.shade300,
+
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(12),
+                                                        ),
+                                                      ),
+                                                      child: _uiFollowLoading
+                                                          ? const SizedBox(
+                                                        width: 14,
+                                                        height: 14,
+                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                      )
+                                                          : Text(
+                                                        requestAlreadySent
+                                                            ? 'İstek Gönderildi'
+                                                            : (effectiveIsFollowing ? 'Takibi Bırak' : 'Takip Et'),
+                                                        style: const TextStyle(fontSize: 12),
+                                                      ),
+                                                    ),
+
+                                                    const SizedBox(width: 6),
+
+                                                    // THREE DOT MENU
+                                                    _MoreActionsButton(
+                                                        username: username,
+                                                        userId: userId,
+                                                        iRestrictedHim: effectiveIRestrictedHim,
+                                                    ),
+                                                  ],
+                                                ),
+
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+
+            // MARKER
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ValueListenableBuilder<Offset?>(
+                  valueListenable: _focusScreen,
+                  builder: (_, off, __) {
+                    if (off == null) return const SizedBox.shrink();
+
+                    return Stack(
+                      children: [
+                        Positioned(
+                          left: off.dx - 5,
+                          top: off.dy - 5,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                  color: Colors.white.withOpacity(0.6),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+
+          // BUTON
+              Positioned(
+                  right: 14,
+                  bottom: 14,
+                  child: SafeArea(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: (_composerOpen || _silhouetteMode)
+                          ? const SizedBox.shrink()
+                          : IgnorePointer(
+                            ignoring: !_threeReady,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                child: Material(
+                                  color: Colors.white.withOpacity(0.35),
+                                  child: InkWell(
+                                    onTap: (_silhouetteMode || _composerOpen) ? null : () {
+                                      _pickNewRandomAnchorAndSnap(); // random anchor + snap
+                                      _openComposer();               // chat bar aç
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.draw, size: 18, color: Colors.black),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            "Bir Chaput Bağla",
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-
-                            // ✅ İÇERİK: senin mevcut içerik aynen
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  InkWell(
-                                    onTap: _toggleProfileCard,
-                                    customBorder: const CircleBorder(),
-                                    child: SizedBox(
-                                      width: 44,
-                                      height: 44,
-                                      child: ClipOval(
-                                        child: (defaultAvatar != null)
-                                            ? ChaputCircleAvatar(
-                                          isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
-                                          imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
-                                              ? profilePhotoUrl
-                                              : defaultAvatar,
-                                        )
-                                            : const ColoredBox(color: Colors.transparent),
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 10),
-
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    fullName,
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                                                  ),
-                                                  Text(
-                                                    '@$username',
-                                                    style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.65)),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Wrap(
-                                                    spacing: 8,
-                                                    runSpacing: 6,
-                                                    children: [
-                                                      _StatChip(value: effectiveFollowerCount, label: 'Takipçi', onTap: () {}),
-                                                      _StatChip(value: followingCount, label: 'Takip', onTap: () {}),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-
-                                            // ================= ACTION BUTTON =================
-                                            if (isMe)
-                                              TextButton(
-                                                onPressed: () {
-                                                  context.push(Routes.settings);
-                                                },
-                                                style: TextButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                  backgroundColor: Colors.black,
-                                                  foregroundColor: Colors.white,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                ),
-                                                child: const Text(
-                                                  'Ayarlar',
-                                                  style: TextStyle(fontSize: 12),
-                                                ),
-                                              )
-                                            else
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  // FOLLOW / UNFOLLOW
-                                                  TextButton(
-                                                    onPressed: followButtonDisabled
-                                                        ? null
-                                                        : () async {
-                                                      if (isBlocked) return;
-
-                                                      setState(() => _uiFollowLoading = true);
-
-                                                      // PRIVATE + not following: follow -> request gönderme modu
-                                                      if (showRequestMode) {
-                                                        // optimistic: anında "İstek Gönderildi"
-                                                        setState(() => _uiRequestedFollow = true);
-
-                                                        try {
-                                                          final ctrl = ref.read(
-                                                            followControllerProvider(username).notifier,
-                                                          );
-
-                                                          // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
-                                                          await ctrl.follow();
-
-                                                        } catch (_) {
-                                                          // rollback
-                                                          setState(() => _uiRequestedFollow = null);
-                                                        } finally {
-                                                          setState(() => _uiFollowLoading = false);
-                                                        }
-                                                        return;
-                                                      }
-
-                                                      // PUBLIC veya zaten following/unfollow normal akış
-                                                      setState(() {
-                                                        if (effectiveIsFollowing) {
-                                                          _uiIsFollowing = false;
-                                                          _uiFollowerDelta -= 1;
-                                                        } else {
-                                                          _uiIsFollowing = true;
-                                                          _uiFollowerDelta += 1;
-                                                        }
-                                                      });
-
-                                                      try {
-                                                        final ctrl = ref.read(
-                                                          followControllerProvider(username).notifier,
-                                                        );
-                                                        if (effectiveIsFollowing) {
-                                                          await ctrl.unfollow();
-                                                        } else {
-                                                          await ctrl.follow();
-                                                        }
-                                                      } catch (_) {
-                                                        setState(() {
-                                                          _uiIsFollowing = null;
-                                                          _uiFollowerDelta = 0;
-                                                        });
-                                                      } finally {
-                                                        setState(() => _uiFollowLoading = false);
-                                                      }
-                                                    },
-
-                                                    style: TextButton.styleFrom(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                      backgroundColor: isBlocked
-                                                          ? Colors.red.shade200
-                                                          : requestAlreadySent
-                                                          ? Colors.blue
-                                                          : effectiveIsFollowing
-                                                          ? Colors.grey.shade300
-                                                          : Colors.black,
-                                                      foregroundColor: requestAlreadySent
-                                                          ? Colors.white
-                                                          : (effectiveIsFollowing ? Colors.black : Colors.white),
-
-                                                      // disabled iken de beyaz kalsın
-                                                      disabledForegroundColor: requestAlreadySent ? Colors.white : Colors.white70,
-
-                                                      // disabled iken arka plan da mavi kalsın
-                                                      disabledBackgroundColor: requestAlreadySent ? Colors.blue : Colors.grey.shade300,
-
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(12),
-                                                      ),
-                                                    ),
-                                                    child: _uiFollowLoading
-                                                        ? const SizedBox(
-                                                      width: 14,
-                                                      height: 14,
-                                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                                    )
-                                                        : Text(
-                                                      requestAlreadySent
-                                                          ? 'İstek Gönderildi'
-                                                          : (effectiveIsFollowing ? 'Takibi Bırak' : 'Takip Et'),
-                                                      style: const TextStyle(fontSize: 12),
-                                                    ),
-                                                  ),
-
-                                                  const SizedBox(width: 6),
-
-                                                  // THREE DOT MENU
-                                                  _MoreActionsButton(
-                                                      username: username,
-                                                      userId: userId,
-                                                      iRestrictedHim: effectiveIRestrictedHim,
-                                                  ),
-                                                ],
-                                              ),
-
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-
-          // MARKER (sadece marker ignore pointer)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ValueListenableBuilder<Offset?>(
-                valueListenable: _focusScreen,
-                builder: (_, off, __) {
-                  if (off == null) return const SizedBox.shrink();
-
-                  return Stack(
-                    children: [
-                      Positioned(
-                        left: off.dx - 5,
-                        top: off.dy - 5,
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                                color: Colors.white.withOpacity(0.6),
-                              ),
-                            ],
                           ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-
-        // BUTON (marker'dan tamamen bağımsız)
-          _silhouetteMode
-            ? const SizedBox()
-            : Positioned(
-                right: 14,
-                bottom: 14,
-                child: SafeArea(
-                  child: IgnorePointer(
-                    ignoring: !_threeReady,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Material(
-                          color: Colors.white.withOpacity(0.35),
-                          child: InkWell(
-                            onTap: _silhouetteMode ? null : _pickNewRandomAnchorAndSnap,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.draw, size: 18, color: Colors.black),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    "Bir Chaput Bağla",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),
+
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 10 + kb,
+              child: SafeArea(
+                top: false,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  child: (!_composerOpen || _silhouetteMode)
+                      ? const SizedBox.shrink()
+                      : meAsync.when(
+                    loading: () => _ChatComposerBar(
+                      controller: _msgCtrl,
+                      focusNode: _msgFocus,
+                      avatarUrl: null,
+                      isDefaultAvatar: true,
+                      onAvatarTap: _toggleProfileCard,
+                      onSend: () {},
+                    ),
+                    error: (_, __) => _ChatComposerBar(
+                      controller: _msgCtrl,
+                      focusNode: _msgFocus,
+                      avatarUrl: null,
+                      isDefaultAvatar: true,
+                      onAvatarTap: _toggleProfileCard,
+                      onSend: () {},
+                    ),
+                    data: (me) {
+                      final meUser = me?.user;
+
+                      final meAvatarUrl = (meUser?.profilePhotoUrl != null &&
+                          meUser!.profilePhotoUrl!.isNotEmpty)
+                          ? meUser.profilePhotoUrl
+                          : meUser?.defaultAvatar;
+
+                      final meIsDefault = (meUser?.profilePhotoUrl == null ||
+                          (meUser!.profilePhotoUrl?.isEmpty ?? true));
+
+                      return _ChatComposerBar(
+                        controller: _msgCtrl,
+                        focusNode: _msgFocus,
+                        avatarUrl: meAvatarUrl,
+                        isDefaultAvatar: meIsDefault,
+                        onAvatarTap: _toggleProfileCard,
+                        onSend: () {
+                          // TODO send
+                        },
+                      );
+                    },
+                  ),
+                ),
               ),
+            ),
 
 
-        ],
+
+          ],
+        ),
       ),
     );
 
@@ -1704,3 +1960,135 @@ class _ActionTile extends StatelessWidget {
     );
   }
 }
+
+class _ChatComposerBar extends StatelessWidget {
+  const _ChatComposerBar({
+    required this.controller,
+    required this.focusNode,
+    required this.avatarUrl,
+    required this.isDefaultAvatar,
+    required this.onAvatarTap,
+    required this.onSend,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+
+  final String? avatarUrl;        // defaultAvatar veya profilePhotoUrl
+  final bool isDefaultAvatar;     // profilePhotoKey null/"" ise true gibi
+  final VoidCallback onAvatarTap; // istersen profile card aç, vs.
+
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.55),
+            border: Border.all(color: Colors.white.withOpacity(0.10)),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: Row(
+              children: [
+                _InkAvatarButton(
+                  avatarUrl: avatarUrl,
+                  isDefaultAvatar: isDefaultAvatar,
+                  onTap: onAvatarTap,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => onSend(),
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: 'Message',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _RoundIconButton(
+                  icon: Icons.mic,
+                  onTap: () {
+                    // TODO
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      radius: 22,
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.10),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 22),
+      ),
+    );
+  }
+}
+
+class _InkAvatarButton extends StatelessWidget {
+  const _InkAvatarButton({
+    required this.avatarUrl,
+    required this.isDefaultAvatar,
+    required this.onTap,
+  });
+
+  final String? avatarUrl;
+  final bool isDefaultAvatar;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      radius: 22,
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.10),
+          shape: BoxShape.circle,
+        ),
+        child: ClipOval(
+          child: (avatarUrl == null || avatarUrl!.isEmpty)
+              ? const ColoredBox(color: Colors.transparent)
+              : ChaputCircleAvatar(
+            isDefaultAvatar: isDefaultAvatar,
+            imageUrl: avatarUrl!,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
