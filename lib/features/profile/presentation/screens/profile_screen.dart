@@ -1316,37 +1316,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             ),
           ),
 
-// BUTON (marker'dan tamamen bağımsız)
-          Positioned(
-            right: 14,
-            bottom: 14,
-            child: SafeArea(
-              child: IgnorePointer(
-                ignoring: !_threeReady,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Material(
-                      color: Colors.white.withOpacity(0.35),
-                      child: InkWell(
-                        onTap: _silhouetteMode ? null : _pickNewRandomAnchorAndSnap,
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.auto_awesome, size: 18, color: Colors.black),
-                              SizedBox(width: 8),
-                              Text(
-                                "Yeni nokta",
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black,
-                                ),
+        // BUTON (marker'dan tamamen bağımsız)
+          _silhouetteMode
+            ? const SizedBox()
+            : Positioned(
+                right: 14,
+                bottom: 14,
+                child: SafeArea(
+                  child: IgnorePointer(
+                    ignoring: !_threeReady,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Material(
+                          color: Colors.white.withOpacity(0.35),
+                          child: InkWell(
+                            onTap: _silhouetteMode ? null : _pickNewRandomAnchorAndSnap,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.draw, size: 18, color: Colors.black),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    "Bir Chaput Bağla",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -1354,8 +1358,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
               ),
-            ),
-          ),
 
 
         ],
