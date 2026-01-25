@@ -126,6 +126,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   double _groundY = 0.0;
   static const double _camGroundMargin = 0.06;
 
+  // ===== SILHOUETTE MODE =====
+  bool _silhouetteMode = false;
+  bool _silhouetteApplied = false;
+
+  // orijinal material'ları saklamak için
+  final Map<three.Mesh, dynamic> _origMaterials = {};
+
   @override
   void initState() {
     super.initState();
@@ -177,6 +184,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _treeGroup = null;
     _ground = null;
     _threeReady = false;
+    _origMaterials.clear();
+    _silhouetteApplied = false;
   }
 
   void _createThreeIfNeeded(String treeId) {
@@ -322,6 +331,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       });
 
       threeJsRef.scene.add(_treeGroup!);
+      _applySilhouetteIfNeeded();
 
       // ====== Focus anchor ======
       _defaultRadius = _radius;
@@ -570,6 +580,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     threeJsRef.camera.position.setValues(x, y, z);
     threeJsRef.camera.lookAt(_lookAt);
     _updateFocusScreenPosition(threeJsRef);
+  }
+
+  void _applySilhouetteIfNeeded() {
+    final g = _treeGroup;
+    if (g == null) return;
+
+    if (_silhouetteMode) {
+      if (_silhouetteApplied) return;
+      _silhouetteApplied = true;
+
+      g.traverse((obj) {
+        if (obj is! three.Mesh) return;
+        if (obj == _ground) return; // ground'u elleme
+
+        // orijinali bir kere sakla
+        _origMaterials.putIfAbsent(obj, () => obj.material);
+
+        final black = three.MeshBasicMaterial();
+        black.color = three_math.Color.fromHex32(0xFF000000);
+
+        obj.material = black;
+      });
+    } else {
+      if (!_silhouetteApplied) return;
+      _silhouetteApplied = false;
+
+      // geri döndür
+      for (final e in _origMaterials.entries) {
+        e.key.material = e.value;
+      }
+    }
   }
 
   void _updateFocusScreenPosition(three.ThreeJS js) {
@@ -847,6 +888,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     const double topBarHeight = 72;
 
     final bool showRequestMode = !isMe && isPrivateTarget && !effectiveIsFollowing;
+
+    final bool silhouetteMode = !isMe && isPrivateTarget && !effectiveIsFollowing;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_silhouetteMode != silhouetteMode) {
+        _silhouetteMode = silhouetteMode;
+        _applySilhouetteIfNeeded();
+      }
+    });
 
     final bool requestAlreadySent = showRequestMode && effectiveRequestedFollow;
 
@@ -1279,7 +1330,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     child: Material(
                       color: Colors.white.withOpacity(0.35),
                       child: InkWell(
-                        onTap: _pickNewRandomAnchorAndSnap,
+                        onTap: _silhouetteMode ? null : _pickNewRandomAnchorAndSnap,
                         child: const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           child: Row(
