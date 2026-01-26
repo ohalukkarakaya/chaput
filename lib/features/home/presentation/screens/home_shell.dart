@@ -8,7 +8,6 @@ import '../../../../core/ui/backgrounds/animated_mesh_background.dart';
 
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
-import '../../../user/application/entitlements_controller.dart';
 import '../../../user_search/presentation/search_overlay.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
 import '../../../../core/ui/widgets/glow_shimmer_card.dart';
@@ -224,17 +223,12 @@ class HomeShell extends ConsumerWidget {
                         child: Consumer(
                           builder: (context, ref, _) {
                             final meAsync = ref.watch(meControllerProvider);
-                            final entAsync = ref.watch(chaputEntitlementsControllerProvider);
 
                             return meAsync.when(
                               loading: () => const SizedBox(),
                               error: (_, __) => const SizedBox(),
                               data: (me) {
                                 if (me == null) return const SizedBox();
-
-                                if (me != null && entAsync.value == null && !entAsync.isLoading) {
-                                  ref.read(chaputEntitlementsControllerProvider.notifier).refresh();
-                                }
 
                                 final username = me.user.username;
                                 if (username == null || username.isEmpty) {
