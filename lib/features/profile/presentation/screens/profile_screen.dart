@@ -175,7 +175,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _chaputSendLoading = false;
   final PageController _chaputPageCtrl = PageController();
   int _chaputActiveIndex = 0;
-  double _chaputSheetExtent = 0.33;
+  static const double _chaputSheetMin = 0.12;
+  static const double _chaputSheetMid = 0.33;
+  static const double _chaputSheetMax = 0.95;
+
+  double _chaputSheetExtent = _chaputSheetMin;
+  double _chaputSheetPrevExtent = _chaputSheetMin;
+  final DraggableScrollableController _chaputSheetCtrl = DraggableScrollableController();
   String? _chaputProfileId;
   String? _focusedThreadId;
   String? _decisionProfileId;
@@ -1520,6 +1526,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _startYaw = _yaw;
     _startPitch = _pitch;
     _startRadius = _radius;
+
+    if (_chaputSheetExtent > _chaputSheetMin + 0.01) {
+      _chaputSheetPrevExtent = _chaputSheetExtent;
+      _chaputSheetCtrl.animateTo(
+        _chaputSheetMin,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _onScaleEnd(ScaleEndDetails d) {
@@ -1534,6 +1549,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     _showFocusMarker = false;
     _snapViewToAnchor();
+
+    if (_chaputSheetPrevExtent > _chaputSheetMin + 0.01) {
+      _chaputSheetCtrl.animateTo(
+        _chaputSheetPrevExtent.clamp(_chaputSheetMin, _chaputSheetMax),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
 
@@ -1738,6 +1761,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _chaputProfileId = profileIdHex;
       _chaputActiveIndex = 0;
       _focusedThreadId = null;
+      _chaputSheetExtent = _chaputSheetMin;
+      _chaputSheetPrevExtent = _chaputSheetMin;
       if (_chaputPageCtrl.hasClients) {
         _chaputPageCtrl.jumpToPage(0);
       }
@@ -2136,6 +2161,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             ),
 
 
+            // MARKER (sheet'in arkasında kalmalı)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ValueListenableBuilder<Offset?>(
+                  valueListenable: _focusScreen,
+                  builder: (_, off, __) {
+                    if (off == null) return const SizedBox.shrink();
+
+                    return Stack(
+                      children: [
+                        Positioned(
+                          left: off.dx - 5,
+                          top: off.dy - 5,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                  color: Colors.white.withOpacity(0.6),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+
             if (chaputThreads.isNotEmpty && !_composerOpen && !_silhouetteMode)
               Positioned.fill(
                 child: Align(
@@ -2148,8 +2209,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     ownerId: userId,
                     profileId: profileIdHex,
                     pageController: _chaputPageCtrl,
+                    sheetController: _chaputSheetCtrl,
                     initialExtent: _chaputSheetExtent,
-                    onExtentChanged: (v) => setState(() => _chaputSheetExtent = v),
+                    onExtentChanged: (v) {
+                      _chaputSheetExtent = v;
+                      if (v > _chaputSheetMin + 0.01) {
+                        _chaputSheetPrevExtent = v;
+                      }
+                      setState(() {});
+                    },
                     onPageChanged: (index) async {
                       setState(() => _chaputActiveIndex = index);
                       if (index < chaputThreads.length) {
@@ -2197,42 +2265,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
               ),
-
-            // MARKER
-            Positioned.fill(
-              child: IgnorePointer(
-                child: ValueListenableBuilder<Offset?>(
-                  valueListenable: _focusScreen,
-                  builder: (_, off, __) {
-                    if (off == null) return const SizedBox.shrink();
-
-                    return Stack(
-                      children: [
-                        Positioned(
-                          left: off.dx - 5,
-                          top: off.dy - 5,
-                          child: Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                  color: Colors.white.withOpacity(0.6),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
 
           // BUTON
               Positioned(

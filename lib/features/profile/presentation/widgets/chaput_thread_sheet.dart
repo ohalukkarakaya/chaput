@@ -21,6 +21,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.ownerId,
     required this.profileId,
     required this.pageController,
+    required this.sheetController,
     required this.initialExtent,
     required this.onExtentChanged,
     required this.onPageChanged,
@@ -39,6 +40,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   final String ownerId;
   final String profileId;
   final PageController pageController;
+  final DraggableScrollableController sheetController;
   final double initialExtent;
   final ValueChanged<double> onExtentChanged;
   final ValueChanged<int> onPageChanged;
@@ -60,69 +62,51 @@ class ChaputThreadSheet extends ConsumerWidget {
       },
       child: DraggableScrollableSheet(
         initialChildSize: initialExtent,
-        minChildSize: 0.33,
+        minChildSize: 0.12,
         maxChildSize: 0.95,
+        snap: true,
+        snapSizes: const [0.12, 0.33, 0.95],
+        controller: sheetController,
         builder: (ctx, scrollCtrl) {
           return LayoutBuilder(
             builder: (ctx, constraints) {
-              return ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.80),
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                      border: Border.all(color: Colors.white.withOpacity(0.10)),
-                    ),
-                    child: SingleChildScrollView(
-                      controller: scrollCtrl,
-                      physics: const ClampingScrollPhysics(),
-                      child: SizedBox(
-                        height: constraints.maxHeight,
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 6),
-                            const SheetHandle(),
-                            Expanded(
-                              child: PageView.builder(
-                                controller: pageController,
-                                onPageChanged: onPageChanged,
-                                itemCount: threads.length,
-                                itemBuilder: (ctx, index) {
-                                  final thread = threads[index];
-                                  final isParticipant = thread.userAId == viewerId || thread.userBId == viewerId;
-                                  final otherId = thread.userAId == ownerId
-                                      ? thread.userBId
-                                      : thread.userBId == ownerId
-                                          ? thread.userAId
-                                          : (thread.userAId == viewerId ? thread.userBId : thread.userAId);
-                                  final ownerUser = usersById[ownerId];
-                                  final otherUser = usersById[otherId] ??
-                                      (viewerUser != null && otherId == viewerUser!.id ? viewerUser : null);
+              return SingleChildScrollView(
+                controller: scrollCtrl,
+                physics: const ClampingScrollPhysics(),
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  child: PageView.builder(
+                    controller: pageController,
+                    onPageChanged: onPageChanged,
+                    itemCount: threads.length,
+                    itemBuilder: (ctx, index) {
+                      final thread = threads[index];
+                      final isParticipant = thread.userAId == viewerId || thread.userBId == viewerId;
+                      final otherId = thread.userAId == ownerId
+                          ? thread.userBId
+                          : thread.userBId == ownerId
+                              ? thread.userAId
+                              : (thread.userAId == viewerId ? thread.userBId : thread.userAId);
+                      final ownerUser = usersById[ownerId];
+                      final otherUser =
+                          usersById[otherId] ?? (viewerUser != null && otherId == viewerUser!.id ? viewerUser : null);
 
-                                  return _ThreadPage(
-                                    thread: thread,
-                                    ownerUser: ownerUser,
-                                    otherUser: otherUser,
-                                    viewerUser: viewerUser,
-                                    viewerId: viewerId,
-                                    isParticipant: isParticipant,
-                                    profileId: profileId,
-                                    onOpenProfile: onOpenProfile,
-                                    onSendMessage: onSendMessage,
-                                    onMakeHidden: onMakeHidden,
-                                    canMakeHidden: canMakeHidden,
-                                    onOpenWhisperPaywall: onOpenWhisperPaywall,
-                                    whisperCredits: whisperCredits,
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                      return _SheetPage(
+                        thread: thread,
+                        ownerUser: ownerUser,
+                        otherUser: otherUser,
+                        viewerUser: viewerUser,
+                        viewerId: viewerId,
+                        isParticipant: isParticipant,
+                        profileId: profileId,
+                        onOpenProfile: onOpenProfile,
+                        onSendMessage: onSendMessage,
+                        onMakeHidden: onMakeHidden,
+                        canMakeHidden: canMakeHidden,
+                        onOpenWhisperPaywall: onOpenWhisperPaywall,
+                        whisperCredits: whisperCredits,
+                      );
+                    },
                   ),
                 ),
               );
@@ -130,6 +114,106 @@ class ChaputThreadSheet extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _SheetPage extends StatelessWidget {
+  const _SheetPage({
+    required this.thread,
+    required this.ownerUser,
+    required this.otherUser,
+    required this.viewerUser,
+    required this.viewerId,
+    required this.isParticipant,
+    required this.profileId,
+    required this.onOpenProfile,
+    required this.onSendMessage,
+    required this.onMakeHidden,
+    required this.canMakeHidden,
+    required this.onOpenWhisperPaywall,
+    required this.whisperCredits,
+  });
+
+  final ChaputThreadItem thread;
+  final LiteUser? ownerUser;
+  final LiteUser? otherUser;
+  final LiteUser? viewerUser;
+  final String viewerId;
+  final bool isParticipant;
+  final String profileId;
+  final ValueChanged<String> onOpenProfile;
+  final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
+  final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
+  final bool canMakeHidden;
+  final VoidCallback onOpenWhisperPaywall;
+  final int whisperCredits;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final compact = constraints.maxHeight < 130;
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.80),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                border: Border.all(color: Colors.white.withOpacity(0.10)),
+              ),
+              child: compact
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 6),
+                        const SheetHandle(),
+                        _ThreadHeader(
+                          ownerUser: ownerUser,
+                          otherUser: otherUser,
+                          isHidden: thread.kind == 'HIDDEN',
+                          isParticipant: isParticipant,
+                          otherName: (thread.kind == 'HIDDEN' && !isParticipant)
+                              ? 'Gizli Kullanıcı'
+                              : (otherUser?.fullName ?? ''),
+                          otherUsername: (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
+                          onOpenProfile: onOpenProfile,
+                          showHideAction: isParticipant && thread.kind == 'NORMAL',
+                          canMakeHidden: canMakeHidden,
+                          onMakeHidden: () => onMakeHidden(thread),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        const SizedBox(height: 6),
+                        const SheetHandle(),
+                        Expanded(
+                          child: _ThreadPage(
+                            thread: thread,
+                            ownerUser: ownerUser,
+                            otherUser: otherUser,
+                            viewerUser: viewerUser,
+                            viewerId: viewerId,
+                            isParticipant: isParticipant,
+                            profileId: profileId,
+                            onOpenProfile: onOpenProfile,
+                            onSendMessage: onSendMessage,
+                            onMakeHidden: onMakeHidden,
+                            canMakeHidden: canMakeHidden,
+                            onOpenWhisperPaywall: onOpenWhisperPaywall,
+                            whisperCredits: whisperCredits,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
