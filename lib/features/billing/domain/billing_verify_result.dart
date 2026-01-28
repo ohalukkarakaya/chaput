@@ -1,11 +1,13 @@
 class BillingVerifyResult {
   const BillingVerifyResult({
     required this.planType,
+    required this.planPeriod,
     required this.expiresAt,
     required this.credits,
   });
 
   final String planType;
+  final String? planPeriod;
   final String? expiresAt;
   final BillingCredits credits;
 
@@ -15,6 +17,7 @@ class BillingVerifyResult {
 
     return BillingVerifyResult(
       planType: plan?['type']?.toString() ?? 'FREE',
+      planPeriod: plan?['period']?.toString(),
       expiresAt: plan?['expires_at']?.toString(),
       credits: BillingCredits.fromJson(credits),
     );

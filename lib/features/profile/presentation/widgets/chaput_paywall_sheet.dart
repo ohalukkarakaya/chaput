@@ -17,9 +17,16 @@ class PaywallPurchase {
 }
 
 class FakePaywallSheet extends StatefulWidget {
-  const FakePaywallSheet({super.key, required this.feature});
+  const FakePaywallSheet({
+    super.key,
+    required this.feature,
+    this.planType = 'FREE',
+    this.planPeriod,
+  });
 
   final PaywallFeature feature;
+  final String planType;
+  final String? planPeriod;
 
   @override
   State<FakePaywallSheet> createState() => _FakePaywallSheetState();
@@ -32,6 +39,9 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final bottomInset = mq.padding.bottom;
+    final isPro = widget.planType == 'PRO';
+    final isProMonthly = isPro && widget.planPeriod == 'MONTH';
+    final isProYearly = isPro && widget.planPeriod == 'YEAR';
 
     final title = widget.feature == PaywallFeature.bind
         ? 'Chaput Bağlama Hakkı'
@@ -45,46 +55,53 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
             ? 'Kimliğini gizleyerek chaput bağla. Daha özgür, daha güvenli.'
             : 'Chaputunu daha görünür yap. Daha fazla kişi görsün.');
 
+    final proMonthly = PaywallPlan(
+      badge: 'AYLIK',
+      title: 'Pro',
+      price: '€9.99 / ay',
+      hint: 'Tüm haklar + bonus',
+      productId: 'chaput_pro_month',
+      bullets: const [
+        'Anonim chaput',
+        'Öne çıkarma',
+        'Daha fazla günlük boost',
+        'Özel rozet (fake)',
+      ],
+    );
+
+    final proYearly = PaywallPlan(
+      badge: 'YILLIK',
+      title: 'Pro Yıllık',
+      price: '€79.99 / yıl',
+      hint: '2 ay bedava (fake)',
+      productId: 'chaput_pro_year',
+      bullets: const [
+        'Tüm Pro ayrıcalıkları',
+        'Daha ucuz yıllık fiyat',
+        'Erken erişim (fake)',
+      ],
+    );
+
+    final plusMonthly = PaywallPlan(
+      badge: 'EN POPÜLER',
+      title: 'Plus',
+      price: '€4.99 / ay',
+      hint: 'Anonim + Öne çıkar',
+      productId: 'chaput_plus_month',
+      bullets: const [
+        'Anonim chaput',
+        'Öne çıkarma',
+        'Daha yüksek görünürlük',
+        'Öncelikli destek (fake)',
+      ],
+    );
+
     final plans = <PaywallPlan>[
-      PaywallPlan(
-        badge: 'EN POPÜLER',
-        title: 'Plus',
-        price: '€4.99 / ay',
-        hint: 'Anonim + Öne çıkar',
-        productId: 'chaput_plus_month',
-        bullets: const [
-          'Anonim chaput',
-          'Öne çıkarma',
-          'Daha yüksek görünürlük',
-          'Öncelikli destek (fake)',
-        ],
-      ),
-      PaywallPlan(
-        badge: 'EN İYİ DEĞER',
-        title: 'Pro',
-        price: '€9.99 / ay',
-        hint: 'Tüm haklar + bonus',
-        productId: 'chaput_pro_month',
-        bullets: const [
-          'Anonim chaput',
-          'Öne çıkarma',
-          'Daha fazla günlük boost',
-          'Özel rozet (fake)',
-        ],
-      ),
-      PaywallPlan(
-        badge: 'YILLIK',
-        title: 'Pro Yıllık',
-        price: '€79.99 / yıl',
-        hint: '2 ay bedava (fake)',
-        productId: 'chaput_pro_month',
-        bullets: const [
-          'Tüm Pro ayrıcalıkları',
-          'Daha ucuz yıllık fiyat',
-          'Erken erişim (fake)',
-        ],
-      ),
+      if (widget.planType == 'FREE') plusMonthly,
+      if (widget.planType == 'FREE' || widget.planType == 'PLUS') proMonthly,
+      if (widget.planType == 'FREE' || widget.planType == 'PLUS' || isProMonthly) proYearly,
     ];
+    final selectedIndex = plans.isEmpty ? 0 : _selectedIndex.clamp(0, plans.length - 1);
 
     final singles = widget.feature == PaywallFeature.bind
         ? <PaywallSingle>[
@@ -111,7 +128,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
 
     PaywallPurchase _planPurchase() {
       return PaywallPurchase(
-        productId: plans[_selectedIndex].productId,
+        productId: plans[selectedIndex].productId,
         provider: 'DEV',
         transactionId: _txId(),
       );
@@ -199,60 +216,62 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
 
                     const SizedBox(height: 14),
 
-                    SizedBox(
-                      height: 170,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemBuilder: (_, i) {
-                          final p = plans[i];
-                          final selected = i == _selectedIndex;
+                    if (plans.isNotEmpty) ...[
+                      SizedBox(
+                        height: 170,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemBuilder: (_, i) {
+                            final p = plans[i];
+                          final selected = i == selectedIndex;
 
-                          return PlanCard(
-                            plan: p,
-                            selected: selected,
+                            return PlanCard(
+                              plan: p,
+                              selected: selected,
                             onTap: () => setState(() => _selectedIndex = i),
                           );
                         },
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemCount: plans.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          itemCount: plans.length,
+                        ),
                       ),
-                    ),
 
-                    const SizedBox(height: 10),
+                      const SizedBox(height: 10),
 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: PlanBullets(plan: plans[_selectedIndex]),
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: PlanBullets(plan: plans[selectedIndex]),
+                      ),
 
-                    const SizedBox(height: 14),
+                      const SizedBox(height: 14),
 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context, _planPurchase());
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            '${plans[_selectedIndex].title} ile aç',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context, _planPurchase());
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              '${plans[selectedIndex].title} ile aç',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
-                    const SizedBox(height: 6),
+                      const SizedBox(height: 6),
+                    ],
 
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),

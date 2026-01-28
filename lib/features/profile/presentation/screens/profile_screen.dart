@@ -167,6 +167,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _decisionProfileId;
 
   String _planType = 'FREE';
+  String? _planPeriod;
   int _creditNormal = 0;
   int _creditHidden = 0;
   int _creditSpecial = 0;
@@ -681,6 +682,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       chaputDecisionControllerProvider(_decisionProfileId!).notifier,
     );
     decisionCtrl.applyPlanType(result.planType);
+    if (result.planPeriod != null && result.planPeriod!.isNotEmpty) {
+      decisionCtrl.applyPlanPeriod(result.planPeriod!);
+    }
     decisionCtrl.setCredits(
       normal: result.credits.normal,
       hidden: result.credits.hidden,
@@ -889,7 +893,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: false,
-      builder: (_) => FakePaywallSheet(feature: feature),
+      builder: (_) => FakePaywallSheet(
+        feature: feature,
+        planType: _planType,
+        planPeriod: _planPeriod,
+      ),
     );
   }
 
@@ -1475,6 +1483,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final decision = decisionState.decision;
     _planType = decision?.plan.type ?? 'FREE';
+    _planPeriod = decision?.plan.period;
     _creditNormal = decision?.credits.normal ?? 0;
     _creditHidden = decision?.credits.hidden ?? 0;
     _creditSpecial = decision?.credits.special ?? 0;
