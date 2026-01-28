@@ -1,0 +1,826 @@
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../chaput/application/chaput_messages_controller.dart';
+import '../../../../chaput/domain/chaput_message.dart';
+import '../../../../chaput/domain/chaput_thread.dart';
+import '../../../user/domain/lite_user.dart';
+import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
+import 'black_glass.dart';
+import 'sheet_handle.dart';
+
+class ChaputThreadSheet extends ConsumerWidget {
+  const ChaputThreadSheet({
+    super.key,
+    required this.threads,
+    required this.usersById,
+    this.viewerUser,
+    required this.viewerId,
+    required this.ownerId,
+    required this.profileId,
+    required this.pageController,
+    required this.initialExtent,
+    required this.onExtentChanged,
+    required this.onPageChanged,
+    required this.onOpenProfile,
+    required this.onSendMessage,
+    required this.onMakeHidden,
+    required this.canMakeHidden,
+    required this.onOpenWhisperPaywall,
+    required this.whisperCredits,
+  });
+
+  final List<ChaputThreadItem> threads;
+  final Map<String, LiteUser> usersById;
+  final LiteUser? viewerUser;
+  final String viewerId;
+  final String ownerId;
+  final String profileId;
+  final PageController pageController;
+  final double initialExtent;
+  final ValueChanged<double> onExtentChanged;
+  final ValueChanged<int> onPageChanged;
+  final ValueChanged<String> onOpenProfile;
+  final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
+  final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
+  final bool canMakeHidden;
+  final VoidCallback onOpenWhisperPaywall;
+  final int whisperCredits;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (threads.isEmpty) return const SizedBox.shrink();
+
+    return NotificationListener<DraggableScrollableNotification>(
+      onNotification: (n) {
+        onExtentChanged(n.extent);
+        return false;
+      },
+      child: DraggableScrollableSheet(
+        initialChildSize: initialExtent,
+        minChildSize: 0.33,
+        maxChildSize: 0.95,
+        builder: (ctx, scrollCtrl) {
+          return LayoutBuilder(
+            builder: (ctx, constraints) {
+              return ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.80),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                      border: Border.all(color: Colors.white.withOpacity(0.10)),
+                    ),
+                    child: SingleChildScrollView(
+                      controller: scrollCtrl,
+                      physics: const ClampingScrollPhysics(),
+                      child: SizedBox(
+                        height: constraints.maxHeight,
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 6),
+                            const SheetHandle(),
+                            Expanded(
+                              child: PageView.builder(
+                                controller: pageController,
+                                onPageChanged: onPageChanged,
+                                itemCount: threads.length,
+                                itemBuilder: (ctx, index) {
+                                  final thread = threads[index];
+                                  final isParticipant = thread.userAId == viewerId || thread.userBId == viewerId;
+                                  final otherId = thread.userAId == ownerId
+                                      ? thread.userBId
+                                      : thread.userBId == ownerId
+                                          ? thread.userAId
+                                          : (thread.userAId == viewerId ? thread.userBId : thread.userAId);
+                                  final ownerUser = usersById[ownerId];
+                                  final otherUser = usersById[otherId] ??
+                                      (viewerUser != null && otherId == viewerUser!.id ? viewerUser : null);
+
+                                  return _ThreadPage(
+                                    thread: thread,
+                                    ownerUser: ownerUser,
+                                    otherUser: otherUser,
+                                    viewerUser: viewerUser,
+                                    viewerId: viewerId,
+                                    isParticipant: isParticipant,
+                                    profileId: profileId,
+                                    onOpenProfile: onOpenProfile,
+                                    onSendMessage: onSendMessage,
+                                    onMakeHidden: onMakeHidden,
+                                    canMakeHidden: canMakeHidden,
+                                    onOpenWhisperPaywall: onOpenWhisperPaywall,
+                                    whisperCredits: whisperCredits,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ThreadPage extends ConsumerWidget {
+  const _ThreadPage({
+    required this.thread,
+    required this.ownerUser,
+    required this.otherUser,
+    required this.viewerUser,
+    required this.viewerId,
+    required this.isParticipant,
+    required this.profileId,
+    required this.onOpenProfile,
+    required this.onSendMessage,
+    required this.onMakeHidden,
+    required this.canMakeHidden,
+    required this.onOpenWhisperPaywall,
+    required this.whisperCredits,
+  });
+
+  final ChaputThreadItem thread;
+  final LiteUser? ownerUser;
+  final LiteUser? otherUser;
+  final LiteUser? viewerUser;
+  final String viewerId;
+  final bool isParticipant;
+  final String profileId;
+  final ValueChanged<String> onOpenProfile;
+  final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
+  final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
+  final bool canMakeHidden;
+  final VoidCallback onOpenWhisperPaywall;
+  final int whisperCredits;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final args = ChaputMessagesArgs(threadId: thread.threadId, profileId: profileId);
+    final messagesState = ref.watch(chaputMessagesControllerProvider(args));
+    final isHidden = thread.kind == 'HIDDEN';
+    final viewerIsStarter = thread.starterId == viewerId;
+    final isPending = thread.state == 'PENDING';
+
+    final otherName = (isHidden && !isParticipant)
+        ? 'Gizli Kullanıcı'
+        : (otherUser?.fullName ?? '');
+    final otherUsername = (isHidden && !isParticipant) ? null : otherUser?.username;
+
+    final canShowComposer = isParticipant && (!isPending || !viewerIsStarter);
+
+    return Column(
+      children: [
+        _ThreadHeader(
+          ownerUser: ownerUser,
+          otherUser: otherUser,
+          isHidden: isHidden,
+          isParticipant: isParticipant,
+          otherName: otherName,
+          otherUsername: otherUsername,
+          onOpenProfile: onOpenProfile,
+          showHideAction: isParticipant && thread.kind == 'NORMAL',
+          canMakeHidden: canMakeHidden,
+          onMakeHidden: () => onMakeHidden(thread),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: _MessagesList(
+            state: messagesState,
+            viewerId: viewerId,
+            ownerUser: ownerUser,
+            otherUser: otherUser,
+            viewerUser: viewerUser,
+            isHidden: isHidden,
+            isParticipant: isParticipant,
+            onLoadMore: () => ref.read(chaputMessagesControllerProvider(args).notifier).loadMore(),
+          ),
+        ),
+        if (isParticipant && isPending && viewerIsStarter)
+          _PendingNotice(pendingUntil: thread.pendingExpiresAt),
+        if (isParticipant && isPending && !viewerIsStarter)
+          const _PendingReplyHint(),
+        if (canShowComposer)
+          _ReplyBar(
+            onSend: (text, whisper) => onSendMessage(thread, text, whisper),
+            onWhisperPaywall: onOpenWhisperPaywall,
+            canWhisper: whisperCredits > 0,
+          ),
+      ],
+    );
+  }
+}
+
+class _ThreadHeader extends StatelessWidget {
+  const _ThreadHeader({
+    required this.ownerUser,
+    required this.otherUser,
+    required this.isHidden,
+    required this.isParticipant,
+    required this.otherName,
+    required this.otherUsername,
+    required this.onOpenProfile,
+    required this.showHideAction,
+    required this.canMakeHidden,
+    required this.onMakeHidden,
+  });
+
+  final LiteUser? ownerUser;
+  final LiteUser? otherUser;
+  final bool isHidden;
+  final bool isParticipant;
+  final String otherName;
+  final String? otherUsername;
+  final ValueChanged<String> onOpenProfile;
+  final bool showHideAction;
+  final bool canMakeHidden;
+  final VoidCallback onMakeHidden;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      child: Row(
+        children: [
+          _AvatarStack(
+            ownerUser: ownerUser,
+            otherUser: otherUser,
+            hideOther: isHidden && !isParticipant,
+            onTap: (id) {
+              if (!isHidden) onOpenProfile(id);
+            },
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  otherName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (otherUsername != null && otherUsername!.isNotEmpty)
+                  Text(
+                    '@$otherUsername',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.65),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (showHideAction)
+            GestureDetector(
+              onTap: onMakeHidden,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: canMakeHidden ? Colors.white : Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: Text(
+                  'Gizle',
+                  style: TextStyle(
+                    color: canMakeHidden ? Colors.black : Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarStack extends StatelessWidget {
+  const _AvatarStack({
+    required this.ownerUser,
+    required this.otherUser,
+    required this.hideOther,
+    required this.onTap,
+  });
+
+  final LiteUser? ownerUser;
+  final LiteUser? otherUser;
+  final bool hideOther;
+  final ValueChanged<String> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final owner = ownerUser;
+    final other = otherUser;
+
+    return GestureDetector(
+      onTap: () {
+        if (!hideOther && other != null) onTap(other.id);
+      },
+      child: SizedBox(
+        width: 58,
+        height: 44,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              child: _SmallAvatar(
+                user: owner,
+                forceDefault: false,
+              ),
+            ),
+            Positioned(
+              right: 0,
+              child: _SmallAvatar(
+                user: other,
+                forceDefault: hideOther,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SmallAvatar extends StatelessWidget {
+  const _SmallAvatar({
+    required this.user,
+    required this.forceDefault,
+  });
+
+  final LiteUser? user;
+  final bool forceDefault;
+
+  @override
+  Widget build(BuildContext context) {
+    final u = user;
+    if (u == null) {
+      return const SizedBox(width: 36, height: 36);
+    }
+
+    final isDefault = forceDefault || u.profilePhotoKey == null || u.profilePhotoKey!.isEmpty;
+    final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoKey!;
+
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: BlackGlass(
+        radius: 18,
+        borderOpacity: 0.25,
+        opacity: 0.4,
+        child: Center(
+          child: ChatComposerAvatar(
+            avatarUrl: imageUrl,
+            isDefaultAvatar: isDefault,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ChatComposerAvatar extends StatelessWidget {
+  const ChatComposerAvatar({
+    super.key,
+    required this.avatarUrl,
+    required this.isDefaultAvatar,
+  });
+
+  final String avatarUrl;
+  final bool isDefaultAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: Colors.white.withOpacity(0.05),
+      backgroundImage: null,
+      child: SizedBox(
+        width: 32,
+        height: 32,
+        child: ChaputCircleAvatar(
+          isDefaultAvatar: isDefaultAvatar,
+          imageUrl: avatarUrl,
+          width: 32,
+          height: 32,
+          radius: 32,
+          borderWidth: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _MessagesList extends StatelessWidget {
+  const _MessagesList({
+    required this.state,
+    required this.viewerId,
+    required this.ownerUser,
+    required this.otherUser,
+    required this.viewerUser,
+    required this.isHidden,
+    required this.isParticipant,
+    required this.onLoadMore,
+  });
+
+  final ChaputMessagesState state;
+  final String viewerId;
+  final LiteUser? ownerUser;
+  final LiteUser? otherUser;
+  final LiteUser? viewerUser;
+  final bool isHidden;
+  final bool isParticipant;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = state.items;
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          'Henüz mesaj yok',
+          style: TextStyle(color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.w700),
+        ),
+      );
+    }
+
+    final groups = _groupMessages(items);
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 100) {
+          onLoadMore();
+        }
+        return false;
+      },
+      child: ListView.builder(
+        reverse: true,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        itemCount: groups.length,
+        itemBuilder: (ctx, i) {
+          final g = groups[i];
+          final isMine = g.senderId == viewerId;
+          final senderUser = _resolveUser(g.senderId);
+          final forceDefault = isHidden && !isParticipant && senderUser == otherUser;
+          return _MessageGroupBubble(
+            group: g,
+            isMine: isMine,
+            senderUser: senderUser,
+            forceDefaultAvatar: forceDefault,
+          );
+        },
+      ),
+    );
+  }
+
+  List<_MessageGroup> _groupMessages(List<ChaputMessage> items) {
+    final groups = <_MessageGroup>[];
+    const gapMinutes = 5;
+    _MessageGroup? current;
+
+    for (int i = 0; i < items.length; i++) {
+      final msg = items[i];
+      final prev = i > 0 ? items[i - 1] : null;
+      final sameSender = prev != null && prev.senderId == msg.senderId;
+      final gapOk = prev?.createdAt != null && msg.createdAt != null
+          ? prev!.createdAt!.difference(msg.createdAt!).inMinutes <= gapMinutes
+          : false;
+
+      if (current == null || !sameSender || !gapOk) {
+        current = _MessageGroup(senderId: msg.senderId, items: [msg]);
+        groups.add(current);
+      } else {
+        current.items.add(msg);
+      }
+    }
+    return groups;
+  }
+
+  LiteUser? _resolveUser(String id) {
+    if (ownerUser != null && ownerUser!.id == id) return ownerUser;
+    if (otherUser != null && otherUser!.id == id) return otherUser;
+    if (viewerUser != null && viewerUser!.id == id) return viewerUser;
+    return null;
+  }
+}
+
+class _MessageGroup {
+  _MessageGroup({required this.senderId, required this.items});
+  final String senderId;
+  final List<ChaputMessage> items;
+}
+
+class _MessageGroupBubble extends StatelessWidget {
+  const _MessageGroupBubble({
+    required this.group,
+    required this.isMine,
+    required this.senderUser,
+    required this.forceDefaultAvatar,
+  });
+
+  final _MessageGroup group;
+  final bool isMine;
+  final LiteUser? senderUser;
+  final bool forceDefaultAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    final bubbleColumn = Column(
+      crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: group.items.map((m) => _MessageBubble(message: m, isMine: isMine)).toList(),
+    );
+
+    if (isMine) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(margin: const EdgeInsets.symmetric(vertical: 6), child: bubbleColumn),
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            _GroupAvatar(user: senderUser, forceDefault: forceDefaultAvatar),
+            const SizedBox(width: 8),
+            bubbleColumn,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupAvatar extends StatelessWidget {
+  const _GroupAvatar({required this.user, required this.forceDefault});
+
+  final LiteUser? user;
+  final bool forceDefault;
+
+  @override
+  Widget build(BuildContext context) {
+    final u = user;
+    if (u == null) {
+      return const SizedBox(width: 28, height: 28);
+    }
+    final isDefault = forceDefault || u.profilePhotoKey == null || u.profilePhotoKey!.isEmpty;
+    final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoKey!;
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: ChaputCircleAvatar(
+        isDefaultAvatar: isDefault,
+        imageUrl: imageUrl,
+        width: 28,
+        height: 28,
+        radius: 28,
+        borderWidth: 0,
+      ),
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({
+    required this.message,
+    required this.isMine,
+  });
+
+  final ChaputMessage message;
+  final bool isMine;
+
+  @override
+  Widget build(BuildContext context) {
+    final isWhisperHidden = message.kind == 'WHISPER_HIDDEN';
+    final isWhisper = message.kind == 'WHISPER';
+    final bg = isMine ? Colors.white : Colors.white.withOpacity(0.12);
+    final fg = isMine ? Colors.black : Colors.white;
+
+    final bubble = Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isWhisperHidden ? Colors.white.withOpacity(0.08) : bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(isMine ? 0.0 : 0.06)),
+      ),
+      child: Text(
+        isWhisperHidden ? 'Fısıldadı' : message.body,
+        style: TextStyle(
+          color: isWhisperHidden ? Colors.white.withOpacity(0.6) : fg,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+
+    if (isWhisperHidden) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: bubble,
+        ),
+      );
+    }
+
+    if (isWhisper) {
+      return Stack(
+        children: [
+          bubble,
+          Positioned(
+            right: 6,
+            top: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Fısıltı',
+                style: TextStyle(
+                  color: isMine ? Colors.black : Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return bubble;
+  }
+}
+
+class _ReplyBar extends StatefulWidget {
+  const _ReplyBar({
+    required this.onSend,
+    required this.onWhisperPaywall,
+    required this.canWhisper,
+  });
+
+  final Future<void> Function(String text, bool whisper) onSend;
+  final VoidCallback onWhisperPaywall;
+  final bool canWhisper;
+
+  @override
+  State<_ReplyBar> createState() => _ReplyBarState();
+}
+
+class _ReplyBarState extends State<_ReplyBar> {
+  final _controller = TextEditingController();
+  final _focusNode = FocusNode();
+  bool _whisper = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    final whisper = _whisper;
+    if (whisper && !widget.canWhisper) {
+      widget.onWhisperPaywall();
+      return;
+    }
+    _controller.clear();
+    await widget.onSend(text, whisper);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+      child: BlackGlass(
+        radius: 18,
+        opacity: 0.65,
+        borderOpacity: 0.15,
+        child: Row(
+          children: [
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () {
+                if (!widget.canWhisper) {
+                  widget.onWhisperPaywall();
+                  return;
+                }
+                setState(() => _whisper = !_whisper);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _whisper ? Colors.white : Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.white.withOpacity(0.18)),
+                ),
+                child: Text(
+                  'Fısılda',
+                  style: TextStyle(
+                    color: _whisper ? Colors.black : Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  hintText: 'Mesaj yaz...',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                  border: InputBorder.none,
+                ),
+                minLines: 1,
+                maxLines: 4,
+                onSubmitted: (_) => _send(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _send,
+              icon: const Icon(Icons.send, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingNotice extends StatelessWidget {
+  const _PendingNotice({required this.pendingUntil});
+  final DateTime? pendingUntil;
+
+  @override
+  Widget build(BuildContext context) {
+    final until = pendingUntil;
+    final text = until != null
+        ? 'Karşı tarafın yanıtı için ${_formatRemaining(until)} kaldı.'
+        : 'Karşı tarafın yanıtı bekleniyor.';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      child: Text(
+        text,
+        style: TextStyle(color: Colors.white.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
+      ),
+    );
+  }
+
+  String _formatRemaining(DateTime until) {
+    final diff = until.toUtc().difference(DateTime.now().toUtc());
+    final mins = diff.inMinutes;
+    if (mins <= 0) return '0 dk';
+    final hours = diff.inHours;
+    if (hours >= 1) return '${hours} saat';
+    return '${mins} dk';
+  }
+}
+
+class _PendingReplyHint extends StatelessWidget {
+  const _PendingReplyHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      child: Text(
+        'Cevap vermezsen bu chaput arşive gidebilir.',
+        style: TextStyle(color: Colors.white.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
+      ),
+    );
+  }
+}
