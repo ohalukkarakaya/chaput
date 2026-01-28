@@ -32,6 +32,7 @@ import '../widgets/chaput_paywall_sheet.dart';
 import '../widgets/glass_toast_overlay.dart';
 import '../widgets/profile_actions_sheet.dart';
 import '../widgets/profile_stat_chip.dart';
+import '../widgets/subscription_replace_sheet.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -692,10 +693,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       revive: result.credits.revive,
       whisper: result.credits.whisper,
     );
+    // Refresh /me so subscription state is up to date for future warnings.
+    ref.read(meControllerProvider.notifier).fetchAndStoreMe();
   }
 
   Future<bool> _verifyPurchaseAndApply(PaywallPurchase purchase) async {
     try {
+      final confirmed = await _confirmReplaceSubscriptionIfNeeded(purchase);
+      if (!confirmed) return false;
       final api = ref.read(billingApiProvider);
       final res = await api.verifyPurchase(
         provider: purchase.provider,
@@ -709,6 +714,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _showGlassToast('Satın alma doğrulanamadı', icon: Icons.error_outline);
       return false;
     }
+  }
+
+  Future<bool> _confirmReplaceSubscriptionIfNeeded(PaywallPurchase purchase) async {
+    const subscriptionProducts = <String>{
+      'chaput_plus_month',
+      'chaput_pro_month',
+      'chaput_pro_year',
+    };
+    if (!subscriptionProducts.contains(purchase.productId)) return true;
+
+    final meAsync = ref.read(meControllerProvider);
+    var me = meAsync.valueOrNull;
+    if (me == null) {
+      try {
+        me = await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+      } catch (_) {}
+    }
+
+    final plan = me?.subscription.plan ?? _planType;
+    final expiresAtRaw = me?.subscription.expiresAt;
+
+    DateTime? expiresAt;
+    if (expiresAtRaw != null && expiresAtRaw.isNotEmpty) {
+      expiresAt = DateTime.tryParse(expiresAtRaw);
+      if (expiresAt != null && !expiresAt.isUtc && !expiresAtRaw.contains('Z')) {
+        expiresAt = DateTime.parse('${expiresAtRaw}Z');
+      }
+    }
+
+    if (expiresAt != null && expiresAt.isBefore(DateTime.now().toUtc())) return true;
+
+    // Only warn when we have a non-free active plan.
+    if (plan == 'FREE') return true;
+
+    final untilText = expiresAt != null
+        ? expiresAt.toLocal().toString().split('.').first
+        : null;
+    final res = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => SubscriptionReplaceSheet(
+        untilText: untilText,
+      ),
+    );
+    return res == true;
   }
 
   Future<bool> _openAdOfferSheet({required int requiredAds, required bool canWatch}) async {
