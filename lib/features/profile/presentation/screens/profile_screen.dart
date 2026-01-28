@@ -9,17 +9,29 @@ import 'package:go_router/go_router.dart';
 import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
+import '../../../../chaput/application/chaput_decision_controller.dart';
+import '../../../../chaput/data/chaput_api.dart';
+import '../../../../core/config/env.dart';
 import '../../../../core/router/routes.dart';
+import '../../../billing/data/billing_api_provider.dart';
+import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
-import '../../../recommended_users/application/recommended_user_controller.dart';
-import '../../../social/application/block_controller.dart';
 import '../../../social/application/follow_state.dart';
-import '../../../social/application/restrictions_controller.dart';
 import '../../../social/application/ui_restriction_override_provider.dart';
 import '../../../user/application/profile_controller.dart';
 import '../../domain/tree_catalog.dart';
 
 import '../../../social/application/follow_controller.dart';
+import '../utils/profile_tree_bounds.dart';
+import '../widgets/black_glass.dart';
+import '../widgets/chaput_ad_offer_sheet.dart';
+import '../widgets/chaput_ads_watch_screen.dart';
+import '../widgets/chaput_composer_bar.dart';
+import '../widgets/chaput_composer_options_sheet.dart';
+import '../widgets/chaput_paywall_sheet.dart';
+import '../widgets/glass_toast_overlay.dart';
+import '../widgets/profile_actions_sheet.dart';
+import '../widgets/profile_stat_chip.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -149,9 +161,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _anonMode = false;     // "Kimliğini gizle"
   bool _highlightMode = false; // "Öne çıkar" (şimdilik dummy)
 
-  // ===== ENTITLEMENT DUMMY GATES =====
-  bool get canHideCredentials => false; // TODO: entitlements'dan bağla
-  bool get canBoost => false;
+  // ===== CHAPUT DECISION / ENTITLEMENTS =====
+  bool _chaputThreadCreated = false;
+  bool _chaputSendLoading = false;
+  String? _decisionProfileId;
+
+  String _planType = 'FREE';
+  int _creditNormal = 0;
+  int _creditHidden = 0;
+  int _creditSpecial = 0;
+  int _creditRevive = 0;
+  int _creditWhisper = 0;
+
+  bool _adsCanWatch = false;
+  int _adsWatchedToday = 0;
+  int _adsRewardsToday = 0;
+  int _adsNextRewardIn = 0;
+
+  String _decisionPath = 'FORBIDDEN';
+  bool _decisionCanStart = false;
+  bool _decisionLoaded = false;
+  bool _decisionHasThread = false;
+
+  bool get canHideCredentials => _creditHidden > 0;
+  bool get canBoost => _creditSpecial > 0;
 
   // orijinal material'ları saklamak için
   final Map<three.Mesh, dynamic> _origMaterials = {};
@@ -187,6 +220,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _lastTreeId = null;
       _threeError = null;
       _threeReady = false;
+      _chaputThreadCreated = false;
+      _decisionProfileId = null;
+      _anonMode = false;
+      _highlightMode = false;
+      _msgCtrl.clear();
     }
   }
 
@@ -298,8 +336,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       // A) bounds
       tree.updateMatrixWorld(true);
-      final b1 = _computeObjectBounds(tree);
-      final size1 = _sizeOfBounds(b1);
+      final b1 = computeObjectBounds(tree);
+      final size1 = sizeOfBounds(b1);
 
       // B) scale
       const targetHeight = 0.55;
@@ -308,8 +346,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       tree.updateMatrixWorld(true);
 
       // C) bounds after scale
-      final b2 = _computeObjectBounds(tree);
-      final size2 = _sizeOfBounds(b2);
+      final b2 = computeObjectBounds(tree);
+      final size2 = sizeOfBounds(b2);
 
       _modelHeight = size2.y.clamp(0.1, 1000.0);
       _modelMaxDim = math.max(size2.x, math.max(size2.y, size2.z)).clamp(0.1, 1000.0);
@@ -325,8 +363,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       tree.updateMatrixWorld(true);
 
       // E) final bounds
-      final b3 = _computeObjectBounds(tree);
-      final size3 = _sizeOfBounds(b3);
+      final b3 = computeObjectBounds(tree);
+      final size3 = sizeOfBounds(b3);
 
       _modelHeight = size3.y.clamp(0.1, 1000.0);
       _modelMaxDim = math.max(size3.x, math.max(size3.y, size3.z)).clamp(0.1, 1000.0);
@@ -543,14 +581,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             // sheet’i klavyenin üstüne "oturt"
             bottom: (kb > 0 ? kb : 12) + 10,
           ),
-          child: _ComposerOptionsSheet(
+          child: ComposerOptionsSheet(
             anonEnabled: _anonMode,
             highlightEnabled: _highlightMode,
 
             onToggleAnon: (v) {
               if (!canHideCredentials && v == true) {
                 Navigator.pop(context);
-                _openFakePaywall(feature: _PaywallFeature.hideCredentials);
+                _openHiddenPaywall();
                 return;
               }
               setState(() => _anonMode = v);
@@ -560,19 +598,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             onToggleHighlight: (v) {
               if (!canBoost && v == true) {
                 Navigator.pop(context);
-                _openFakePaywall(feature: _PaywallFeature.boost);
+                _openBoostPaywall();
                 return;
               }
               setState(() => _highlightMode = v);
               Navigator.pop(context);
             },
 
-            onPaywallAnon: () {
-              _openFakePaywall(feature: _PaywallFeature.hideCredentials);
-            },
-            onPaywallBoost: () {
-              _openFakePaywall(feature: _PaywallFeature.boost);
-            },
+            onPaywallAnon: canHideCredentials
+                ? null
+                : () {
+                    Navigator.pop(context);
+                    _openHiddenPaywall();
+                  },
+            onPaywallBoost: canBoost
+                ? null
+                : () {
+                    Navigator.pop(context);
+                    _openBoostPaywall();
+                  },
           ),
 
         );
@@ -604,7 +648,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     late final OverlayEntry entry;
     entry = OverlayEntry(
-      builder: (ctx) => _GlassToastOverlay(
+      builder: (ctx) => GlassToastOverlay(
         message: message,
         icon: icon,
         bottom: bottom,
@@ -622,21 +666,249 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     overlay.insert(entry);
   }
 
+  String _resolveProfileId(Map<String, dynamic>? profileJson, String fallback) {
+    if (profileJson == null) return fallback;
+    final user = (profileJson['user'] is Map) ? (profileJson['user'] as Map) : null;
+    final direct = profileJson['profile_id']?.toString();
+    final fromUser = user?['profile_id']?.toString();
+    final userId = user?['id']?.toString();
+    return direct ?? fromUser ?? userId ?? fallback;
+  }
+
+  void _applyBillingResult(BillingVerifyResult result) {
+    if (_decisionProfileId == null) return;
+    final decisionCtrl = ref.read(
+      chaputDecisionControllerProvider(_decisionProfileId!).notifier,
+    );
+    decisionCtrl.applyPlanType(result.planType);
+    decisionCtrl.setCredits(
+      normal: result.credits.normal,
+      hidden: result.credits.hidden,
+      special: result.credits.special,
+      revive: result.credits.revive,
+      whisper: result.credits.whisper,
+    );
+  }
+
+  Future<bool> _verifyPurchaseAndApply(PaywallPurchase purchase) async {
+    try {
+      final api = ref.read(billingApiProvider);
+      final res = await api.verifyPurchase(
+        provider: purchase.provider,
+        productId: purchase.productId,
+        transactionId: purchase.transactionId,
+        devToken: Env.devBillingToken,
+      );
+      _applyBillingResult(res);
+      return true;
+    } catch (_) {
+      _showGlassToast('Satın alma doğrulanamadı', icon: Icons.error_outline);
+      return false;
+    }
+  }
+
+  Future<bool> _openAdOfferSheet({required int requiredAds, required bool canWatch}) async {
+    final res = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => ChaputAdOfferSheet(
+        requiredAds: requiredAds,
+        canWatch: canWatch,
+      ),
+    );
+    return res == true;
+  }
+
+  Future<bool> _openAdsWatchScreen({required int requiredAds}) async {
+    if (_decisionProfileId == null) return false;
+    final api = ref.read(chaputApiProvider);
+    final res = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ChaputAdsWatchScreen(
+          requiredAds: requiredAds,
+          onComplete: () async {
+            try {
+              final sessionId = await api.startAdRewardSession(
+                requiredAds: requiredAds,
+              );
+              if (sessionId.isEmpty) return false;
+              await api.claimAdReward(
+                sessionId: sessionId,
+                watchedCount: requiredAds,
+              );
+              ref
+                  .read(chaputDecisionControllerProvider(_decisionProfileId!).notifier)
+                  .fetchDecision();
+              return true;
+            } catch (_) {
+              return false;
+            }
+          },
+        ),
+      ),
+    );
+    return res == true;
+  }
+
+  void _prepareComposer() {
+    _pickNewRandomAnchorAndSnap(); // random anchor + snap
+    _openComposer();
+  }
+
+  Future<void> _sendChaputMessage({
+    required String profileId,
+  }) async {
+    if (_chaputSendLoading) return;
+    if (profileId.length != 32) {
+      _showGlassToast('Profil bulunamadı', icon: Icons.error_outline);
+      return;
+    }
+    final text = _msgCtrl.text.trim();
+    if (text.isEmpty) {
+      _showGlassToast('Önce mesajını yaz', icon: Icons.edit_outlined);
+      return;
+    }
+
+    setState(() => _chaputSendLoading = true);
+    try {
+      final api = ref.read(chaputApiProvider);
+      final kind = _highlightMode
+          ? 'SPECIAL'
+          : (_anonMode ? 'HIDDEN' : 'NORMAL');
+
+      final anchor = _focusAnchor ?? _draftAnchor;
+
+      final out = await api.startThread(
+        profileIdHex: profileId,
+        kind: kind,
+      );
+
+      if (out.threadId.isNotEmpty && anchor != null) {
+        await api.setThreadNode(
+          threadIdHex: out.threadId,
+          profileIdHex: profileId,
+          x: anchor.x,
+          y: anchor.y,
+          z: anchor.z,
+        );
+      }
+
+      if (out.threadId.isNotEmpty) {
+        await api.sendMessage(threadIdHex: out.threadId, body: text);
+      }
+
+      _chaputThreadCreated = true;
+      _msgCtrl.clear();
+      _closeComposer();
+      _showGlassToast('Chaput gönderildi', icon: Icons.check_circle_outline);
+      if (_decisionProfileId != null) {
+        ref
+            .read(chaputDecisionControllerProvider(_decisionProfileId!).notifier)
+            .fetchDecision();
+      }
+    } catch (e) {
+      _showGlassToast('Chaput gönderilemedi', icon: Icons.error_outline);
+    } finally {
+      if (mounted) {
+        setState(() => _chaputSendLoading = false);
+      }
+    }
+  }
+
 
   void _onOptionsEmptyTap() {
     _showGlassToast('Önce mesajını yaz', icon: Icons.edit_outlined);
   }
 
-  void _openFakePaywall({
-    required _PaywallFeature feature,
-  }) {
-    showModalBottomSheet(
+  Future<void> _handleBindPressed({required String profileId}) async {
+    if (_chaputThreadCreated || _composerOpen) return;
+    if (profileId.length != 32) {
+      _showGlassToast('Profil bulunamadı', icon: Icons.error_outline);
+      return;
+    }
+    if (_decisionProfileId == null) {
+      _showGlassToast('Chaput hakların yükleniyor', icon: Icons.hourglass_empty);
+      return;
+    }
+    if (!_decisionLoaded) {
+      _showGlassToast('Chaput hakların yükleniyor', icon: Icons.hourglass_empty);
+      return;
+    }
+    if (_decisionHasThread) {
+      _showGlassToast('Bu kullanıcıyla zaten chaput var', icon: Icons.chat_bubble_outline);
+      return;
+    }
+
+    if (!_decisionCanStart || _decisionPath == 'FORBIDDEN') {
+      _showGlassToast('Bu kullanıcıyla chaput başlatamazsın', icon: Icons.block);
+      return;
+    }
+
+    final isPro = _planType == 'PRO';
+    final hasNormalCredit = _creditNormal > 0;
+    final adsAvailable = _adsCanWatch && _adsNextRewardIn > 0;
+
+    if (_decisionPath == 'CAN_START' || isPro || hasNormalCredit) {
+      _prepareComposer();
+      return;
+    }
+
+    final purchase = await _openPaywall(feature: PaywallFeature.bind);
+    if (purchase != null) {
+      final ok = await _verifyPurchaseAndApply(purchase);
+      if (ok) {
+        if (_decisionProfileId != null) {
+          ref
+              .read(chaputDecisionControllerProvider(_decisionProfileId!).notifier)
+              .fetchDecision();
+        }
+        _prepareComposer();
+      }
+      return;
+    }
+
+    if (!adsAvailable) return;
+    final accepted = await _openAdOfferSheet(
+      requiredAds: _adsNextRewardIn,
+      canWatch: _adsCanWatch,
+    );
+    if (!accepted) return;
+
+    final ok = await _openAdsWatchScreen(requiredAds: _adsNextRewardIn);
+    if (!ok) return;
+
+    _prepareComposer();
+  }
+
+  Future<PaywallPurchase?> _openPaywall({
+    required PaywallFeature feature,
+  }) async {
+    return showModalBottomSheet<PaywallPurchase>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: false,
-      builder: (_) => _FakePaywallSheet(feature: feature),
+      builder: (_) => FakePaywallSheet(feature: feature),
     );
+  }
+
+  Future<void> _openHiddenPaywall() async {
+    final purchase = await _openPaywall(feature: PaywallFeature.hideCredentials);
+    if (purchase == null) return;
+    final ok = await _verifyPurchaseAndApply(purchase);
+    if (!ok) return;
+    setState(() => _anonMode = true);
+    _openComposer();
+  }
+
+  Future<void> _openBoostPaywall() async {
+    final purchase = await _openPaywall(feature: PaywallFeature.boost);
+    if (purchase == null) return;
+    final ok = await _verifyPurchaseAndApply(purchase);
+    if (!ok) return;
+    setState(() => _highlightMode = true);
+    _openComposer();
   }
 
   void _onComposerFocus() {
@@ -1193,6 +1465,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final followLoading = followState is FollowLoading;
 
+    final profileIdHex = _resolveProfileId(st.profileJson, userId);
+    final bool decisionAllowed =
+        profileIdHex.length == 32 && !isMe && !(isPrivateTarget && !effectiveIsFollowing);
+
+    final decisionState = decisionAllowed
+        ? ref.watch(chaputDecisionControllerProvider(profileIdHex))
+        : ChaputDecisionState.empty;
+
+    final decision = decisionState.decision;
+    _planType = decision?.plan.type ?? 'FREE';
+    _creditNormal = decision?.credits.normal ?? 0;
+    _creditHidden = decision?.credits.hidden ?? 0;
+    _creditSpecial = decision?.credits.special ?? 0;
+    _creditRevive = decision?.credits.revive ?? 0;
+    _creditWhisper = decision?.credits.whisper ?? 0;
+    _adsCanWatch = decision?.ads.canWatch ?? false;
+    _adsWatchedToday = decision?.ads.watchedToday ?? 0;
+    _adsRewardsToday = decision?.ads.rewardsToday ?? 0;
+    _adsNextRewardIn = decision?.ads.nextRewardIn ?? 0;
+    _decisionPath = decision?.decision.path ?? 'FORBIDDEN';
+    _decisionCanStart = decision?.target.canStart ?? false;
+    _decisionLoaded = decision != null;
+    _decisionHasThread = decision?.target.hasThread ?? false;
+
+    if (!decisionAllowed) {
+      _decisionProfileId = null;
+    } else if (_decisionProfileId != profileIdHex) {
+      _decisionProfileId = profileIdHex;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(chaputDecisionControllerProvider(profileIdHex).notifier).fetchDecision();
+      });
+    }
+
 
     final double topInset = MediaQuery.of(context).padding.top;
     const double topBarHeight = 72;
@@ -1214,6 +1520,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool followButtonDisabled = _uiFollowLoading || isBlocked || requestAlreadySent;
 
     final kb = MediaQuery.of(context).viewInsets.bottom;
+
+    final bool decisionLoaded = decision != null;
+    final bool isProPlan = _planType == 'PRO';
+    final bool hasNormalCredit = _creditNormal > 0;
+    final bool adsAvailable = _adsCanWatch && _adsNextRewardIn > 0;
+    final bool canStartNow = _decisionPath == 'CAN_START';
+    final bool showBindExhausted =
+        decisionLoaded
+            && !_decisionHasThread
+            && !canStartNow
+            && !isProPlan
+            && !hasNormalCredit
+            && !adsAvailable;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -1438,8 +1757,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                       spacing: 8,
                                                       runSpacing: 6,
                                                       children: [
-                                                        _StatChip(value: effectiveFollowerCount, label: 'Takipçi', onTap: () {}),
-                                                        _StatChip(value: followingCount, label: 'Takip', onTap: () {}),
+                                                        ProfileStatChip(value: effectiveFollowerCount, label: 'Takipçi', onTap: () {}),
+                                                        ProfileStatChip(value: followingCount, label: 'Takip', onTap: () {}),
                                                       ],
                                                     ),
                                                   ],
@@ -1570,7 +1889,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                     const SizedBox(width: 6),
 
                                                     // THREE DOT MENU
-                                                    _MoreActionsButton(
+                                                    ProfileActionsButton(
                                                         username: username,
                                                         userId: userId,
                                                         iRestrictedHim: effectiveIRestrictedHim,
@@ -1638,13 +1957,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   right: 14,
                   bottom: 14,
                   child: SafeArea(
-                    child: AnimatedSwitcher(
+                child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 160),
-                      child: (_composerOpen || _silhouetteMode || isMe)
+                      child: (_composerOpen || _silhouetteMode || isMe || _chaputThreadCreated || _decisionHasThread)
                           ? const SizedBox.shrink()
                           : IgnorePointer(
                         ignoring: !_threeReady,
-                        child: _BlackGlass(
+                        child: BlackGlass(
                           radius: 16,
                           blur: 10,
                           opacity: 0.55,
@@ -1652,20 +1971,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           child: Material(
                             type: MaterialType.transparency,
                             child: InkWell(
-                              onTap: (_silhouetteMode || _composerOpen) ? null : () {
-                                _pickNewRandomAnchorAndSnap(); // random anchor + snap
-                                _openComposer();               // chat bar aç
+                              onTap: (_silhouetteMode || _composerOpen)
+                                  ? null
+                                  : () async {
+                                if (showBindExhausted) {
+                                  final purchase = await _openPaywall(feature: PaywallFeature.bind);
+                                  if (purchase != null) {
+                                    final ok = await _verifyPurchaseAndApply(purchase);
+                                    if (ok) {
+                                      _prepareComposer();
+                                    }
+                                  }
+                                  return;
+                                }
+                                await _handleBindPressed(profileId: profileIdHex);
                               },
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.draw, size: 18, color: Colors.white),
-                                    SizedBox(width: 8),
+                                    Icon(
+                                      showBindExhausted
+                                          ? Icons.lock_clock
+                                          : (_decisionPath == 'NEED_AD' ? Icons.play_circle : Icons.draw),
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 8),
                                     Text(
-                                      "Bir Chaput Bağla",
-                                      style: TextStyle(
+                                      showBindExhausted
+                                          ? "Bugün Chaput Hakkın Bitti"
+                                          : (_decisionPath == 'NEED_AD'
+                                              ? "Reklamla Chaput Bağla"
+                                              : "Bir Chaput Bağla"),
+                                      style: const TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.white,
@@ -1693,25 +2033,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   child: (!_composerOpen || _silhouetteMode)
                       ? const SizedBox.shrink()
                       : meAsync.when(
-                    loading: () => _ChatComposerBar(
+                    loading: () => ChatComposerBar(
                       controller: _msgCtrl,
                       focusNode: _msgFocus,
                       avatarUrl: null,
                       isDefaultAvatar: true,
                       onAvatarTap: _toggleProfileCard,
-                      onSend: () {},
+                      onSend: () => _sendChaputMessage(profileId: profileIdHex),
                       anonEnabled: _anonMode,
                       highlightEnabled: _highlightMode,
                       onOptionsTap: _openComposerOptionsSheet,
                       onOptionsEmptyTap: _onOptionsEmptyTap,
                     ),
-                    error: (_, __) => _ChatComposerBar(
+                    error: (_, __) => ChatComposerBar(
                       controller: _msgCtrl,
                       focusNode: _msgFocus,
                       avatarUrl: null,
                       isDefaultAvatar: true,
                       onAvatarTap: _toggleProfileCard,
-                      onSend: () {},
+                      onSend: () => _sendChaputMessage(profileId: profileIdHex),
                       anonEnabled: _anonMode,
                       highlightEnabled: _highlightMode,
                       onOptionsTap: _openComposerOptionsSheet,
@@ -1728,15 +2068,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       final meIsDefault = (meUser?.profilePhotoUrl == null ||
                           (meUser!.profilePhotoUrl?.isEmpty ?? true));
 
-                      return _ChatComposerBar(
+                      return ChatComposerBar(
                         controller: _msgCtrl,
                         focusNode: _msgFocus,
                         avatarUrl: meAvatarUrl,
                         isDefaultAvatar: meIsDefault,
                         onAvatarTap: _toggleProfileCard,
-                        onSend: () {
-                          // TODO send
-                        },
+                        onSend: () => _sendChaputMessage(profileId: profileIdHex),
                         anonEnabled: _anonMode,
                         highlightEnabled: _highlightMode,
                         onOptionsTap: _openComposerOptionsSheet,
@@ -1755,1443 +2093,5 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       ),
     );
 
-  }
-}
-
-/// ---------------- Bounds helpers ----------------
-class _Bounds {
-  final three.Vector3 min;
-  final three.Vector3 max;
-  _Bounds(this.min, this.max);
-}
-
-three.Vector3 _sizeOfBounds(_Bounds b) {
-  return three.Vector3(
-    b.max.x - b.min.x,
-    b.max.y - b.min.y,
-    b.max.z - b.min.z,
-  );
-}
-
-_Bounds _computeObjectBounds(three.Object3D root) {
-  final min = three.Vector3(1e9, 1e9, 1e9);
-  final max = three.Vector3(-1e9, -1e9, -1e9);
-
-  void expand(three.Vector3 p) {
-    if (p.x < min.x) min.x = p.x;
-    if (p.y < min.y) min.y = p.y;
-    if (p.z < min.z) min.z = p.z;
-
-    if (p.x > max.x) max.x = p.x;
-    if (p.y > max.y) max.y = p.y;
-    if (p.z > max.z) max.z = p.z;
-  }
-
-  root.updateMatrixWorld(true);
-
-  root.traverse((obj) {
-    final o = obj as dynamic;
-
-    final geometry = o.geometry;
-    if (geometry == null) return;
-
-    if (geometry.boundingBox == null) {
-      try {
-        geometry.computeBoundingBox();
-      } catch (_) {
-        return;
-      }
-    }
-
-    final bb = geometry.boundingBox;
-    if (bb == null) return;
-
-    final corners = <three.Vector3>[
-      three.Vector3(bb.min.x, bb.min.y, bb.min.z),
-      three.Vector3(bb.min.x, bb.min.y, bb.max.z),
-      three.Vector3(bb.min.x, bb.max.y, bb.min.z),
-      three.Vector3(bb.min.x, bb.max.y, bb.max.z),
-      three.Vector3(bb.max.x, bb.min.y, bb.min.z),
-      three.Vector3(bb.max.x, bb.min.y, bb.max.z),
-      three.Vector3(bb.max.x, bb.max.y, bb.min.z),
-      three.Vector3(bb.max.x, bb.max.y, bb.max.z),
-    ];
-
-    try {
-      for (final c in corners) {
-        c.applyMatrix4(o.matrixWorld);
-        expand(c);
-      }
-    } catch (_) {
-      for (final c in corners) {
-        expand(c);
-      }
-    }
-  });
-
-  return _Bounds(min, max);
-}
-
-class _StatChip extends StatelessWidget {
-  const _StatChip({
-    required this.value,
-    required this.label,
-    this.onTap,
-  });
-
-  final int value;
-  final String label;
-  final VoidCallback? onTap;
-
-  String _compact(int n) {
-    if (n >= 1000000000) return '${(n / 1000000000).toStringAsFixed(1).replaceAll('.0', '')}B';
-    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
-    return '$n';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final v = _compact(value);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          constraints: const BoxConstraints(minHeight: 28), // daha stabil
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.18),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                v,
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black.withOpacity(0.65),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MoreActionsButton extends StatelessWidget {
-  const _MoreActionsButton({
-    required this.username,
-    required this.userId,
-    required this.iRestrictedHim,
-  });
-
-  final String username;
-  final String userId;
-  final bool iRestrictedHim;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkResponse(
-      radius: 20,
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => _ProfileActionsSheet(
-            username: username,
-            userId: userId,
-            iRestrictedHim: iRestrictedHim,
-          ),
-        );
-      },
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(
-          Icons.more_vert,
-          size: 18,
-          color: Colors.black,
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileActionsSheet extends ConsumerWidget {
-  const _ProfileActionsSheet({
-    required this.username,
-    required this.userId,
-    required this.iRestrictedHim,
-  });
-
-  final String username;
-  final String userId;
-  final bool iRestrictedHim;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
-    final blockSt = ref.watch(blockControllerProvider);
-    final restrictSt = ref.watch(restrictionsControllerProvider);
-
-    final busy = blockSt is BlockActionLoading || restrictSt is RestrictLoading;
-    final bool restrictDisabled = busy || iRestrictedHim;
-
-    return Container(
-      padding: EdgeInsets.only(
-        top: 8,
-        bottom: bottomInset > 0 ? bottomInset : 12,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _SheetHandle(),
-
-          _ActionTile(
-            icon: Icons.remove_circle_outline,
-            title: iRestrictedHim ? 'Zaten kısıtlı' : 'Kısıtla',
-            subtitle: iRestrictedHim
-                ? 'Bu kullanıcıyı zaten kısıtladın'
-                : 'Bu kullanıcının etkileşimleri sınırlandırılır',
-            enabled: !restrictDisabled, // ✅ disabled = gri + pasif
-            onTap: () async {
-              ref.read(uiRestrictedOverrideProvider(userId).notifier).state = true;
-              Navigator.pop(context);
-              try {
-                final restrictedNow = await ref
-                    .read(restrictionsControllerProvider.notifier)
-                    .toggle(userId);
-                if (restrictedNow != true) {
-                  ref.read(uiRestrictedOverrideProvider(userId).notifier).state = null;
-                }
-              } catch (_) {
-                ref.read(uiRestrictedOverrideProvider(userId).notifier).state = null;
-              }
-            },
-          ),
-
-
-
-          _ActionTile(
-            icon: Icons.block,
-            title: 'Engelle',
-            subtitle: 'Bu kullanıcı seni göremez ve etkileşemez',
-            destructive: true,
-            onTap: busy
-                ? () {}
-                : () async {
-              final rootNav = Navigator.of(context, rootNavigator: true);
-
-              rootNav.pop();
-
-              try {
-                await ref.read(recommendedUserControllerProvider.notifier).refresh();
-
-                await ref.read(blockControllerProvider.notifier).blockUser(username);
-
-                // ✅ artık sheet context'i umrumuzda değil, rootNav ile profile pop
-                rootNav.pop(); // profile pop
-              } catch (_) {}
-            },
-          ),
-
-        ],
-      ),
-    );
-  }
-}
-
-class _SheetHandle extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Container(
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.destructive = false,
-    this.enabled = true,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final bool destructive;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = !enabled
-        ? Colors.grey
-        : (destructive ? Colors.red : Colors.black);
-
-    return ListTile(
-      enabled: enabled,
-      leading: Icon(icon, color: color),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 12,
-          color: enabled ? Colors.black.withOpacity(0.6) : Colors.grey,
-        ),
-      ),
-      onTap: enabled ? onTap : null,
-    );
-  }
-}
-
-class _ChatComposerBar extends StatefulWidget {
-  const _ChatComposerBar({
-    required this.controller,
-    required this.focusNode,
-    required this.avatarUrl,
-    required this.isDefaultAvatar,
-    required this.onAvatarTap,
-    required this.onSend,
-    required this.anonEnabled,
-    required this.highlightEnabled,
-    required this.onOptionsTap,
-    required this.onOptionsEmptyTap,
-    super.key,
-  });
-
-  final TextEditingController controller;
-  final FocusNode focusNode;
-
-  final String? avatarUrl;
-  final bool isDefaultAvatar;
-  final VoidCallback onAvatarTap;
-
-  final bool anonEnabled;
-  final bool highlightEnabled;
-  final VoidCallback onOptionsTap;
-  final VoidCallback onOptionsEmptyTap;
-
-  final VoidCallback onSend;
-
-  @override
-  State<_ChatComposerBar> createState() => _ChatComposerBarState();
-}
-
-class _ChatComposerBarState extends State<_ChatComposerBar> {
-  bool _hasText = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncHasText();
-    widget.controller.addListener(_onTextChanged);
-  }
-
-  @override
-  void didUpdateWidget(covariant _ChatComposerBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_onTextChanged);
-      _syncHasText();
-      widget.controller.addListener(_onTextChanged);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onTextChanged);
-    super.dispose();
-  }
-
-  void _onTextChanged() {
-    final next = widget.controller.text.trim().isNotEmpty;
-    if (next == _hasText) return;
-    setState(() => _hasText = next);
-  }
-
-  void _syncHasText() {
-    _hasText = widget.controller.text.trim().isNotEmpty;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.55),
-            border: Border.all(color: Colors.white.withOpacity(0.10)),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(
-              children: [
-                _InkAvatarButton(
-                  avatarUrl: widget.avatarUrl,
-                  isDefaultAvatar: widget.isDefaultAvatar,
-                  onTap: widget.onAvatarTap,
-                ),
-                const SizedBox(width: 10),
-                if (widget.anonEnabled) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.14),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.white.withOpacity(0.10)),
-                    ),
-                    child: const Text(
-                      'Anonim',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                ],
-                Expanded(
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => widget.onSend(),
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      hintText: 'Message',
-                      hintStyle: TextStyle(color: Colors.white54),
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-
-                // ✅ Ayarlar butonu sadece yazı varsa görünür
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 140),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: !_hasText
-                      ? _RoundIconButton(
-                    key: const ValueKey('disabled'),
-                    icon: Icons.tune,
-                    onTap: widget.onOptionsEmptyTap,
-                  )
-                      : _RoundIconButton(
-                    key: const ValueKey('enabled'),
-                    icon: Icons.tune,
-                    onTap: widget.onOptionsTap,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.onTap, super.key});
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkResponse(
-      radius: 22,
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.white, size: 22),
-      ),
-    );
-  }
-}
-
-class _InkAvatarButton extends StatelessWidget {
-  const _InkAvatarButton({
-    required this.avatarUrl,
-    required this.isDefaultAvatar,
-    required this.onTap,
-  });
-
-  final String? avatarUrl;
-  final bool isDefaultAvatar;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkResponse(
-      radius: 22,
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
-          shape: BoxShape.circle,
-        ),
-        child: ClipOval(
-          child: (avatarUrl == null || avatarUrl!.isEmpty)
-              ? const ColoredBox(color: Colors.transparent)
-              : ChaputCircleAvatar(
-            isDefaultAvatar: isDefaultAvatar,
-            imageUrl: avatarUrl!,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ComposerOptionsSheet extends StatelessWidget {
-  const _ComposerOptionsSheet({
-    required this.anonEnabled,
-    required this.highlightEnabled,
-    required this.onToggleAnon,
-    required this.onToggleHighlight,
-    required this.onPaywallAnon,      // ✅
-    required this.onPaywallBoost,     // ✅
-  });
-
-  final bool anonEnabled;
-  final bool highlightEnabled;
-
-  final ValueChanged<bool> onToggleAnon;
-  final ValueChanged<bool> onToggleHighlight;
-
-  final VoidCallback onPaywallAnon;
-  final VoidCallback onPaywallBoost;
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.70),
-            border: Border.all(color: Colors.white.withOpacity(0.10)),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 12,
-              right: 12,
-              top: 10,
-              bottom: (bottomInset > 0 ? bottomInset : 12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ComposerOptionTile(
-                  title: 'Kimliğini gizle',
-                  subtitle: 'Bu chaput anonim görünür.',
-                  value: anonEnabled,
-                  onChanged: onToggleAnon,
-                  onBlocked: onPaywallAnon, // ✅ gate fail olursa
-                ),
-                const SizedBox(height: 6),
-                _ComposerOptionTile(
-                  title: 'Öne çıkar',
-                  subtitle: 'Daha görünür olur (plan/kredi gerekebilir).',
-                  value: highlightEnabled,
-                  onChanged: onToggleHighlight,
-                  onBlocked: onPaywallBoost, // ✅
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ComposerOptionTile extends StatelessWidget {
-  const _ComposerOptionTile({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-    this.onBlocked,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final VoidCallback? onBlocked;
-
-  void _handleToggle() {
-    if (onBlocked != null) {
-      onBlocked!();
-      return;
-    }
-    onChanged(!value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: _handleToggle,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-
-              Transform.scale(
-                scale: 0.95,
-                child: Switch(
-                  value: value,
-                  onChanged: (next) {
-                    if (onBlocked != null) {
-                      onBlocked!();
-                      return; // ✅ state değişmesin
-                    }
-                    onChanged(next);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassToastOverlay extends StatefulWidget {
-  const _GlassToastOverlay({
-    required this.message,
-    required this.icon,
-    required this.bottom,
-    required this.onDone,
-    required this.duration,
-  });
-
-  final String message;
-  final IconData icon;
-  final double bottom;
-  final VoidCallback onDone;
-  final Duration duration;
-
-  @override
-  State<_GlassToastOverlay> createState() => _GlassToastOverlayState();
-}
-
-class _GlassToastOverlayState extends State<_GlassToastOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-  late final Animation<double> _fade;
-  late final Animation<double> _slide;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 140),
-      reverseDuration: const Duration(milliseconds: 120),
-    );
-
-    _fade = CurvedAnimation(
-      parent: _c,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-
-    _slide = Tween<double>(begin: 10, end: 0).animate(
-      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
-    );
-
-    _c.forward();
-
-    Future.delayed(widget.duration, () async {
-      if (!mounted) return;
-      await _c.reverse();
-      if (!mounted) return;
-      widget.onDone();
-    });
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      ignoring: true,
-      child: Material( // ✅ Ink/DefaultTextStyle zincirinden kurtarır
-        type: MaterialType.transparency,
-        child: Stack( // ✅ Positioned artık doğru ancestor'a sahip
-          children: [
-            Positioned(
-              left: 14,
-              right: 14,
-              bottom: widget.bottom,
-              child: AnimatedBuilder(
-                animation: _c,
-                builder: (_, __) {
-                  return Opacity(
-                    opacity: _fade.value,
-                    child: Transform.translate(
-                      offset: Offset(0, _slide.value),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.55),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.12),
-                                width: 1,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 34,
-                                    height: 34,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.10),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      widget.icon,
-                                      color: Colors.white.withOpacity(0.92),
-                                      size: 18,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      widget.message,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.2,
-                                        decoration: TextDecoration.none, // ✅ underline fix
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-}
-
-class _BlackGlass extends StatelessWidget {
-  const _BlackGlass({
-    required this.child,
-    this.radius = 18,
-    this.blur = 12,
-    this.opacity = 0.55,
-    this.borderOpacity = 0.12,
-    this.borderWidth = 1,
-    this.clipOval = false,
-    super.key,
-  });
-
-  final Widget child;
-  final double radius;
-  final double blur;
-  final double opacity;
-  final double borderOpacity;
-  final double borderWidth;
-  final bool clipOval;
-
-  @override
-  Widget build(BuildContext context) {
-    final box = BoxDecoration(
-      color: Colors.black.withOpacity(opacity),
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(
-        color: Colors.white.withOpacity(borderOpacity),
-        width: borderWidth,
-      ),
-    );
-
-    final content = BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-      child: DecoratedBox(decoration: box, child: child),
-    );
-
-    if (clipOval) {
-      return ClipOval(child: content);
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: content,
-    );
-  }
-}
-
-enum _PaywallFeature { hideCredentials, boost }
-
-class _FakePaywallSheet extends StatefulWidget {
-  const _FakePaywallSheet({required this.feature});
-
-  final _PaywallFeature feature;
-
-  @override
-  State<_FakePaywallSheet> createState() => _FakePaywallSheetState();
-}
-
-class _FakePaywallSheetState extends State<_FakePaywallSheet> {
-  int _selectedIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final bottomInset = mq.padding.bottom;
-
-    final title = widget.feature == _PaywallFeature.hideCredentials
-        ? 'Anonim Chaput'
-        : 'Öne Çıkar';
-
-    final subtitle = widget.feature == _PaywallFeature.hideCredentials
-        ? 'Kimliğini gizleyerek chaput bağla. Daha özgür, daha güvenli.'
-        : 'Chaputunu daha görünür yap. Daha fazla kişi görsün.';
-
-    // Fake paketler
-    final plans = <_PaywallPlan>[
-      _PaywallPlan(
-        badge: 'EN POPÜLER',
-        title: 'Plus',
-        price: '€4.99 / ay',
-        hint: 'Anonim + Öne çıkar',
-        bullets: const [
-          'Anonim chaput',
-          'Öne çıkarma',
-          'Daha yüksek görünürlük',
-          'Öncelikli destek (fake)',
-        ],
-      ),
-      _PaywallPlan(
-        badge: 'EN İYİ DEĞER',
-        title: 'Pro',
-        price: '€9.99 / ay',
-        hint: 'Tüm haklar + bonus',
-        bullets: const [
-          'Anonim chaput',
-          'Öne çıkarma',
-          'Daha fazla günlük boost',
-          'Özel rozet (fake)',
-        ],
-      ),
-      _PaywallPlan(
-        badge: 'YILLIK',
-        title: 'Pro Yıllık',
-        price: '€79.99 / yıl',
-        hint: '2 ay bedava (fake)',
-        bullets: const [
-          'Tüm Pro ayrıcalıkları',
-          'Daha ucuz yıllık fiyat',
-          'Erken erişim (fake)',
-        ],
-      ),
-    ];
-
-    // Tekli satışlar (credits gibi)
-    final singles = widget.feature == _PaywallFeature.hideCredentials
-        ? <_PaywallSingle>[
-      _PaywallSingle(title: 'Anonim Hak (1)', price: '€0.99', caption: '1 chaput anonim'),
-      _PaywallSingle(title: 'Anonim Paket (5)', price: '€3.49', caption: '5 chaput anonim'),
-      _PaywallSingle(title: 'Anonim Paket (20)', price: '€9.99', caption: 'En uygun (fake)'),
-    ]
-        : <_PaywallSingle>[
-      _PaywallSingle(title: 'Boost (1)', price: '€0.79', caption: '1 kez öne çıkar'),
-      _PaywallSingle(title: 'Boost (5)', price: '€2.99', caption: '5 kez öne çıkar'),
-      _PaywallSingle(title: 'Boost (20)', price: '€8.99', caption: 'En uygun (fake)'),
-    ];
-
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: mq.size.height * 0.92,
-            ),
-            child: Container(
-              padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 12),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _SheetHandle(),
-            
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  title,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  subtitle,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black.withOpacity(0.65),
-                                    height: 1.25,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          InkResponse(
-                            radius: 22,
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.06),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close, size: 20, color: Colors.black),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-            
-                    const SizedBox(height: 14),
-            
-                    // ===== Plans carousel =====
-                    SizedBox(
-                      height: 170,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemBuilder: (_, i) {
-                          final p = plans[i];
-                          final selected = i == _selectedIndex;
-            
-                          return _PlanCard(
-                            plan: p,
-                            selected: selected,
-                            onTap: () => setState(() => _selectedIndex = i),
-                          );
-                        },
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemCount: plans.length,
-                      ),
-                    ),
-            
-                    const SizedBox(height: 10),
-            
-                    // Selected bullets
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _PlanBullets(plan: plans[_selectedIndex]),
-                    ),
-            
-                    const SizedBox(height: 14),
-            
-                    // CTA
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            // TODO: gerçek purchase
-                            Navigator.pop(context);
-                            // istersen toast:
-                            // _showGlassToast('Satın alma yakında', icon: Icons.lock_open);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            '${plans[_selectedIndex].title} ile aç',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ),
-                    ),
-            
-                    const SizedBox(height: 6),
-            
-                    // ===== Single purchases =====
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Tekli satın al',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.black.withOpacity(0.85),
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'İhtiyacın kadar',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black.withOpacity(0.55),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-            
-                    SizedBox(
-                      height: 92,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemBuilder: (_, i) => _SingleCard(
-                          item: singles[i],
-                          onTap: () {
-                            // TODO: gerçek purchase
-                            Navigator.pop(context);
-                          },
-                        ),
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemCount: singles.length,
-                      ),
-                    ),
-            
-                    const SizedBox(height: 10),
-            
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Bu ekran şimdilik demo. Fiyatlar ve haklar örnektir.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black.withOpacity(0.45),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaywallPlan {
-  _PaywallPlan({
-    required this.badge,
-    required this.title,
-    required this.price,
-    required this.hint,
-    required this.bullets,
-  });
-
-  final String badge;
-  final String title;
-  final String price;
-  final String hint;
-  final List<String> bullets;
-}
-
-class _PaywallSingle {
-  _PaywallSingle({
-    required this.title,
-    required this.price,
-    required this.caption,
-  });
-
-  final String title;
-  final String price;
-  final String caption;
-}
-
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({
-    required this.plan,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _PaywallPlan plan;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOut,
-        width: 240,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? Colors.black : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? Colors.black : Colors.black.withOpacity(0.10),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 18,
-              spreadRadius: 0,
-              offset: const Offset(0, 10),
-              color: Colors.black.withOpacity(selected ? 0.25 : 0.08),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: selected ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                plan.badge,
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.black.withOpacity(0.70),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              plan.title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: selected ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              plan.price,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: selected ? Colors.white.withOpacity(0.92) : Colors.black.withOpacity(0.85),
-              ),
-            ),
-            const Spacer(),
-            Text(
-              plan.hint,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: selected ? Colors.white.withOpacity(0.70) : Colors.black.withOpacity(0.55),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlanBullets extends StatelessWidget {
-  const _PlanBullets({required this.plan});
-  final _PaywallPlan plan;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
-      ),
-      child: Column(
-        children: plan.bullets
-            .map(
-              (t) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(Icons.check, size: 12, color: Colors.white),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    t,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black.withOpacity(0.78),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        )
-            .toList(),
-      ),
-    );
-  }
-}
-
-class _SingleCard extends StatelessWidget {
-  const _SingleCard({required this.item, required this.onTap});
-  final _PaywallSingle item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        width: 150,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withOpacity(0.10)),
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 14,
-              offset: const Offset(0, 10),
-              color: Colors.black.withOpacity(0.06),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.max, // ✅ Expanded kullanabilmek için
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w900,
-                color: Colors.black,
-                height: 1.05,
-              ),
-            ),
-            const SizedBox(height: 2),
-
-            // ✅ kalan alana sığsın (gerekirse kısalsın)
-            Expanded(
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Text(
-                  item.caption,
-                  maxLines: 1, // ✅ 92px kartta 2 satır riskli
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black.withOpacity(0.55),
-                    height: 1.05,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            Row(
-              children: [
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      item.price,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.add, size: 15, color: Colors.white),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

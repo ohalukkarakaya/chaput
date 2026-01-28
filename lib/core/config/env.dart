@@ -11,4 +11,8 @@ class Env {
 
   /// debug logging
   static const bool logNetwork = true;
+
+  /// DEV only: billing verify token for fake purchases
+  /// In production keep this empty and use store receipts.
+  static const String devBillingToken = 'DEV_BILLING_SECRET';
 }
