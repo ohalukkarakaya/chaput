@@ -10,12 +10,17 @@ import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
 import '../../../../chaput/application/chaput_decision_controller.dart';
+import '../../../../chaput/application/chaput_messages_controller.dart';
+import '../../../../chaput/application/chaput_threads_controller.dart';
 import '../../../../chaput/data/chaput_api.dart';
+import '../../../../chaput/domain/chaput_message.dart';
+import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../../core/config/env.dart';
 import '../../../../core/router/routes.dart';
 import '../../../billing/data/billing_api_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
+import '../../../user/domain/lite_user.dart';
 import '../../../social/application/follow_state.dart';
 import '../../../social/application/ui_restriction_override_provider.dart';
 import '../../../user/application/profile_controller.dart';
@@ -33,6 +38,7 @@ import '../widgets/glass_toast_overlay.dart';
 import '../widgets/profile_actions_sheet.dart';
 import '../widgets/profile_stat_chip.dart';
 import '../widgets/subscription_replace_sheet.dart';
+import '../widgets/chaput_thread_sheet.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -111,6 +117,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   three.Group? _treeGroup;
   three.Mesh? _ground;
+  ChaputThreadItem? _pendingThreadFocus;
+  String? _pendingThreadProfileId;
 
   // orbit
   double _yaw = 0.0;
@@ -165,6 +173,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   // ===== CHAPUT DECISION / ENTITLEMENTS =====
   bool _chaputThreadCreated = false;
   bool _chaputSendLoading = false;
+  final PageController _chaputPageCtrl = PageController();
+  int _chaputActiveIndex = 0;
+  double _chaputSheetExtent = 0.33;
+  String? _chaputProfileId;
+  String? _focusedThreadId;
   String? _decisionProfileId;
 
   String _planType = 'FREE';
@@ -238,6 +251,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _profileCardCtrl.dispose();
     _msgCtrl.dispose();
     _msgFocus.dispose();
+    _chaputPageCtrl.dispose();
     super.dispose();
   }
 
@@ -276,11 +290,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       onSetupComplete: () {
         if (!mounted) return;
         setState(() => _threeReady = true);
+        _applyPendingThreadFocus();
       },
     );
 
     setState(() {
       _threeJs = js;
+    });
+  }
+
+  void _applyPendingThreadFocus() {
+    if (!_threeReady) return;
+    final thread = _pendingThreadFocus;
+    final pid = _pendingThreadProfileId;
+    if (thread == null || pid == null) return;
+    _pendingThreadFocus = null;
+    _pendingThreadProfileId = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusToThreadAnchor(thread, pid);
     });
   }
 
@@ -811,6 +839,89 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _openComposer();
   }
 
+  void _focusToThreadAnchor(ChaputThreadItem thread, String profileIdHex) {
+    if (!_threeReady || _treeGroup == null) {
+      _pendingThreadFocus = thread;
+      _pendingThreadProfileId = profileIdHex;
+      return;
+    }
+    if (thread.hasCoords()) {
+      _focusAnchor = three.Vector3(thread.x!, thread.y!, thread.z!);
+      _showFocusMarker = false;
+      _resetMarkerStabilizer();
+      _startSnapToNewAnchor();
+      return;
+    }
+
+    final g = _treeGroup;
+    if (g == null) return;
+    g.updateMatrixWorld(true);
+    final newAnchor = _pickRandomLeafAnchor(g);
+    if (newAnchor == null) return;
+    _focusAnchor = newAnchor;
+    _showFocusMarker = false;
+    _resetMarkerStabilizer();
+    _startSnapToNewAnchor();
+
+    // Persist node for this profile if empty.
+    final api = ref.read(chaputApiProvider);
+    api.setThreadNode(
+      threadIdHex: thread.threadId,
+      profileIdHex: profileIdHex,
+      x: newAnchor.x,
+      y: newAnchor.y,
+      z: newAnchor.z,
+    );
+  }
+
+  Future<void> _sendThreadMessage({
+    required ChaputThreadItem thread,
+    required String body,
+    required bool whisper,
+    required String profileIdHex,
+  }) async {
+    if (body.trim().isEmpty) return;
+    final api = ref.read(chaputApiProvider);
+    final kind = whisper ? 'WHISPER' : 'NORMAL';
+    await api.sendMessage(threadIdHex: thread.threadId, body: body, kind: kind);
+
+    final msg = ChaputMessage(
+      id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+      senderId: ref.read(meControllerProvider).valueOrNull?.user.userId ?? '',
+      kind: kind,
+      body: body,
+      createdAt: DateTime.now().toUtc(),
+    );
+    ref
+        .read(
+          chaputMessagesControllerProvider(
+            ChaputMessagesArgs(threadId: thread.threadId, profileId: profileIdHex),
+          ).notifier,
+        )
+        .addLocalMessage(msg);
+  }
+
+  Future<void> _makeThreadHidden({
+    required ChaputThreadItem thread,
+    required String profileIdHex,
+    required ChaputThreadsArgs chaputArgs,
+  }) async {
+    if (_decisionProfileId == null) return;
+    if (_creditHidden <= 0) {
+      final purchase = await _openPaywall(feature: PaywallFeature.hideCredentials);
+      if (purchase == null) return;
+      final ok = await _verifyPurchaseAndApply(purchase);
+      if (!ok) return;
+    }
+
+    final decisionCtrl = ref.read(chaputDecisionControllerProvider(profileIdHex).notifier);
+    decisionCtrl.applyCreditsDelta(hidden: -1);
+
+    ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).updateThreadKind(thread.threadId, 'HIDDEN');
+
+    _showGlassToast('Chaput gizlendi', icon: Icons.lock_outline);
+  }
+
   Future<void> _sendChaputMessage({
     required String profileId,
   }) async {
@@ -990,6 +1101,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       // 1) mesaj yoksa: temizle, kapat, anchor unut, model unfocus
       _msgCtrl.clear();
       _draftAnchor = null;
+      _focusedThreadId = null;
 
       // focus tamamen kapansın
       _focusAnchor = null;
@@ -1524,6 +1636,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final followLoading = followState is FollowLoading;
 
+    final me = meAsync.valueOrNull;
+    final viewerId = me?.user.userId ?? '';
+    final viewerLite = me == null
+        ? null
+        : LiteUser(
+            id: me.user.userId,
+            username: me.user.username,
+            fullName: me.user.fullName,
+            bio: me.user.bio,
+            defaultAvatar: me.user.defaultAvatar ?? '',
+            profilePhotoKey: me.user.profilePhotoKey,
+          );
+
     final profileIdHex = _resolveProfileId(st.profileJson, userId);
     final bool decisionAllowed =
         profileIdHex.length == 32 && !isMe && !(isPrivateTarget && !effectiveIsFollowing);
@@ -1593,6 +1718,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             && !isProPlan
             && !hasNormalCredit
             && !adsAvailable;
+
+    final bool chaputAllowed = profileIdHex.length == 32 && (!isPrivateTarget || effectiveIsFollowing || isMe);
+    final chaputArgs = ChaputThreadsArgs(
+      profileId: profileIdHex,
+      viewerId: viewerId,
+      ownerId: userId,
+      restricted: heRestrictedMe,
+    );
+
+    final ChaputThreadsState chaputThreadsState = chaputAllowed && viewerId.isNotEmpty
+        ? ref.watch(chaputThreadsControllerProvider(chaputArgs))
+        : ChaputThreadsState.empty;
+
+    final chaputThreads = chaputThreadsState.items;
+    final bool hasOurThread = chaputThreads.any((t) =>
+        (t.userAId == userId && t.userBId == viewerId) || (t.userAId == viewerId && t.userBId == userId));
+    if (_chaputProfileId != profileIdHex) {
+      _chaputProfileId = profileIdHex;
+      _chaputActiveIndex = 0;
+      _focusedThreadId = null;
+      if (_chaputPageCtrl.hasClients) {
+        _chaputPageCtrl.jumpToPage(0);
+      }
+    }
+
+    if (chaputThreads.isNotEmpty && _chaputActiveIndex < chaputThreads.length) {
+      final t = chaputThreads[_chaputActiveIndex];
+      if (_focusedThreadId != t.threadId) {
+        _focusedThreadId = t.threadId;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _focusToThreadAnchor(t, profileIdHex);
+        });
+      }
+    }
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -1976,6 +2136,68 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             ),
 
 
+            if (chaputThreads.isNotEmpty && !_composerOpen && !_silhouetteMode)
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: ChaputThreadSheet(
+                    threads: chaputThreads,
+                    usersById: chaputThreadsState.usersById,
+                    viewerUser: viewerLite,
+                    viewerId: viewerId,
+                    ownerId: userId,
+                    profileId: profileIdHex,
+                    pageController: _chaputPageCtrl,
+                    initialExtent: _chaputSheetExtent,
+                    onExtentChanged: (v) => setState(() => _chaputSheetExtent = v),
+                    onPageChanged: (index) async {
+                      setState(() => _chaputActiveIndex = index);
+                      if (index < chaputThreads.length) {
+                        final t = chaputThreads[index];
+                        _focusToThreadAnchor(t, profileIdHex);
+                        final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
+                        if (!isParticipant) {
+                          final api = ref.read(chaputApiProvider);
+                          await api.recordView(threadIdHex: t.threadId);
+                        }
+                        if (index >= chaputThreads.length - 2) {
+                          ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).loadMore();
+                        }
+                      }
+                    },
+                    onOpenProfile: (id) {
+                      if (id.isEmpty) return;
+                      Routes.profile(id).then((route) {
+                        if (route.isEmpty) return;
+                        context.push(route);
+                      });
+                    },
+                    onSendMessage: (thread, body, whisper) async {
+                      await _sendThreadMessage(
+                        thread: thread,
+                        body: body,
+                        whisper: whisper,
+                        profileIdHex: profileIdHex,
+                      );
+                    },
+                    onMakeHidden: (thread) async {
+                      await _makeThreadHidden(
+                        thread: thread,
+                        profileIdHex: profileIdHex,
+                        chaputArgs: chaputArgs,
+                      );
+                    },
+                    canMakeHidden: _creditHidden > 0,
+                    onOpenWhisperPaywall: () async {
+                      final purchase = await _openPaywall(feature: PaywallFeature.whisper);
+                      if (purchase == null) return;
+                      await _verifyPurchaseAndApply(purchase);
+                    },
+                    whisperCredits: _creditWhisper,
+                  ),
+                ),
+              ),
+
             // MARKER
             Positioned.fill(
               child: IgnorePointer(
@@ -2019,7 +2241,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   child: SafeArea(
                 child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 160),
-                      child: (_composerOpen || _silhouetteMode || isMe || _chaputThreadCreated || _decisionHasThread)
+                      child: (_composerOpen || _silhouetteMode || isMe || _chaputThreadCreated || hasOurThread || _chaputSheetExtent > 0.55)
                           ? const SizedBox.shrink()
                           : IgnorePointer(
                         ignoring: !_threeReady,

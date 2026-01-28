@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'sheet_handle.dart';
 
-enum PaywallFeature { bind, hideCredentials, boost }
+enum PaywallFeature { bind, hideCredentials, boost, whisper }
 
 class PaywallPurchase {
   const PaywallPurchase({
@@ -47,13 +47,17 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
         ? 'Chaput Bağlama Hakkı'
         : (widget.feature == PaywallFeature.hideCredentials
             ? 'Anonim Chaput'
-            : 'Öne Çıkar');
+            : widget.feature == PaywallFeature.whisper
+                ? 'Fısıltı Mesajı'
+                : 'Öne Çıkar');
 
     final subtitle = widget.feature == PaywallFeature.bind
         ? 'Bugün hakkın bitti. Hemen hak satın al veya paket seç.'
         : (widget.feature == PaywallFeature.hideCredentials
             ? 'Kimliğini gizleyerek chaput bağla. Daha özgür, daha güvenli.'
-            : 'Chaputunu daha görünür yap. Daha fazla kişi görsün.');
+            : widget.feature == PaywallFeature.whisper
+                ? 'Fısıltı mesajları yalnızca taraflara görünür.'
+                : 'Chaputunu daha görünür yap. Daha fazla kişi görsün.');
 
     final proMonthly = PaywallPlan(
       badge: 'AYLIK',
@@ -114,6 +118,12 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
             PaywallSingle(title: 'Anonim Hak (1)', price: '€0.99', caption: '1 chaput anonim', productId: 'chaput_hidden_1'),
             PaywallSingle(title: 'Anonim Paket (5)', price: '€3.49', caption: '5 chaput anonim', productId: 'chaput_hidden_5'),
             PaywallSingle(title: 'Anonim Paket (20)', price: '€9.99', caption: 'En uygun (fake)', productId: 'chaput_hidden_20'),
+          ]
+        : widget.feature == PaywallFeature.whisper
+        ? <PaywallSingle>[
+            PaywallSingle(title: 'Fısıltı (1)', price: '€0.79', caption: '1 fısıltı mesajı', productId: 'chaput_whisper_1'),
+            PaywallSingle(title: 'Fısıltı (10)', price: '€3.49', caption: '10 fısıltı mesajı', productId: 'chaput_whisper_10'),
+            PaywallSingle(title: 'Fısıltı (30)', price: '€7.99', caption: 'En uygun (fake)', productId: 'chaput_whisper_30'),
           ]
         : <PaywallSingle>[
             PaywallSingle(title: 'Boost (1)', price: '€0.79', caption: '1 kez öne çıkar', productId: 'chaput_special_1'),

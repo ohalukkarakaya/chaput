@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 
 import '../domain/chaput_decision.dart';
+import '../domain/chaput_message.dart';
+import '../domain/chaput_thread.dart';
 
 class ChaputApi {
   ChaputApi(this._dio);
@@ -17,6 +19,72 @@ class ChaputApi {
       throw Exception(data['error'] ?? 'decision_error');
     }
     throw Exception('bad_decision_response');
+  }
+
+  Future<({List<ChaputThreadItem> items, String? nextCursor})> listThreads({
+    required String profileIdHex,
+    int limit = 20,
+    String? cursor,
+  }) async {
+    final res = await _dio.get(
+      '/chaput/profile/$profileIdHex/threads',
+      queryParameters: {
+        'limit': limit,
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+      },
+    );
+    final data = res.data;
+    if (data is Map<String, dynamic>) {
+      if (data['ok'] == true) {
+        final itemsJson = (data['items'] as List?) ?? const [];
+        final items = itemsJson
+            .map((e) => ChaputThreadItem.fromJson(e as Map<String, dynamic>))
+            .toList(growable: false);
+        return (items: items, nextCursor: data['next_cursor']?.toString());
+      }
+      throw Exception(data['error'] ?? 'threads_error');
+    }
+    throw Exception('bad_threads_response');
+  }
+
+  Future<({List<ChaputMessage> items, String? nextCursor})> listMessages({
+    required String threadIdHex,
+    String? profileIdHex,
+    int limit = 30,
+    String? cursor,
+  }) async {
+    final res = await _dio.get(
+      '/chaput/threads/$threadIdHex/messages',
+      queryParameters: {
+        'limit': limit,
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+        if (profileIdHex != null && profileIdHex.isNotEmpty) 'profile_id': profileIdHex,
+      },
+    );
+    final data = res.data;
+    if (data is Map<String, dynamic>) {
+      if (data['ok'] == true) {
+        final itemsJson = (data['items'] as List?) ?? const [];
+        final items = itemsJson
+            .map((e) => ChaputMessage.fromJson(e as Map<String, dynamic>))
+            .toList(growable: false);
+        return (items: items, nextCursor: data['next_cursor']?.toString());
+      }
+      throw Exception(data['error'] ?? 'messages_error');
+    }
+    throw Exception('bad_messages_response');
+  }
+
+  Future<void> recordView({
+    required String threadIdHex,
+  }) async {
+    final res = await _dio.post('/chaput/threads/$threadIdHex/view');
+    final data = res.data;
+    if (data is Map<String, dynamic> && data['ok'] == true) return;
+    if (data is Map<String, dynamic>) {
+      throw Exception(data['error'] ?? 'view_error');
+    }
+    throw Exception('bad_view_response');
   }
 
   Future<({String threadId, bool alreadyExists})> startThread({
