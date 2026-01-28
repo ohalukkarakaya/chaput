@@ -90,6 +90,12 @@ class ChaputDecisionController extends AutoDisposeFamilyNotifier<ChaputDecisionS
     state = state.copyWith(decision: current.copyWith(plan: current.plan.copyWith(type: type)));
   }
 
+  void applyPlanPeriod(String period) {
+    final current = state.decision;
+    if (current == null) return;
+    state = state.copyWith(decision: current.copyWith(plan: current.plan.copyWith(period: period)));
+  }
+
   void setCredits({
     required int normal,
     required int hidden,

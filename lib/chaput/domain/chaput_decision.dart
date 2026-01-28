@@ -89,15 +89,22 @@ class ChaputDecisionTarget {
 
 class ChaputDecisionPlan {
   final String type; // FREE/PLUS/PRO
+  final String? period; // MONTH/YEAR
 
-  ChaputDecisionPlan({required this.type});
+  ChaputDecisionPlan({required this.type, required this.period});
 
   factory ChaputDecisionPlan.fromJson(Map<String, dynamic> json) {
-    return ChaputDecisionPlan(type: json['type']?.toString() ?? 'FREE');
+    return ChaputDecisionPlan(
+      type: json['type']?.toString() ?? 'FREE',
+      period: json['period']?.toString(),
+    );
   }
 
-  ChaputDecisionPlan copyWith({String? type}) {
-    return ChaputDecisionPlan(type: type ?? this.type);
+  ChaputDecisionPlan copyWith({String? type, String? period}) {
+    return ChaputDecisionPlan(
+      type: type ?? this.type,
+      period: period ?? this.period,
+    );
   }
 }
 
