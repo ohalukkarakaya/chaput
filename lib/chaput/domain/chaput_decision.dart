@@ -47,6 +47,7 @@ class ChaputDecisionTarget {
   final bool restrictedMode;
   final bool hasThread;
   final String threadState;
+  final String threadId;
 
   ChaputDecisionTarget({
     required this.profileId,
@@ -55,6 +56,7 @@ class ChaputDecisionTarget {
     required this.restrictedMode,
     required this.hasThread,
     required this.threadState,
+    required this.threadId,
   });
 
   factory ChaputDecisionTarget.fromJson(Map<String, dynamic> json) {
@@ -65,6 +67,7 @@ class ChaputDecisionTarget {
       restrictedMode: json['restricted_mode'] == true,
       hasThread: json['has_thread'] == true,
       threadState: json['thread_state']?.toString() ?? '',
+      threadId: json['thread_id']?.toString() ?? '',
     );
   }
 
@@ -75,6 +78,7 @@ class ChaputDecisionTarget {
     bool? restrictedMode,
     bool? hasThread,
     String? threadState,
+    String? threadId,
   }) {
     return ChaputDecisionTarget(
       profileId: profileId ?? this.profileId,
@@ -83,6 +87,7 @@ class ChaputDecisionTarget {
       restrictedMode: restrictedMode ?? this.restrictedMode,
       hasThread: hasThread ?? this.hasThread,
       threadState: threadState ?? this.threadState,
+      threadId: threadId ?? this.threadId,
     );
   }
 }

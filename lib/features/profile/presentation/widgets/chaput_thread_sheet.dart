@@ -703,22 +703,30 @@ class _MessageGroupBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orderedItems = group.items.reversed.toList(growable: false);
     final bubbleColumn = Column(
       crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: group.items.map((m) => _MessageBubble(message: m, isMine: isMine)).toList(),
+      children: [
+        for (int i = 0; i < orderedItems.length; i++)
+          _MessageBubble(
+            message: orderedItems[i],
+            isMine: isMine,
+            isLastInGroup: i == orderedItems.length - 1,
+          ),
+      ],
     );
 
     if (isMine) {
       return Align(
         alignment: Alignment.centerRight,
-        child: Container(margin: const EdgeInsets.symmetric(vertical: 6), child: bubbleColumn),
+        child: Container(margin: const EdgeInsets.symmetric(vertical: 4), child: bubbleColumn),
       );
     }
 
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
+        margin: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -765,10 +773,12 @@ class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
     required this.isMine,
+    required this.isLastInGroup,
   });
 
   final ChaputMessage message;
   final bool isMine;
+  final bool isLastInGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -777,12 +787,19 @@ class _MessageBubble extends StatelessWidget {
     final bg = isMine ? Colors.white : Colors.white.withOpacity(0.12);
     final fg = isMine ? Colors.black : Colors.white;
 
+    final radius = BorderRadius.only(
+      topLeft: const Radius.circular(14),
+      topRight: const Radius.circular(14),
+      bottomLeft: Radius.circular(isMine ? 14 : (isLastInGroup ? 4 : 14)),
+      bottomRight: Radius.circular(isMine ? (isLastInGroup ? 4 : 14) : 14),
+    );
+
     final bubble = Container(
-      margin: const EdgeInsets.symmetric(vertical: 2),
+      margin: const EdgeInsets.symmetric(vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isWhisperHidden ? Colors.white.withOpacity(0.08) : bg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: radius,
         border: Border.all(color: Colors.white.withOpacity(isMine ? 0.0 : 0.06)),
       ),
       child: Text(
