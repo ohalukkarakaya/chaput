@@ -158,6 +158,20 @@ class ChaputApi {
     throw Exception('bad_node_response');
   }
 
+  Future<void> hideThread({
+    required String threadIdHex,
+  }) async {
+    final res = await _dio.post('/chaput/threads/$threadIdHex/hide');
+    final data = res.data;
+    if (data is Map<String, dynamic> && data['ok'] == true) {
+      return;
+    }
+    if (data is Map<String, dynamic>) {
+      throw Exception(data['error'] ?? 'hide_error');
+    }
+    throw Exception('bad_hide_response');
+  }
+
   Future<bool> watchAd() async {
     final res = await _dio.post('/chaput/ads/watch');
     final data = res.data;

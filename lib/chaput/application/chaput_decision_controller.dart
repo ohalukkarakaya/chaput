@@ -51,6 +51,20 @@ class ChaputDecisionController extends AutoDisposeFamilyNotifier<ChaputDecisionS
     return ChaputDecisionState.empty;
   }
 
+  Future<ChaputDecision?> fetchDecisionAndReturn() async {
+    if (state.isLoading) return state.decision;
+    state = state.copyWith(isLoading: true, error: null, clearError: true);
+    try {
+      final decision = await _api.getDecision(arg);
+      state = state.copyWith(isLoading: false, decision: decision, clearError: true);
+      return decision;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return state.decision;
+    }
+  }
+
+
   Future<void> fetchDecision() async {
     if (state.isLoading) return;
     state = state.copyWith(isLoading: true, error: null, clearError: true);

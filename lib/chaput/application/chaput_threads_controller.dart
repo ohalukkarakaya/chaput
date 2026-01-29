@@ -215,4 +215,17 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
     }
     return map;
   }
+
+  void addUsers(Map<String, LiteUser> users) {
+    if (users.isEmpty) return;
+    state = state.copyWith(usersById: {...state.usersById, ...users});
+  }
+
+  void addThreadOptimistic(ChaputThreadItem item, ChaputThreadsArgs arg) {
+    if (item.threadId.isEmpty) return;
+    final all = [item, ...state.items];
+    final deduped = _dedupe(all);
+    final reordered = _reorder(deduped, arg);
+    state = state.copyWith(items: reordered);
+  }
 }

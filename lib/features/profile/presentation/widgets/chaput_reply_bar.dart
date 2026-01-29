@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'black_glass.dart';
 
 class ChaputReplyBar extends StatefulWidget {
@@ -10,13 +9,19 @@ class ChaputReplyBar extends StatefulWidget {
     required this.canWhisper,
     this.onFocus,
     this.onBlur,
+    required this.whisperMode,
+    required this.onToggleWhisper,
   });
 
   final Future<void> Function(String text, bool whisper) onSend;
-  final VoidCallback onWhisperPaywall;
-  final bool canWhisper;
+
   final VoidCallback? onFocus;
   final VoidCallback? onBlur;
+
+  final Future<void> Function() onWhisperPaywall;
+  final bool canWhisper;
+  final bool whisperMode;
+  final Future<void> Function() onToggleWhisper;
 
   @override
   State<ChaputReplyBar> createState() => _ChaputReplyBarState();
@@ -25,7 +30,6 @@ class ChaputReplyBar extends StatefulWidget {
 class _ChaputReplyBarState extends State<ChaputReplyBar> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  bool _whisper = false;
 
   @override
   void initState() {
@@ -41,18 +45,6 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
     super.dispose();
   }
 
-  Future<void> _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    final whisper = _whisper;
-    if (whisper && !widget.canWhisper) {
-      widget.onWhisperPaywall();
-      return;
-    }
-    _controller.clear();
-    await widget.onSend(text, whisper);
-  }
-
   void _handleFocus() {
     if (_focusNode.hasFocus) {
       widget.onFocus?.call();
@@ -61,8 +53,20 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
     }
   }
 
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    final whisper = widget.whisperMode;
+
+    _controller.clear();
+    await widget.onSend(text, whisper);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isWhisper = widget.whisperMode;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       child: BlackGlass(
@@ -72,39 +76,50 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
         child: Row(
           children: [
             const SizedBox(width: 10),
+
+            // ✅ Fısılda butonu artık parent state’ine bağlı
             GestureDetector(
-              onTap: () {
-                if (!widget.canWhisper) {
+              onTap: () async {
+                // Eğer parent canWhisper false ise bile,
+                // parent onToggleWhisper içinde fresh check + paywall yapabilir.
+                // Ama sen ister burada "kısa yol" bırak:
+                if (!widget.canWhisper && !isWhisper) {
                   widget.onWhisperPaywall();
                   return;
                 }
-                setState(() => _whisper = !_whisper);
+                widget.onToggleWhisper();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _whisper ? Colors.white : Colors.white.withOpacity(0.12),
+                  color: isWhisper ? Colors.white : Colors.white.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: Colors.white.withOpacity(0.18)),
                 ),
                 child: Text(
                   'Fısılda',
                   style: TextStyle(
-                    color: _whisper ? Colors.black : Colors.white,
+                    color: isWhisper ? Colors.black : Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
             ),
+
             const SizedBox(width: 10),
+
             Expanded(
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
                 decoration: InputDecoration(
-                  hintText: 'Mesaj yaz...',
+                  hintText: isWhisper ? 'Fısıltı mesajı...' : 'Mesaj yaz...',
                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
                   border: InputBorder.none,
                 ),
@@ -113,7 +128,9 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                 onSubmitted: (_) => _send(),
               ),
             ),
+
             const SizedBox(width: 8),
+
             IconButton(
               onPressed: _send,
               icon: const Icon(Icons.send, color: Colors.white),

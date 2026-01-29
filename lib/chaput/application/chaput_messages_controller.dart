@@ -66,6 +66,7 @@ final chaputMessagesControllerProvider = AutoDisposeNotifierProviderFamily<
 
 class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesState, ChaputMessagesArgs> {
   ChaputApi get _api => ref.read(chaputApiProvider);
+  String? _lastLoadCursor;
 
   @override
   ChaputMessagesState build(ChaputMessagesArgs arg) {
@@ -100,6 +101,8 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
   Future<void> loadMore() async {
     if (state.isLoading || state.isLoadingMore) return;
     if (state.nextCursor == null || state.nextCursor!.isEmpty) return;
+    if (_lastLoadCursor == state.nextCursor) return;
+    _lastLoadCursor = state.nextCursor;
 
     state = state.copyWith(isLoadingMore: true, clearError: true);
     try {
@@ -110,10 +113,11 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
         cursor: state.nextCursor,
       );
       final items = [...state.items, ...res.items];
+      final nextCursor = (res.items.isEmpty || res.nextCursor == state.nextCursor) ? null : res.nextCursor;
       state = state.copyWith(
         isLoadingMore: false,
         items: _dedupe(items),
-        nextCursor: res.nextCursor,
+        nextCursor: nextCursor,
         clearError: true,
       );
     } catch (e, st) {

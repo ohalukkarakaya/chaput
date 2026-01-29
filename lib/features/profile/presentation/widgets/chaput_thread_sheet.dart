@@ -93,22 +93,43 @@ class ChaputThreadSheet extends ConsumerWidget {
                       final otherUser =
                           usersById[otherId] ?? (viewerUser != null && otherId == viewerUser!.id ? viewerUser : null);
 
-                        return _SheetPage(
-                          thread: thread,
-                          ownerUser: ownerUser,
-                          otherUser: otherUser,
-                          viewerUser: viewerUser,
-                          viewerId: viewerId,
-                          isParticipant: isParticipant,
-                          profileId: profileId,
-                          onOpenProfile: onOpenProfile,
-                          onSendMessage: onSendMessage,
-                          onMakeHidden: onMakeHidden,
-                          canMakeHidden: canMakeHidden,
-                          onOpenWhisperPaywall: onOpenWhisperPaywall,
-                          replyOverlay: replyOverlay,
-                          whisperCredits: whisperCredits,
-                        );
+                      final child = _SheetPage(
+                        thread: thread,
+                        ownerUser: ownerUser,
+                        otherUser: otherUser,
+                        viewerUser: viewerUser,
+                        viewerId: viewerId,
+                        isParticipant: isParticipant,
+                        profileId: profileId,
+                        onOpenProfile: onOpenProfile,
+                        onSendMessage: onSendMessage,
+                        onMakeHidden: onMakeHidden,
+                        canMakeHidden: canMakeHidden,
+                        onOpenWhisperPaywall: onOpenWhisperPaywall,
+                        replyOverlay: replyOverlay,
+                        whisperCredits: whisperCredits,
+                      );
+
+                      return AnimatedBuilder(
+                        animation: pageController,
+                        builder: (ctx, _) {
+                          double page = pageController.initialPage.toDouble();
+                          if (pageController.hasClients) {
+                            page = pageController.page ?? pageController.initialPage.toDouble();
+                          }
+                          final delta = (page - index).abs().clamp(0.0, 1.0);
+                          final scale = 1.0 - (delta * 0.08);
+                          final opacity = 1.0 - (delta * 0.25);
+                          return Transform.scale(
+                            scale: scale,
+                            alignment: Alignment.bottomCenter,
+                            child: Opacity(
+                              opacity: opacity,
+                              child: child,
+                            ),
+                          );
+                        },
+                      );
                     },
                   ),
                 ),
@@ -170,34 +191,43 @@ class _SheetPage extends StatelessWidget {
                 border: Border.all(color: Colors.white.withOpacity(0.10)),
               ),
               child: compact
-                  ? ClipRect(
-                      child: SizedBox(
-                        height: constraints.maxHeight,
-                        child: SingleChildScrollView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(height: 6),
-                              const SheetHandle(),
-                              _ThreadHeader(
-                                ownerUser: ownerUser,
-                                otherUser: otherUser,
-                                isHidden: thread.kind == 'HIDDEN',
-                                isParticipant: isParticipant,
-                                otherName: (thread.kind == 'HIDDEN' && !isParticipant)
-                                    ? 'Gizli Kullanıcı'
-                                    : (otherUser?.fullName ?? ''),
-                                otherUsername: (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
-                                onOpenProfile: onOpenProfile,
-                                showHideAction: isParticipant && thread.kind == 'NORMAL',
-                                canMakeHidden: canMakeHidden,
-                                onMakeHidden: () => onMakeHidden(thread),
+                  ? SizedBox(
+                      height: constraints.maxHeight,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          if (constraints.maxHeight >= 80) ...[
+                            const SizedBox(height: 6),
+                            const SheetHandle(),
+                          ],
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.topLeft,
+                                child: SizedBox(
+                                  width: constraints.maxWidth,
+                                  child: _ThreadHeader(
+                                    ownerUser: ownerUser,
+                                    otherUser: otherUser,
+                                    isHidden: thread.kind == 'HIDDEN',
+                                    isParticipant: isParticipant,
+                                    otherName: (thread.kind == 'HIDDEN' && !isParticipant)
+                                        ? 'Gizli Kullanıcı'
+                                        : (otherUser?.fullName ?? ''),
+                                    otherUsername:
+                                        (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
+                                    onOpenProfile: onOpenProfile,
+                                    showHideAction: isParticipant && thread.kind == 'NORMAL',
+                                    canMakeHidden: canMakeHidden,
+                                    onMakeHidden: () => onMakeHidden(thread),
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 6),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     )
                   : Column(
@@ -593,7 +623,10 @@ class _MessagesList extends StatelessWidget {
     final groups = _groupMessages(items);
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 100) {
+        if (n is! ScrollEndNotification) return false;
+        if (state.isLoadingMore) return false;
+        if (state.nextCursor == null || state.nextCursor!.isEmpty) return false;
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 20) {
           onLoadMore();
         }
         return false;
