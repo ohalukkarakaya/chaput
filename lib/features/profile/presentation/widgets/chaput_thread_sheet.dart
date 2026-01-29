@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../chaput/application/chaput_messages_controller.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../user/domain/lite_user.dart';
@@ -467,6 +468,20 @@ class _ThreadHeader extends StatelessWidget {
                 ),
               ),
             ),
+          if (!showHideAction && isHidden)
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: const Icon(
+                Icons.lock,
+                size: 14,
+                color: Colors.white,
+              ),
+            ),
         ],
       ),
     );
@@ -651,6 +666,7 @@ class _MessagesList extends StatelessWidget {
             isMine: isMine,
             senderUser: senderUser,
             forceDefaultAvatar: forceDefault,
+            isParticipant: isParticipant,
           );
         },
       ),
@@ -700,12 +716,14 @@ class _MessageGroupBubble extends StatelessWidget {
     required this.isMine,
     required this.senderUser,
     required this.forceDefaultAvatar,
+    required this.isParticipant,
   });
 
   final _MessageGroup group;
   final bool isMine;
   final LiteUser? senderUser;
   final bool forceDefaultAvatar;
+  final bool isParticipant;
 
   @override
   Widget build(BuildContext context) {
@@ -718,6 +736,7 @@ class _MessageGroupBubble extends StatelessWidget {
             message: orderedItems[i],
             isMine: isMine,
             isLastInGroup: i == orderedItems.length - 1,
+            isParticipant: isParticipant,
           ),
       ],
     );
@@ -780,18 +799,24 @@ class _MessageBubble extends StatelessWidget {
     required this.message,
     required this.isMine,
     required this.isLastInGroup,
+    required this.isParticipant,
   });
 
   final ChaputMessage message;
   final bool isMine;
   final bool isLastInGroup;
+  final bool isParticipant;
 
   @override
   Widget build(BuildContext context) {
     final isWhisperHidden = message.kind == 'WHISPER_HIDDEN';
     final isWhisper = message.kind == 'WHISPER';
-    final bg = isMine ? Colors.white : Colors.white.withOpacity(0.12);
-    final fg = isMine ? Colors.black : Colors.white;
+    final whisperBg = isMine ? AppColors.chaputLightBlue : const Color(0xFF1B4B43);
+    final whisperFg = isMine ? Colors.black : Colors.white;
+    final bg = isWhisper
+        ? whisperBg
+        : (isMine ? Colors.white : Colors.white.withOpacity(0.12));
+    final fg = isWhisper ? whisperFg : (isMine ? Colors.black : Colors.white);
 
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(14),
@@ -799,6 +824,9 @@ class _MessageBubble extends StatelessWidget {
       bottomLeft: Radius.circular(isMine ? 14 : (isLastInGroup ? 4 : 14)),
       bottomRight: Radius.circular(isMine ? (isLastInGroup ? 4 : 14) : 14),
     );
+
+    final masked = '*' * (message.body.isEmpty ? 6 : message.body.length.clamp(4, 18));
+    final displayText = (!isParticipant && (isWhisper || isWhisperHidden)) ? masked : message.body;
 
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
@@ -809,9 +837,9 @@ class _MessageBubble extends StatelessWidget {
         border: Border.all(color: Colors.white.withOpacity(isMine ? 0.0 : 0.06)),
       ),
       child: Text(
-        isWhisperHidden ? 'Fısıldadı' : message.body,
+        displayText,
         style: TextStyle(
-          color: isWhisperHidden ? Colors.white.withOpacity(0.6) : fg,
+          color: isWhisperHidden ? Colors.white.withOpacity(0.7) : fg,
           fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
@@ -825,33 +853,6 @@ class _MessageBubble extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: bubble,
         ),
-      );
-    }
-
-    if (isWhisper) {
-      return Stack(
-        children: [
-          bubble,
-          Positioned(
-            right: 6,
-            top: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Fısıltı',
-                style: TextStyle(
-                  color: isMine ? Colors.black : Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ],
       );
     }
 
