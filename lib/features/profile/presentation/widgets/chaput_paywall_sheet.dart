@@ -39,9 +39,13 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final bottomInset = mq.padding.bottom;
-    final isPro = widget.planType == 'PRO';
-    final isProMonthly = isPro && widget.planPeriod == 'MONTH';
-    final isProYearly = isPro && widget.planPeriod == 'YEAR';
+    final planType = widget.planType.toUpperCase();
+    final planPeriod = widget.planPeriod?.toUpperCase();
+    final isPro = planType == 'PRO' || planType.contains('PRO');
+    final isPlus = planType == 'PLUS' || planType.contains('PLUS');
+    final isFree = !isPro && !isPlus;
+    final isProMonthly = isPro && planPeriod == 'MONTH';
+    final isProYearly = isPro && planPeriod == 'YEAR';
 
     final title = widget.feature == PaywallFeature.bind
         ? 'Chaput Bağlama Hakkı'
@@ -101,9 +105,9 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
     );
 
     final plans = <PaywallPlan>[
-      if (widget.planType == 'FREE') plusMonthly,
-      if (widget.planType == 'FREE' || widget.planType == 'PLUS') proMonthly,
-      if (widget.planType == 'FREE' || widget.planType == 'PLUS' || isProMonthly) proYearly,
+      if (isFree) plusMonthly,
+      if (isFree || isPlus) proMonthly,
+      if (isFree || isPlus || isProMonthly) proYearly,
     ];
     final selectedIndex = plans.isEmpty ? 0 : _selectedIndex.clamp(0, plans.length - 1);
 
