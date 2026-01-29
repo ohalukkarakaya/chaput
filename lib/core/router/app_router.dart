@@ -44,7 +44,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/profile/:userId',
         builder: (context, state) {
           final userId = state.pathParameters['userId']!;
-          return ProfileScreen(userId: userId);
+          String? initialThreadId;
+          final extra = state.extra;
+          if (extra is Map) {
+            final threadId = extra['threadId'];
+            if (threadId is String && threadId.isNotEmpty) {
+              initialThreadId = threadId;
+            }
+          }
+          return ProfileScreen(userId: userId, initialThreadId: initialThreadId);
         },
       ),
       GoRoute(
