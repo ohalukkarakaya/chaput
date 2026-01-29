@@ -358,8 +358,10 @@ class _RecommendedUserCard extends ConsumerWidget {
                         radius: 999,
                         borderWidth: 2,
                         bgColor: Colors.black,
-                        isDefaultAvatar: u.profilePhotoKey == null,
-                        imageUrl: u.profilePhotoKey ?? u.defaultAvatar,
+                        isDefaultAvatar: u.profilePhotoPath == null || u.profilePhotoPath!.isEmpty,
+                        imageUrl: (u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty)
+                            ? u.profilePhotoPath!
+                            : u.defaultAvatar,
                       ),
                       const SizedBox(width: 12),
                       Column(

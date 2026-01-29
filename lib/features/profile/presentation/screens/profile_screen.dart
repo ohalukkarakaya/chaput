@@ -1836,7 +1836,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final followingCount = st.profileJson?['following_count'] ?? 0;
     final defaultAvatar = user?['default_avatar'];
     final profilePhotoKey = user?['profile_photo_key']?.toString();
-    final profilePhotoUrl = user?['profile_photo_url'] as String?;
+    final profilePhotoUrl = user?['profile_photo_url']?.toString();
     final bio = user?['bio']?.toString() ?? '';
 
     final LiteUser? targetLiteUser = userId.isEmpty
@@ -1848,6 +1848,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             bio: bio,
             defaultAvatar: defaultAvatar?.toString() ?? '',
             profilePhotoKey: profilePhotoKey,
+            profilePhotoUrl: profilePhotoUrl,
           );
 
     bool _asBool(dynamic v) => v == true || v == 1 || v == '1';
@@ -1900,6 +1901,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             bio: me.user.bio,
             defaultAvatar: me.user.defaultAvatar ?? '',
             profilePhotoKey: me.user.profilePhotoKey,
+            profilePhotoUrl: me.user.profilePhotoUrl,
           );
 
     final profileIdHex = _resolveProfileId(st.profileJson, userId);
