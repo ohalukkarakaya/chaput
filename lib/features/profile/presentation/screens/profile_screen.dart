@@ -34,6 +34,7 @@ import '../widgets/chaput_ads_watch_screen.dart';
 import '../widgets/chaput_composer_bar.dart';
 import '../widgets/chaput_composer_options_sheet.dart';
 import '../widgets/chaput_paywall_sheet.dart';
+import '../widgets/chaput_reply_bar.dart';
 import '../widgets/glass_toast_overlay.dart';
 import '../widgets/profile_actions_sheet.dart';
 import '../widgets/profile_stat_chip.dart';
@@ -114,6 +115,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _threeError;
 
   String? _lastTreeId;
+  String? _lastProfileUserId;
 
   three.Group? _treeGroup;
   three.Mesh? _ground;
@@ -182,6 +184,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   double _chaputSheetExtent = _chaputSheetMin;
   double _chaputSheetPrevExtent = _chaputSheetMin;
   final DraggableScrollableController _chaputSheetCtrl = DraggableScrollableController();
+  bool _sheetAutoExpanded = false;
+  double _sheetExtentBeforeKeyboard = _chaputSheetMin;
   String? _chaputProfileId;
   String? _focusedThreadId;
   String? _decisionProfileId;
@@ -271,7 +275,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _disposeThree() {
-    _threeJs?.dispose();
+    try {
+      _threeJs?.dispose();
+    } catch (_) {}
     _threeJs = null;
     _treeGroup = null;
     _ground = null;
@@ -604,6 +610,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void _openComposerOptionsSheet() {
     // Klavye açıkken sheet görünür alanı aşmasın diye kb’yi alıyoruz
     final kb = MediaQuery.of(context).viewInsets.bottom;
+    if (kb > 0 && !_composerOpen && _chaputSheetExtent < _chaputSheetMax - 0.01) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_chaputSheetCtrl.isAttached) return;
+        _chaputSheetCtrl.animateTo(
+          _chaputSheetMax,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      });
+    }
 
     showModalBottomSheet(
       context: context,
@@ -885,11 +901,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required String body,
     required bool whisper,
     required String profileIdHex,
+    required ChaputThreadsArgs chaputArgs,
   }) async {
     if (body.trim().isEmpty) return;
     final api = ref.read(chaputApiProvider);
     final kind = whisper ? 'WHISPER' : 'NORMAL';
     await api.sendMessage(threadIdHex: thread.threadId, body: body, kind: kind);
+    if (thread.state == 'PENDING') {
+      ref
+          .read(chaputThreadsControllerProvider(chaputArgs).notifier)
+          .updateThreadState(threadId: thread.threadId, newState: 'OPEN', pendingExpiresAt: null);
+    }
 
     final msg = ChaputMessage(
       id: 'local_${DateTime.now().millisecondsSinceEpoch}',
@@ -1611,6 +1633,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final user = (st.profileJson?['user'] is Map) ? (st.profileJson!['user'] as Map) : null;
 
     final userId = user?['id']?.toString() ?? '';
+    if (userId.isNotEmpty && userId != _lastProfileUserId) {
+      _lastProfileUserId = userId;
+      _lastTreeId = null;
+      _disposeThree();
+    }
     final fullName = user?['full_name']?.toString() ?? '';
     final username = user?['username']?.toString() ?? '';
     final followerCount = st.profileJson?['follower_count'] ?? 0;
@@ -1757,12 +1784,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final chaputThreads = chaputThreadsState.items;
     final bool hasOurThread = chaputThreads.any((t) =>
         (t.userAId == userId && t.userBId == viewerId) || (t.userAId == viewerId && t.userBId == userId));
+    final ChaputThreadItem? activeThread =
+        chaputThreads.isNotEmpty && _chaputActiveIndex < chaputThreads.length ? chaputThreads[_chaputActiveIndex] : null;
+    final bool activeIsParticipant = activeThread != null &&
+        (activeThread.userAId == viewerId || activeThread.userBId == viewerId);
+    final bool activeViewerIsStarter = activeThread != null && activeThread.starterId == viewerId;
+    final bool activeIsPending = activeThread != null && activeThread.state == 'PENDING';
+    final bool canReplyOnActive = activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
+    final bool showReplyBar = canReplyOnActive &&
+        _chaputSheetExtent >= _chaputSheetMid - 0.01 &&
+        !_composerOpen &&
+        !_silhouetteMode;
     if (_chaputProfileId != profileIdHex) {
       _chaputProfileId = profileIdHex;
       _chaputActiveIndex = 0;
       _focusedThreadId = null;
       _chaputSheetExtent = _chaputSheetMin;
       _chaputSheetPrevExtent = _chaputSheetMin;
+      _pendingThreadFocus = null;
+      _pendingThreadProfileId = null;
+      _focusAnchor = null;
+      _showFocusMarker = false;
+      _snapActive = false;
+      _silhouetteApplied = false;
+      _applySilhouetteIfNeeded();
       if (_chaputPageCtrl.hasClients) {
         _chaputPageCtrl.jumpToPage(0);
       }
@@ -2201,67 +2246,134 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               Positioned.fill(
                 child: Align(
                   alignment: Alignment.bottomCenter,
-                  child: ChaputThreadSheet(
-                    threads: chaputThreads,
-                    usersById: chaputThreadsState.usersById,
-                    viewerUser: viewerLite,
-                    viewerId: viewerId,
-                    ownerId: userId,
-                    profileId: profileIdHex,
-                    pageController: _chaputPageCtrl,
-                    sheetController: _chaputSheetCtrl,
-                    initialExtent: _chaputSheetExtent,
-                    onExtentChanged: (v) {
-                      _chaputSheetExtent = v;
-                      if (v > _chaputSheetMin + 0.01) {
-                        _chaputSheetPrevExtent = v;
-                      }
-                      setState(() {});
-                    },
-                    onPageChanged: (index) async {
-                      setState(() => _chaputActiveIndex = index);
-                      if (index < chaputThreads.length) {
-                        final t = chaputThreads[index];
-                        _focusToThreadAnchor(t, profileIdHex);
-                        final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
-                        if (!isParticipant) {
-                          final api = ref.read(chaputApiProvider);
-                          await api.recordView(threadIdHex: t.threadId);
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                    child: ChaputThreadSheet(
+                      threads: chaputThreads,
+                      usersById: chaputThreadsState.usersById,
+                      viewerUser: viewerLite,
+                      viewerId: viewerId,
+                      ownerId: userId,
+                      profileId: profileIdHex,
+                      pageController: _chaputPageCtrl,
+                      sheetController: _chaputSheetCtrl,
+                      initialExtent: _chaputSheetExtent,
+                      onExtentChanged: (v) {
+                        _chaputSheetExtent = v;
+                        if (v > _chaputSheetMin + 0.01) {
+                          _chaputSheetPrevExtent = v;
                         }
-                        if (index >= chaputThreads.length - 2) {
-                          ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).loadMore();
+                        if (v <= _chaputSheetMid + 0.001 && MediaQuery.of(context).viewInsets.bottom > 0) {
+                          FocusScope.of(context).unfocus();
                         }
-                      }
-                    },
-                    onOpenProfile: (id) {
-                      if (id.isEmpty) return;
-                      Routes.profile(id).then((route) {
-                        if (route.isEmpty) return;
-                        context.push(route);
-                      });
-                    },
-                    onSendMessage: (thread, body, whisper) async {
-                      await _sendThreadMessage(
-                        thread: thread,
-                        body: body,
-                        whisper: whisper,
-                        profileIdHex: profileIdHex,
-                      );
-                    },
-                    onMakeHidden: (thread) async {
-                      await _makeThreadHidden(
-                        thread: thread,
-                        profileIdHex: profileIdHex,
-                        chaputArgs: chaputArgs,
-                      );
-                    },
-                    canMakeHidden: _creditHidden > 0,
-                    onOpenWhisperPaywall: () async {
+                        setState(() {});
+                      },
+                      onPageChanged: (index) async {
+                        setState(() => _chaputActiveIndex = index);
+                        if (index < chaputThreads.length) {
+                          final t = chaputThreads[index];
+                          _focusToThreadAnchor(t, profileIdHex);
+                          final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
+                          if (!isParticipant) {
+                            final api = ref.read(chaputApiProvider);
+                            await api.recordView(threadIdHex: t.threadId);
+                          }
+                          if (index >= chaputThreads.length - 2) {
+                            ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).loadMore();
+                          }
+                        }
+                      },
+                      onOpenProfile: (id) {
+                        if (id.isEmpty) return;
+                        Routes.profile(id).then((route) {
+                          if (route.isEmpty) return;
+                          context.push(route);
+                        });
+                      },
+                      onSendMessage: (thread, body, whisper) async {
+                        await _sendThreadMessage(
+                          thread: thread,
+                          body: body,
+                          whisper: whisper,
+                          profileIdHex: profileIdHex,
+                          chaputArgs: chaputArgs,
+                        );
+                      },
+                      onMakeHidden: (thread) async {
+                        await _makeThreadHidden(
+                          thread: thread,
+                          profileIdHex: profileIdHex,
+                          chaputArgs: chaputArgs,
+                        );
+                      },
+                      canMakeHidden: _creditHidden > 0,
+                      onOpenWhisperPaywall: () async {
+                        final purchase = await _openPaywall(feature: PaywallFeature.whisper);
+                        if (purchase == null) return;
+                        await _verifyPurchaseAndApply(purchase);
+                      },
+                      replyOverlay: showReplyBar ? 72.0 : 0.0,
+                      whisperCredits: _creditWhisper,
+                    ),
+                  ),
+                ),
+              ),
+
+            if (showReplyBar)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                  child: ChaputReplyBar(
+                    canWhisper: _creditWhisper > 0,
+                    onWhisperPaywall: () async {
                       final purchase = await _openPaywall(feature: PaywallFeature.whisper);
                       if (purchase == null) return;
                       await _verifyPurchaseAndApply(purchase);
                     },
-                    whisperCredits: _creditWhisper,
+                    onSend: (text, whisper) async {
+                      final t = activeThread;
+                      if (t == null) return;
+                      await _sendThreadMessage(
+                        thread: t,
+                        body: text,
+                        whisper: whisper,
+                        profileIdHex: profileIdHex,
+                        chaputArgs: chaputArgs,
+                      );
+                    },
+                    onFocus: () {
+                      if (_chaputSheetExtent >= _chaputSheetMax - 0.01) return;
+                      _sheetAutoExpanded = true;
+                      _sheetExtentBeforeKeyboard = _chaputSheetExtent;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!_chaputSheetCtrl.isAttached) return;
+                        _chaputSheetCtrl.animateTo(
+                          _chaputSheetMax,
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                        );
+                      });
+                    },
+                    onBlur: () {
+                      if (!_sheetAutoExpanded) return;
+                      _sheetAutoExpanded = false;
+                      final target = _sheetExtentBeforeKeyboard;
+                      if (target < _chaputSheetMax - 0.01) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!_chaputSheetCtrl.isAttached) return;
+                          _chaputSheetCtrl.animateTo(
+                            target.clamp(_chaputSheetMin, _chaputSheetMax),
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOut,
+                          );
+                        });
+                      }
+                    },
                   ),
                 ),
               ),

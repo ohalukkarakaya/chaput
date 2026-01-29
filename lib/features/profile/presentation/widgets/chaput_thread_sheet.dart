@@ -30,6 +30,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.onMakeHidden,
     required this.canMakeHidden,
     required this.onOpenWhisperPaywall,
+    required this.replyOverlay,
     required this.whisperCredits,
   });
 
@@ -49,6 +50,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
   final bool canMakeHidden;
   final VoidCallback onOpenWhisperPaywall;
+  final double replyOverlay;
   final int whisperCredits;
 
   @override
@@ -91,21 +93,22 @@ class ChaputThreadSheet extends ConsumerWidget {
                       final otherUser =
                           usersById[otherId] ?? (viewerUser != null && otherId == viewerUser!.id ? viewerUser : null);
 
-                      return _SheetPage(
-                        thread: thread,
-                        ownerUser: ownerUser,
-                        otherUser: otherUser,
-                        viewerUser: viewerUser,
-                        viewerId: viewerId,
-                        isParticipant: isParticipant,
-                        profileId: profileId,
-                        onOpenProfile: onOpenProfile,
-                        onSendMessage: onSendMessage,
-                        onMakeHidden: onMakeHidden,
-                        canMakeHidden: canMakeHidden,
-                        onOpenWhisperPaywall: onOpenWhisperPaywall,
-                        whisperCredits: whisperCredits,
-                      );
+                        return _SheetPage(
+                          thread: thread,
+                          ownerUser: ownerUser,
+                          otherUser: otherUser,
+                          viewerUser: viewerUser,
+                          viewerId: viewerId,
+                          isParticipant: isParticipant,
+                          profileId: profileId,
+                          onOpenProfile: onOpenProfile,
+                          onSendMessage: onSendMessage,
+                          onMakeHidden: onMakeHidden,
+                          canMakeHidden: canMakeHidden,
+                          onOpenWhisperPaywall: onOpenWhisperPaywall,
+                          replyOverlay: replyOverlay,
+                          whisperCredits: whisperCredits,
+                        );
                     },
                   ),
                 ),
@@ -132,6 +135,7 @@ class _SheetPage extends StatelessWidget {
     required this.onMakeHidden,
     required this.canMakeHidden,
     required this.onOpenWhisperPaywall,
+    required this.replyOverlay,
     required this.whisperCredits,
   });
 
@@ -147,13 +151,14 @@ class _SheetPage extends StatelessWidget {
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
   final bool canMakeHidden;
   final VoidCallback onOpenWhisperPaywall;
+  final double replyOverlay;
   final int whisperCredits;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (ctx, constraints) {
-        final compact = constraints.maxHeight < 130;
+        final compact = constraints.maxHeight < 180;
         return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
           child: BackdropFilter(
@@ -165,27 +170,35 @@ class _SheetPage extends StatelessWidget {
                 border: Border.all(color: Colors.white.withOpacity(0.10)),
               ),
               child: compact
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 6),
-                        const SheetHandle(),
-                        _ThreadHeader(
-                          ownerUser: ownerUser,
-                          otherUser: otherUser,
-                          isHidden: thread.kind == 'HIDDEN',
-                          isParticipant: isParticipant,
-                          otherName: (thread.kind == 'HIDDEN' && !isParticipant)
-                              ? 'Gizli Kullanıcı'
-                              : (otherUser?.fullName ?? ''),
-                          otherUsername: (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
-                          onOpenProfile: onOpenProfile,
-                          showHideAction: isParticipant && thread.kind == 'NORMAL',
-                          canMakeHidden: canMakeHidden,
-                          onMakeHidden: () => onMakeHidden(thread),
+                  ? ClipRect(
+                      child: SizedBox(
+                        height: constraints.maxHeight,
+                        child: SingleChildScrollView(
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 6),
+                              const SheetHandle(),
+                              _ThreadHeader(
+                                ownerUser: ownerUser,
+                                otherUser: otherUser,
+                                isHidden: thread.kind == 'HIDDEN',
+                                isParticipant: isParticipant,
+                                otherName: (thread.kind == 'HIDDEN' && !isParticipant)
+                                    ? 'Gizli Kullanıcı'
+                                    : (otherUser?.fullName ?? ''),
+                                otherUsername: (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
+                                onOpenProfile: onOpenProfile,
+                                showHideAction: isParticipant && thread.kind == 'NORMAL',
+                                canMakeHidden: canMakeHidden,
+                                onMakeHidden: () => onMakeHidden(thread),
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 6),
-                      ],
+                      ),
                     )
                   : Column(
                       children: [
@@ -205,6 +218,7 @@ class _SheetPage extends StatelessWidget {
                             onMakeHidden: onMakeHidden,
                             canMakeHidden: canMakeHidden,
                             onOpenWhisperPaywall: onOpenWhisperPaywall,
+                            replyOverlay: replyOverlay,
                             whisperCredits: whisperCredits,
                           ),
                         ),
@@ -232,6 +246,7 @@ class _ThreadPage extends ConsumerWidget {
     required this.onMakeHidden,
     required this.canMakeHidden,
     required this.onOpenWhisperPaywall,
+    required this.replyOverlay,
     required this.whisperCredits,
   });
 
@@ -247,6 +262,7 @@ class _ThreadPage extends ConsumerWidget {
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
   final bool canMakeHidden;
   final VoidCallback onOpenWhisperPaywall;
+  final double replyOverlay;
   final int whisperCredits;
 
   @override
@@ -257,51 +273,76 @@ class _ThreadPage extends ConsumerWidget {
     final viewerIsStarter = thread.starterId == viewerId;
     final isPending = thread.state == 'PENDING';
 
-    final otherName = (isHidden && !isParticipant)
-        ? 'Gizli Kullanıcı'
-        : (otherUser?.fullName ?? '');
+    final otherName = (isHidden && !isParticipant) ? 'Gizli Kullanıcı' : (otherUser?.fullName ?? '');
     final otherUsername = (isHidden && !isParticipant) ? null : otherUser?.username;
 
-    final canShowComposer = isParticipant && (!isPending || !viewerIsStarter);
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final height = constraints.maxHeight;
+        final showMessages = height >= 200;
 
-    return Column(
-      children: [
-        _ThreadHeader(
-          ownerUser: ownerUser,
-          otherUser: otherUser,
-          isHidden: isHidden,
-          isParticipant: isParticipant,
-          otherName: otherName,
-          otherUsername: otherUsername,
-          onOpenProfile: onOpenProfile,
-          showHideAction: isParticipant && thread.kind == 'NORMAL',
-          canMakeHidden: canMakeHidden,
-          onMakeHidden: () => onMakeHidden(thread),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _MessagesList(
-            state: messagesState,
-            viewerId: viewerId,
-            ownerUser: ownerUser,
-            otherUser: otherUser,
-            viewerUser: viewerUser,
-            isHidden: isHidden,
-            isParticipant: isParticipant,
-            onLoadMore: () => ref.read(chaputMessagesControllerProvider(args).notifier).loadMore(),
+        final pendingWidget = (isParticipant && isPending && viewerIsStarter)
+            ? _PendingNotice(pendingUntil: thread.pendingExpiresAt)
+            : (isParticipant && isPending && !viewerIsStarter)
+                ? const _PendingReplyHint()
+                : null;
+
+        const headerHeight = 64.0;
+        const spacing = 8.0;
+        const composerHeight = 0.0;
+        final pendingHeight = pendingWidget != null ? 22.0 : 0.0;
+        final bottomPad = composerHeight + pendingHeight + (pendingWidget != null ? spacing : 0) + replyOverlay;
+        final topPad = headerHeight + spacing;
+
+        return SizedBox(
+          height: height,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: _ThreadHeader(
+                  ownerUser: ownerUser,
+                  otherUser: otherUser,
+                  isHidden: isHidden,
+                  isParticipant: isParticipant,
+                  otherName: otherName,
+                  otherUsername: otherUsername,
+                  onOpenProfile: onOpenProfile,
+                  showHideAction: isParticipant && thread.kind == 'NORMAL',
+                  canMakeHidden: canMakeHidden,
+                  onMakeHidden: () => onMakeHidden(thread),
+                ),
+              ),
+              if (showMessages)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: topPad,
+                  bottom: bottomPad,
+                  child: _MessagesList(
+                    state: messagesState,
+                    viewerId: viewerId,
+                    ownerUser: ownerUser,
+                    otherUser: otherUser,
+                    viewerUser: viewerUser,
+                    isHidden: isHidden,
+                    isParticipant: isParticipant,
+                    onLoadMore: () => ref.read(chaputMessagesControllerProvider(args).notifier).loadMore(),
+                  ),
+                ),
+              if (pendingWidget != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: composerHeight,
+                  child: pendingWidget,
+                ),
+            ],
           ),
-        ),
-        if (isParticipant && isPending && viewerIsStarter)
-          _PendingNotice(pendingUntil: thread.pendingExpiresAt),
-        if (isParticipant && isPending && !viewerIsStarter)
-          const _PendingReplyHint(),
-        if (canShowComposer)
-          _ReplyBar(
-            onSend: (text, whisper) => onSendMessage(thread, text, whisper),
-            onWhisperPaywall: onOpenWhisperPaywall,
-            canWhisper: whisperCredits > 0,
-          ),
-      ],
+        );
+      },
     );
   }
 }
@@ -759,109 +800,6 @@ class _MessageBubble extends StatelessWidget {
     }
 
     return bubble;
-  }
-}
-
-class _ReplyBar extends StatefulWidget {
-  const _ReplyBar({
-    required this.onSend,
-    required this.onWhisperPaywall,
-    required this.canWhisper,
-  });
-
-  final Future<void> Function(String text, bool whisper) onSend;
-  final VoidCallback onWhisperPaywall;
-  final bool canWhisper;
-
-  @override
-  State<_ReplyBar> createState() => _ReplyBarState();
-}
-
-class _ReplyBarState extends State<_ReplyBar> {
-  final _controller = TextEditingController();
-  final _focusNode = FocusNode();
-  bool _whisper = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  Future<void> _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    final whisper = _whisper;
-    if (whisper && !widget.canWhisper) {
-      widget.onWhisperPaywall();
-      return;
-    }
-    _controller.clear();
-    await widget.onSend(text, whisper);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-      child: BlackGlass(
-        radius: 18,
-        opacity: 0.65,
-        borderOpacity: 0.15,
-        child: Row(
-          children: [
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () {
-                if (!widget.canWhisper) {
-                  widget.onWhisperPaywall();
-                  return;
-                }
-                setState(() => _whisper = !_whisper);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _whisper ? Colors.white : Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: Colors.white.withOpacity(0.18)),
-                ),
-                child: Text(
-                  'Fısılda',
-                  style: TextStyle(
-                    color: _whisper ? Colors.black : Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                decoration: InputDecoration(
-                  hintText: 'Mesaj yaz...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                  border: InputBorder.none,
-                ),
-                minLines: 1,
-                maxLines: 4,
-                onSubmitted: (_) => _send(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: _send,
-              icon: const Icon(Icons.send, color: Colors.white),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

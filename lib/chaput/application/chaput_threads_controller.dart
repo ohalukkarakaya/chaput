@@ -146,6 +146,18 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
     state = state.copyWith(items: nextItems);
   }
 
+  void updateThreadState({
+    required String threadId,
+    required String newState,
+    DateTime? pendingExpiresAt,
+  }) {
+    if (threadId.isEmpty) return;
+    final nextItems = state.items
+        .map((t) => t.threadId == threadId ? t.copyWith(state: newState, pendingExpiresAt: pendingExpiresAt) : t)
+        .toList(growable: false);
+    state = state.copyWith(items: nextItems);
+  }
+
   List<ChaputThreadItem> _dedupe(List<ChaputThreadItem> items) {
     final seen = <String>{};
     final out = <ChaputThreadItem>[];
