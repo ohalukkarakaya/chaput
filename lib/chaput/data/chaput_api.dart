@@ -158,6 +158,18 @@ class ChaputApi {
     throw Exception('bad_node_response');
   }
 
+  Future<void> reviveThread({
+    required String threadIdHex,
+  }) async {
+    final res = await _dio.post('/chaput/threads/$threadIdHex/revive');
+    final data = res.data;
+    if (data is Map<String, dynamic> && data['ok'] == true) return;
+    if (data is Map<String, dynamic>) {
+      throw Exception(data['error'] ?? 'revive_error');
+    }
+    throw Exception('bad_revive_response');
+  }
+
   Future<void> hideThread({
     required String threadIdHex,
   }) async {

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'sheet_handle.dart';
 
-enum PaywallFeature { bind, hideCredentials, boost, whisper }
+enum PaywallFeature { bind, hideCredentials, boost, whisper, revive }
 
 class PaywallPurchase {
   const PaywallPurchase({
@@ -22,11 +23,13 @@ class FakePaywallSheet extends StatefulWidget {
     required this.feature,
     this.planType = 'FREE',
     this.planPeriod,
+    this.reviveTarget,
   });
 
   final PaywallFeature feature;
   final String planType;
   final String? planPeriod;
+  final PaywallReviveTarget? reviveTarget;
 
   @override
   State<FakePaywallSheet> createState() => _FakePaywallSheetState();
@@ -53,6 +56,8 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
             ? 'Anonim Chaput'
             : widget.feature == PaywallFeature.whisper
                 ? 'Fısıltı Mesajı'
+                : widget.feature == PaywallFeature.revive
+                    ? 'Chaput Kurtar'
                 : 'Öne Çıkar');
 
     final subtitle = widget.feature == PaywallFeature.bind
@@ -61,6 +66,8 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
             ? 'Kimliğini gizleyerek chaput bağla. Daha özgür, daha güvenli.'
             : widget.feature == PaywallFeature.whisper
                 ? 'Fısıltı mesajları yalnızca taraflara görünür.'
+                : widget.feature == PaywallFeature.revive
+                    ? 'Arşive düşen chaputu geri getir.'
                 : 'Chaputunu daha görünür yap. Daha fazla kişi görsün.');
 
     final proMonthly = PaywallPlan(
@@ -105,9 +112,14 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
     );
 
     final plans = <PaywallPlan>[
-      if (isFree) plusMonthly,
-      if (isFree || isPlus) proMonthly,
-      if (isFree || isPlus || isProMonthly) proYearly,
+      if (widget.feature != PaywallFeature.revive) ...[
+        if (isFree) plusMonthly,
+        if (isFree || isPlus) proMonthly,
+        if (isFree || isPlus || isProMonthly) proYearly,
+      ] else ...[
+        if (isFree || isPlus) proMonthly,
+        if (isFree || isPlus || isProMonthly) proYearly,
+      ],
     ];
     final selectedIndex = plans.isEmpty ? 0 : _selectedIndex.clamp(0, plans.length - 1);
 
@@ -128,6 +140,10 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
             PaywallSingle(title: 'Fısıltı (1)', price: '€0.79', caption: '1 fısıltı mesajı', productId: 'chaput_whisper_1'),
             PaywallSingle(title: 'Fısıltı (10)', price: '€3.49', caption: '10 fısıltı mesajı', productId: 'chaput_whisper_10'),
             PaywallSingle(title: 'Fısıltı (30)', price: '€7.99', caption: 'En uygun (fake)', productId: 'chaput_whisper_30'),
+          ]
+        : widget.feature == PaywallFeature.revive
+        ? <PaywallSingle>[
+            PaywallSingle(title: 'Kurtar (1)', price: '€0.99', caption: '1 chaput kurtar', productId: 'chaput_revive_1'),
           ]
         : <PaywallSingle>[
             PaywallSingle(title: 'Boost (1)', price: '€0.79', caption: '1 kez öne çıkar', productId: 'chaput_special_1'),
@@ -228,6 +244,8 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                       ),
                     ),
 
+                    // Revive hedef kartı artık tekli satın al bölümünün yerinde gösterilecek.
+
                     const SizedBox(height: 14),
 
                     if (plans.isNotEmpty) ...[
@@ -287,47 +305,74 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                       const SizedBox(height: 6),
                     ],
 
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Tekli satın al',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.black.withOpacity(0.85),
+                    if (widget.feature == PaywallFeature.revive && widget.reviveTarget != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Kurtarma satın al',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.black.withOpacity(0.85),
+                              ),
                             ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'İhtiyacın kadar',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black.withOpacity(0.55),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(
-                      height: 92,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemBuilder: (_, i) => SingleCard(
-                          item: singles[i],
-                          onTap: () {
-                            Navigator.pop(context, _singlePurchase(singles[i]));
-                          },
+                          ],
                         ),
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemCount: singles.length,
                       ),
-                    ),
+                      _ReviveTargetCard(
+                        target: widget.reviveTarget!,
+                        onTap: () {
+                          if (singles.isNotEmpty) {
+                            Navigator.pop(context, _singlePurchase(singles.first));
+                          }
+                        },
+                        priceLabel: singles.isNotEmpty ? singles.first.price : '€0.99',
+                      ),
+                    ] else ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Tekli satın al',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.black.withOpacity(0.85),
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              'İhtiyacın kadar',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black.withOpacity(0.55),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(
+                        height: 92,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemBuilder: (_, i) => SingleCard(
+                            item: singles[i],
+                            onTap: () {
+                              Navigator.pop(context, _singlePurchase(singles[i]));
+                            },
+                          ),
+                          separatorBuilder: (_, __) => const SizedBox(width: 10),
+                          itemCount: singles.length,
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 10),
 
@@ -346,6 +391,97 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PaywallReviveTarget {
+  const PaywallReviveTarget({
+    required this.avatarUrl,
+    required this.isDefaultAvatar,
+    required this.fullName,
+    required this.username,
+  });
+
+  final String avatarUrl;
+  final bool isDefaultAvatar;
+  final String fullName;
+  final String username;
+}
+
+class _ReviveTargetCard extends StatelessWidget {
+  const _ReviveTargetCard({
+    required this.target,
+    required this.onTap,
+    required this.priceLabel,
+  });
+
+  final PaywallReviveTarget target;
+  final VoidCallback onTap;
+  final String priceLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.black.withOpacity(0.08)),
+          ),
+          child: Row(
+            children: [
+              ChaputCircleAvatar(
+                isDefaultAvatar: target.isDefaultAvatar,
+                imageUrl: target.avatarUrl,
+                width: 44,
+                height: 44,
+                radius: 44,
+                borderWidth: 0,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      target.fullName,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '@${target.username}',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.6)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  'Kurtar',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                priceLabel,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.6)),
+              ),
+            ],
           ),
         ),
       ),

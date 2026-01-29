@@ -80,13 +80,6 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
             // ✅ Fısılda butonu artık parent state’ine bağlı
             GestureDetector(
               onTap: () async {
-                // Eğer parent canWhisper false ise bile,
-                // parent onToggleWhisper içinde fresh check + paywall yapabilir.
-                // Ama sen ister burada "kısa yol" bırak:
-                if (!widget.canWhisper && !isWhisper) {
-                  widget.onWhisperPaywall();
-                  return;
-                }
                 widget.onToggleWhisper();
               },
               child: Container(

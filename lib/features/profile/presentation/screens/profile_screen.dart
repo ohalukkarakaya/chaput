@@ -13,6 +13,7 @@ import '../../../../chaput/application/chaput_decision_controller.dart';
 import '../../../../chaput/application/chaput_messages_controller.dart';
 import '../../../../chaput/application/chaput_threads_controller.dart';
 import '../../../../chaput/data/chaput_api.dart';
+import '../../../../chaput/domain/chaput_decision.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../../core/config/env.dart';
@@ -190,6 +191,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _focusedThreadId;
   String? _decisionProfileId;
   DateTime? _lastDecisionFetchAt;
+  String? _replyBarThreadId;
 
   String _planType = 'FREE';
   String? _planPeriod;
@@ -941,9 +943,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     // ✅ 1) fresh decision'ı direkt API sonucundan al (race yok)
     final decisionNotifier =
-    ref.read(chaputDecisionControllerProvider(profileIdHex).notifier);
+        ref.read(chaputDecisionControllerProvider(profileIdHex).notifier);
 
-    final freshDecision = await decisionNotifier.fetchDecisionAndReturn();
+    ChaputDecision? freshDecision;
+    try {
+      freshDecision = await api.getDecision(profileIdHex);
+      decisionNotifier.setCredits(
+        normal: freshDecision.credits.normal,
+        hidden: freshDecision.credits.hidden,
+        special: freshDecision.credits.special,
+        revive: freshDecision.credits.revive,
+        whisper: freshDecision.credits.whisper,
+      );
+      decisionNotifier.applyPlanType(freshDecision.plan.type);
+      if (freshDecision.plan.period != null && freshDecision.plan.period!.isNotEmpty) {
+        decisionNotifier.applyPlanPeriod(freshDecision.plan.period!);
+      }
+    } catch (_) {
+      freshDecision = await decisionNotifier.fetchDecisionAndReturn();
+    }
     final freshHidden = freshDecision?.credits.hidden ?? 0;
 
     Future<bool> _hideNow() async {
@@ -1081,6 +1099,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
+  Future<void> _handleRevivePressed({
+    required String threadIdHex,
+    required String profileIdHex,
+    required ChaputThreadsArgs chaputArgs,
+    required LiteUser? targetUser,
+  }) async {
+    if (threadIdHex.length != 32) {
+      _showGlassToast('Chaput bulunamadı', icon: Icons.error_outline);
+      return;
+    }
+    final api = ref.read(chaputApiProvider);
+    final isPro = _planType == 'PRO';
+    final hasRevive = _creditRevive > 0;
+
+    if (!isPro && !hasRevive) {
+      final reviveTarget = targetUser == null
+          ? null
+          : PaywallReviveTarget(
+              avatarUrl: (targetUser.profilePhotoKey != null && targetUser.profilePhotoKey!.isNotEmpty)
+                  ? targetUser.profilePhotoKey!
+                  : targetUser.defaultAvatar,
+              isDefaultAvatar: targetUser.profilePhotoKey == null || targetUser.profilePhotoKey!.isEmpty,
+              fullName: targetUser.fullName,
+                                    username: targetUser.username ?? '',
+            );
+      final purchase = await _openPaywall(feature: PaywallFeature.revive, reviveTarget: reviveTarget);
+      if (purchase == null) return;
+      final ok = await _verifyPurchaseAndApply(purchase);
+      if (!ok) return;
+    }
+
+    try {
+      await api.reviveThread(threadIdHex: threadIdHex);
+      ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).refresh();
+      if (_decisionProfileId != null) {
+        ref.read(chaputDecisionControllerProvider(profileIdHex).notifier).fetchDecision();
+      }
+      _showGlassToast('Chaput kurtarıldı', icon: Icons.check_circle_outline);
+    } catch (e) {
+      _showGlassToast('Chaput kurtarılamadı', icon: Icons.error_outline);
+    }
+  }
+
 
   void _onOptionsEmptyTap() {
     _showGlassToast('Önce mesajını yaz', icon: Icons.edit_outlined);
@@ -1148,6 +1209,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Future<PaywallPurchase?> _openPaywall({
     required PaywallFeature feature,
+    PaywallReviveTarget? reviveTarget,
   }) async {
     final me = ref.read(meControllerProvider).valueOrNull;
     final subPlan = me?.subscription.plan;
@@ -1163,6 +1225,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         feature: feature,
         planType: effectivePlanType,
         planPeriod: effectivePlanPeriod,
+        reviveTarget: reviveTarget,
       ),
     );
   }
@@ -1723,6 +1786,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final profilePhotoUrl = user?['profile_photo_url'] as String?;
     final bio = user?['bio']?.toString() ?? '';
 
+    final LiteUser? targetLiteUser = userId.isEmpty
+        ? null
+        : LiteUser(
+            id: userId,
+            username: username,
+            fullName: fullName,
+            bio: bio,
+            defaultAvatar: defaultAvatar?.toString() ?? '',
+            profilePhotoKey: profilePhotoKey,
+          );
+
     bool _asBool(dynamic v) => v == true || v == 1 || v == '1';
 
     final isPublic = _asBool(user?['is_public']);
@@ -1802,6 +1876,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final decisionPath    = decision?.decision.path ?? 'FORBIDDEN';
     final decisionCanStart = decision?.target.canStart ?? false;
     final decisionHasThread = decision?.target.hasThread ?? false;
+    final decisionThreadState = decision?.target.threadState ?? '';
+    final decisionThreadId = decision?.target.threadId ?? '';
 
     final decisionLoaded = decision != null;
 
@@ -1850,10 +1926,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool isProPlan = _planType == 'PRO';
     final bool hasNormalCredit = _creditNormal > 0;
     final bool adsAvailable = _adsCanWatch && _adsNextRewardIn > 0;
-    final bool canStartNow = _decisionPath == 'CAN_START';
+    final bool canStartNow = decisionPath == 'CAN_START';
+    final bool decisionHasArchived = decisionHasThread && decisionThreadState == 'ARCHIVED';
     final bool showBindExhausted =
         decisionLoaded
-            && !_decisionHasThread
+            && !decisionHasThread
             && !canStartNow
             && !isProPlan
             && !hasNormalCredit
@@ -1882,6 +1959,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool activeIsPending = activeThread != null && activeThread.state == 'PENDING';
     final bool canReplyOnActive = activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
     final bool showReplyBar = canReplyOnActive &&
+        (_replyBarThreadId == null || _replyBarThreadId == activeThread?.threadId) &&
         _chaputSheetExtent >= _chaputSheetMid - 0.01 &&
         !_composerOpen &&
         !_silhouetteMode;
@@ -1893,6 +1971,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _chaputSheetPrevExtent = _chaputSheetMin;
       _pendingThreadFocus = null;
       _pendingThreadProfileId = null;
+      _replyBarThreadId = null;
+      _replyWhisperMode = false;
       _focusAnchor = null;
       _showFocusMarker = false;
       _snapActive = false;
@@ -2364,7 +2444,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           final t = chaputThreads[index];
                           _focusToThreadAnchor(t, profileIdHex);
                           final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
-                          if (!isParticipant) {
+                          final viewerIsStarter = t.starterId == viewerId;
+                          final isPending = t.state == 'PENDING';
+                          _replyBarThreadId = (isParticipant && (!isPending || !viewerIsStarter)) ? t.threadId : null;
+                          _replyWhisperMode = false;
+                          FocusScope.of(context).unfocus();
+                          final isParticipant2 = t.userAId == viewerId || t.userBId == viewerId;
+                          if (!isParticipant2) {
                             final api = ref.read(chaputApiProvider);
                             await api.recordView(threadIdHex: t.threadId);
                           }
@@ -2430,6 +2516,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   curve: Curves.easeOut,
                   padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
                   child: ChaputReplyBar(
+                    key: ValueKey(activeThread?.threadId ?? 'none'),
                     canWhisper: creditsWhisper > 0,
                     whisperMode: _replyWhisperMode,
 
@@ -2442,7 +2529,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
                       // açarken: fresh decision çek
                       final notifier = ref.read(chaputDecisionControllerProvider(profileIdHex).notifier);
-                      final freshDecision = await notifier.fetchDecisionAndReturn();
+                      ChaputDecision? freshDecision;
+                      final api = ref.read(chaputApiProvider);
+                      try {
+                        freshDecision = await api.getDecision(profileIdHex);
+                        notifier.setCredits(
+                          normal: freshDecision.credits.normal,
+                          hidden: freshDecision.credits.hidden,
+                          special: freshDecision.credits.special,
+                          revive: freshDecision.credits.revive,
+                          whisper: freshDecision.credits.whisper,
+                        );
+                        notifier.applyPlanType(freshDecision.plan.type);
+                        if (freshDecision.plan.period != null && freshDecision.plan.period!.isNotEmpty) {
+                          notifier.applyPlanPeriod(freshDecision.plan.period!);
+                        }
+                      } catch (_) {
+                        freshDecision = await notifier.fetchDecisionAndReturn();
+                      }
                       final freshWhisper = freshDecision?.credits.whisper ?? 0;
 
                       if (freshWhisper > 0) {
@@ -2458,7 +2562,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       if (!ok) return;
 
                       // satın alma sonrası tekrar çek
-                      final after = await notifier.fetchDecisionAndReturn();
+                      ChaputDecision? after;
+                      try {
+                        after = await api.getDecision(profileIdHex);
+                        notifier.setCredits(
+                          normal: after.credits.normal,
+                          hidden: after.credits.hidden,
+                          special: after.credits.special,
+                          revive: after.credits.revive,
+                          whisper: after.credits.whisper,
+                        );
+                        notifier.applyPlanType(after.plan.type);
+                        if (after.plan.period != null && after.plan.period!.isNotEmpty) {
+                          notifier.applyPlanPeriod(after.plan.period!);
+                        }
+                      } catch (_) {
+                        after = await notifier.fetchDecisionAndReturn();
+                      }
                       final afterWhisper = after?.credits.whisper ?? 0;
 
                       if (afterWhisper > 0) {
@@ -2471,7 +2591,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     onWhisperPaywall: () async {
                       // artık send tetiklemeyecek ama yine de bırakıyoruz
                       final notifier = ref.read(chaputDecisionControllerProvider(profileIdHex).notifier);
-                      final freshDecision = await notifier.fetchDecisionAndReturn();
+                      ChaputDecision? freshDecision;
+                      final api = ref.read(chaputApiProvider);
+                      try {
+                        freshDecision = await api.getDecision(profileIdHex);
+                        notifier.setCredits(
+                          normal: freshDecision.credits.normal,
+                          hidden: freshDecision.credits.hidden,
+                          special: freshDecision.credits.special,
+                          revive: freshDecision.credits.revive,
+                          whisper: freshDecision.credits.whisper,
+                        );
+                        notifier.applyPlanType(freshDecision.plan.type);
+                        if (freshDecision.plan.period != null && freshDecision.plan.period!.isNotEmpty) {
+                          notifier.applyPlanPeriod(freshDecision.plan.period!);
+                        }
+                      } catch (_) {
+                        freshDecision = await notifier.fetchDecisionAndReturn();
+                      }
                       final freshWhisper = freshDecision?.credits.whisper ?? 0;
 
                       if (freshWhisper > 0) {
@@ -2556,6 +2693,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               onTap: (_silhouetteMode || _composerOpen)
                                   ? null
                                   : () async {
+                                if (decisionHasArchived && decisionThreadId.length == 32) {
+                                  await _handleRevivePressed(
+                                    threadIdHex: decisionThreadId,
+                                    profileIdHex: profileIdHex,
+                                    chaputArgs: chaputArgs,
+                                    targetUser: targetLiteUser,
+                                  );
+                                  return;
+                                }
                                 if (showBindExhausted) {
                                   final purchase = await _openPaywall(feature: PaywallFeature.bind);
                                   if (purchase != null) {
@@ -2574,7 +2720,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      showBindExhausted
+                                      decisionHasArchived
+                                          ? Icons.restore
+                                          : showBindExhausted
                                           ? Icons.lock_clock
                                           : (_decisionPath == 'NEED_AD' ? Icons.play_circle : Icons.draw),
                                       size: 18,
@@ -2582,7 +2730,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      showBindExhausted
+                                      decisionHasArchived
+                                          ? "Arşivden Kurtar"
+                                          : showBindExhausted
                                           ? "Bugün Chaput Hakkın Bitti"
                                           : (_decisionPath == 'NEED_AD'
                                               ? "Reklamla Chaput Bağla"
