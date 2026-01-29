@@ -815,9 +815,12 @@ class _PendingNotice extends StatelessWidget {
         : 'Karşı tarafın yanıtı bekleniyor.';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-      child: Text(
-        text,
-        style: TextStyle(color: Colors.white.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
+        ),
       ),
     );
   }
