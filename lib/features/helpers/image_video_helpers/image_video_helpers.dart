@@ -12,7 +12,19 @@ import '../../../core/config/env.dart';
 class ImageVideoHelpers {
 
   static String mediaServerBaseUrlHelper(){
-    return Env.apiBaseUrl;
+    final base = Env.apiBaseUrl;
+    if (base.isEmpty) return base;
+    return base.endsWith('/') ? base : '$base/';
+  }
+
+  static String _fullUrl(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    final base = mediaServerBaseUrlHelper();
+    if (base.isEmpty) return url;
+    final clean = url.startsWith('/') ? url.substring(1) : url;
+    return '$base$clean';
   }
 
   static bool isImage(String url) {
@@ -26,13 +38,13 @@ class ImageVideoHelpers {
   static Widget getThumbnail(String url) {
     if (isImage(url)) {
       return Image.network(
-        '${ImageVideoHelpers.mediaServerBaseUrlHelper()}$url',
+        _fullUrl(url),
         fit: BoxFit.cover,
       );
     } else if (isVideo(url)) {
       try{
         return Image.network(
-          '${ImageVideoHelpers.mediaServerBaseUrlHelper()}getVideoThumbnail?videoPath=$url',
+          '${mediaServerBaseUrlHelper()}getVideoThumbnail?videoPath=$url',
           fit: BoxFit.cover,
         );
       } catch (e) {
@@ -45,11 +57,11 @@ class ImageVideoHelpers {
   }
 
   static getFullUrl(String url) {
-    return '${ImageVideoHelpers.mediaServerBaseUrlHelper()}$url';
+    return _fullUrl(url);
   }
 
   static getVideo(String url) async {
-    String videoUrl = '${ImageVideoHelpers.mediaServerBaseUrlHelper()}getAsset?assetPath=$url';
+    String videoUrl = '${mediaServerBaseUrlHelper()}getAsset?assetPath=$url';
 
     var request = http.Request('GET', Uri.parse(videoUrl));
 

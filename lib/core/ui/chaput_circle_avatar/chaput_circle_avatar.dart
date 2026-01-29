@@ -71,7 +71,7 @@ class _ChaputCircleAvatarState extends State<ChaputCircleAvatar> {
                   : ClipRRect(
                     borderRadius: BorderRadius.all( Radius.circular( widget.radius ) ),
                     child: Image.network(
-                      '${ImageVideoHelpers.mediaServerBaseUrlHelper()}${widget.imageUrl}',
+                      ImageVideoHelpers.getFullUrl(widget.imageUrl),
                       fit: BoxFit.cover,
                     ),
                   )

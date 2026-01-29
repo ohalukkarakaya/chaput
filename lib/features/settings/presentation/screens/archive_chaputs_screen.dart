@@ -112,13 +112,11 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                             final fullName = u?.fullName ?? '—';
                             final username = u?.username;
                             final defaultAvatar = u?.defaultAvatar ?? '';
-                            final profilePhotoKey = u?.profilePhotoKey;
-
-                            final imgUrl = (profilePhotoKey != null && profilePhotoKey.isNotEmpty)
-                                ? profilePhotoKey
+                            final imgUrl = (u?.profilePhotoPath != null && u!.profilePhotoPath!.isNotEmpty)
+                                ? u.profilePhotoPath
                                 : defaultAvatar;
 
-                            final isDefault = profilePhotoKey == null || profilePhotoKey.isEmpty;
+                            final isDefault = u?.profilePhotoPath == null || u?.profilePhotoPath == '';
 
                             final isBusy = st.revivingChaputId == it.id;
 

@@ -93,15 +93,15 @@ class BlockedRestrictedScreen extends ConsumerWidget {
 
                             final title = u?.fullName ?? '—';
                             final username = u?.username;
-                            final avatarUrl = (u?.profilePhotoKey?.isNotEmpty == true)
-                                ? u!.profilePhotoKey!
+                            final avatarUrl = (u?.profilePhotoPath?.isNotEmpty == true)
+                                ? u!.profilePhotoPath!
                                 : (u?.defaultAvatar ?? '');
 
                             return _UserRow(
                               title: title,
                               subtitle: username == null || username.isEmpty ? it.userId : '@$username',
                               avatarUrl: avatarUrl.toString(),
-                              isDefaultAvatar: (u?.profilePhotoKey == null || u?.profilePhotoKey == ''),
+                              isDefaultAvatar: u?.profilePhotoPath == null || u?.profilePhotoPath == '',
                               createdAt: it.createdAt,
                               kind: it.kind,
                               userId: it.userId,

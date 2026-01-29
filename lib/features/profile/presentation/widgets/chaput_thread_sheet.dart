@@ -552,8 +552,9 @@ class _SmallAvatar extends StatelessWidget {
       return const SizedBox(width: 36, height: 36);
     }
 
-    final isDefault = forceDefault || u.profilePhotoKey == null || u.profilePhotoKey!.isEmpty;
-    final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoKey!;
+    final hasPhoto = u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty;
+    final isDefault = forceDefault || !hasPhoto;
+    final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoPath!;
 
     return SizedBox(
       width: 36,
@@ -777,8 +778,9 @@ class _GroupAvatar extends StatelessWidget {
     if (u == null) {
       return const SizedBox(width: 28, height: 28);
     }
-    final isDefault = forceDefault || u.profilePhotoKey == null || u.profilePhotoKey!.isEmpty;
-    final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoKey!;
+    final hasPhoto = u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty;
+    final isDefault = forceDefault || !hasPhoto;
+    final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoPath!;
     return SizedBox(
       width: 28,
       height: 28,
@@ -811,8 +813,8 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isWhisperHidden = message.kind == 'WHISPER_HIDDEN';
     final isWhisper = message.kind == 'WHISPER';
-    final whisperBg = isMine ? AppColors.chaputLightBlue : const Color(0xFF1B4B43);
-    final whisperFg = isMine ? Colors.black : Colors.white;
+    final whisperBg = AppColors.chaputLightBlue;
+    final whisperFg = Colors.black;
     final bg = isWhisper
         ? whisperBg
         : (isMine ? Colors.white : Colors.white.withOpacity(0.12));
