@@ -46,9 +46,11 @@ class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
     super.key,
     required this.userId,
+    this.initialThreadId,
   });
 
   final String userId;
+  final String? initialThreadId;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -114,6 +116,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   bool _threeReady = false;
   String? _threeError;
+  bool _navToOtherProfile = false;
 
   String? _lastTreeId;
   String? _lastProfileUserId;
@@ -121,6 +124,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   three.Group? _treeGroup;
   three.Mesh? _ground;
   ChaputThreadItem? _pendingThreadFocus;
+  String? _pendingInitialThreadId;
+  bool _initialThreadApplied = false;
   String? _pendingThreadProfileId;
 
   // orbit
@@ -222,6 +227,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void initState() {
     super.initState();
+    _pendingInitialThreadId = widget.initialThreadId;
+    _navToOtherProfile = false;
     _profileCardCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 180),
@@ -250,10 +257,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _lastTreeId = null;
       _threeError = null;
       _threeReady = false;
+      _navToOtherProfile = false;
       _chaputThreadCreated = false;
       _decisionProfileId = null;
       _anonMode = false;
       _highlightMode = false;
+      _pendingInitialThreadId = widget.initialThreadId;
+      _initialThreadApplied = false;
       _msgCtrl.clear();
     }
   }
@@ -899,6 +909,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       y: newAnchor.y,
       z: newAnchor.z,
     );
+  }
+
+  OverlayEntry _showNavMask() {
+    final overlay = Overlay.of(context);
+    final entry = OverlayEntry(
+      builder: (ctx) {
+        return Positioned.fill(
+          child: IgnorePointer(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              builder: (ctx, t, _) {
+                return Container(
+                  color: Colors.black.withOpacity(0.12 * t),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+    overlay.insert(entry);
+    return entry;
+  }
+
+  Future<void> _openThreadCounterpartyProfile({
+    required String userId,
+    required String threadId,
+  }) async {
+    if (userId.isEmpty || userId == widget.userId) return;
+    FocusScope.of(context).unfocus();
+
+    setState(() => _navToOtherProfile = true);
+    _disposeThree();
+
+    final mask = _showNavMask();
+    final router = GoRouter.of(context);
+    router.go(Routes.home);
+    await Future.delayed(const Duration(milliseconds: 140));
+    router.push('/profile/$userId', extra: {'threadId': threadId});
+    await Future.delayed(const Duration(milliseconds: 220));
+    if (mask.mounted) mask.remove();
   }
 
   Future<void> _sendThreadMessage({
@@ -1949,6 +2002,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         : ChaputThreadsState.empty;
 
     final chaputThreads = chaputThreadsState.items;
+    if (!_initialThreadApplied && _pendingInitialThreadId != null && chaputThreads.isNotEmpty) {
+      final idx = chaputThreads.indexWhere((t) => t.threadId == _pendingInitialThreadId);
+      if (idx >= 0) {
+        _initialThreadApplied = true;
+        _pendingInitialThreadId = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_chaputPageCtrl.hasClients) {
+            _chaputPageCtrl.jumpToPage(idx);
+          } else {
+            setState(() => _chaputActiveIndex = idx);
+          }
+          _focusToThreadAnchor(chaputThreads[idx], profileIdHex);
+        });
+      }
+    }
     final bool hasOurThread = chaputThreads.any((t) =>
         (t.userAId == userId && t.userBId == viewerId) || (t.userAId == viewerId && t.userBId == userId));
     final ChaputThreadItem? activeThread =
@@ -2007,7 +2076,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           children: [
             // ThreeJS TAM EKRAN
             Positioned.fill(
-              child: _threeJs == null
+              child: (_threeJs == null || _navToOtherProfile)
                   ? const SizedBox.shrink()
                   : SizedBox.expand(
                     child: _threeJs!.build(),
@@ -2459,12 +2528,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           }
                         }
                       },
-                      onOpenProfile: (id) {
+                      onOpenProfile: (id, threadId) async {
                         if (id.isEmpty) return;
-                        Routes.profile(id).then((route) {
-                          if (route.isEmpty) return;
-                          context.push(route);
-                        });
+                        await _openThreadCounterpartyProfile(userId: id, threadId: threadId);
                       },
                       onSendMessage: (thread, body, whisper) async {
                         await _sendThreadMessage(

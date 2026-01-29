@@ -45,7 +45,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   final double initialExtent;
   final ValueChanged<double> onExtentChanged;
   final ValueChanged<int> onPageChanged;
-  final ValueChanged<String> onOpenProfile;
+  final void Function(String userId, String threadId) onOpenProfile;
   final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
   final bool canMakeHidden;
@@ -167,7 +167,7 @@ class _SheetPage extends StatelessWidget {
   final String viewerId;
   final bool isParticipant;
   final String profileId;
-  final ValueChanged<String> onOpenProfile;
+  final void Function(String userId, String threadId) onOpenProfile;
   final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
   final bool canMakeHidden;
@@ -219,6 +219,7 @@ class _SheetPage extends StatelessWidget {
                                     otherUsername:
                                         (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
                                     onOpenProfile: onOpenProfile,
+                                    threadId: thread.threadId,
                                     showHideAction: isParticipant && thread.kind == 'NORMAL',
                                     canMakeHidden: canMakeHidden,
                                     onMakeHidden: () => onMakeHidden(thread),
@@ -287,7 +288,7 @@ class _ThreadPage extends ConsumerWidget {
   final String viewerId;
   final bool isParticipant;
   final String profileId;
-  final ValueChanged<String> onOpenProfile;
+  final void Function(String userId, String threadId) onOpenProfile;
   final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
   final bool canMakeHidden;
@@ -340,6 +341,7 @@ class _ThreadPage extends ConsumerWidget {
                   otherName: otherName,
                   otherUsername: otherUsername,
                   onOpenProfile: onOpenProfile,
+                  threadId: thread.threadId,
                   showHideAction: isParticipant && thread.kind == 'NORMAL',
                   canMakeHidden: canMakeHidden,
                   onMakeHidden: () => onMakeHidden(thread),
@@ -386,6 +388,7 @@ class _ThreadHeader extends StatelessWidget {
     required this.otherName,
     required this.otherUsername,
     required this.onOpenProfile,
+    required this.threadId,
     required this.showHideAction,
     required this.canMakeHidden,
     required this.onMakeHidden,
@@ -397,7 +400,8 @@ class _ThreadHeader extends StatelessWidget {
   final bool isParticipant;
   final String otherName;
   final String? otherUsername;
-  final ValueChanged<String> onOpenProfile;
+  final void Function(String userId, String threadId) onOpenProfile;
+  final String threadId;
   final bool showHideAction;
   final bool canMakeHidden;
   final VoidCallback onMakeHidden;
@@ -413,7 +417,9 @@ class _ThreadHeader extends StatelessWidget {
             otherUser: otherUser,
             hideOther: isHidden && !isParticipant,
             onTap: (id) {
-              if (!isHidden) onOpenProfile(id);
+              if (!(isHidden && !isParticipant)) {
+                onOpenProfile(id, threadId);
+              }
             },
           ),
           const SizedBox(width: 12),
