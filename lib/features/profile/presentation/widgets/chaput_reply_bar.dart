@@ -11,6 +11,9 @@ class ChaputReplyBar extends StatefulWidget {
     this.onBlur,
     required this.whisperMode,
     required this.onToggleWhisper,
+    this.replyAuthor,
+    this.replyBody,
+    this.onClearReply,
   });
 
   final Future<void> Function(String text, bool whisper) onSend;
@@ -22,6 +25,9 @@ class ChaputReplyBar extends StatefulWidget {
   final bool canWhisper;
   final bool whisperMode;
   final Future<void> Function() onToggleWhisper;
+  final String? replyAuthor;
+  final String? replyBody;
+  final VoidCallback? onClearReply;
 
   @override
   State<ChaputReplyBar> createState() => _ChaputReplyBarState();
@@ -66,6 +72,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
   @override
   Widget build(BuildContext context) {
     final isWhisper = widget.whisperMode;
+    final showReply = widget.replyBody != null && widget.replyBody!.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
@@ -73,60 +80,131 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
         radius: 18,
         opacity: 0.65,
         borderOpacity: 0.15,
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(width: 10),
-
-            // ✅ Fısılda butonu artık parent state’ine bağlı
-            GestureDetector(
-              onTap: () async {
-                widget.onToggleWhisper();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isWhisper ? Colors.white : Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: Colors.white.withOpacity(0.18)),
-                ),
-                child: Text(
-                  'Fısılda',
-                  style: TextStyle(
-                    color: isWhisper ? Colors.black : Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+            if (showReply)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 10, 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.12)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 3,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.replyAuthor ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.replyBody ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.6),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: widget.onClearReply,
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.14),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.close, size: 14, color: Colors.white.withOpacity(0.8)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
+            Row(
+              children: [
+                const SizedBox(width: 10),
 
-            const SizedBox(width: 10),
-
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                // ✅ Fısılda butonu artık parent state’ine bağlı
+                GestureDetector(
+                  onTap: () async {
+                    widget.onToggleWhisper();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isWhisper ? Colors.white : Colors.white.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white.withOpacity(0.18)),
+                    ),
+                    child: Text(
+                      'Fısılda',
+                      style: TextStyle(
+                        color: isWhisper ? Colors.black : Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
                 ),
-                decoration: InputDecoration(
-                  hintText: isWhisper ? 'Fısıltı mesajı...' : 'Mesaj yaz...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                  border: InputBorder.none,
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: isWhisper ? 'Fısıltı mesajı...' : 'Mesaj yaz...',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                      border: InputBorder.none,
+                    ),
+                    minLines: 1,
+                    maxLines: 4,
+                    onSubmitted: (_) => _send(),
+                  ),
                 ),
-                minLines: 1,
-                maxLines: 4,
-                onSubmitted: (_) => _send(),
-              ),
-            ),
 
-            const SizedBox(width: 8),
+                const SizedBox(width: 8),
 
-            IconButton(
-              onPressed: _send,
-              icon: const Icon(Icons.send, color: Colors.white),
+                IconButton(
+                  onPressed: _send,
+                  icon: const Icon(Icons.send, color: Colors.white),
+                ),
+              ],
             ),
           ],
         ),

@@ -116,10 +116,14 @@ class ChaputApi {
     required String threadIdHex,
     required String body,
     String? kind,
+    String? replyToId,
   }) async {
     final payload = <String, dynamic>{'body': body};
     if (kind != null && kind.isNotEmpty) {
       payload['kind'] = kind;
+    }
+    if (replyToId != null && replyToId.isNotEmpty) {
+      payload['reply_to_id'] = replyToId;
     }
     final res = await _dio.post('/chaput/threads/$threadIdHex/messages', data: payload);
     final data = res.data;
@@ -130,6 +134,52 @@ class ChaputApi {
       throw Exception(data['error'] ?? 'send_error');
     }
     throw Exception('bad_send_response');
+  }
+
+  Future<({int likeCount, bool likedByMe})> likeMessage({
+    required String messageIdHex,
+    required bool like,
+  }) async {
+    final res = await (like
+        ? _dio.post('/chaput/messages/$messageIdHex/like')
+        : _dio.delete('/chaput/messages/$messageIdHex/like'));
+    final data = res.data;
+    if (data is Map<String, dynamic> && data['ok'] == true) {
+      return (
+        likeCount: (data['like_count'] ?? -1) as int,
+        likedByMe: data['liked_by_me'] == true ? true : like,
+      );
+    }
+    if (data is Map<String, dynamic>) {
+      throw Exception(data['error'] ?? 'like_error');
+    }
+    throw Exception('bad_like_response');
+  }
+
+  Future<({List<ChaputMessageLiker> items, String? nextCursor})> listMessageLikes({
+    required String messageIdHex,
+    int limit = 30,
+    String? cursor,
+  }) async {
+    final res = await _dio.get(
+      '/chaput/messages/$messageIdHex/likes',
+      queryParameters: {
+        'limit': limit,
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+      },
+    );
+    final data = res.data;
+    if (data is Map<String, dynamic>) {
+      if (data['ok'] == true) {
+        final itemsJson = (data['items'] as List?) ?? const [];
+        final items = itemsJson
+            .map((e) => ChaputMessageLiker.fromJson(e as Map<String, dynamic>))
+            .toList(growable: false);
+        return (items: items, nextCursor: data['next_cursor']?.toString());
+      }
+      throw Exception(data['error'] ?? 'likes_error');
+    }
+    throw Exception('bad_likes_response');
   }
 
   Future<bool> setThreadNode({

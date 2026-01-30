@@ -18,6 +18,7 @@ import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../../core/config/env.dart';
 import '../../../../core/router/routes.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../billing/data/billing_api_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
@@ -197,6 +198,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _decisionProfileId;
   DateTime? _lastDecisionFetchAt;
   String? _replyBarThreadId;
+  ChaputMessage? _replyTarget;
+  String? _replyTargetThreadId;
 
   String _planType = 'FREE';
   String? _planPeriod;
@@ -954,6 +957,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (mask.mounted) mask.remove();
   }
 
+  void _handleReplyRequested(ChaputThreadItem thread, ChaputMessage message) {
+    setState(() {
+      _replyTarget = message;
+      _replyTargetThreadId = thread.threadId;
+      _replyBarThreadId = thread.threadId;
+    });
+    if (_chaputSheetCtrl.isAttached && _chaputSheetExtent < _chaputSheetMid) {
+      _chaputSheetCtrl.animateTo(
+        _chaputSheetMid,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   Future<void> _sendThreadMessage({
     required ChaputThreadItem thread,
     required String body,
@@ -964,19 +982,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (body.trim().isEmpty) return;
     final api = ref.read(chaputApiProvider);
     final kind = whisper ? 'WHISPER' : 'NORMAL';
-    await api.sendMessage(threadIdHex: thread.threadId, body: body, kind: kind);
+    final replyToId = (_replyTarget != null && _replyTargetThreadId == thread.threadId)
+        ? _replyTarget!.id
+        : null;
+    await api.sendMessage(threadIdHex: thread.threadId, body: body, kind: kind, replyToId: replyToId);
     if (thread.state == 'PENDING') {
       ref
           .read(chaputThreadsControllerProvider(chaputArgs).notifier)
           .updateThreadState(threadId: thread.threadId, newState: 'OPEN', pendingExpiresAt: null);
     }
 
+    final replyTarget = (_replyTarget != null && _replyTargetThreadId == thread.threadId) ? _replyTarget : null;
     final msg = ChaputMessage(
       id: 'local_${DateTime.now().millisecondsSinceEpoch}',
       senderId: ref.read(meControllerProvider).valueOrNull?.user.userId ?? '',
       kind: kind,
       body: body,
       createdAt: DateTime.now().toUtc(),
+      replyToId: replyTarget?.id,
+      replyToSenderId: replyTarget?.senderId,
+      replyToBody: replyTarget?.body,
+      likeCount: 0,
+      likedByMe: false,
+      topLikers: const [],
     );
     ref
         .read(
@@ -985,6 +1013,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           ).notifier,
         )
         .addLocalMessage(msg);
+
+    setState(() {
+      _replyTarget = null;
+      _replyTargetThreadId = null;
+    });
   }
 
   Future<void> _makeThreadHidden({
@@ -2029,6 +2062,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool activeViewerIsStarter = activeThread != null && activeThread.starterId == viewerId;
     final bool activeIsPending = activeThread != null && activeThread.state == 'PENDING';
     final bool canReplyOnActive = activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
+    final ChaputMessage? replyTarget =
+        (_replyTarget != null && _replyTargetThreadId == activeThread?.threadId) ? _replyTarget : null;
+    final String? replyAuthor = replyTarget == null
+        ? null
+        : (replyTarget.senderId == viewerId
+            ? context.t('chat_you')
+            : (chaputThreadsState.usersById[replyTarget.senderId]?.fullName ?? ''));
+    final String? replyBody = replyTarget?.body;
     final bool showReplyBar = canReplyOnActive &&
         (_replyBarThreadId == null || _replyBarThreadId == activeThread?.threadId) &&
         _chaputSheetExtent >= _chaputSheetMid - 0.01 &&
@@ -2044,6 +2085,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _pendingThreadProfileId = null;
       _replyBarThreadId = null;
       _replyWhisperMode = false;
+      _replyTarget = null;
+      _replyTargetThreadId = null;
       _focusAnchor = null;
       _showFocusMarker = false;
       _snapActive = false;
@@ -2519,6 +2562,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           final isPending = t.state == 'PENDING';
                           _replyBarThreadId = (isParticipant && (!isPending || !viewerIsStarter)) ? t.threadId : null;
                           _replyWhisperMode = false;
+                          _replyTarget = null;
+                          _replyTargetThreadId = null;
                           FocusScope.of(context).unfocus();
                           final isParticipant2 = t.userAId == viewerId || t.userBId == viewerId;
                           if (!isParticipant2) {
@@ -2551,6 +2596,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         );
                       },
                       canMakeHidden: creditsHidden > 0,
+                      onReplyMessage: _handleReplyRequested,
                       onOpenWhisperPaywall: () async {
                         await ref.read(chaputDecisionControllerProvider(profileIdHex).notifier).fetchDecision();
 
@@ -2587,6 +2633,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     key: ValueKey(activeThread?.threadId ?? 'none'),
                     canWhisper: creditsWhisper > 0,
                     whisperMode: _replyWhisperMode,
+                    replyAuthor: replyAuthor,
+                    replyBody: replyBody,
+                    onClearReply: () {
+                      setState(() {
+                        _replyTarget = null;
+                        _replyTargetThreadId = null;
+                      });
+                    },
 
                     onToggleWhisper: () async {
                       // kapatmak serbest
@@ -2706,6 +2760,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       );
 
                       setState(() => _replyWhisperMode = false);
+                      setState(() {
+                        _replyTarget = null;
+                        _replyTargetThreadId = null;
+                      });
                     },
                     onFocus: () {
                       if (_chaputSheetExtent >= _chaputSheetMax - 0.01) return;

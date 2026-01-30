@@ -3,8 +3,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../chaput/application/chaput_decision_controller.dart';
 import '../../../../chaput/application/chaput_messages_controller.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../user/domain/lite_user.dart';
@@ -33,6 +35,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.onOpenWhisperPaywall,
     required this.replyOverlay,
     required this.whisperCredits,
+    required this.onReplyMessage,
   });
 
   final List<ChaputThreadItem> threads;
@@ -53,6 +56,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   final VoidCallback onOpenWhisperPaywall;
   final double replyOverlay;
   final int whisperCredits;
+  final void Function(ChaputThreadItem thread, ChaputMessage message) onReplyMessage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -109,6 +113,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                         onOpenWhisperPaywall: onOpenWhisperPaywall,
                         replyOverlay: replyOverlay,
                         whisperCredits: whisperCredits,
+                        onReplyMessage: onReplyMessage,
                       );
 
                       return AnimatedBuilder(
@@ -159,6 +164,7 @@ class _SheetPage extends StatelessWidget {
     required this.onOpenWhisperPaywall,
     required this.replyOverlay,
     required this.whisperCredits,
+    required this.onReplyMessage,
   });
 
   final ChaputThreadItem thread;
@@ -175,6 +181,7 @@ class _SheetPage extends StatelessWidget {
   final VoidCallback onOpenWhisperPaywall;
   final double replyOverlay;
   final int whisperCredits;
+  final void Function(ChaputThreadItem thread, ChaputMessage message) onReplyMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -252,6 +259,7 @@ class _SheetPage extends StatelessWidget {
                             onOpenWhisperPaywall: onOpenWhisperPaywall,
                             replyOverlay: replyOverlay,
                             whisperCredits: whisperCredits,
+                            onReplyMessage: onReplyMessage,
                           ),
                         ),
                       ],
@@ -280,6 +288,7 @@ class _ThreadPage extends ConsumerWidget {
     required this.onOpenWhisperPaywall,
     required this.replyOverlay,
     required this.whisperCredits,
+    required this.onReplyMessage,
   });
 
   final ChaputThreadItem thread;
@@ -296,6 +305,7 @@ class _ThreadPage extends ConsumerWidget {
   final VoidCallback onOpenWhisperPaywall;
   final double replyOverlay;
   final int whisperCredits;
+  final void Function(ChaputThreadItem thread, ChaputMessage message) onReplyMessage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -307,6 +317,7 @@ class _ThreadPage extends ConsumerWidget {
 
     final otherName = (isHidden && !isParticipant) ? 'Gizli Kullanıcı' : (otherUser?.fullName ?? '');
     final otherUsername = (isHidden && !isParticipant) ? null : otherUser?.username;
+    final canReply = isParticipant && (!isPending || !viewerIsStarter);
 
     return LayoutBuilder(
       builder: (ctx, constraints) {
@@ -362,6 +373,23 @@ class _ThreadPage extends ConsumerWidget {
                     viewerUser: viewerUser,
                     isHidden: isHidden,
                     isParticipant: isParticipant,
+                    canReply: canReply,
+                    onReply: (m) => onReplyMessage(thread, m),
+                    onToggleLike: (m, like) {
+                      final me = viewerUser == null
+                          ? null
+                          : ChaputMessageLiker(
+                              id: viewerUser!.id,
+                              username: viewerUser!.username,
+                              fullName: viewerUser!.fullName,
+                              defaultAvatar: viewerUser!.defaultAvatar,
+                              profilePhotoKey: viewerUser!.profilePhotoKey,
+                              profilePhotoUrl: viewerUser!.profilePhotoUrl,
+                            );
+                      ref
+                          .read(chaputMessagesControllerProvider(args).notifier)
+                          .toggleLike(messageId: m.id, like: like, me: me);
+                    },
                     onLoadMore: () => ref.read(chaputMessagesControllerProvider(args).notifier).loadMore(),
                   ),
                 ),
@@ -606,7 +634,7 @@ class ChatComposerAvatar extends StatelessWidget {
   }
 }
 
-class _MessagesList extends StatelessWidget {
+class _MessagesList extends StatefulWidget {
   const _MessagesList({
     required this.state,
     required this.viewerId,
@@ -615,6 +643,9 @@ class _MessagesList extends StatelessWidget {
     required this.viewerUser,
     required this.isHidden,
     required this.isParticipant,
+    required this.canReply,
+    required this.onReply,
+    required this.onToggleLike,
     required this.onLoadMore,
   });
 
@@ -625,12 +656,108 @@ class _MessagesList extends StatelessWidget {
   final LiteUser? viewerUser;
   final bool isHidden;
   final bool isParticipant;
+  final bool canReply;
+  final ValueChanged<ChaputMessage> onReply;
+  final void Function(ChaputMessage message, bool like) onToggleLike;
   final VoidCallback onLoadMore;
 
   @override
+  State<_MessagesList> createState() => _MessagesListState();
+}
+
+class _MessagesListState extends State<_MessagesList> {
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _messageKeys = {};
+  bool _loadTriggered = false;
+  String? _pendingJumpId;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_handleScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients) return;
+    if (widget.state.isLoading || widget.state.isLoadingMore) return;
+    if (widget.state.nextCursor == null || widget.state.nextCursor!.isEmpty) return;
+    final pos = _scrollController.position;
+    final nearTop = pos.pixels >= pos.maxScrollExtent - 40;
+    if (nearTop && !_loadTriggered) {
+      _loadTriggered = true;
+      widget.onLoadMore();
+    }
+    if (pos.pixels < pos.maxScrollExtent - 160) {
+      _loadTriggered = false;
+    }
+  }
+
+  GlobalKey _keyForMessage(String id) {
+    if (id.isEmpty) return GlobalKey();
+    return _messageKeys.putIfAbsent(id, () => GlobalKey());
+  }
+
+  void _jumpToMessage(String id) {
+    final key = _messageKeys[id];
+    final ctx = key?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+        alignment: 0.3,
+      );
+      _pendingJumpId = null;
+      return;
+    }
+    if (widget.state.nextCursor != null && widget.state.nextCursor!.isNotEmpty) {
+      _pendingJumpId = id;
+      widget.onLoadMore();
+    }
+  }
+
+  void _tryPendingJump() {
+    final id = _pendingJumpId;
+    if (id == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _jumpToMessage(id);
+    });
+  }
+
+  void _openLikesFocus(ChaputMessage message, bool isMine, bool isParticipant) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'likes',
+      barrierColor: Colors.black.withOpacity(0.35),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (ctx, a1, a2) {
+        return _MessageLikesDialog(
+          message: message,
+          isMine: isMine,
+          isParticipant: isParticipant,
+        );
+      },
+      transitionBuilder: (ctx, anim, sec, child) {
+        return Opacity(
+          opacity: anim.value,
+          child: child,
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = state.items;
-    if (state.isLoading) {
+    final items = widget.state.items;
+    if (widget.state.isLoading) {
       return const Center(child: CircularProgressIndicator(color: Colors.white));
     }
     if (items.isEmpty) {
@@ -643,41 +770,40 @@ class _MessagesList extends StatelessWidget {
     }
 
     final groups = _groupMessages(items);
-    final dayLabels = _buildDayLabels(groups);
-    return NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        if (n is! ScrollEndNotification) return false;
-        if (state.isLoadingMore) return false;
-        if (state.nextCursor == null || state.nextCursor!.isEmpty) return false;
-        if (n.metrics.pixels >= n.metrics.maxScrollExtent - 20) {
-          onLoadMore();
-        }
-        return false;
+    final dayLabels = _buildDayLabels(context, groups);
+    _tryPendingJump();
+
+    return ListView.builder(
+      controller: _scrollController,
+      reverse: true,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      itemCount: groups.length,
+      itemBuilder: (ctx, i) {
+        final g = groups[i];
+        final isMine = g.senderId == widget.viewerId;
+        final senderUser = _resolveUser(g.senderId);
+        final forceDefault = widget.isHidden && !widget.isParticipant && senderUser == widget.otherUser;
+        final label = dayLabels[i];
+        return _MessageGroupBubble(
+          group: g,
+          isMine: isMine,
+          senderUser: senderUser,
+          forceDefaultAvatar: forceDefault,
+          isParticipant: widget.isParticipant,
+          dayLabel: label,
+          resolveUser: _resolveUser,
+          canReply: widget.canReply,
+          onReply: widget.onReply,
+          onToggleLike: widget.onToggleLike,
+          onShowLikes: (m) => _openLikesFocus(m, isMine, widget.isParticipant),
+          onReplyTap: _jumpToMessage,
+          messageKeyFor: _keyForMessage,
+        );
       },
-      child: ListView.builder(
-        reverse: true,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        itemCount: groups.length,
-        itemBuilder: (ctx, i) {
-          final g = groups[i];
-          final isMine = g.senderId == viewerId;
-          final senderUser = _resolveUser(g.senderId);
-          final forceDefault = isHidden && !isParticipant && senderUser == otherUser;
-          final label = dayLabels[i];
-          return _MessageGroupBubble(
-            group: g,
-            isMine: isMine,
-            senderUser: senderUser,
-            forceDefaultAvatar: forceDefault,
-            isParticipant: isParticipant,
-            dayLabel: label,
-          );
-        },
-      ),
     );
   }
 
-  List<String?> _buildDayLabels(List<_MessageGroup> groups) {
+  List<String?> _buildDayLabels(BuildContext context, List<_MessageGroup> groups) {
     final labels = List<String?>.filled(groups.length, null, growable: false);
     String? prevKey;
     for (int i = 0; i < groups.length; i++) {
@@ -687,7 +813,7 @@ class _MessagesList extends StatelessWidget {
           : null;
       final key = _dayKey(dt);
       if (key != null && key != prevKey) {
-        labels[i] = _formatDayLabel(dt!);
+        labels[i] = _formatDayLabel(context, dt!);
         prevKey = key;
       }
     }
@@ -700,34 +826,27 @@ class _MessagesList extends StatelessWidget {
     return '${d.year}-${d.month}-${d.day}';
   }
 
-  String _formatDayLabel(DateTime dt) {
+  String _formatDayLabel(BuildContext context, DateTime dt) {
     final now = DateTime.now();
     final local = dt.toLocal();
     final today = DateTime(now.year, now.month, now.day);
     final that = DateTime(local.year, local.month, local.day);
     final diffDays = today.difference(that).inDays;
-    if (diffDays == 0) return 'Bugün';
-    if (diffDays == 1) return 'Dün';
+    if (diffDays == 0) return context.t('chat_today');
+    if (diffDays == 1) return context.t('chat_yesterday');
 
-    const months = [
-      'Ocak',
-      'Şubat',
-      'Mart',
-      'Nisan',
-      'Mayıs',
-      'Haziran',
-      'Temmuz',
-      'Ağustos',
-      'Eylül',
-      'Ekim',
-      'Kasım',
-      'Aralık',
-    ];
-    final m = months[(local.month - 1).clamp(0, 11)];
+    final monthName = context.t('month_${local.month}');
     if (local.year != now.year) {
-      return '${local.day} $m ${local.year}';
+      return context.t('chat_date_day_month_year', params: {
+        'day': '${local.day}',
+        'month': monthName,
+        'year': '${local.year}',
+      });
     }
-    return '${local.day} $m';
+    return context.t('chat_date_day_month', params: {
+      'day': '${local.day}',
+      'month': monthName,
+    });
   }
 
   List<_MessageGroup> _groupMessages(List<ChaputMessage> items) {
@@ -754,9 +873,9 @@ class _MessagesList extends StatelessWidget {
   }
 
   LiteUser? _resolveUser(String id) {
-    if (ownerUser != null && ownerUser!.id == id) return ownerUser;
-    if (otherUser != null && otherUser!.id == id) return otherUser;
-    if (viewerUser != null && viewerUser!.id == id) return viewerUser;
+    if (widget.ownerUser != null && widget.ownerUser!.id == id) return widget.ownerUser;
+    if (widget.otherUser != null && widget.otherUser!.id == id) return widget.otherUser;
+    if (widget.viewerUser != null && widget.viewerUser!.id == id) return widget.viewerUser;
     return null;
   }
 }
@@ -775,6 +894,13 @@ class _MessageGroupBubble extends StatelessWidget {
     required this.forceDefaultAvatar,
     required this.isParticipant,
     required this.dayLabel,
+    required this.resolveUser,
+    required this.canReply,
+    required this.onReply,
+    required this.onToggleLike,
+    required this.onShowLikes,
+    required this.onReplyTap,
+    required this.messageKeyFor,
   });
 
   final _MessageGroup group;
@@ -783,6 +909,13 @@ class _MessageGroupBubble extends StatelessWidget {
   final bool forceDefaultAvatar;
   final bool isParticipant;
   final String? dayLabel;
+  final LiteUser? Function(String id) resolveUser;
+  final bool canReply;
+  final ValueChanged<ChaputMessage> onReply;
+  final void Function(ChaputMessage message, bool like) onToggleLike;
+  final ValueChanged<ChaputMessage> onShowLikes;
+  final ValueChanged<String> onReplyTap;
+  final GlobalKey Function(String id) messageKeyFor;
 
   @override
   Widget build(BuildContext context) {
@@ -792,10 +925,17 @@ class _MessageGroupBubble extends StatelessWidget {
       children: [
         for (int i = 0; i < orderedItems.length; i++)
           _MessageBubble(
+            key: messageKeyFor(orderedItems[i].id),
             message: orderedItems[i],
             isMine: isMine,
             isLastInGroup: i == orderedItems.length - 1,
             isParticipant: isParticipant,
+            replyAuthor: _resolveReplyAuthor(orderedItems[i]),
+            canReply: canReply,
+            onReply: onReply,
+            onToggleLike: onToggleLike,
+            onShowLikes: onShowLikes,
+            onReplyTap: onReplyTap,
           ),
       ],
     );
@@ -854,13 +994,20 @@ class _MessageGroupBubble extends StatelessWidget {
               children: [
                 _GroupAvatar(user: senderUser, forceDefault: forceDefaultAvatar),
                 const SizedBox(width: 8),
-                bubbleColumn,
+                Flexible(child: bubbleColumn),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _resolveReplyAuthor(ChaputMessage message) {
+    final senderId = message.replyToSenderId;
+    if (senderId == null || senderId.isEmpty) return '';
+    final u = resolveUser(senderId);
+    return u?.fullName ?? '';
   }
 }
 
@@ -896,16 +1043,31 @@ class _GroupAvatar extends StatelessWidget {
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.isMine,
     required this.isLastInGroup,
     required this.isParticipant,
+    required this.replyAuthor,
+    required this.canReply,
+    required this.onReply,
+    required this.onToggleLike,
+    required this.onShowLikes,
+    required this.onReplyTap,
+    this.enableActions = true,
   });
 
   final ChaputMessage message;
   final bool isMine;
   final bool isLastInGroup;
   final bool isParticipant;
+  final String replyAuthor;
+  final bool canReply;
+  final ValueChanged<ChaputMessage> onReply;
+  final void Function(ChaputMessage message, bool like) onToggleLike;
+  final ValueChanged<ChaputMessage> onShowLikes;
+  final ValueChanged<String> onReplyTap;
+  final bool enableActions;
 
   @override
   Widget build(BuildContext context) {
@@ -928,6 +1090,12 @@ class _MessageBubble extends StatelessWidget {
     final masked = '*' * (message.body.isEmpty ? 6 : message.body.length.clamp(4, 18));
     final displayText = (!isParticipant && (isWhisper || isWhisperHidden)) ? masked : message.body;
     final timeText = _formatTime(message.createdAt);
+    final hasReply = message.replyToId != null &&
+        message.replyToId!.isNotEmpty &&
+        message.replyToBody != null &&
+        message.replyToBody!.isNotEmpty;
+    final hasLikes = message.likeCount > 0;
+    final replyLabel = replyAuthor.isNotEmpty ? replyAuthor : 'Yanıt';
 
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
@@ -942,28 +1110,98 @@ class _MessageBubble extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 260),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  displayText,
-                  style: TextStyle(
-                    color: isWhisperHidden ? Colors.white.withOpacity(0.7) : fg,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+              if (hasReply)
+                GestureDetector(
+                  onTap: () {
+                    final id = message.replyToId;
+                    if (id != null && id.isNotEmpty) onReplyTap(id);
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.22),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withOpacity(0.16)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 3,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                replyLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: fg.withOpacity(0.92),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                message.replyToBody ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: fg.withOpacity(0.7),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+              Text(
+                displayText,
+                style: TextStyle(
+                  color: isWhisperHidden ? Colors.white.withOpacity(0.7) : fg,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              if (timeText != null)
+              if (hasLikes || timeText != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    timeText,
-                    style: TextStyle(
-                      color: (isWhisperHidden ? Colors.white.withOpacity(0.45) : fg.withOpacity(0.45)),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (hasLikes)
+                          _LikeStack(
+                            likers: message.topLikers,
+                            likeCount: message.likeCount,
+                            onTap: () => onShowLikes(message),
+                          ),
+                        if (hasLikes && timeText != null) const SizedBox(width: 6),
+                        if (timeText != null)
+                          Text(
+                            timeText,
+                            style: TextStyle(
+                              color: (isWhisperHidden ? Colors.white.withOpacity(0.45) : fg.withOpacity(0.45)),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -973,17 +1211,43 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
 
-    if (isWhisperHidden) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: bubble,
-        ),
+    Widget child = isWhisperHidden
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: bubble,
+            ),
+          )
+        : bubble;
+
+    child = Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: child,
+    );
+
+    if (enableActions) {
+      child = GestureDetector(
+        onDoubleTap: () => onToggleLike(message, !message.likedByMe),
+        onLongPress: () => onShowLikes(message),
+        child: child,
       );
     }
 
-    return bubble;
+    if (enableActions && canReply) {
+      return Dismissible(
+        key: ValueKey('reply_${message.id}'),
+        direction: DismissDirection.startToEnd,
+        confirmDismiss: (_) async {
+          onReply(message);
+          return false;
+        },
+        background: const _ReplySwipeBackground(),
+        child: child,
+      );
+    }
+
+    return child;
   }
 
   String? _formatTime(DateTime? dt) {
@@ -992,6 +1256,322 @@ class _MessageBubble extends StatelessWidget {
     final hh = d.hour.toString().padLeft(2, '0');
     final mm = d.minute.toString().padLeft(2, '0');
     return '$hh:$mm';
+  }
+}
+
+class _LikeStack extends StatelessWidget {
+  const _LikeStack({
+    required this.likers,
+    required this.likeCount,
+    required this.onTap,
+  });
+
+  final List<ChaputMessageLiker> likers;
+  final int likeCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = likers.take(3).toList(growable: false);
+    final overflow = (likeCount - top.length).clamp(0, 999);
+    final size = 16.0;
+    final overlap = 10.0;
+
+    final stackWidth = (top.isEmpty ? 0 : (size + (top.length - 1) * overlap)) + (overflow > 0 ? size + 6 : 0);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: stackWidth.toDouble(),
+        height: size,
+        child: Stack(
+          children: [
+            for (int i = 0; i < top.length; i++)
+              Positioned(
+                left: i * overlap,
+                child: _TinyAvatar(user: top[i], size: size),
+              ),
+            if (overflow > 0)
+              Positioned(
+                left: top.length * overlap + 4,
+                child: Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.18),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '+$overflow',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TinyAvatar extends StatelessWidget {
+  const _TinyAvatar({required this.user, required this.size});
+
+  final ChaputMessageLiker user;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = user.profilePhotoPath != null && user.profilePhotoPath!.isNotEmpty;
+    final isDefault = !hasPhoto;
+    final imageUrl = isDefault ? user.defaultAvatar : user.profilePhotoPath!;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ChaputCircleAvatar(
+        isDefaultAvatar: isDefault,
+        imageUrl: imageUrl,
+        width: size,
+        height: size,
+        radius: size,
+        borderWidth: 0.5,
+      ),
+    );
+  }
+}
+
+class _ReplySwipeBackground extends StatelessWidget {
+  const _ReplySwipeBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.only(left: 18),
+      child: Icon(Icons.reply_rounded, color: Colors.white.withOpacity(0.7), size: 20),
+    );
+  }
+}
+
+class _MessageLikesDialog extends ConsumerStatefulWidget {
+  const _MessageLikesDialog({
+    required this.message,
+    required this.isMine,
+    required this.isParticipant,
+  });
+
+  final ChaputMessage message;
+  final bool isMine;
+  final bool isParticipant;
+
+  @override
+  ConsumerState<_MessageLikesDialog> createState() => _MessageLikesDialogState();
+}
+
+class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
+  final List<ChaputMessageLiker> _items = [];
+  final ScrollController _ctrl = ScrollController();
+  String? _cursor;
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _triggered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(_handleScroll);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.removeListener(_handleScroll);
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (_loading || _loadingMore) return;
+    if (_cursor == null || _cursor!.isEmpty) return;
+    if (!_ctrl.hasClients) return;
+    final pos = _ctrl.position;
+    final nearEnd = pos.pixels >= pos.maxScrollExtent - 60;
+    if (nearEnd && !_triggered) {
+      _triggered = true;
+      _load(more: true);
+    }
+    if (pos.pixels < pos.maxScrollExtent - 160) {
+      _triggered = false;
+    }
+  }
+
+  Future<void> _load({bool more = false}) async {
+    if (more) {
+      setState(() => _loadingMore = true);
+    } else {
+      setState(() => _loading = true);
+    }
+    try {
+      final api = ref.read(chaputApiProvider);
+      final res = await api.listMessageLikes(
+        messageIdHex: widget.message.id,
+        limit: 30,
+        cursor: more ? _cursor : null,
+      );
+      setState(() {
+        if (more) {
+          _items.addAll(res.items);
+        } else {
+          _items
+            ..clear()
+            ..addAll(res.items);
+        }
+        _cursor = res.nextCursor;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    final h = MediaQuery.of(context).size.height;
+
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(color: Colors.black.withOpacity(0.35)),
+            ),
+          ),
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          Center(
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                width: w * 0.86,
+                height: h * 0.65,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.82),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: Colors.white.withOpacity(0.12)),
+                ),
+                child: Column(
+                  children: [
+                    _MessageBubble(
+                      message: widget.message,
+                      isMine: widget.isMine,
+                      isLastInGroup: true,
+                      isParticipant: widget.isParticipant,
+                      replyAuthor: '',
+                      canReply: false,
+                      onReply: (_) {},
+                      onToggleLike: (_, __) {},
+                      onShowLikes: (_) {},
+                      onReplyTap: (_) {},
+                      enableActions: false,
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: _loading
+                          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                          : _items.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    context.t('chat_no_likes'),
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.7),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  controller: _ctrl,
+                                  itemCount: _items.length + (_loadingMore ? 1 : 0),
+                                  separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.08)),
+                                  itemBuilder: (ctx, i) {
+                                    if (i >= _items.length) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 10),
+                                        child: Center(
+                                          child: CircularProgressIndicator(color: Colors.white),
+                                        ),
+                                      );
+                                    }
+                                    final u = _items[i];
+                                    final hasPhoto = u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty;
+                                    final isDefault = !hasPhoto;
+                                    final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoPath!;
+                                    return Row(
+                                      children: [
+                                        ChaputCircleAvatar(
+                                          isDefaultAvatar: isDefault,
+                                          imageUrl: imageUrl,
+                                          width: 34,
+                                          height: 34,
+                                          radius: 34,
+                                          borderWidth: 0,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                u.fullName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                              if (u.username != null && u.username!.isNotEmpty)
+                                                Text(
+                                                  '@${u.username}',
+                                                  style: TextStyle(
+                                                    color: Colors.white.withOpacity(0.6),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
