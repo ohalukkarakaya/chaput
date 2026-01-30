@@ -643,6 +643,7 @@ class _MessagesList extends StatelessWidget {
     }
 
     final groups = _groupMessages(items);
+    final dayLabels = _buildDayLabels(groups);
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n is! ScrollEndNotification) return false;
@@ -662,16 +663,71 @@ class _MessagesList extends StatelessWidget {
           final isMine = g.senderId == viewerId;
           final senderUser = _resolveUser(g.senderId);
           final forceDefault = isHidden && !isParticipant && senderUser == otherUser;
+          final label = dayLabels[i];
           return _MessageGroupBubble(
             group: g,
             isMine: isMine,
             senderUser: senderUser,
             forceDefaultAvatar: forceDefault,
             isParticipant: isParticipant,
+            dayLabel: label,
           );
         },
       ),
     );
+  }
+
+  List<String?> _buildDayLabels(List<_MessageGroup> groups) {
+    final labels = List<String?>.filled(groups.length, null, growable: false);
+    String? prevKey;
+    for (int i = 0; i < groups.length; i++) {
+      final g = groups[i];
+      final dt = g.items.isNotEmpty
+          ? (g.items.last.createdAt ?? g.items.first.createdAt)
+          : null;
+      final key = _dayKey(dt);
+      if (key != null && key != prevKey) {
+        labels[i] = _formatDayLabel(dt!);
+        prevKey = key;
+      }
+    }
+    return labels;
+  }
+
+  String? _dayKey(DateTime? dt) {
+    if (dt == null) return null;
+    final d = dt.toLocal();
+    return '${d.year}-${d.month}-${d.day}';
+  }
+
+  String _formatDayLabel(DateTime dt) {
+    final now = DateTime.now();
+    final local = dt.toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final that = DateTime(local.year, local.month, local.day);
+    final diffDays = today.difference(that).inDays;
+    if (diffDays == 0) return 'Bugün';
+    if (diffDays == 1) return 'Dün';
+
+    const months = [
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
+    ];
+    final m = months[(local.month - 1).clamp(0, 11)];
+    if (local.year != now.year) {
+      return '${local.day} $m ${local.year}';
+    }
+    return '${local.day} $m';
   }
 
   List<_MessageGroup> _groupMessages(List<ChaputMessage> items) {
@@ -718,6 +774,7 @@ class _MessageGroupBubble extends StatelessWidget {
     required this.senderUser,
     required this.forceDefaultAvatar,
     required this.isParticipant,
+    required this.dayLabel,
   });
 
   final _MessageGroup group;
@@ -725,6 +782,7 @@ class _MessageGroupBubble extends StatelessWidget {
   final LiteUser? senderUser;
   final bool forceDefaultAvatar;
   final bool isParticipant;
+  final String? dayLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -742,10 +800,44 @@ class _MessageGroupBubble extends StatelessWidget {
       ],
     );
 
+    final labelWidget = dayLabel == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.white.withOpacity(0.16)),
+                ),
+                child: Text(
+                  dayLabel!,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ),
+          );
+
     if (isMine) {
       return Align(
         alignment: Alignment.centerRight,
-        child: Container(margin: const EdgeInsets.symmetric(vertical: 4), child: bubbleColumn),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              labelWidget,
+              bubbleColumn,
+            ],
+          ),
+        ),
       );
     }
 
@@ -753,12 +845,18 @@ class _MessageGroupBubble extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _GroupAvatar(user: senderUser, forceDefault: forceDefaultAvatar),
-            const SizedBox(width: 8),
-            bubbleColumn,
+            labelWidget,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _GroupAvatar(user: senderUser, forceDefault: forceDefaultAvatar),
+                const SizedBox(width: 8),
+                bubbleColumn,
+              ],
+            ),
           ],
         ),
       ),
@@ -829,6 +927,7 @@ class _MessageBubble extends StatelessWidget {
 
     final masked = '*' * (message.body.isEmpty ? 6 : message.body.length.clamp(4, 18));
     final displayText = (!isParticipant && (isWhisper || isWhisperHidden)) ? masked : message.body;
+    final timeText = _formatTime(message.createdAt);
 
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
@@ -838,12 +937,38 @@ class _MessageBubble extends StatelessWidget {
         borderRadius: radius,
         border: Border.all(color: Colors.white.withOpacity(isMine ? 0.0 : 0.06)),
       ),
-      child: Text(
-        displayText,
-        style: TextStyle(
-          color: isWhisperHidden ? Colors.white.withOpacity(0.7) : fg,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
+      child: IntrinsicWidth(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  displayText,
+                  style: TextStyle(
+                    color: isWhisperHidden ? Colors.white.withOpacity(0.7) : fg,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (timeText != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    timeText,
+                    style: TextStyle(
+                      color: (isWhisperHidden ? Colors.white.withOpacity(0.45) : fg.withOpacity(0.45)),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -859,6 +984,14 @@ class _MessageBubble extends StatelessWidget {
     }
 
     return bubble;
+  }
+
+  String? _formatTime(DateTime? dt) {
+    if (dt == null) return null;
+    final d = dt.toLocal();
+    final hh = d.hour.toString().padLeft(2, '0');
+    final mm = d.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
   }
 }
 
