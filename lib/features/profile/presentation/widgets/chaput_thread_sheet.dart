@@ -427,7 +427,8 @@ class _ThreadPage extends ConsumerWidget {
                 Positioned(
                   left: 16,
                   right: 16,
-                  bottom: (bottomPad - 16).clamp(6.0, double.infinity) as double,
+                  bottom: (bottomPad - (isParticipant ? 16.0 : 28.0))
+                      .clamp(6.0, double.infinity) as double,
                   child: _TypingIndicator(users: typingUsers),
                 ),
             ],
@@ -710,6 +711,7 @@ class _MessagesListState extends State<_MessagesList> {
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _messageKeys = {};
   final Map<String, GlobalKey> _groupKeys = {};
+  final Map<String, GlobalKey> _groupContentKeys = {};
   bool _loadTriggered = false;
   String? _pendingJumpId;
 
@@ -749,6 +751,11 @@ class _MessagesListState extends State<_MessagesList> {
   GlobalKey _keyForGroup(String id) {
     if (id.isEmpty) return GlobalKey();
     return _groupKeys.putIfAbsent(id, () => GlobalKey());
+  }
+
+  GlobalKey _keyForGroupContent(String id) {
+    if (id.isEmpty) return GlobalKey();
+    return _groupContentKeys.putIfAbsent(id, () => GlobalKey());
   }
 
   void _jumpToMessage(String id) {
@@ -838,6 +845,7 @@ class _MessagesListState extends State<_MessagesList> {
         final forceDefault = widget.isHidden && !widget.isParticipant && senderUser == widget.otherUser;
         final label = dayLabels[i];
         final groupKey = _keyForGroup(g.items.isNotEmpty ? g.items.first.id : g.senderId);
+        final contentKey = _keyForGroupContent(g.items.isNotEmpty ? g.items.first.id : g.senderId);
         return _MessageGroupBubble(
           key: groupKey,
           group: g,
@@ -855,6 +863,7 @@ class _MessagesListState extends State<_MessagesList> {
           messageKeyFor: _keyForMessage,
           scrollController: _scrollController,
           groupKey: groupKey,
+          contentKey: contentKey,
         );
       },
     );
@@ -965,6 +974,7 @@ class _MessageGroupBubble extends StatelessWidget {
     required this.messageKeyFor,
     required this.scrollController,
     required this.groupKey,
+    required this.contentKey,
   });
 
   final _MessageGroup group;
@@ -982,32 +992,36 @@ class _MessageGroupBubble extends StatelessWidget {
   final GlobalKey Function(String id) messageKeyFor;
   final ScrollController scrollController;
   final GlobalKey groupKey;
+  final GlobalKey contentKey;
 
   @override
   Widget build(BuildContext context) {
     final orderedItems = group.items.reversed.toList(growable: false);
-    final bubbleColumn = Column(
-      crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < orderedItems.length; i++)
-          _MessageBubble(
-            key: messageKeyFor(orderedItems[i].id),
-            message: orderedItems[i],
-            isMine: isMine,
-            isLastInGroup: i == orderedItems.length - 1,
-            isParticipant: isParticipant,
-            replyAuthor: _resolveReplyAuthor(orderedItems[i]),
-            canReply: canReply,
-            onReply: onReply,
-            onToggleLike: onToggleLike,
-            onShowLikes: onShowLikes,
-            onReplyTap: onReplyTap,
-          ),
-      ],
+    final bubbleColumn = KeyedSubtree(
+      key: contentKey,
+      child: Column(
+        crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < orderedItems.length; i++)
+            _MessageBubble(
+              key: messageKeyFor(orderedItems[i].id),
+              message: orderedItems[i],
+              isMine: isMine,
+              isLastInGroup: i == orderedItems.length - 1,
+              isParticipant: isParticipant,
+              replyAuthor: _resolveReplyAuthor(orderedItems[i]),
+              canReply: canReply,
+              onReply: onReply,
+              onToggleLike: onToggleLike,
+              onShowLikes: onShowLikes,
+              onReplyTap: onReplyTap,
+            ),
+        ],
+      ),
     );
 
     final stickyAvatar = _StickyGroupAvatar(
-      groupKey: groupKey,
+      groupKey: contentKey,
       scrollController: scrollController,
       avatar: _GroupAvatar(user: senderUser, forceDefault: forceDefaultAvatar),
     );
@@ -1126,14 +1140,21 @@ class _StickyGroupAvatar extends StatelessWidget {
         final viewportBox =
             scrollController.position.context.storageContext.findRenderObject() as RenderBox?;
         if (viewportBox == null) return child!;
+        if (!groupBox.attached || !viewportBox.attached) return child!;
 
-        // position of the group inside the viewport
-        final groupTop = groupBox.localToGlobal(Offset.zero, ancestor: viewportBox).dy;
+        double groupTop;
+        try {
+          // position of the group inside the viewport
+          groupTop = groupBox.localToGlobal(Offset.zero, ancestor: viewportBox).dy;
+        } catch (_) {
+          return child!;
+        }
         final groupBottom = groupTop + groupBox.size.height;
         final viewportHeight = viewportBox.size.height;
 
         const avatarSize = 28.0;
-        double desiredInViewport = viewportHeight - avatarSize;
+        const bottomInset = 10.0;
+        double desiredInViewport = viewportHeight - avatarSize - bottomInset;
         if (desiredInViewport < groupTop) desiredInViewport = groupTop;
         if (desiredInViewport > groupBottom - avatarSize) {
           desiredInViewport = groupBottom - avatarSize;
@@ -1240,7 +1261,7 @@ class _MessageBubble extends StatelessWidget {
         message.replyToBody!.isNotEmpty;
     final hasLikes = message.likeCount > 0;
     final replyLabel = replyAuthor.isNotEmpty ? replyAuthor : 'Yanıt';
-    final showTicks = isMine && timeText != null;
+    final showTicks = isParticipant && isMine && timeText != null;
     final tickColor = message.readByOther ? Colors.lightBlueAccent : fg.withOpacity(0.45);
     final tickIcon = message.delivered ? Icons.done_all : Icons.check;
 
