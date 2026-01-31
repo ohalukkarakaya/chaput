@@ -357,10 +357,13 @@ class _ThreadPage extends ConsumerWidget {
         final pendingHeight = pendingWidget != null ? 22.0 : 0.0;
         const typingHeight = 26.0;
         const typingExtraAbove = 24.0;
+        const thirdViewerListLift = 12.0;
         final bottomPad = composerHeight + pendingHeight + (pendingWidget != null ? spacing : 0) + replyOverlay;
         final topPad = headerHeight + spacing;
         final hasTyping = typingUsers.isNotEmpty;
-        final listBottom = bottomPad + (hasTyping ? typingHeight : 0.0);
+        final listBottom = bottomPad +
+            (hasTyping ? typingHeight : 0.0) +
+            (!isParticipant ? thirdViewerListLift : 0.0);
 
         return SizedBox(
           height: height,
