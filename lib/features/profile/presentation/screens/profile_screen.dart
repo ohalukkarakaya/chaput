@@ -2171,6 +2171,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final decisionThreadId = decision?.target.threadId ?? '';
 
     final decisionLoaded = decision != null;
+    _planType = planType;
+    _planPeriod = planPeriod;
+    _creditNormal = creditsNormal;
+    _creditHidden = creditsHidden;
+    _creditSpecial = creditsSpecial;
+    _creditRevive = creditsRevive;
+    _creditWhisper = creditsWhisper;
+    _adsCanWatch = adsCanWatch;
+    _adsWatchedToday = adsWatchedToday;
+    _adsRewardsToday = adsRewardsToday;
+    _adsNextRewardIn = adsNextRewardIn;
+    _decisionLoaded = decisionLoaded;
+    _decisionPath = decisionPath;
+    _decisionCanStart = decisionCanStart;
+    _decisionHasThread = decisionHasThread;
 
     if (!decisionAllowed) {
       _decisionProfileId = null;

@@ -97,8 +97,20 @@ class ChaputThreadSheet extends ConsumerWidget {
                               ? thread.userAId
                               : (thread.userAId == viewerId ? thread.userBId : thread.userAId);
                       final ownerUser = usersById[ownerId];
-                      final otherUser =
+                      final rawOtherUser =
                           usersById[otherId] ?? (viewerUser != null && otherId == viewerUser!.id ? viewerUser : null);
+                      final isHiddenForViewer = thread.kind == 'HIDDEN' && !isParticipant;
+                      final otherUser = isHiddenForViewer
+                          ? LiteUser(
+                              id: otherId,
+                              username: null,
+                              fullName: 'Anonim Kullanıcı',
+                              bio: null,
+                              defaultAvatar: rawOtherUser?.defaultAvatar ?? ownerUser?.defaultAvatar ?? '',
+                              profilePhotoKey: null,
+                              profilePhotoUrl: null,
+                            )
+                          : rawOtherUser;
 
                       final child = _SheetPage(
                         thread: thread,
@@ -227,7 +239,7 @@ class _SheetPage extends StatelessWidget {
                                     isHidden: thread.kind == 'HIDDEN',
                                     isParticipant: isParticipant,
                                     otherName: (thread.kind == 'HIDDEN' && !isParticipant)
-                                        ? 'Gizli Kullanıcı'
+                                        ? 'Anonim Kullanıcı'
                                         : (otherUser?.fullName ?? ''),
                                     otherUsername:
                                         (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
@@ -323,7 +335,7 @@ class _ThreadPage extends ConsumerWidget {
     final viewerIsStarter = thread.starterId == viewerId;
     final isPending = thread.state == 'PENDING';
 
-    final otherName = (isHidden && !isParticipant) ? 'Gizli Kullanıcı' : (otherUser?.fullName ?? '');
+    final otherName = (isHidden && !isParticipant) ? 'Anonim Kullanıcı' : (otherUser?.fullName ?? '');
     final otherUsername = (isHidden && !isParticipant) ? null : otherUser?.username;
     final canReply = isParticipant && (!isPending || !viewerIsStarter);
 
