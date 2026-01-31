@@ -501,6 +501,15 @@ class _ThreadHeader extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                if ((otherUsername == null || otherUsername!.isEmpty) && otherName == 'Anonim Kullanıcı')
+                  Text(
+                    'Bu chaputun kullanıcısı gizlidir',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.55),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1564,18 +1573,21 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                 ),
                 child: Column(
                   children: [
-                    _MessageBubble(
-                      message: widget.message,
-                      isMine: widget.isMine,
-                      isLastInGroup: true,
-                      isParticipant: widget.isParticipant,
-                      replyAuthor: '',
-                      canReply: false,
-                      onReply: (_) {},
-                      onToggleLike: (_, __) {},
-                      onShowLikes: (_) {},
-                      onReplyTap: (_) {},
-                      enableActions: false,
+                    Align(
+                      alignment: widget.isMine ? Alignment.centerRight : Alignment.centerLeft,
+                      child: _MessageBubble(
+                        message: widget.message,
+                        isMine: widget.isMine,
+                        isLastInGroup: true,
+                        isParticipant: widget.isParticipant,
+                        replyAuthor: '',
+                        canReply: false,
+                        onReply: (_) {},
+                        onToggleLike: (_, __) {},
+                        onShowLikes: (_) {},
+                        onReplyTap: (_) {},
+                        enableActions: false,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Expanded(
