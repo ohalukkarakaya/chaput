@@ -3044,15 +3044,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ),
 
           // BUTON
-              Positioned(
-                  right: 14,
-                  bottom: 14,
-                  child: SafeArea(
-                child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      child: (_composerOpen || _silhouetteMode || isMe || _chaputThreadCreated || hasOurThread || _chaputSheetExtent > 0.55)
-                          ? const SizedBox.shrink()
-                          : IgnorePointer(
+          Positioned(
+            right: 14,
+            bottom: (chaputThreads.isNotEmpty
+                    ? (MediaQuery.of(context).size.height * _chaputSheetExtent + 10)
+                    : 14),
+            child: SafeArea(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 160),
+                child: (_composerOpen ||
+                        _silhouetteMode ||
+                        isMe ||
+                        _chaputThreadCreated ||
+                        hasOurThread ||
+                        (chaputThreads.isNotEmpty && _chaputSheetExtent > _chaputSheetMin + 0.01))
+                    ? const SizedBox.shrink()
+                    : IgnorePointer(
                         ignoring: !_threeReady,
                         child: BlackGlass(
                           radius: 16,
@@ -3065,27 +3072,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               onTap: (_silhouetteMode || _composerOpen)
                                   ? null
                                   : () async {
-                                if (decisionHasArchived && decisionThreadId.length == 32) {
-                                  await _handleRevivePressed(
-                                    threadIdHex: decisionThreadId,
-                                    profileIdHex: profileIdHex,
-                                    chaputArgs: chaputArgs,
-                                    targetUser: targetLiteUser,
-                                  );
-                                  return;
-                                }
-                                if (showBindExhausted) {
-                                  final purchase = await _openPaywall(feature: PaywallFeature.bind);
-                                  if (purchase != null) {
-                                    final ok = await _verifyPurchaseAndApply(purchase);
-                                    if (ok) {
-                                      _prepareComposer();
-                                    }
-                                  }
-                                  return;
-                                }
-                                await _handleBindPressed(profileId: profileIdHex);
-                              },
+                                      if (decisionHasArchived && decisionThreadId.length == 32) {
+                                        await _handleRevivePressed(
+                                          threadIdHex: decisionThreadId,
+                                          profileIdHex: profileIdHex,
+                                          chaputArgs: chaputArgs,
+                                          targetUser: targetLiteUser,
+                                        );
+                                        return;
+                                      }
+                                      if (showBindExhausted) {
+                                        final purchase = await _openPaywall(feature: PaywallFeature.bind);
+                                        if (purchase != null) {
+                                          final ok = await _verifyPurchaseAndApply(purchase);
+                                          if (ok) {
+                                            _prepareComposer();
+                                          }
+                                        }
+                                        return;
+                                      }
+                                      await _handleBindPressed(profileId: profileIdHex);
+                                    },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 child: Row(
@@ -3095,8 +3102,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                       decisionHasArchived
                                           ? Icons.restore
                                           : showBindExhausted
-                                          ? Icons.lock_clock
-                                          : (_decisionPath == 'NEED_AD' ? Icons.play_circle : Icons.draw),
+                                              ? Icons.lock_clock
+                                              : (_decisionPath == 'NEED_AD' ? Icons.play_circle : Icons.draw),
                                       size: 18,
                                       color: Colors.white,
                                     ),
@@ -3105,10 +3112,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                       decisionHasArchived
                                           ? "Arşivden Kurtar"
                                           : showBindExhausted
-                                          ? "Bugün Chaput Hakkın Bitti"
-                                          : (_decisionPath == 'NEED_AD'
-                                              ? "Reklamla Chaput Bağla"
-                                              : "Bir Chaput Bağla"),
+                                              ? "Bugün Chaput Hakkın Bitti"
+                                              : (_decisionPath == 'NEED_AD'
+                                                  ? "Reklamla Chaput Bağla"
+                                                  : "Bir Chaput Bağla"),
                                       style: const TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
@@ -3122,9 +3129,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
+              ),
+            ),
+          ),
 
             Positioned(
               left: 12,
