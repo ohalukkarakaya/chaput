@@ -1,22 +1,25 @@
 class ArchiveChaput {
-  final String id; // chaput hex
-  final String? text;
-  final int createdAt;
-  final String authorId;
+  final String threadId;
+  final String otherUserId;
+  final String starterId;
+  final String kind;
+  final String? archivedAt;
 
   const ArchiveChaput({
-    required this.id,
-    required this.text,
-    required this.createdAt,
-    required this.authorId,
+    required this.threadId,
+    required this.otherUserId,
+    required this.starterId,
+    required this.kind,
+    required this.archivedAt,
   });
 
   factory ArchiveChaput.fromJson(Map<String, dynamic> json) {
     return ArchiveChaput(
-      id: (json['id'] ?? '').toString(),
-      text: json['text']?.toString(),
-      createdAt: (json['created_at'] as num?)?.toInt() ?? 0,
-      authorId: (json['author_id'] ?? '').toString(),
+      threadId: (json['thread_id'] ?? '').toString(),
+      otherUserId: (json['other_user_id'] ?? '').toString(),
+      starterId: (json['starter_id'] ?? '').toString(),
+      kind: (json['kind'] ?? '').toString(),
+      archivedAt: json['archived_at']?.toString(),
     );
   }
 }

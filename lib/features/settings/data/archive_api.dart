@@ -13,7 +13,7 @@ class ArchiveApi {
     required String? cursor,
   }) async {
     final res = await _dio.get(
-      '/me/chaputs/archive',
+      '/chaput/archived',
       queryParameters: {
         'limit': limit,
         if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
@@ -29,7 +29,7 @@ class ArchiveApi {
     final items = raw
         .whereType<Map>()
         .map((e) => ArchiveChaput.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
-        .where((c) => c.id.isNotEmpty && c.authorId.isNotEmpty)
+        .where((c) => c.threadId.isNotEmpty && c.otherUserId.isNotEmpty)
         .toList(growable: false);
 
     final next = data['next_cursor'];
@@ -38,7 +38,7 @@ class ArchiveApi {
   }
 
   Future<void> reviveChaput({required String chaputIdHex}) async {
-    final res = await _dio.post('/chaputs/$chaputIdHex/revive');
+    final res = await _dio.post('/chaput/threads/$chaputIdHex/revive');
     final data = res.data;
 
     if (data is Map && data['ok'] == true) return;

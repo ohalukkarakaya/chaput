@@ -1,15 +1,64 @@
+import 'package:chaput/core/config/env.dart';
+import 'package:chaput/core/router/routes.dart';
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
+import 'package:chaput/features/billing/data/billing_api_provider.dart';
+import 'package:chaput/features/me/application/me_controller.dart';
+import 'package:chaput/features/profile/presentation/widgets/chaput_paywall_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../application/archive_controller.dart';
 
 class ArchiveChaputsScreen extends ConsumerWidget {
   const ArchiveChaputsScreen({super.key});
 
+  Future<bool> _verifyPurchase(BuildContext context, WidgetRef ref, PaywallPurchase purchase) async {
+    try {
+      final api = ref.read(billingApiProvider);
+      await api.verifyPurchase(
+        provider: purchase.provider,
+        productId: purchase.productId,
+        transactionId: purchase.transactionId,
+        devToken: Env.devBillingToken,
+      );
+      ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+      return true;
+    } catch (_) {
+      if (!context.mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Satın alma doğrulanamadı')),
+      );
+      return false;
+    }
+  }
+
+  Future<PaywallPurchase?> _openPaywall(
+    BuildContext context,
+    WidgetRef ref, {
+    required PaywallReviveTarget reviveTarget,
+  }) async {
+    final me = ref.read(meControllerProvider).valueOrNull;
+    final planType = (me?.subscription.plan ?? 'FREE');
+    return showModalBottomSheet<PaywallPurchase>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: false,
+      builder: (_) => FakePaywallSheet(
+        feature: PaywallFeature.revive,
+        planType: planType,
+        reviveTarget: reviveTarget,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = ref.watch(archiveControllerProvider);
+    final me = ref.watch(meControllerProvider).valueOrNull;
+    final plan = (me?.subscription.plan ?? 'FREE').toUpperCase();
+    final isPro = plan.contains('PRO');
 
     return Scaffold(
       backgroundColor: const Color(0xffEEF2F6),
@@ -38,111 +87,133 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  _WhiteCard(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Archived chaputs',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                            ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Archived chaputs',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                           ),
-                          if (st.isLoading)
-                            const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                        ],
-                      ),
+                        ),
+                        if (st.isLoading)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
 
                   Expanded(
-                    child: _WhiteCard(
-                      child: st.error != null
-                          ? Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(st.error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: () => ref.read(archiveControllerProvider.notifier).refresh(),
-                              child: const Text('Retry'),
+                    child: st.error != null
+                        ? Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(st.error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  onPressed: () => ref.read(archiveControllerProvider.notifier).refresh(),
+                                  child: const Text('Retry'),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      )
-                          : NotificationListener<ScrollNotification>(
-                        onNotification: (n) {
-                          if (n.metrics.pixels >= n.metrics.maxScrollExtent - 220) {
-                            ref.read(archiveControllerProvider.notifier).loadMore();
-                          }
-                          return false;
-                        },
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                          itemCount: st.items.length + 1,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, i) {
-                            if (i == st.items.length) {
-                              if (st.isLoadingMore) {
-                                return const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                  ),
-                                );
-                              }
-                              return const SizedBox(height: 6);
-                            }
+                          )
+                        : (st.items.isEmpty && !st.isLoading)
+                            ? const Center(
+                                child: Text(
+                                  'Hiç yok',
+                                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black54),
+                                ),
+                              )
+                            : NotificationListener<ScrollNotification>(
+                                onNotification: (n) {
+                                  if (st.hasMore && n.metrics.pixels >= n.metrics.maxScrollExtent - 220) {
+                                    ref.read(archiveControllerProvider.notifier).loadMore();
+                                  }
+                                  return false;
+                                },
+                                child: ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                                  itemCount: st.items.length + 1,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                  itemBuilder: (context, i) {
+                                    if (i == st.items.length) {
+                                      if (st.isLoadingMore) {
+                                        return const Padding(
+                                          padding: EdgeInsets.all(12),
+                                          child: Center(
+                                            child: SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox(height: 6);
+                                    }
 
-                            final it = st.items[i];
-                            final u = st.usersById[it.authorId];
+                                    final it = st.items[i];
+                                    final u = st.usersById[it.otherUserId];
 
-                            final fullName = u?.fullName ?? '—';
-                            final username = u?.username;
-                            final defaultAvatar = u?.defaultAvatar ?? '';
-                            final imgUrl = (u?.profilePhotoPath != null && u!.profilePhotoPath!.isNotEmpty)
-                                ? u.profilePhotoPath
-                                : defaultAvatar;
+                                      final fullName = u?.fullName ?? '—';
+                                      final rawUsername = u?.username;
+                                      final username = (rawUsername == null || rawUsername.isEmpty) ? it.otherUserId : rawUsername;
+                                      final defaultAvatar = u?.defaultAvatar ?? '';
+                                      final imgUrl = (u?.profilePhotoPath != null && u!.profilePhotoPath!.isNotEmpty)
+                                          ? u.profilePhotoPath
+                                          : defaultAvatar;
 
-                            final isDefault = u?.profilePhotoPath == null || u?.profilePhotoPath == '';
+                                      final isDefault = u?.profilePhotoPath == null || u?.profilePhotoPath == '';
+                                      final isBusy = st.revivingChaputId == it.threadId;
 
-                            final isBusy = st.revivingChaputId == it.id;
+                                      final reviveTarget = PaywallReviveTarget(
+                                        avatarUrl: imgUrl.toString(),
+                                        isDefaultAvatar: isDefault,
+                                        fullName: fullName,
+                                        username: username,
+                                      );
 
-                            return _ArchivedRow(
-                              fullName: fullName,
-                              subtitle: username == null || username.isEmpty ? it.authorId : '@$username',
-                              avatarUrl: imgUrl.toString(),
-                              isDefaultAvatar: isDefault,
-                              text: it.text ?? '',
-                              onRevive: isBusy
-                                  ? null
-                                  : () async {
-                                final ok = await ref.read(archiveControllerProvider.notifier).revive(it.id);
-                                if (!context.mounted) return;
-                                if (ok) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Chaput revived ✅')),
-                                  );
-                                }
-                              },
-                              busy: isBusy,
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+                                    return _ArchivedRow(
+                                      fullName: fullName,
+                                      subtitle: '@$username',
+                                      avatarUrl: imgUrl.toString(),
+                                      isDefaultAvatar: isDefault,
+                                        onTap: () async {
+                                          await context.push(await Routes.profile(it.otherUserId));
+                                        },
+                                        onRevive: isBusy
+                                            ? null
+                                            : () async {
+                                                if (!isPro) {
+                                                  final purchase = await _openPaywall(
+                                                    context,
+                                                    ref,
+                                                    reviveTarget: reviveTarget,
+                                                  );
+                                                  if (purchase == null) return;
+                                                  final ok = await _verifyPurchase(context, ref, purchase);
+                                                  if (!ok) return;
+                                                }
+                                                final ok = await ref.read(archiveControllerProvider.notifier).revive(it.threadId);
+                                                if (!context.mounted) return;
+                                                if (ok) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Chaput kurtarıldı ✅')),
+                                                  );
+                                                }
+                                              },
+                                        busy: isBusy,
+                                    );
+                                  },
+                                ),
+                              ),
                   ),
                 ],
               ),
@@ -159,7 +230,7 @@ class _ArchivedRow extends StatelessWidget {
   final String subtitle;
   final String avatarUrl;
   final bool isDefaultAvatar;
-  final String text;
+  final VoidCallback? onTap;
   final VoidCallback? onRevive;
   final bool busy;
 
@@ -168,70 +239,69 @@ class _ArchivedRow extends StatelessWidget {
     required this.subtitle,
     required this.avatarUrl,
     required this.isDefaultAvatar,
-    required this.text,
+    required this.onTap,
     required this.onRevive,
     required this.busy,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.96),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ChaputCircleAvatar(
-            width: 44,
-            height: 44,
-            radius: 999,
-            borderWidth: 2,
-            bgColor: Colors.black,
-            isDefaultAvatar: isDefaultAvatar,
-            imageUrl: avatarUrl,
-          ),
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(fullName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 2),
-                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.black.withOpacity(0.55), fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Text(
-                  text.isEmpty ? '—' : text,
-                  style: const TextStyle(fontSize: 14, height: 1.25, fontWeight: FontWeight.w600),
-                ),
-              ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.96),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.black.withOpacity(0.06)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ChaputCircleAvatar(
+              width: 44,
+              height: 44,
+              radius: 999,
+              borderWidth: 2,
+              bgColor: Colors.black,
+              isDefaultAvatar: isDefaultAvatar,
+              imageUrl: avatarUrl,
             ),
-          ),
+            const SizedBox(width: 12),
 
-          const SizedBox(width: 10),
-
-          SizedBox(
-            height: 40,
-            child: ElevatedButton(
-              onPressed: onRevive,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(fullName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.black.withOpacity(0.55), fontWeight: FontWeight.w600)),
+                ],
               ),
-              child: busy
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Revive', style: TextStyle(fontWeight: FontWeight.w900)),
             ),
-          ),
-        ],
+
+            const SizedBox(width: 10),
+
+            SizedBox(
+              height: 40,
+              child: ElevatedButton(
+                onPressed: onRevive,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: busy
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Kurtar', style: TextStyle(fontWeight: FontWeight.w900)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

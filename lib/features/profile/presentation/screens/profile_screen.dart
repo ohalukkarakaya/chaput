@@ -43,6 +43,8 @@ import '../widgets/chaput_reply_bar.dart';
 import '../widgets/glass_toast_overlay.dart';
 import '../widgets/profile_actions_sheet.dart';
 import '../widgets/profile_stat_chip.dart';
+import 'follow_list_screen.dart';
+import '../../../social/application/follow_list_controller.dart';
 import '../widgets/subscription_replace_sheet.dart';
 import '../widgets/chaput_thread_sheet.dart';
 
@@ -2636,8 +2638,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                       spacing: 8,
                                                       runSpacing: 6,
                                                       children: [
-                                                        ProfileStatChip(value: effectiveFollowerCount, label: 'Takipçi', onTap: () {}),
-                                                        ProfileStatChip(value: followingCount, label: 'Takip', onTap: () {}),
+                                                        ProfileStatChip(
+                                                          value: effectiveFollowerCount,
+                                                          label: 'Takipçi',
+                                                          onTap: () {
+                                                            if (heRestrictedMe || (isPrivateTarget && !effectiveIsFollowing && !isMe)) {
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                const SnackBar(content: Text('Bu listeyi göremezsin')),
+                                                              );
+                                                              return;
+                                                            }
+                                                            Navigator.of(context).push(
+                                                              MaterialPageRoute(
+                                                                builder: (_) => FollowListScreen(
+                                                                  username: username,
+                                                                  kind: FollowListKind.followers,
+                                                                  isMe: isMe,
+                                                                  title: 'Takipçiler',
+                                                                ),
+                                                              ),
+                                                            );
+                                                          },
+                                                        ),
+                                                        ProfileStatChip(
+                                                          value: followingCount,
+                                                          label: 'Takip',
+                                                          onTap: () {
+                                                            if (heRestrictedMe || (isPrivateTarget && !effectiveIsFollowing && !isMe)) {
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                const SnackBar(content: Text('Bu listeyi göremezsin')),
+                                                              );
+                                                              return;
+                                                            }
+                                                            Navigator.of(context).push(
+                                                              MaterialPageRoute(
+                                                                builder: (_) => FollowListScreen(
+                                                                  username: username,
+                                                                  kind: FollowListKind.following,
+                                                                  isMe: isMe,
+                                                                  title: 'Takip',
+                                                                ),
+                                                              ),
+                                                            );
+                                                          },
+                                                        ),
                                                       ],
                                                     ),
                                                   ],
