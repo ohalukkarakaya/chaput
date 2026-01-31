@@ -425,7 +425,7 @@ class _ThreadPage extends ConsumerWidget {
                 Positioned(
                   left: 16,
                   right: 16,
-                  bottom: bottomPad + 6,
+                  bottom: (bottomPad - 16).clamp(6.0, double.infinity) as double,
                   child: _TypingIndicator(users: typingUsers),
                 ),
             ],
@@ -915,9 +915,10 @@ class _MessagesListState extends State<_MessagesList> {
   }
 
   LiteUser? _resolveUser(String id) {
-    if (widget.ownerUser != null && widget.ownerUser!.id == id) return widget.ownerUser;
-    if (widget.otherUser != null && widget.otherUser!.id == id) return widget.otherUser;
-    if (widget.viewerUser != null && widget.viewerUser!.id == id) return widget.viewerUser;
+    final idNorm = id.toLowerCase();
+    if (widget.ownerUser != null && widget.ownerUser!.id.toLowerCase() == idNorm) return widget.ownerUser;
+    if (widget.otherUser != null && widget.otherUser!.id.toLowerCase() == idNorm) return widget.otherUser;
+    if (widget.viewerUser != null && widget.viewerUser!.id.toLowerCase() == idNorm) return widget.viewerUser;
     return null;
   }
 }
@@ -1441,7 +1442,9 @@ class _TypingIndicator extends StatelessWidget {
             ),
           ),
         Text(
-          '${shown.length} ${context.t('chat_typing')}',
+          shown.length == 1
+              ? context.t('chat_typing')
+              : '${shown.length} ${context.t('chat_typing')}',
           style: TextStyle(
             color: Colors.white.withOpacity(0.65),
             fontSize: 11,

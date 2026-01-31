@@ -27,7 +27,9 @@ class ChaputSocketClient {
   Future<void> ensureConnected() async {
     if (_channel != null) return;
     final token = await _storage.readAccessToken();
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) {
+      return;
+    }
     final api = Uri.parse(Env.apiBaseUrl);
     final ws = api.replace(
       scheme: api.scheme == 'https' ? 'wss' : 'ws',
