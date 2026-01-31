@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../chaput/application/chaput_decision_controller.dart';
@@ -389,6 +390,7 @@ class _ThreadPage extends ConsumerWidget {
                   child: _MessagesList(
                     state: messagesState,
                     viewerId: viewerId,
+                    starterId: thread.starterId,
                     ownerUser: ownerUser,
                     otherUser: otherUser,
                     viewerUser: viewerUser,
@@ -675,6 +677,7 @@ class _MessagesList extends StatefulWidget {
   const _MessagesList({
     required this.state,
     required this.viewerId,
+    required this.starterId,
     required this.ownerUser,
     required this.otherUser,
     required this.viewerUser,
@@ -688,6 +691,7 @@ class _MessagesList extends StatefulWidget {
 
   final ChaputMessagesState state;
   final String viewerId;
+  final String starterId;
   final LiteUser? ownerUser;
   final LiteUser? otherUser;
   final LiteUser? viewerUser;
@@ -705,6 +709,7 @@ class _MessagesList extends StatefulWidget {
 class _MessagesListState extends State<_MessagesList> {
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _messageKeys = {};
+  final Map<String, GlobalKey> _groupKeys = {};
   bool _loadTriggered = false;
   String? _pendingJumpId;
 
@@ -739,6 +744,11 @@ class _MessagesListState extends State<_MessagesList> {
   GlobalKey _keyForMessage(String id) {
     if (id.isEmpty) return GlobalKey();
     return _messageKeys.putIfAbsent(id, () => GlobalKey());
+  }
+
+  GlobalKey _keyForGroup(String id) {
+    if (id.isEmpty) return GlobalKey();
+    return _groupKeys.putIfAbsent(id, () => GlobalKey());
   }
 
   void _jumpToMessage(String id) {
@@ -811,6 +821,7 @@ class _MessagesListState extends State<_MessagesList> {
     _tryPendingJump();
 
     final viewerNorm = widget.viewerId.toLowerCase();
+    final starterNorm = widget.starterId.toLowerCase();
 
     return ListView.builder(
       controller: _scrollController,
@@ -819,11 +830,16 @@ class _MessagesListState extends State<_MessagesList> {
       itemCount: groups.length,
       itemBuilder: (ctx, i) {
         final g = groups[i];
-        final isMine = g.senderId.toLowerCase() == viewerNorm;
+        final senderNorm = g.senderId.toLowerCase();
+        final isMine = widget.isParticipant
+            ? senderNorm == viewerNorm
+            : senderNorm == starterNorm;
         final senderUser = _resolveUser(g.senderId);
         final forceDefault = widget.isHidden && !widget.isParticipant && senderUser == widget.otherUser;
         final label = dayLabels[i];
+        final groupKey = _keyForGroup(g.items.isNotEmpty ? g.items.first.id : g.senderId);
         return _MessageGroupBubble(
+          key: groupKey,
           group: g,
           isMine: isMine,
           senderUser: senderUser,
@@ -837,6 +853,8 @@ class _MessagesListState extends State<_MessagesList> {
           onShowLikes: (m) => _openLikesFocus(m, isMine, widget.isParticipant),
           onReplyTap: _jumpToMessage,
           messageKeyFor: _keyForMessage,
+          scrollController: _scrollController,
+          groupKey: groupKey,
         );
       },
     );
@@ -931,6 +949,7 @@ class _MessageGroup {
 
 class _MessageGroupBubble extends StatelessWidget {
   const _MessageGroupBubble({
+    super.key,
     required this.group,
     required this.isMine,
     required this.senderUser,
@@ -944,6 +963,8 @@ class _MessageGroupBubble extends StatelessWidget {
     required this.onShowLikes,
     required this.onReplyTap,
     required this.messageKeyFor,
+    required this.scrollController,
+    required this.groupKey,
   });
 
   final _MessageGroup group;
@@ -959,6 +980,8 @@ class _MessageGroupBubble extends StatelessWidget {
   final ValueChanged<ChaputMessage> onShowLikes;
   final ValueChanged<String> onReplyTap;
   final GlobalKey Function(String id) messageKeyFor;
+  final ScrollController scrollController;
+  final GlobalKey groupKey;
 
   @override
   Widget build(BuildContext context) {
@@ -981,6 +1004,12 @@ class _MessageGroupBubble extends StatelessWidget {
             onReplyTap: onReplyTap,
           ),
       ],
+    );
+
+    final stickyAvatar = _StickyGroupAvatar(
+      groupKey: groupKey,
+      scrollController: scrollController,
+      avatar: _GroupAvatar(user: senderUser, forceDefault: forceDefaultAvatar),
     );
 
     final labelWidget = dayLabel == null
@@ -1009,6 +1038,7 @@ class _MessageGroupBubble extends StatelessWidget {
           );
 
     if (isMine) {
+      final showRightAvatar = !isParticipant;
       return Align(
         alignment: Alignment.centerRight,
         child: Container(
@@ -1017,7 +1047,22 @@ class _MessageGroupBubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               labelWidget,
-              bubbleColumn,
+              if (showRightAvatar)
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 36),
+                      child: bubbleColumn,
+                    ),
+                    Positioned(
+                      right: 0,
+                      child: stickyAvatar,
+                    ),
+                  ],
+                )
+              else
+                bubbleColumn,
             ],
           ),
         ),
@@ -1032,12 +1077,17 @@ class _MessageGroupBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             labelWidget,
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            Stack(
+              alignment: Alignment.topLeft,
               children: [
-                _GroupAvatar(user: senderUser, forceDefault: forceDefaultAvatar),
-                const SizedBox(width: 8),
-                Flexible(child: bubbleColumn),
+                Padding(
+                  padding: const EdgeInsets.only(left: 36),
+                  child: bubbleColumn,
+                ),
+                Positioned(
+                  left: 0,
+                  child: stickyAvatar,
+                ),
               ],
             ),
           ],
@@ -1051,6 +1101,57 @@ class _MessageGroupBubble extends StatelessWidget {
     if (senderId == null || senderId.isEmpty) return '';
     final u = resolveUser(senderId);
     return u?.fullName ?? '';
+  }
+}
+
+class _StickyGroupAvatar extends StatelessWidget {
+  const _StickyGroupAvatar({
+    required this.groupKey,
+    required this.scrollController,
+    required this.avatar,
+  });
+
+  final GlobalKey groupKey;
+  final ScrollController scrollController;
+  final Widget avatar;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: scrollController,
+      builder: (ctx, child) {
+        final groupBox = groupKey.currentContext?.findRenderObject() as RenderBox?;
+        if (groupBox == null) return child!;
+
+        final viewportBox =
+            scrollController.position.context.storageContext.findRenderObject() as RenderBox?;
+        if (viewportBox == null) return child!;
+
+        // position of the group inside the viewport
+        final groupTop = groupBox.localToGlobal(Offset.zero, ancestor: viewportBox).dy;
+        final groupBottom = groupTop + groupBox.size.height;
+        final viewportHeight = viewportBox.size.height;
+
+        const avatarSize = 28.0;
+        double desiredInViewport = viewportHeight - avatarSize;
+        if (desiredInViewport < groupTop) desiredInViewport = groupTop;
+        if (desiredInViewport > groupBottom - avatarSize) {
+          desiredInViewport = groupBottom - avatarSize;
+        }
+
+        double yLocal = desiredInViewport - groupTop;
+        if (yLocal < 0) yLocal = 0;
+        if (yLocal > groupBox.size.height - avatarSize) {
+          yLocal = (groupBox.size.height - avatarSize).clamp(0.0, double.infinity);
+        }
+
+        return Transform.translate(
+          offset: Offset(0, yLocal),
+          child: child,
+        );
+      },
+      child: avatar,
+    );
   }
 }
 
