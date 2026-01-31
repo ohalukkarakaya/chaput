@@ -76,6 +76,13 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                           ],
                         ),
                       )
+                          : (st.items.isEmpty && !st.isLoading)
+                          ? const Center(
+                              child: Text(
+                                'Hiç yok',
+                                style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black54),
+                              ),
+                            )
                           : NotificationListener<ScrollNotification>(
                         onNotification: (n) {
                           if (n.metrics.pixels >= n.metrics.maxScrollExtent - 220) {

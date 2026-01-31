@@ -18,6 +18,7 @@ class ArchiveState {
   final Map<String, LiteUser> usersById;
 
   final String? nextCursor;
+  final bool hasMore;
 
   // revive busy
   final String? revivingChaputId;
@@ -29,6 +30,7 @@ class ArchiveState {
     this.items = const [],
     this.usersById = const {},
     this.nextCursor,
+    this.hasMore = true,
     this.revivingChaputId,
   });
 
@@ -39,6 +41,7 @@ class ArchiveState {
     List<ArchiveChaput>? items,
     Map<String, LiteUser>? usersById,
     String? nextCursor,
+    bool? hasMore,
     String? revivingChaputId,
   }) {
     return ArchiveState(
@@ -48,6 +51,7 @@ class ArchiveState {
       items: items ?? this.items,
       usersById: usersById ?? this.usersById,
       nextCursor: nextCursor ?? this.nextCursor,
+      hasMore: hasMore ?? this.hasMore,
       revivingChaputId: revivingChaputId,
     );
   }
@@ -101,11 +105,9 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
     try {
       final res = await _api.listArchived(limit: _pageSize, cursor: null);
 
-      // newest first (created_at desc)
-      final items = [...res.items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-      final authorIds = items.map((e) => e.authorId).toSet().toList(growable: false);
-      final users = await _hydrateUsers(authorIds);
+      final items = [...res.items];
+      final userIds = items.map((e) => e.otherUserId).toSet().toList(growable: false);
+      final users = await _hydrateUsers(userIds);
 
       state = state.copyWith(
         isLoading: false,
@@ -113,6 +115,7 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
         items: items,
         usersById: users,
         nextCursor: res.nextCursor,
+        hasMore: res.nextCursor != null && items.isNotEmpty,
       );
     } catch (e, st) {
       log('archive initial load error: $e', stackTrace: st);
@@ -128,6 +131,7 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
   Future<void> loadMore() async {
     if (state.isLoading || state.isLoadingMore) return;
     if (state.nextCursor == null) return;
+    if (!state.hasMore) return;
 
     state = state.copyWith(isLoadingMore: true, error: null);
 
@@ -137,27 +141,30 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
       final added = res.items;
       final all = [...state.items, ...added];
 
-      // dedupe by chaput id
+      // dedupe by thread id
       final seen = <String>{};
       final deduped = <ArchiveChaput>[];
       for (final c in all) {
-        if (seen.add(c.id)) deduped.add(c);
+        if (seen.add(c.threadId)) deduped.add(c);
       }
-      deduped.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      final newAuthorIds = added
-          .map((e) => e.authorId)
+      final newUserIds = added
+          .map((e) => e.otherUserId)
           .where((id) => !state.usersById.containsKey(id))
           .toSet()
           .toList(growable: false);
 
-      final newUsers = await _hydrateUsers(newAuthorIds);
+      final newUsers = await _hydrateUsers(newUserIds);
+
+      final sameCursor = res.nextCursor == state.nextCursor;
+      final noMore = added.isEmpty || res.nextCursor == null || sameCursor;
 
       state = state.copyWith(
         isLoadingMore: false,
         items: deduped,
         usersById: {...state.usersById, ...newUsers},
-        nextCursor: res.nextCursor,
+        nextCursor: noMore ? null : res.nextCursor,
+        hasMore: !noMore,
       );
     } catch (e, st) {
       log('archive loadMore error: $e', stackTrace: st);
@@ -174,7 +181,7 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
       await _api.reviveChaput(chaputIdHex: chaputId);
 
       // ✅ 200 -> listeden kaldır
-      final nextItems = state.items.where((e) => e.id != chaputId).toList(growable: false);
+      final nextItems = state.items.where((e) => e.threadId != chaputId).toList(growable: false);
 
       state = state.copyWith(
         revivingChaputId: null,
