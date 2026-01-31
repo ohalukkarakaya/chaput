@@ -356,6 +356,7 @@ class _ThreadPage extends ConsumerWidget {
         const composerHeight = 0.0;
         final pendingHeight = pendingWidget != null ? 22.0 : 0.0;
         const typingHeight = 26.0;
+        const typingExtraAbove = 24.0;
         final bottomPad = composerHeight + pendingHeight + (pendingWidget != null ? spacing : 0) + replyOverlay;
         final topPad = headerHeight + spacing;
         final hasTyping = typingUsers.isNotEmpty;
@@ -429,9 +430,17 @@ class _ThreadPage extends ConsumerWidget {
                 Positioned(
                   left: 16,
                   right: 16,
-                  bottom: (bottomPad - (isParticipant ? 16.0 : 28.0))
+                  bottom: (bottomPad -
+                          (isParticipant ? 16.0 : 28.0) +
+                          (isParticipant ? 0.0 : typingExtraAbove))
                       .clamp(6.0, double.infinity) as double,
-                  child: _TypingIndicator(users: typingUsers),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _TypingIndicator(users: typingUsers),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
                 ),
             ],
           ),
