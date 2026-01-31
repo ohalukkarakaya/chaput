@@ -224,8 +224,9 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
   void markReadByOther() {
     final me = ref.read(meControllerProvider).valueOrNull?.user.userId;
     if (me == null || me.isEmpty) return;
+    final meNorm = me.toLowerCase();
     final next = state.items.map((m) {
-      if (m.senderId != me) return m;
+      if (m.senderId.toLowerCase() != meNorm) return m;
       if (m.readByOther) return m;
       return _copyMessage(m, readByOther: true);
     }).toList(growable: false);

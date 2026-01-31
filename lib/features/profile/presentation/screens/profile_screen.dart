@@ -349,10 +349,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final msg = data['message'];
       if (threadId.isEmpty || msg is! Map<String, dynamic>) return;
       if (_chaputProfileId == null) return;
+      final senderId = msg['sender_id']?.toString() ?? '';
       final args = ChaputMessagesArgs(threadId: threadId, profileId: _chaputProfileId!);
-      ref.read(chaputMessagesControllerProvider(args).notifier).upsertMessageFromSocket(
-            ChaputMessage.fromJson(msg),
-          );
+      final parsed = ChaputMessage.fromJson(msg);
+      final message = parsed.createdAt == null
+          ? ChaputMessage(
+              id: parsed.id,
+              senderId: parsed.senderId,
+              kind: parsed.kind,
+              body: parsed.body,
+              createdAt: DateTime.now().toUtc(),
+              replyToId: parsed.replyToId,
+              replyToSenderId: parsed.replyToSenderId,
+              replyToBody: parsed.replyToBody,
+              likeCount: parsed.likeCount,
+              likedByMe: parsed.likedByMe,
+              delivered: parsed.delivered,
+              readByOther: parsed.readByOther,
+              topLikers: parsed.topLikers,
+            )
+          : parsed;
+      ref.read(chaputMessagesControllerProvider(args).notifier).upsertMessageFromSocket(message);
+
+      if (senderId.isNotEmpty) {
+        final argsThreads = _lastChaputArgs;
+        if (argsThreads != null) {
+          final state = ref.read(chaputThreadsControllerProvider(argsThreads));
+          if (!state.usersById.containsKey(senderId)) {
+            try {
+              final api = ref.read(userApiProvider);
+              final res = await api.batchLite(userIds: [senderId]);
+              if (res.items.isNotEmpty) {
+                ref.read(chaputThreadsControllerProvider(argsThreads).notifier).addUsers(
+                      {for (final u in res.items) u.id: u},
+                    );
+              }
+            } catch (_) {}
+          }
+        }
+      }
 
       if (_activeThreadId == threadId && _activeThreadIsParticipant) {
         try {
@@ -390,7 +425,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final readerId = data['user_id']?.toString() ?? '';
       if (threadId.isEmpty || _chaputProfileId == null) return;
       final meId = ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
-      if (meId.isNotEmpty && readerId == meId) return;
+      final meNorm = meId.toLowerCase();
+      final readerNorm = readerId.toLowerCase();
+      if (meId.isNotEmpty && readerNorm == meNorm) return;
       final argsThreads = _lastChaputArgs;
       if (argsThreads == null) return;
       final thread = ref.read(chaputThreadsControllerProvider(argsThreads)).items
@@ -398,12 +435,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           .cast<ChaputThreadItem?>()
           .firstWhere((t) => t != null, orElse: () => null);
       if (thread == null) return;
-      final otherId = thread.userAId == meId
+      final otherId = thread.userAId.toLowerCase() == meNorm
           ? thread.userBId
-          : thread.userBId == meId
+          : thread.userBId.toLowerCase() == meNorm
               ? thread.userAId
               : '';
-      if (otherId.isEmpty || readerId != otherId) return;
+      if (otherId.isEmpty || readerNorm != otherId.toLowerCase()) return;
       final args = ChaputMessagesArgs(threadId: threadId, profileId: _chaputProfileId!);
       ref.read(chaputMessagesControllerProvider(args).notifier).markReadByOther();
       return;
@@ -414,11 +451,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final userId = data['user_id']?.toString() ?? '';
       final isTyping = data['is_typing'] == true;
       if (threadId.isEmpty || userId.isEmpty) return;
+      final userIdNorm = userId.toUpperCase();
+      final argsThreads = _lastChaputArgs;
+      if (argsThreads != null) {
+        final state = ref.read(chaputThreadsControllerProvider(argsThreads));
+        if (!state.usersById.containsKey(userId) && !state.usersById.containsKey(userIdNorm)) {
+          try {
+            final api = ref.read(userApiProvider);
+            final res = await api.batchLite(userIds: [userIdNorm]);
+            if (res.items.isNotEmpty) {
+              ref.read(chaputThreadsControllerProvider(argsThreads).notifier).addUsers(
+                    {for (final u in res.items) u.id: u},
+                  );
+            }
+          } catch (_) {}
+        }
+      }
       final set = _typingUsersByThread.putIfAbsent(threadId, () => <String>{});
       if (isTyping) {
-        set.add(userId);
+        set.add(userIdNorm);
       } else {
-        set.remove(userId);
+        set.remove(userIdNorm);
       }
       if (mounted) setState(() {});
     }
@@ -2261,7 +2314,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final list = <LiteUser>[];
       for (final id in ids) {
         if (id == viewerId) continue;
-        final u = chaputThreadsState.usersById[id];
+        LiteUser? u = chaputThreadsState.usersById[id];
+        u ??= chaputThreadsState.usersById[id.toUpperCase()];
+        u ??= chaputThreadsState.usersById[id.toLowerCase()];
         if (u != null) list.add(u);
       }
       if (list.isNotEmpty) typingUsersByThread[threadId] = list;
@@ -2293,6 +2348,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool canReplyOnActive = activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
     _activeThreadId = activeThread?.threadId;
     _activeThreadIsParticipant = activeIsParticipant;
+
+    if (chaputAllowed && activeThread != null && activeThread.threadId.isNotEmpty) {
+      if (_socketThreadId != activeThread.threadId) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_socketThreadId == activeThread.threadId) return;
+          _subscribeThreadSocket(activeThread.threadId, profileIdHex);
+        });
+      }
+    }
     final ChaputMessage? replyTarget =
         (_replyTarget != null && _replyTargetThreadId == activeThread?.threadId) ? _replyTarget : null;
     final String? replyAuthor = replyTarget == null
