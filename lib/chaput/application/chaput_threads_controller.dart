@@ -182,8 +182,8 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
     final specials = items.where((t) => t.kind == 'SPECIAL' && !ourThread.contains(t)).toList();
     final rest = items.where((t) => !ourThread.contains(t) && !specials.contains(t)).toList();
     int byCreatedDesc(ChaputThreadItem a, ChaputThreadItem b) {
-      final ta = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final tb = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final ta = a.lastMessageAt ?? a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final tb = b.lastMessageAt ?? b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return tb.compareTo(ta);
     }
     specials.sort(byCreatedDesc);
@@ -225,6 +225,25 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
     if (item.threadId.isEmpty) return;
     final all = [item, ...state.items];
     final deduped = _dedupe(all);
+    final reordered = _reorder(deduped, arg);
+    state = state.copyWith(items: reordered);
+  }
+
+  void upsertThreadFromSocket(ChaputThreadItem item, ChaputThreadsArgs arg) {
+    if (item.threadId.isEmpty) return;
+    final next = state.items.map((t) {
+      if (t.threadId != item.threadId) return t;
+      return t.copyWith(
+        kind: item.kind,
+        state: item.state,
+        lastMessageAt: item.lastMessageAt ?? t.lastMessageAt,
+        pendingExpiresAt: item.pendingExpiresAt ?? t.pendingExpiresAt,
+      );
+    }).toList(growable: false);
+
+    final exists = state.items.any((t) => t.threadId == item.threadId);
+    final merged = exists ? next : [item, ...next];
+    final deduped = _dedupe(merged);
     final reordered = _reorder(deduped, arg);
     state = state.copyWith(items: reordered);
   }

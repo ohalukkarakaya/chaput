@@ -16,6 +16,7 @@
   "chat_no_likes": "No likes yet",
   "chat_date_day_month": "{day} {month}",
   "chat_date_day_month_year": "{day} {month} {year}",
+  "chat_typing": "typing...",
   "month_1": "January",
   "month_2": "February",
   "month_3": "March",

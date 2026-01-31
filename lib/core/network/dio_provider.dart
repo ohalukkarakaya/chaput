@@ -51,6 +51,7 @@ final dioProvider = Provider<Dio>((ref) {
   if (Env.logNetwork) {
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
+        options.extra['dio'] = dio;
         Log.d('➡️ ${options.method} ${options.uri}');
         handler.next(options);
       },

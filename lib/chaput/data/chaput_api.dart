@@ -87,6 +87,18 @@ class ChaputApi {
     throw Exception('bad_view_response');
   }
 
+  Future<void> markThreadRead({
+    required String threadIdHex,
+  }) async {
+    final res = await _dio.post('/chaput/threads/$threadIdHex/read');
+    final data = res.data;
+    if (data is Map<String, dynamic> && data['ok'] == true) return;
+    if (data is Map<String, dynamic>) {
+      throw Exception(data['error'] ?? 'read_error');
+    }
+    throw Exception('bad_read_response');
+  }
+
   Future<({String threadId, bool alreadyExists})> startThread({
     required String profileIdHex,
     String? kind,
@@ -112,7 +124,7 @@ class ChaputApi {
     throw Exception('bad_start_response');
   }
 
-  Future<void> sendMessage({
+  Future<ChaputMessage> sendMessage({
     required String threadIdHex,
     required String body,
     String? kind,
@@ -128,7 +140,25 @@ class ChaputApi {
     final res = await _dio.post('/chaput/threads/$threadIdHex/messages', data: payload);
     final data = res.data;
     if (data is Map<String, dynamic> && data['ok'] == true) {
-      return;
+      final msg = data['message'];
+      if (msg is Map<String, dynamic>) {
+        return ChaputMessage.fromJson(msg);
+      }
+      return ChaputMessage(
+        id: '',
+        senderId: '',
+        kind: kind ?? 'NORMAL',
+        body: body,
+        createdAt: DateTime.now().toUtc(),
+        replyToId: replyToId,
+        replyToSenderId: null,
+        replyToBody: null,
+        likeCount: 0,
+        likedByMe: false,
+        delivered: true,
+        readByOther: false,
+        topLikers: const [],
+      );
     }
     if (data is Map<String, dynamic>) {
       throw Exception(data['error'] ?? 'send_error');
