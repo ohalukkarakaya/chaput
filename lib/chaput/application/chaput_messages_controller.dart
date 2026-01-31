@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/chaput_api.dart';
 import '../domain/chaput_message.dart';
+import '../../features/me/application/me_controller.dart';
 import 'chaput_decision_controller.dart';
 
 class ChaputMessagesArgs {
@@ -130,6 +131,141 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
     state = state.copyWith(items: [message, ...state.items]);
   }
 
+  void confirmDelivered({
+    required String localId,
+    required ChaputMessage serverMessage,
+  }) {
+    ChaputMessage? local;
+    bool foundServer = false;
+    final next = <ChaputMessage>[];
+
+    for (final m in state.items) {
+      if (m.id == localId) {
+        local = m;
+        continue;
+      }
+      if (m.id == serverMessage.id) {
+        foundServer = true;
+        final createdAt = serverMessage.createdAt ?? m.createdAt ?? local?.createdAt;
+        next.add(_copyMessage(
+          m,
+          createdAt: createdAt,
+          delivered: true,
+        ));
+        continue;
+      }
+      next.add(m);
+    }
+
+    if (!foundServer && local != null) {
+      next.insert(
+        0,
+        _copyMessage(
+          local,
+          id: serverMessage.id,
+          createdAt: serverMessage.createdAt ?? local.createdAt,
+          delivered: true,
+        ),
+      );
+    }
+
+    state = state.copyWith(items: _dedupe(next));
+  }
+
+  void upsertMessageFromSocket(ChaputMessage message) {
+    final meId = ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
+    if (meId.isNotEmpty && message.senderId.toLowerCase() == meId.toLowerCase()) {
+      // If this is my message, try to replace a pending local message.
+      final idx = state.items.indexWhere((m) {
+        if (!m.id.startsWith('local_')) return false;
+        if (m.kind != message.kind) return false;
+        if (m.body != message.body) return false;
+        if (m.createdAt == null || message.createdAt == null) return true;
+        return m.createdAt!.difference(message.createdAt!).abs().inMinutes <= 2;
+      });
+      if (idx != -1) {
+        final local = state.items[idx];
+        final next = [...state.items];
+        next[idx] = _copyMessage(
+          local,
+          id: message.id,
+          createdAt: message.createdAt ?? local.createdAt,
+          delivered: message.delivered,
+          readByOther: message.readByOther,
+          likeCount: message.likeCount,
+          likedByMe: message.likedByMe,
+          topLikers: message.topLikers,
+        );
+        state = state.copyWith(items: _dedupe(next));
+        return;
+      }
+    }
+
+    final exists = state.items.any((m) => m.id == message.id);
+    if (exists) {
+      final next = state.items.map((m) {
+        if (m.id != message.id) return m;
+        return _copyMessage(
+          m,
+          createdAt: message.createdAt ?? m.createdAt,
+          delivered: message.delivered,
+          readByOther: message.readByOther,
+          likeCount: message.likeCount,
+          likedByMe: message.likedByMe,
+          topLikers: message.topLikers,
+        );
+      }).toList(growable: false);
+      state = state.copyWith(items: next);
+    } else {
+      state = state.copyWith(items: [message, ...state.items]);
+    }
+  }
+
+  void markReadByOther() {
+    final me = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    if (me == null || me.isEmpty) return;
+    final next = state.items.map((m) {
+      if (m.senderId != me) return m;
+      if (m.readByOther) return m;
+      return _copyMessage(m, readByOther: true);
+    }).toList(growable: false);
+    state = state.copyWith(items: next);
+  }
+
+  void applyLikeFromSocket({
+    required String messageId,
+    required int likeCount,
+    required String likerId,
+    required bool liked,
+    ChaputMessageLiker? liker,
+  }) {
+    final next = state.items.map((m) {
+      if (m.id != messageId) return m;
+      var top = m.topLikers;
+      if (liker != null) {
+        if (liked) {
+          if (!top.any((u) => u.id == liker.id)) {
+            top = [liker, ...top];
+          }
+        } else {
+          top = top.where((u) => u.id != liker.id).toList(growable: false);
+        }
+        if (top.length > 3) {
+          top = top.take(3).toList(growable: false);
+        }
+      }
+      final me = ref.read(meControllerProvider).valueOrNull?.user.userId;
+      final likedByMe = (me != null && me == likerId) ? liked : m.likedByMe;
+      return _copyMessage(
+        m,
+        likeCount: likeCount,
+        likedByMe: likedByMe,
+        topLikers: top,
+      );
+    }).toList(growable: false);
+    state = state.copyWith(items: next);
+  }
+
   Future<void> toggleLike({
     required String messageId,
     required bool like,
@@ -219,18 +355,24 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
     int? likeCount,
     bool? likedByMe,
     List<ChaputMessageLiker>? topLikers,
+    bool? delivered,
+    bool? readByOther,
+    String? id,
+    DateTime? createdAt,
   }) {
     return ChaputMessage(
-      id: m.id,
+      id: id ?? m.id,
       senderId: m.senderId,
       kind: m.kind,
       body: m.body,
-      createdAt: m.createdAt,
+      createdAt: createdAt ?? m.createdAt,
       replyToId: m.replyToId,
       replyToSenderId: m.replyToSenderId,
       replyToBody: m.replyToBody,
       likeCount: likeCount ?? m.likeCount,
       likedByMe: likedByMe ?? m.likedByMe,
+      delivered: delivered ?? m.delivered,
+      readByOther: readByOther ?? m.readByOther,
       topLikers: topLikers ?? m.topLikers,
     );
   }

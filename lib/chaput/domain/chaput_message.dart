@@ -10,6 +10,8 @@ class ChaputMessage {
     required this.replyToBody,
     required this.likeCount,
     required this.likedByMe,
+    required this.delivered,
+    required this.readByOther,
     required this.topLikers,
   });
 
@@ -23,6 +25,8 @@ class ChaputMessage {
   final String? replyToBody;
   final int likeCount;
   final bool likedByMe;
+  final bool delivered;
+  final bool readByOther;
   final List<ChaputMessageLiker> topLikers;
 
   factory ChaputMessage.fromJson(Map<String, dynamic> json) {
@@ -43,6 +47,8 @@ class ChaputMessage {
       replyToBody: json['reply_to_body']?.toString(),
       likeCount: (json['like_count'] ?? 0) as int,
       likedByMe: json['liked_by_me'] == true,
+      delivered: true,
+      readByOther: json['read_by_other'] == true,
       topLikers: ((json['top_likers'] as List?) ?? const [])
           .map((e) => ChaputMessageLiker.fromJson(e as Map<String, dynamic>))
           .toList(growable: false),

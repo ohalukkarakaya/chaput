@@ -19,6 +19,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     super.key,
     required this.threads,
     required this.usersById,
+    required this.typingUsersByThread,
     this.viewerUser,
     required this.viewerId,
     required this.ownerId,
@@ -40,6 +41,7 @@ class ChaputThreadSheet extends ConsumerWidget {
 
   final List<ChaputThreadItem> threads;
   final Map<String, LiteUser> usersById;
+  final Map<String, List<LiteUser>> typingUsersByThread;
   final LiteUser? viewerUser;
   final String viewerId;
   final String ownerId;
@@ -114,6 +116,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                         replyOverlay: replyOverlay,
                         whisperCredits: whisperCredits,
                         onReplyMessage: onReplyMessage,
+                        typingUsersByThread: typingUsersByThread,
                       );
 
                       return AnimatedBuilder(
@@ -165,6 +168,7 @@ class _SheetPage extends StatelessWidget {
     required this.replyOverlay,
     required this.whisperCredits,
     required this.onReplyMessage,
+    required this.typingUsersByThread,
   });
 
   final ChaputThreadItem thread;
@@ -182,6 +186,7 @@ class _SheetPage extends StatelessWidget {
   final double replyOverlay;
   final int whisperCredits;
   final void Function(ChaputThreadItem thread, ChaputMessage message) onReplyMessage;
+  final Map<String, List<LiteUser>> typingUsersByThread;
 
   @override
   Widget build(BuildContext context) {
@@ -260,6 +265,7 @@ class _SheetPage extends StatelessWidget {
                             replyOverlay: replyOverlay,
                             whisperCredits: whisperCredits,
                             onReplyMessage: onReplyMessage,
+                            typingUsers: typingUsersByThread[thread.threadId] ?? const [],
                           ),
                         ),
                       ],
@@ -289,6 +295,7 @@ class _ThreadPage extends ConsumerWidget {
     required this.replyOverlay,
     required this.whisperCredits,
     required this.onReplyMessage,
+    required this.typingUsers,
   });
 
   final ChaputThreadItem thread;
@@ -306,6 +313,7 @@ class _ThreadPage extends ConsumerWidget {
   final double replyOverlay;
   final int whisperCredits;
   final void Function(ChaputThreadItem thread, ChaputMessage message) onReplyMessage;
+  final List<LiteUser> typingUsers;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -336,6 +344,7 @@ class _ThreadPage extends ConsumerWidget {
         final pendingHeight = pendingWidget != null ? 22.0 : 0.0;
         final bottomPad = composerHeight + pendingHeight + (pendingWidget != null ? spacing : 0) + replyOverlay;
         final topPad = headerHeight + spacing;
+        final hasTyping = typingUsers.isNotEmpty;
 
         return SizedBox(
           height: height,
@@ -399,6 +408,13 @@ class _ThreadPage extends ConsumerWidget {
                   right: 0,
                   bottom: composerHeight,
                   child: pendingWidget,
+                ),
+              if (showMessages && hasTyping)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: bottomPad + 6,
+                  child: _TypingIndicator(users: typingUsers),
                 ),
             ],
           ),
@@ -773,6 +789,8 @@ class _MessagesListState extends State<_MessagesList> {
     final dayLabels = _buildDayLabels(context, groups);
     _tryPendingJump();
 
+    final viewerNorm = widget.viewerId.toLowerCase();
+
     return ListView.builder(
       controller: _scrollController,
       reverse: true,
@@ -780,7 +798,7 @@ class _MessagesListState extends State<_MessagesList> {
       itemCount: groups.length,
       itemBuilder: (ctx, i) {
         final g = groups[i];
-        final isMine = g.senderId == widget.viewerId;
+        final isMine = g.senderId.toLowerCase() == viewerNorm;
         final senderUser = _resolveUser(g.senderId);
         final forceDefault = widget.isHidden && !widget.isParticipant && senderUser == widget.otherUser;
         final label = dayLabels[i];
@@ -805,16 +823,19 @@ class _MessagesListState extends State<_MessagesList> {
 
   List<String?> _buildDayLabels(BuildContext context, List<_MessageGroup> groups) {
     final labels = List<String?>.filled(groups.length, null, growable: false);
-    String? prevKey;
     for (int i = 0; i < groups.length; i++) {
       final g = groups[i];
       final dt = g.items.isNotEmpty
           ? (g.items.last.createdAt ?? g.items.first.createdAt)
           : null;
       final key = _dayKey(dt);
-      if (key != null && key != prevKey) {
+      final nextKey = (i + 1) < groups.length
+          ? _dayKey(groups[i + 1].items.isNotEmpty
+              ? (groups[i + 1].items.last.createdAt ?? groups[i + 1].items.first.createdAt)
+              : null)
+          : null;
+      if (key != null && key != nextKey) {
         labels[i] = _formatDayLabel(context, dt!);
-        prevKey = key;
       }
     }
     return labels;
@@ -857,9 +878,9 @@ class _MessagesListState extends State<_MessagesList> {
     for (int i = 0; i < items.length; i++) {
       final msg = items[i];
       final prev = i > 0 ? items[i - 1] : null;
-      final sameSender = prev != null && prev.senderId == msg.senderId;
+      final sameSender = prev != null && prev.senderId.toLowerCase() == msg.senderId.toLowerCase();
       final gapOk = prev?.createdAt != null && msg.createdAt != null
-          ? prev!.createdAt!.difference(msg.createdAt!).inMinutes <= gapMinutes
+          ? prev!.createdAt!.difference(msg.createdAt!).abs().inMinutes <= gapMinutes
           : false;
 
       if (current == null || !sameSender || !gapOk) {
@@ -1096,7 +1117,12 @@ class _MessageBubble extends StatelessWidget {
         message.replyToBody!.isNotEmpty;
     final hasLikes = message.likeCount > 0;
     final replyLabel = replyAuthor.isNotEmpty ? replyAuthor : 'Yanıt';
+    final showTicks = isMine && timeText != null;
+    final tickColor = message.readByOther ? Colors.lightBlueAccent : fg.withOpacity(0.45);
+    final tickIcon = message.delivered ? Icons.done_all : Icons.check;
 
+    final maxWidth = MediaQuery.of(context).size.width * 0.72;
+    final replyBg = isMine ? Colors.black.withOpacity(0.18) : Colors.white.withOpacity(0.2);
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1107,7 +1133,7 @@ class _MessageBubble extends StatelessWidget {
       ),
       child: IntrinsicWidth(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 260),
+          constraints: BoxConstraints(maxWidth: maxWidth),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1122,7 +1148,7 @@ class _MessageBubble extends StatelessWidget {
                     margin: const EdgeInsets.only(bottom: 6),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.22),
+                      color: replyBg,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.white.withOpacity(0.16)),
                     ),
@@ -1201,6 +1227,14 @@ class _MessageBubble extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                        if (showTicks) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            tickIcon,
+                            size: 12,
+                            color: tickColor,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1223,6 +1257,7 @@ class _MessageBubble extends StatelessWidget {
 
     child = Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      widthFactor: 1,
       child: child,
     );
 
@@ -1355,6 +1390,44 @@ class _ReplySwipeBackground extends StatelessWidget {
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.only(left: 18),
       child: Icon(Icons.reply_rounded, color: Colors.white.withOpacity(0.7), size: 20),
+    );
+  }
+}
+
+class _TypingIndicator extends StatelessWidget {
+  const _TypingIndicator({required this.users});
+
+  final List<LiteUser> users;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = users.take(2).toList(growable: false);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < shown.length; i++)
+          Padding(
+            padding: EdgeInsets.only(right: i == shown.length - 1 ? 6 : 4),
+            child: ChaputCircleAvatar(
+              width: 18,
+              height: 18,
+              radius: 18,
+              borderWidth: 0,
+              isDefaultAvatar: shown[i].profilePhotoKey == null || shown[i].profilePhotoKey!.isEmpty,
+              imageUrl: (shown[i].profilePhotoPath == null || shown[i].profilePhotoPath!.isEmpty)
+                  ? shown[i].defaultAvatar
+                  : shown[i].profilePhotoPath!,
+            ),
+          ),
+        Text(
+          '${shown.length} ${context.t('chat_typing')}',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.65),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

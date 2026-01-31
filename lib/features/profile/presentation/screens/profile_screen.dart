@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -13,6 +14,7 @@ import '../../../../chaput/application/chaput_decision_controller.dart';
 import '../../../../chaput/application/chaput_messages_controller.dart';
 import '../../../../chaput/application/chaput_threads_controller.dart';
 import '../../../../chaput/data/chaput_api.dart';
+import '../../../../chaput/data/chaput_socket.dart';
 import '../../../../chaput/domain/chaput_decision.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
@@ -26,6 +28,7 @@ import '../../../user/domain/lite_user.dart';
 import '../../../social/application/follow_state.dart';
 import '../../../social/application/ui_restriction_override_provider.dart';
 import '../../../user/application/profile_controller.dart';
+import '../../../user/data/user_api_provider.dart';
 import '../../domain/tree_catalog.dart';
 
 import '../../../social/application/follow_controller.dart';
@@ -78,6 +81,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   // ===== COMPOSER (Chaput bağla) =====
   final TextEditingController _msgCtrl = TextEditingController();
   final FocusNode _msgFocus = FocusNode();
+
+  late final ChaputSocketClient _socketClient;
+  StreamSubscription<ChaputSocketEvent>? _socketSub;
+  String? _socketProfileId;
+  String? _socketThreadId;
+  final Map<String, Set<String>> _typingUsersByThread = {};
+  bool _activeThreadIsParticipant = false;
+  String? _activeThreadId;
+  ChaputThreadsArgs? _lastChaputArgs;
 
   bool _composerOpen = false;                 // input bar açık mı?
   three.Vector3? _draftAnchor;                // mesaj varken hatırlanan anchor
@@ -230,6 +242,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void initState() {
     super.initState();
+    _socketClient = ref.read(chaputSocketProvider);
     _pendingInitialThreadId = widget.initialThreadId;
     _navToOtherProfile = false;
     _profileCardCtrl = AnimationController(
@@ -249,6 +262,166 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _onComposerFocus();
       }
     });
+  }
+
+  Future<void> _ensureSocket(String profileIdHex) async {
+    if (profileIdHex.length != 32) return;
+    await _socketClient.ensureConnected();
+    _socketSub ??= _socketClient.events.listen(_handleSocketEvent);
+    if (_socketProfileId != profileIdHex) {
+      if (_socketProfileId != null) {
+        _socketClient.unsubscribeProfile(_socketProfileId!);
+      }
+      _socketClient.subscribeProfile(profileIdHex);
+      _socketProfileId = profileIdHex;
+    }
+  }
+
+  void _subscribeThreadSocket(String threadId, String profileIdHex) {
+    if (threadId.isEmpty) return;
+    if (_socketThreadId != null && _socketThreadId != threadId) {
+      _socketClient.unsubscribeThread(_socketThreadId!);
+    }
+    _socketClient.subscribeThread(threadId, profileId: profileIdHex);
+    _socketThreadId = threadId;
+  }
+
+  void _clearSocketSubscriptions() {
+    if (_socketProfileId != null) _socketClient.unsubscribeProfile(_socketProfileId!);
+    if (_socketThreadId != null) _socketClient.unsubscribeThread(_socketThreadId!);
+    _socketProfileId = null;
+    _socketThreadId = null;
+    _typingUsersByThread.clear();
+  }
+
+  DateTime? _parseSocketTime(dynamic v) {
+    final s = v?.toString();
+    if (s == null || s.isEmpty || s == 'null') return null;
+    return DateTime.tryParse(s);
+  }
+
+  Future<void> _handleSocketEvent(ChaputSocketEvent ev) async {
+    final data = ev.data;
+    if (ev.type == 'chaput.thread.bump') {
+      final profileId = data['profile_id']?.toString();
+      if (profileId == null || profileId != _chaputProfileId) return;
+      final threadId = data['thread_id']?.toString() ?? '';
+      if (threadId.isEmpty) return;
+      final item = ChaputThreadItem(
+        threadId: threadId,
+        userAId: data['user_a_id']?.toString() ?? '',
+        userBId: data['user_b_id']?.toString() ?? '',
+        starterId: data['starter_id']?.toString() ?? '',
+        kind: data['kind']?.toString() ?? 'NORMAL',
+        state: data['state']?.toString() ?? 'OPEN',
+        lastMessageAt: _parseSocketTime(data['last_message_at']),
+        pendingExpiresAt: null,
+        createdAt: _parseSocketTime(data['created_at']),
+        x: null,
+        y: null,
+        z: null,
+      );
+      final args = _lastChaputArgs;
+      if (args != null) {
+        ref.read(chaputThreadsControllerProvider(args).notifier).upsertThreadFromSocket(item, args);
+        final missingIds = <String>{};
+        if (!ref.read(chaputThreadsControllerProvider(args)).usersById.containsKey(item.userAId)) {
+          missingIds.add(item.userAId);
+        }
+        if (!ref.read(chaputThreadsControllerProvider(args)).usersById.containsKey(item.userBId)) {
+          missingIds.add(item.userBId);
+        }
+        if (missingIds.isNotEmpty) {
+          final api = ref.read(userApiProvider);
+          final res = await api.batchLite(userIds: missingIds.toList(growable: false));
+          final map = <String, LiteUser>{};
+          for (final u in res.items) {
+            map[u.id] = u;
+          }
+          ref.read(chaputThreadsControllerProvider(args).notifier).addUsers(map);
+        }
+      }
+      return;
+    }
+
+    if (ev.type == 'chaput.message.created') {
+      final threadId = data['thread_id']?.toString() ?? '';
+      final msg = data['message'];
+      if (threadId.isEmpty || msg is! Map<String, dynamic>) return;
+      if (_chaputProfileId == null) return;
+      final args = ChaputMessagesArgs(threadId: threadId, profileId: _chaputProfileId!);
+      ref.read(chaputMessagesControllerProvider(args).notifier).upsertMessageFromSocket(
+            ChaputMessage.fromJson(msg),
+          );
+
+      if (_activeThreadId == threadId && _activeThreadIsParticipant) {
+        try {
+          await ref.read(chaputApiProvider).markThreadRead(threadIdHex: threadId);
+        } catch (_) {}
+      }
+      return;
+    }
+
+    if (ev.type == 'chaput.message.like') {
+      final threadId = data['thread_id']?.toString() ?? '';
+      final msgId = data['message_id']?.toString() ?? '';
+      if (threadId.isEmpty || msgId.isEmpty || _chaputProfileId == null) return;
+      final args = ChaputMessagesArgs(threadId: threadId, profileId: _chaputProfileId!);
+      final likerId = data['user_id']?.toString() ?? '';
+      final likeCount = (data['like_count'] ?? 0) as int;
+      final liked = data['liked'] == true;
+      ChaputMessageLiker? liker;
+      final likerJson = data['liker'];
+      if (likerJson is Map<String, dynamic>) {
+        liker = ChaputMessageLiker.fromJson(likerJson);
+      }
+      ref.read(chaputMessagesControllerProvider(args).notifier).applyLikeFromSocket(
+            messageId: msgId,
+            likeCount: likeCount,
+            likerId: likerId,
+            liked: liked,
+            liker: liker,
+          );
+      return;
+    }
+
+    if (ev.type == 'chaput.message.read') {
+      final threadId = data['thread_id']?.toString() ?? '';
+      final readerId = data['user_id']?.toString() ?? '';
+      if (threadId.isEmpty || _chaputProfileId == null) return;
+      final meId = ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
+      if (meId.isNotEmpty && readerId == meId) return;
+      final argsThreads = _lastChaputArgs;
+      if (argsThreads == null) return;
+      final thread = ref.read(chaputThreadsControllerProvider(argsThreads)).items
+          .where((t) => t.threadId == threadId)
+          .cast<ChaputThreadItem?>()
+          .firstWhere((t) => t != null, orElse: () => null);
+      if (thread == null) return;
+      final otherId = thread.userAId == meId
+          ? thread.userBId
+          : thread.userBId == meId
+              ? thread.userAId
+              : '';
+      if (otherId.isEmpty || readerId != otherId) return;
+      final args = ChaputMessagesArgs(threadId: threadId, profileId: _chaputProfileId!);
+      ref.read(chaputMessagesControllerProvider(args).notifier).markReadByOther();
+      return;
+    }
+
+    if (ev.type == 'chaput.typing') {
+      final threadId = data['thread_id']?.toString() ?? '';
+      final userId = data['user_id']?.toString() ?? '';
+      final isTyping = data['is_typing'] == true;
+      if (threadId.isEmpty || userId.isEmpty) return;
+      final set = _typingUsersByThread.putIfAbsent(threadId, () => <String>{});
+      if (isTyping) {
+        set.add(userId);
+      } else {
+        set.remove(userId);
+      }
+      if (mounted) setState(() {});
+    }
   }
 
   @override
@@ -280,6 +453,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _msgCtrl.dispose();
     _msgFocus.dispose();
     _chaputPageCtrl.dispose();
+    _socketSub?.cancel();
+    _socketSub = null;
+    _clearSocketSubscriptions();
     super.dispose();
   }
 
@@ -978,6 +1154,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required bool whisper,
     required String profileIdHex,
     required ChaputThreadsArgs chaputArgs,
+    required String viewerId,
   }) async {
     if (body.trim().isEmpty) return;
     final api = ref.read(chaputApiProvider);
@@ -985,17 +1162,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final replyToId = (_replyTarget != null && _replyTargetThreadId == thread.threadId)
         ? _replyTarget!.id
         : null;
-    await api.sendMessage(threadIdHex: thread.threadId, body: body, kind: kind, replyToId: replyToId);
-    if (thread.state == 'PENDING') {
-      ref
-          .read(chaputThreadsControllerProvider(chaputArgs).notifier)
-          .updateThreadState(threadId: thread.threadId, newState: 'OPEN', pendingExpiresAt: null);
-    }
-
     final replyTarget = (_replyTarget != null && _replyTargetThreadId == thread.threadId) ? _replyTarget : null;
+    final localId = 'local_${DateTime.now().millisecondsSinceEpoch}';
+    final meId = ref.read(meControllerProvider).valueOrNull?.user.userId ?? viewerId;
     final msg = ChaputMessage(
-      id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-      senderId: ref.read(meControllerProvider).valueOrNull?.user.userId ?? '',
+      id: localId,
+      senderId: meId.isNotEmpty ? meId.toLowerCase() : '',
       kind: kind,
       body: body,
       createdAt: DateTime.now().toUtc(),
@@ -1004,6 +1176,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       replyToBody: replyTarget?.body,
       likeCount: 0,
       likedByMe: false,
+      delivered: false,
+      readByOther: false,
       topLikers: const [],
     );
     ref
@@ -1013,6 +1187,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           ).notifier,
         )
         .addLocalMessage(msg);
+
+    try {
+      final serverMsg =
+          await api.sendMessage(threadIdHex: thread.threadId, body: body, kind: kind, replyToId: replyToId);
+      ref
+          .read(
+            chaputMessagesControllerProvider(
+              ChaputMessagesArgs(threadId: thread.threadId, profileId: profileIdHex),
+            ).notifier,
+          )
+          .confirmDelivered(localId: localId, serverMessage: serverMsg);
+
+      if (thread.state == 'PENDING') {
+        ref
+            .read(chaputThreadsControllerProvider(chaputArgs).notifier)
+            .updateThreadState(threadId: thread.threadId, newState: 'OPEN', pendingExpiresAt: null);
+      }
+    } catch (_) {
+      // leave local message as-is; UI already shows it as sent but undelivered
+    }
 
     setState(() {
       _replyTarget = null;
@@ -1335,6 +1529,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _onComposerFocus() {
+    _emitTyping(true);
     // Eğer mesaj var ve daha önce anchor hatırlanmışsa, aynı anchor’a geri focus ol
     if (_draftAnchor != null) {
       _focusAnchor = _draftAnchor!.clone();
@@ -1345,6 +1540,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _onComposerUnfocus() {
+    _emitTyping(false);
     // composer açık değilse ignore
     if (!_composerOpen) return;
 
@@ -1381,6 +1577,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _startCenterShift(toCenter: _treeCenter, toLookAt: _treeCenter);
 
     // composer açık kalsın, sadece unfocus edildi (UI aynı kalsın)
+  }
+
+  void _emitTyping(bool isTyping) {
+    if (!_activeThreadIsParticipant) return;
+    final threadId = _activeThreadId;
+    if (threadId == null || threadId.isEmpty) return;
+    ref.read(chaputSocketProvider).sendTyping(threadId, isTyping);
   }
 
   void _startSnapToNewAnchor() {
@@ -2031,12 +2234,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       ownerId: userId,
       restricted: heRestrictedMe,
     );
+    _lastChaputArgs = chaputArgs;
 
     final ChaputThreadsState chaputThreadsState = chaputAllowed && viewerId.isNotEmpty
         ? ref.watch(chaputThreadsControllerProvider(chaputArgs))
         : ChaputThreadsState.empty;
 
     final chaputThreads = chaputThreadsState.items;
+    final typingUsersByThread = <String, List<LiteUser>>{};
+    _typingUsersByThread.forEach((threadId, ids) {
+      final list = <LiteUser>[];
+      for (final id in ids) {
+        if (id == viewerId) continue;
+        final u = chaputThreadsState.usersById[id];
+        if (u != null) list.add(u);
+      }
+      if (list.isNotEmpty) typingUsersByThread[threadId] = list;
+    });
     if (!_initialThreadApplied && _pendingInitialThreadId != null && chaputThreads.isNotEmpty) {
       final idx = chaputThreads.indexWhere((t) => t.threadId == _pendingInitialThreadId);
       if (idx >= 0) {
@@ -2062,6 +2276,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool activeViewerIsStarter = activeThread != null && activeThread.starterId == viewerId;
     final bool activeIsPending = activeThread != null && activeThread.state == 'PENDING';
     final bool canReplyOnActive = activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
+    _activeThreadId = activeThread?.threadId;
+    _activeThreadIsParticipant = activeIsParticipant;
     final ChaputMessage? replyTarget =
         (_replyTarget != null && _replyTargetThreadId == activeThread?.threadId) ? _replyTarget : null;
     final String? replyAuthor = replyTarget == null
@@ -2077,6 +2293,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         !_silhouetteMode;
     if (_chaputProfileId != profileIdHex) {
       _chaputProfileId = profileIdHex;
+      _clearSocketSubscriptions();
+      if (chaputAllowed) {
+        _ensureSocket(profileIdHex);
+      }
       _chaputActiveIndex = 0;
       _focusedThreadId = null;
       _chaputSheetExtent = _chaputSheetMin;
@@ -2101,6 +2321,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final t = chaputThreads[_chaputActiveIndex];
       if (_focusedThreadId != t.threadId) {
         _focusedThreadId = t.threadId;
+        _subscribeThreadSocket(t.threadId, profileIdHex);
+        final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
+        if (isParticipant) {
+          ref.read(chaputApiProvider).markThreadRead(threadIdHex: t.threadId).catchError((_) {});
+        }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _focusToThreadAnchor(t, profileIdHex);
@@ -2535,6 +2760,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     child: ChaputThreadSheet(
                       threads: chaputThreads,
                       usersById: chaputThreadsState.usersById,
+                      typingUsersByThread: typingUsersByThread,
                       viewerUser: viewerLite,
                       viewerId: viewerId,
                       ownerId: userId,
@@ -2556,6 +2782,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         setState(() => _chaputActiveIndex = index);
                         if (index < chaputThreads.length) {
                           final t = chaputThreads[index];
+                          _subscribeThreadSocket(t.threadId, profileIdHex);
                           _focusToThreadAnchor(t, profileIdHex);
                           final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
                           final viewerIsStarter = t.starterId == viewerId;
@@ -2569,6 +2796,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           if (!isParticipant2) {
                             final api = ref.read(chaputApiProvider);
                             await api.recordView(threadIdHex: t.threadId);
+                          } else {
+                            ref.read(chaputApiProvider).markThreadRead(threadIdHex: t.threadId).catchError((_) {});
                           }
                           if (index >= chaputThreads.length - 2) {
                             ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).loadMore();
@@ -2586,6 +2815,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           whisper: whisper,
                           profileIdHex: profileIdHex,
                           chaputArgs: chaputArgs,
+                          viewerId: viewerId,
                         );
                       },
                       onMakeHidden: (thread) async {
@@ -2757,6 +2987,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         whisper: _replyWhisperMode,
                         profileIdHex: profileIdHex,
                         chaputArgs: chaputArgs,
+                        viewerId: viewerId,
                       );
 
                       setState(() => _replyWhisperMode = false);
