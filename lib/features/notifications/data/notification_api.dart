@@ -50,6 +50,18 @@ class NotificationApi {
     return code >= 200 && code < 300;
   }
 
+  Future<bool> rejectFollowRequest(int requestSeq) async {
+    final res = await _dio.post(
+      '/me/follow-requests/$requestSeq/reject',
+      options: Options(
+        validateStatus: (code) =>
+            code == null || (code >= 200 && code < 300) || code == 404,
+      ),
+    );
+    final code = res.statusCode ?? 0;
+    return code >= 200 && code < 300;
+  }
+
   Future<void> upsertPushToken({
     required String token,
     required String platform,

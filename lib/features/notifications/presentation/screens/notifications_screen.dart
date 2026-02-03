@@ -178,6 +178,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                       onApprove: it.type == 'follow_request'
                                           ? () => _approveFollow(ref, it)
                                           : null,
+                                      onReject: it.type == 'follow_request'
+                                          ? () => _rejectFollow(ref, it)
+                                          : null,
                                     );
                                   },
                                 ),
@@ -214,6 +217,29 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ref.read(notificationCountControllerProvider.notifier).decrementIfUnread();
       }
       // Best effort: mark as read on server to keep counts consistent
+      try {
+        await ref.read(notificationsControllerProvider.notifier).markRead(it.id);
+      } catch (_) {
+        // ignore
+      }
+    }
+  }
+
+  Future<void> _rejectFollow(WidgetRef ref, AppNotification it) async {
+    final seq = it.payload['request_seq'];
+    if (seq is! int && seq is! String) return;
+    final seqNum = seq is int ? seq : int.tryParse(seq.toString());
+    if (seqNum == null) return;
+    final wasUnread = !it.isRead;
+    try {
+      await ref.read(notificationApiProvider).rejectFollowRequest(seqNum);
+    } catch (_) {
+      // ignore
+    } finally {
+      ref.read(notificationsControllerProvider.notifier).removeLocal(it.id);
+      if (wasUnread) {
+        ref.read(notificationCountControllerProvider.notifier).decrementIfUnread();
+      }
       try {
         await ref.read(notificationsControllerProvider.notifier).markRead(it.id);
       } catch (_) {
@@ -301,12 +327,14 @@ class _NotificationRow extends StatelessWidget {
     required this.actor,
     required this.onTap,
     required this.onApprove,
+    required this.onReject,
   });
 
   final AppNotification item;
   final LiteUser? actor;
   final VoidCallback onTap;
   final VoidCallback? onApprove;
+  final VoidCallback? onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -385,17 +413,28 @@ class _NotificationRow extends StatelessWidget {
                 )
               else
                 const SizedBox(width: 8),
-              if (onApprove != null) ...[
+              if (onApprove != null || onReject != null) ...[
                 const SizedBox(width: 8),
-                TextButton(
-                  onPressed: onApprove,
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: const Text('Onayla', style: TextStyle(fontWeight: FontWeight.w800)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onReject != null)
+                      _ActionIconButton(
+                        onPressed: onReject!,
+                        background: const Color(0xffD9DEE6),
+                        icon: Icons.close,
+                        iconColor: Colors.black87,
+                      ),
+                    if (onApprove != null) ...[
+                      const SizedBox(width: 8),
+                      _ActionIconButton(
+                        onPressed: onApprove!,
+                        background: Colors.black,
+                        icon: Icons.check,
+                        iconColor: Colors.white,
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ],
@@ -446,4 +485,35 @@ class _NotifEntry {
 
   final String? header;
   final AppNotification? item;
+}
+
+class _ActionIconButton extends StatelessWidget {
+  const _ActionIconButton({
+    required this.onPressed,
+    required this.background,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  final VoidCallback onPressed;
+  final Color background;
+  final IconData icon;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: background,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(icon, size: 18, color: iconColor),
+        ),
+      ),
+    );
+  }
 }
