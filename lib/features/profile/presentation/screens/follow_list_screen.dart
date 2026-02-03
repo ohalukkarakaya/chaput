@@ -127,7 +127,17 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                   ],
 
                   Expanded(
-                    child: st.error != null
+                    child: st.isForbidden
+                        ? Center(
+                            child: Text(
+                              'Bu listeyi göremezsin',
+                              style: TextStyle(
+                                color: Colors.black.withOpacity(0.6),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          )
+                        : st.error != null
                         ? Padding(
                       padding: const EdgeInsets.all(18),
                       child: Column(

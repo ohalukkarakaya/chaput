@@ -25,10 +25,18 @@ class FollowApi {
     required int after,
     required int limit,
   }) async {
-    final res = await _dio.get('/users/$username/followers', queryParameters: {
-      'after': after,
-      'limit': limit,
-    });
+    final res = await _dio.get(
+      '/users/$username/followers',
+      queryParameters: {
+        'after': after,
+        'limit': limit,
+      },
+      options: Options(validateStatus: (s) => s != null && s < 500),
+    );
+
+    if (res.statusCode == 403) {
+      throw const FollowForbidden();
+    }
 
     final data = res.data as Map<String, dynamic>;
     if (data['ok'] != true) {
@@ -49,10 +57,18 @@ class FollowApi {
     required int after,
     required int limit,
   }) async {
-    final res = await _dio.get('/users/$username/following', queryParameters: {
-      'after': after,
-      'limit': limit,
-    });
+    final res = await _dio.get(
+      '/users/$username/following',
+      queryParameters: {
+        'after': after,
+        'limit': limit,
+      },
+      options: Options(validateStatus: (s) => s != null && s < 500),
+    );
+
+    if (res.statusCode == 403) {
+      throw const FollowForbidden();
+    }
 
     final data = res.data as Map<String, dynamic>;
     if (data['ok'] != true) {
@@ -84,4 +100,11 @@ class FollowResult {
     required this.followed,
     required this.requestCreated,
   });
+}
+
+class FollowForbidden implements Exception {
+  const FollowForbidden();
+
+  @override
+  String toString() => 'follow_forbidden';
 }

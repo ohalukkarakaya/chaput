@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,16 +10,68 @@ import '../../../../core/ui/backgrounds/animated_mesh_background.dart';
 
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
+import '../../../notifications/application/notification_count_controller.dart';
+import '../../../../chaput/data/chaput_socket.dart';
+import '../../../notifications/application/push_token_registrar.dart';
 import '../../../user_search/presentation/search_overlay.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
 import '../../../../core/ui/widgets/glow_shimmer_card.dart';
 import '../../../../core/ui/widgets/share_bar.dart';
 
-class HomeShell extends ConsumerWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends ConsumerState<HomeShell> {
+  StreamSubscription<ChaputSocketEvent>? _socketSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootNotifications();
+  }
+
+  Future<void> _bootNotifications() async {
+    await ref.read(chaputSocketProvider).ensureConnected();
+    _socketSub ??= ref.read(chaputSocketProvider).events.listen(_handleSocketEvent);
+    await ref.read(pushTokenRegistrarProvider).registerOnce();
+  }
+
+  void _handleSocketEvent(ChaputSocketEvent ev) {
+    if (ev.type != 'notif.created') return;
+    final me = ref.read(meControllerProvider).valueOrNull;
+    final meId = me?.user?.userId ?? '';
+    if (meId.isEmpty) return;
+    final raw = ev.data['notification'];
+    var isForMe = false;
+    if (raw is Map) {
+      final userId = raw['user_id']?.toString() ?? '';
+      if (userId.isEmpty) return;
+      if (userId != meId) return;
+      isForMe = true;
+    }
+    final unread = ev.data['unread_count'];
+    if (isForMe) {
+      if (unread is int) {
+        ref.read(notificationCountControllerProvider.notifier).updateFromSocket(unread);
+      } else if (unread is num) {
+        ref.read(notificationCountControllerProvider.notifier).updateFromSocket(unread.toInt());
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _socketSub?.cancel();
+    _socketSub = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xffE9EEF3),
       resizeToAvoidBottomInset: false,
@@ -84,19 +138,60 @@ class HomeShell extends ConsumerWidget {
                                               me?.user.fullName ?? '';
                                           final fullName =
                                           formatFullName(rawName);
+                                          final unread = ref.watch(notificationCountControllerProvider);
                                           return Column(
                                             crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Text(
-                                                'Hoş geldin',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w300,
-                                                  color: Colors.black
-                                                      .withOpacity(0.55),
-                                                ),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    'Hoş geldin',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w300,
+                                                      color: Colors.black
+                                                          .withOpacity(0.55),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  InkWell(
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    onTap: () => context.push(Routes.notifications),
+                                                    child: Stack(
+                                                      clipBehavior: Clip.none,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.keyboard_arrow_down,
+                                                          size: 18,
+                                                          color: Colors.black.withOpacity(0.6),
+                                                        ),
+                                                        if (unread > 0)
+                                                          Positioned(
+                                                            right: -6,
+                                                            top: -6,
+                                                            child: Container(
+                                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                              decoration: BoxDecoration(
+                                                                color: Colors.black,
+                                                                borderRadius: BorderRadius.circular(10),
+                                                              ),
+                                                              child: Text(
+                                                                unread > 99 ? '99+' : unread.toString(),
+                                                                style: const TextStyle(
+                                                                  fontSize: 10,
+                                                                  fontWeight: FontWeight.w800,
+                                                                  color: Colors.white,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                               Text(
                                                 fullName.isEmpty

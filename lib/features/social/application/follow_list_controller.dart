@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../user/data/user_api.dart';
@@ -27,6 +28,7 @@ class FollowListItem {
 class FollowListState {
   final bool isLoading;
   final String? error;
+  final bool isForbidden;
   final List<FollowListItem> items;
   final Map<String, LiteUser> usersById;
   final int nextAfter;
@@ -35,6 +37,7 @@ class FollowListState {
   const FollowListState({
     this.isLoading = false,
     this.error,
+    this.isForbidden = false,
     this.items = const [],
     this.usersById = const {},
     this.nextAfter = 0,
@@ -44,6 +47,7 @@ class FollowListState {
   FollowListState copyWith({
     bool? isLoading,
     String? error,
+    bool? isForbidden,
     List<FollowListItem>? items,
     Map<String, LiteUser>? usersById,
     int? nextAfter,
@@ -52,6 +56,7 @@ class FollowListState {
     return FollowListState(
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      isForbidden: isForbidden ?? this.isForbidden,
       items: items ?? this.items,
       usersById: usersById ?? this.usersById,
       nextAfter: nextAfter ?? this.nextAfter,
@@ -107,14 +112,27 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
       state = state.copyWith(
         isLoading: false,
         error: null,
+        isForbidden: false,
         items: res.items,
         usersById: users,
         nextAfter: res.nextAfter,
         hasMore: res.items.isNotEmpty && res.items.length == _pageSize && res.nextAfter > 0,
       );
     } catch (e, st) {
+      if (_isForbiddenError(e)) {
+        state = state.copyWith(
+          isLoading: false,
+          error: null,
+          isForbidden: true,
+          items: const [],
+          usersById: const {},
+          nextAfter: 0,
+          hasMore: false,
+        );
+        return;
+      }
       log('follow list initial load error: $e', stackTrace: st);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: e.toString(), hasMore: false, isForbidden: false);
     }
   }
 
@@ -146,12 +164,12 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
   }
 
   Future<void> refresh() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, isForbidden: false);
     await _loadInitial();
   }
 
   Future<void> loadMore() async {
-    if (state.isLoading || !state.hasMore) return;
+    if (state.isLoading || !state.hasMore || state.isForbidden) return;
 
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -171,9 +189,25 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
         hasMore: res.items.isNotEmpty && res.items.length == _pageSize && res.nextAfter > state.nextAfter,
       );
     } catch (e, st) {
+      if (_isForbiddenError(e)) {
+        state = state.copyWith(isLoading: false, hasMore: false, isForbidden: true);
+        return;
+      }
       log('follow list load more error: $e', stackTrace: st);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: e.toString(), hasMore: false, isForbidden: false);
     }
+  }
+
+  bool _isForbiddenError(Object e) {
+    if (e is FollowForbidden) return true;
+    if (e is DioException) {
+      final code = e.response?.statusCode;
+      if (code == 403) return true;
+      final msg = e.message ?? '';
+      if (msg.contains('403')) return true;
+    }
+    final msg = e.toString();
+    return msg.contains('private_profile') || msg.contains('restricted') || msg.contains('blocked');
   }
 
   Future<void> removeFollower({

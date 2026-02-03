@@ -9,6 +9,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/notifications/presentation/screens/notifications_screen.dart';
 
 
 import '../network/dio_provider.dart';
@@ -45,14 +46,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final userId = state.pathParameters['userId']!;
           String? initialThreadId;
+          String? initialMessageId;
           final extra = state.extra;
           if (extra is Map) {
             final threadId = extra['threadId'];
             if (threadId is String && threadId.isNotEmpty) {
               initialThreadId = threadId;
             }
+            final messageId = extra['messageId'];
+            if (messageId is String && messageId.isNotEmpty) {
+              initialMessageId = messageId;
+            }
           }
-          return ProfileScreen(userId: userId, initialThreadId: initialThreadId);
+          return ProfileScreen(
+            userId: userId,
+            initialThreadId: initialThreadId,
+            initialMessageId: initialMessageId,
+          );
         },
       ),
       GoRoute(
@@ -74,6 +84,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadePage(
           state: state,
           child: const SettingsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: Routes.notifications,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const NotificationsScreen(),
         ),
       ),
     ],

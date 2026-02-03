@@ -53,10 +53,12 @@ class ProfileScreen extends ConsumerStatefulWidget {
     super.key,
     required this.userId,
     this.initialThreadId,
+    this.initialMessageId,
   });
 
   final String userId;
   final String? initialThreadId;
+  final String? initialMessageId;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -140,6 +142,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   three.Mesh? _ground;
   ChaputThreadItem? _pendingThreadFocus;
   String? _pendingInitialThreadId;
+  String? _pendingInitialMessageId;
   bool _initialThreadApplied = false;
   String? _pendingThreadProfileId;
 
@@ -246,6 +249,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     super.initState();
     _socketClient = ref.read(chaputSocketProvider);
     _pendingInitialThreadId = widget.initialThreadId;
+    _pendingInitialMessageId = widget.initialMessageId;
     _navToOtherProfile = false;
     _profileCardCtrl = AnimationController(
       vsync: this,
@@ -494,6 +498,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _anonMode = false;
       _highlightMode = false;
       _pendingInitialThreadId = widget.initialThreadId;
+      _pendingInitialMessageId = widget.initialMessageId;
       _initialThreadApplied = false;
       _msgCtrl.clear();
     }
@@ -2327,7 +2332,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final idx = chaputThreads.indexWhere((t) => t.threadId == _pendingInitialThreadId);
       if (idx >= 0) {
         _initialThreadApplied = true;
-        _pendingInitialThreadId = null;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_chaputPageCtrl.hasClients) {
@@ -2336,6 +2340,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             setState(() => _chaputActiveIndex = idx);
           }
           _focusToThreadAnchor(chaputThreads[idx], profileIdHex);
+          _pendingInitialThreadId = null;
+          _pendingInitialMessageId = null;
         });
       }
     }
@@ -2889,6 +2895,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       viewerId: viewerId,
                       ownerId: userId,
                       profileId: profileIdHex,
+                      initialThreadId: _pendingInitialThreadId,
+                      initialMessageId: _pendingInitialMessageId,
                       pageController: _chaputPageCtrl,
                       sheetController: _chaputSheetCtrl,
                       initialExtent: _chaputSheetExtent,

@@ -25,6 +25,8 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.viewerId,
     required this.ownerId,
     required this.profileId,
+    this.initialThreadId,
+    this.initialMessageId,
     required this.pageController,
     required this.sheetController,
     required this.initialExtent,
@@ -47,6 +49,8 @@ class ChaputThreadSheet extends ConsumerWidget {
   final String viewerId;
   final String ownerId;
   final String profileId;
+  final String? initialThreadId;
+  final String? initialMessageId;
   final PageController pageController;
   final DraggableScrollableController sheetController;
   final double initialExtent;
@@ -121,6 +125,8 @@ class ChaputThreadSheet extends ConsumerWidget {
                         viewerId: viewerId,
                         isParticipant: isParticipant,
                         profileId: profileId,
+                        initialThreadId: initialThreadId,
+                        initialMessageId: initialMessageId,
                         onOpenProfile: onOpenProfile,
                         onSendMessage: onSendMessage,
                         onMakeHidden: onMakeHidden,
@@ -173,6 +179,8 @@ class _SheetPage extends StatelessWidget {
     required this.viewerId,
     required this.isParticipant,
     required this.profileId,
+    required this.initialThreadId,
+    required this.initialMessageId,
     required this.onOpenProfile,
     required this.onSendMessage,
     required this.onMakeHidden,
@@ -191,6 +199,8 @@ class _SheetPage extends StatelessWidget {
   final String viewerId;
   final bool isParticipant;
   final String profileId;
+  final String? initialThreadId;
+  final String? initialMessageId;
   final void Function(String userId, String threadId) onOpenProfile;
   final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
@@ -203,6 +213,8 @@ class _SheetPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final initialThreadId = this.initialThreadId;
+    final initialMessageId = this.initialMessageId;
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final compact = constraints.maxHeight < 180;
@@ -270,6 +282,11 @@ class _SheetPage extends StatelessWidget {
                             viewerId: viewerId,
                             isParticipant: isParticipant,
                             profileId: profileId,
+                            initialMessageId: (initialThreadId != null &&
+                                    initialMessageId != null &&
+                                    initialThreadId == thread.threadId)
+                                ? initialMessageId
+                                : null,
                             onOpenProfile: onOpenProfile,
                             onSendMessage: onSendMessage,
                             onMakeHidden: onMakeHidden,
@@ -300,6 +317,7 @@ class _ThreadPage extends ConsumerWidget {
     required this.viewerId,
     required this.isParticipant,
     required this.profileId,
+    required this.initialMessageId,
     required this.onOpenProfile,
     required this.onSendMessage,
     required this.onMakeHidden,
@@ -318,6 +336,7 @@ class _ThreadPage extends ConsumerWidget {
   final String viewerId;
   final bool isParticipant;
   final String profileId;
+  final String? initialMessageId;
   final void Function(String userId, String threadId) onOpenProfile;
   final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
@@ -403,6 +422,7 @@ class _ThreadPage extends ConsumerWidget {
                     isHidden: isHidden,
                     isParticipant: isParticipant,
                     canReply: canReply,
+                    initialMessageId: initialMessageId,
                     onReply: (m) => onReplyMessage(thread, m),
                     onToggleLike: (m, like) {
                       final me = viewerUser == null
@@ -699,6 +719,7 @@ class _MessagesList extends StatefulWidget {
     required this.isHidden,
     required this.isParticipant,
     required this.canReply,
+    required this.initialMessageId,
     required this.onReply,
     required this.onToggleLike,
     required this.onLoadMore,
@@ -713,6 +734,7 @@ class _MessagesList extends StatefulWidget {
   final bool isHidden;
   final bool isParticipant;
   final bool canReply;
+  final String? initialMessageId;
   final ValueChanged<ChaputMessage> onReply;
   final void Function(ChaputMessage message, bool like) onToggleLike;
   final VoidCallback onLoadMore;
@@ -733,6 +755,25 @@ class _MessagesListState extends State<_MessagesList> {
   void initState() {
     super.initState();
     _scrollController.addListener(_handleScroll);
+    final initialId = widget.initialMessageId;
+    if (initialId != null && initialId.isNotEmpty) {
+      _pendingJumpId = initialId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _tryPendingJump();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MessagesList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newId = widget.initialMessageId;
+    if (newId != null && newId.isNotEmpty && newId != oldWidget.initialMessageId) {
+      _pendingJumpId = newId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _tryPendingJump();
+      });
+    }
   }
 
   @override
