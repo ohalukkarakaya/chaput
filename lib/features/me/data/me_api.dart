@@ -13,7 +13,9 @@ class MeApi {
   MeApi(this._dio);
 
   Future<MeResponse> getMe() async {
+    print('[ME] baseUrl=${_dio.options.baseUrl}');
     final res = await _dio.get<Map<String, dynamic>>('/me');
+    print('[ME] realUri=${res.realUri}');
     return MeResponse.fromJson(res.data ?? const {});
   }
 

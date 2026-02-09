@@ -8,7 +8,8 @@ final freshAuthDioProvider = Provider<Dio>((ref) {
   final storage = ref.read(tokenStorageProvider);
 
   final dio = Dio(BaseOptions(
-    baseUrl: 'http://192.168.178.81:8080', // sende neyse
+    baseUrl: 'http://192.168.178.81:8080',
+    // 'http://127.0.0.1:8080', // sende neyse
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));

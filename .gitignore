@@ -203,6 +203,7 @@ google-services.json
 GoogleService-Info.plist
 *.env
 .env.*
+/lib/core/config/env.dart
 
 ###############################################################################
 # Logs & crash dumps
