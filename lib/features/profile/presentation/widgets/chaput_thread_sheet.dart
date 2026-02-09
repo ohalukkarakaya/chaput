@@ -13,6 +13,7 @@ import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'black_glass.dart';
+import 'chaput_native_ad_card.dart';
 import 'sheet_handle.dart';
 
 class ChaputThreadSheet extends ConsumerWidget {
@@ -32,6 +33,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.initialExtent,
     required this.onExtentChanged,
     required this.onPageChanged,
+    required this.showNativeAds,
     required this.onOpenProfile,
     required this.onSendMessage,
     required this.onMakeHidden,
@@ -55,7 +57,8 @@ class ChaputThreadSheet extends ConsumerWidget {
   final DraggableScrollableController sheetController;
   final double initialExtent;
   final ValueChanged<double> onExtentChanged;
-  final ValueChanged<int> onPageChanged;
+  final void Function(int pageIndex, ChaputThreadItem? thread) onPageChanged;
+  final bool showNativeAds;
   final void Function(String userId, String threadId) onOpenProfile;
   final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
@@ -68,6 +71,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (threads.isEmpty) return const SizedBox.shrink();
+    final entries = _ChaputPageEntries.build(threads, showNativeAds);
 
     return NotificationListener<DraggableScrollableNotification>(
       onNotification: (n) {
@@ -91,10 +95,17 @@ class ChaputThreadSheet extends ConsumerWidget {
                   height: constraints.maxHeight,
                   child: PageView.builder(
                     controller: pageController,
-                    onPageChanged: onPageChanged,
-                    itemCount: threads.length,
+                    onPageChanged: (index) {
+                      final entry = entries[index];
+                      onPageChanged(index, entry.thread);
+                    },
+                    itemCount: entries.length,
                     itemBuilder: (ctx, index) {
-                      final thread = threads[index];
+                      final entry = entries[index];
+                      if (entry.isAd) {
+                        return const _ChaputNativeAdPage();
+                      }
+                      final thread = entry.thread!;
                       final isParticipant = thread.userAId == viewerId || thread.userBId == viewerId;
                       final otherId = thread.userAId == ownerId
                           ? thread.userBId
@@ -166,6 +177,54 @@ class ChaputThreadSheet extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _ChaputPageEntries {
+  static List<_ChaputPageEntry> build(List<ChaputThreadItem> threads, bool showAds) {
+    final entries = <_ChaputPageEntry>[];
+    var threadCount = 0;
+    for (var i = 0; i < threads.length; i++) {
+      entries.add(_ChaputPageEntry.thread(threads[i]));
+      threadCount += 1;
+      if (showAds && threadCount % 2 == 0) {
+        entries.add(const _ChaputPageEntry.ad());
+      }
+    }
+    return entries;
+  }
+}
+
+class _ChaputPageEntry {
+  const _ChaputPageEntry.thread(this.thread) : isAd = false;
+  const _ChaputPageEntry.ad()
+      : thread = null,
+        isAd = true;
+
+  final ChaputThreadItem? thread;
+  final bool isAd;
+}
+
+class _ChaputNativeAdPage extends StatelessWidget {
+  const _ChaputNativeAdPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedHeight ||
+            constraints.maxHeight < ChaputNativeAdCard.minTotalHeight) {
+          return const SizedBox.shrink();
+        }
+        return const Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: ChaputNativeAdCard(),
+          ),
+        );
+      },
     );
   }
 }

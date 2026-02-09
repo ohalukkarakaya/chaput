@@ -1,6 +1,9 @@
-import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+import '../../../../core/config/env.dart';
 
 class ChaputAdsWatchScreen extends StatefulWidget {
   const ChaputAdsWatchScreen({
@@ -21,6 +24,9 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
   bool _watching = false;
   bool _canceled = false;
   String? _error;
+  RewardedAd? _rewardedAd;
+  bool _loading = false;
+  bool _earnedThisAd = false;
 
   int get _remaining => (widget.requiredAds - _watched).clamp(0, widget.requiredAds);
 
@@ -31,22 +37,45 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
   }
 
   Future<void> _autoStart() async {
-    if (_watching || _remaining == 0) return;
+    if (_watching || _remaining == 0 || _loading) return;
     setState(() {
       _watching = true;
       _error = null;
     });
+    await _loadAndShow();
+  }
 
-    while (mounted && _remaining > 0) {
-      await Future.delayed(const Duration(milliseconds: 800));
-      if (!mounted) return;
-      if (_canceled) {
-        setState(() => _watching = false);
-        return;
-      }
-      setState(() => _watched += 1);
-    }
+  Future<void> _loadAndShow() async {
+    if (!mounted || _canceled || _remaining == 0) return;
+    if (_loading) return;
+    setState(() => _loading = true);
+    final adUnitId = Env.rewardedAdUnitId(isIOS: Platform.isIOS);
+    RewardedAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedAd = ad;
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() => _loading = false);
+          _showAd(ad);
+        },
+        onAdFailedToLoad: (err) {
+          if (!mounted) return;
+          setState(() {
+            _loading = false;
+            _watching = false;
+            _error = 'Reklam yüklenemedi. Lütfen tekrar dene.';
+          });
+        },
+      ),
+    );
+  }
 
+  Future<void> _finishRewards() async {
     if (!mounted) return;
     setState(() => _watching = false);
     final ok = await widget.onComplete();
@@ -56,6 +85,49 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
       return;
     }
     Navigator.pop(context, true);
+  }
+
+  void _showAd(RewardedAd ad) {
+    if (!mounted || _canceled) {
+      ad.dispose();
+      return;
+    }
+    _earnedThisAd = false;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        if (!mounted) return;
+        if (_canceled) {
+          setState(() => _watching = false);
+          return;
+        }
+        if (_earnedThisAd) {
+          setState(() => _watched += 1);
+        }
+        if (_remaining > 0) {
+          _loadAndShow();
+        } else {
+          _finishRewards();
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, err) {
+        ad.dispose();
+        if (!mounted) return;
+        setState(() {
+          _watching = false;
+          _error = 'Reklam gösterilemedi. Lütfen tekrar dene.';
+        });
+      },
+    );
+    ad.show(onUserEarnedReward: (_, __) {
+      _earnedThisAd = true;
+    });
+  }
+
+  @override
+  void dispose() {
+    _rewardedAd?.dispose();
+    super.dispose();
   }
 
   @override
@@ -154,7 +226,9 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   child: Text(
-                    _remaining == 0 ? 'Tamamlandı' : 'Reklamlar izleniyor...',
+                    _remaining == 0
+                        ? 'Tamamlandı'
+                        : (_loading ? 'Reklam yükleniyor...' : 'Reklamlar izleniyor...'),
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),

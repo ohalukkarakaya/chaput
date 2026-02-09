@@ -47,6 +47,7 @@ import 'follow_list_screen.dart';
 import '../../../social/application/follow_list_controller.dart';
 import '../widgets/subscription_replace_sheet.dart';
 import '../widgets/chaput_thread_sheet.dart';
+import '../widgets/chaput_native_ad_card.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -207,6 +208,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   double _chaputSheetExtent = _chaputSheetMin;
   double _chaputSheetPrevExtent = _chaputSheetMin;
+  double _sheetExtentBeforeAd = _chaputSheetMin;
+  bool _isAdPageActive = false;
+  bool _nativeAdPreloaded = false;
   final DraggableScrollableController _chaputSheetCtrl = DraggableScrollableController();
   bool _sheetAutoExpanded = false;
   double _sheetExtentBeforeKeyboard = _chaputSheetMin;
@@ -240,6 +244,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool get canBoost => _creditSpecial > 0;
 
   bool _replyWhisperMode = false;
+
+  bool _isFreePlan(String plan) {
+    final p = plan.toUpperCase();
+    return !(p.contains('PRO') || p.contains('PLUS'));
+  }
+
+  int _pageIndexForThreadIndex(int threadIndex, {required bool showAds}) {
+    if (!showAds) return threadIndex;
+    final adsBefore = threadIndex ~/ 2;
+    return threadIndex + adsBefore;
+  }
+
+  int? _threadIndexForPageIndex(int pageIndex, {required bool showAds}) {
+    if (!showAds) return pageIndex;
+    final pos = pageIndex % 3;
+    if (pos == 2) return null;
+    return (pageIndex ~/ 3) * 2 + pos;
+  }
 
   // orijinal material'ları saklamak için
   final Map<three.Mesh, dynamic> _origMaterials = {};
@@ -2199,6 +2221,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             profilePhotoKey: me.user.profilePhotoKey,
             profilePhotoUrl: me.user.profilePhotoUrl,
           );
+    final viewerPlan = (me?.subscription.plan ?? _planType).toUpperCase();
+    final showNativeAds = _isFreePlan(viewerPlan);
+    if (showNativeAds && !_nativeAdPreloaded) {
+      _nativeAdPreloaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ChaputNativeAdCard.preload();
+      });
+    }
 
     final profileIdHex = _resolveProfileId(st.profileJson, userId);
     final bool decisionAllowed =
@@ -2335,7 +2365,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_chaputPageCtrl.hasClients) {
-            _chaputPageCtrl.jumpToPage(idx);
+            final pageIdx = _pageIndexForThreadIndex(idx, showAds: showNativeAds);
+            _chaputPageCtrl.jumpToPage(pageIdx);
           } else {
             setState(() => _chaputActiveIndex = idx);
           }
@@ -2900,6 +2931,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       pageController: _chaputPageCtrl,
                       sheetController: _chaputSheetCtrl,
                       initialExtent: _chaputSheetExtent,
+                      showNativeAds: showNativeAds,
                       onExtentChanged: (v) {
                         _chaputSheetExtent = v;
                         if (v > _chaputSheetMin + 0.01) {
@@ -2910,10 +2942,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         }
                         setState(() {});
                       },
-                      onPageChanged: (index) async {
-                        setState(() => _chaputActiveIndex = index);
-                        if (index < chaputThreads.length) {
-                          final t = chaputThreads[index];
+                      onPageChanged: (pageIndex, thread) async {
+                        final threadIndex = thread == null
+                            ? null
+                            : _threadIndexForPageIndex(pageIndex, showAds: showNativeAds);
+                        final isAdPage = threadIndex == null;
+                        if (isAdPage) {
+                          if (!_isAdPageActive) {
+                            _isAdPageActive = true;
+                            _sheetExtentBeforeAd = _chaputSheetExtent;
+                            final screenHeight = MediaQuery.of(context).size.height;
+                            final minAdExtent = (ChaputNativeAdCard.minTotalHeight / screenHeight)
+                                .clamp(_chaputSheetMin, _chaputSheetMax);
+                            final target = _chaputSheetMid >= minAdExtent ? _chaputSheetMid : minAdExtent;
+                            _chaputSheetExtent = target;
+                            if (_chaputSheetCtrl.isAttached) {
+                              _chaputSheetCtrl.animateTo(
+                                target,
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeOutCubic,
+                              );
+                            }
+                            setState(() {});
+                          }
+                        } else if (_isAdPageActive) {
+                          _isAdPageActive = false;
+                          final target = _sheetExtentBeforeAd.clamp(_chaputSheetMin, _chaputSheetMax);
+                          _chaputSheetExtent = target;
+                          if (_chaputSheetCtrl.isAttached) {
+                            _chaputSheetCtrl.animateTo(
+                              target,
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                            );
+                          }
+                          setState(() {});
+                        }
+                        if (threadIndex != null && threadIndex < chaputThreads.length) {
+                          setState(() => _chaputActiveIndex = threadIndex);
+                        } else {
+                          setState(() {
+                            _replyBarThreadId = '';
+                            _replyTarget = null;
+                            _replyTargetThreadId = null;
+                          });
+                        }
+                        if (threadIndex != null && threadIndex < chaputThreads.length) {
+                          final t = chaputThreads[threadIndex];
                           _subscribeThreadSocket(t.threadId, profileIdHex);
                           _focusToThreadAnchor(t, profileIdHex);
                           final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
@@ -2931,7 +3006,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           } else {
                             ref.read(chaputApiProvider).markThreadRead(threadIdHex: t.threadId).catchError((_) {});
                           }
-                          if (index >= chaputThreads.length - 2) {
+                          if (threadIndex >= chaputThreads.length - 2) {
                             ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).loadMore();
                           }
                         }
