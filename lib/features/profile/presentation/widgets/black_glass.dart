@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 class BlackGlass extends StatelessWidget {
   const BlackGlass({
@@ -25,10 +26,10 @@ class BlackGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final box = BoxDecoration(
-      color: Colors.black.withOpacity(opacity),
+      color: AppColors.chaputBlack.withOpacity(opacity),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: Colors.white.withOpacity(borderOpacity),
+        color: AppColors.chaputWhite.withOpacity(borderOpacity),
         width: borderWidth,
       ),
     );

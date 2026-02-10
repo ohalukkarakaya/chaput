@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ProfileTreeScreen extends StatelessWidget {
   final String userId;
@@ -7,9 +8,9 @@ class ProfileTreeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Tree of $userId')),
-      body: const Center(
-        child: Text('3D Tree canvas burada (MVP sonraki adım)'),
+      appBar: AppBar(title: Text(context.t('profile_tree.title', params: {'id': userId}))),
+      body: Center(
+        child: Text(context.t('profile_tree.placeholder')),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 class GlassCtaButton extends StatelessWidget {
   final String text;
@@ -26,7 +27,7 @@ class GlassCtaButton extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.chaputTransparent,
         child: InkWell(
           onTap: canTap ? () async => onTap() : null,
           child: BackdropFilter(
@@ -35,9 +36,9 @@ class GlassCtaButton extends StatelessWidget {
               height: height,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(canTap ? 0.50 : 0.32),
+                color: AppColors.chaputBlack.withOpacity(canTap ? 0.50 : 0.32),
                 borderRadius: BorderRadius.circular(radius),
-                border: Border.all(color: Colors.white.withOpacity(0.16)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.16)),
               ),
               child: isLoading
                   ? const SizedBox(
@@ -45,13 +46,13 @@ class GlassCtaButton extends StatelessWidget {
                 height: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: AppColors.chaputWhite,
                 ),
               )
                   : Text(
                 text,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.chaputWhite,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),

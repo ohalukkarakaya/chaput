@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/config/env.dart';
+import '../../../../core/i18n/app_localizations.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChaputNativeAdCard extends StatefulWidget {
   const ChaputNativeAdCard({super.key});
@@ -60,18 +63,18 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
         final card = Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1B1B1B),
+            color: AppColors.chaputNearBlack,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.22)),
+            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.22)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Sponsorlu',
+                context.t('ads.sponsored'),
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: AppColors.chaputWhite.withOpacity(0.8),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -86,15 +89,15 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
                 Container(
                   height: ChaputNativeAdCard.minAdHeight,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: AppColors.chaputWhite.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
-                    'Sponsorlu içerik',
+                    context.t('ads.sponsored_content'),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: AppColors.chaputWhite.withOpacity(0.7),
                       fontWeight: FontWeight.w700,
                     ),
                   ),

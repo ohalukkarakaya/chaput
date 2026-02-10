@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/user_search_controller.dart';
+import 'package:chaput/core/constants/app_colors.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -70,14 +72,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final state = ref.watch(userSearchControllerProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.chaputTransparent,
       body: Stack(
         children: [
           // ✅ arka plan blur
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(color: Colors.black.withOpacity(0.15)),
+              child: Container(color: AppColors.chaputBlack.withOpacity(0.15)),
             ),
           ),
 
@@ -90,13 +92,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 Hero(
                   tag: SearchScreen.heroTag,
                   child: Material(
-                    color: Colors.transparent,
+                    color: AppColors.chaputTransparent,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Container(
                         height: 46,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.chaputWhite,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -111,9 +113,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 focusNode: _focusNode,
                                 onChanged: _onChanged,
                                 textInputAction: TextInputAction.search,
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   border: InputBorder.none,
-                                  hintText: 'Search users...',
+                                  hintText: context.t('search.hint'),
                                   isDense: true,
                                 ),
                               ),
@@ -157,10 +159,10 @@ class _ResultsList extends StatelessWidget {
     }
 
     if ((state.query.trim().length <= 5)) {
-      return const Center(
+      return Center(
         child: Text(
-          'Type at least 6 characters…',
-          style: TextStyle(color: Colors.white),
+          context.t('search.min_chars'),
+          style: const TextStyle(color: AppColors.chaputWhite),
         ),
       );
     }
@@ -168,17 +170,17 @@ class _ResultsList extends StatelessWidget {
     if (state.error != null) {
       return Center(
         child: Text(
-          'Error: ${state.error}',
-          style: const TextStyle(color: Colors.white),
+          '${context.t('common.error')}: ${state.error}',
+          style: const TextStyle(color: AppColors.chaputWhite),
         ),
       );
     }
 
     if (state.items.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No users found.',
-          style: TextStyle(color: Colors.white),
+          context.t('search.no_users'),
+          style: const TextStyle(color: AppColors.chaputWhite),
         ),
       );
     }
@@ -203,7 +205,7 @@ class _ResultsList extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.92),
+            color: AppColors.chaputWhite.withOpacity(0.92),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -213,7 +215,7 @@ class _ResultsList extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: const BoxDecoration(
-                  color: Colors.black12,
+                  color: AppColors.chaputBlack12,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -225,8 +227,8 @@ class _ResultsList extends StatelessWidget {
                     Text(u.fullName, style: const TextStyle(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 2),
                     Text(
-                      u.username == null ? '—' : '@${u.username}',
-                      style: TextStyle(color: Colors.black.withOpacity(0.55)),
+                      u.username == null ? context.t('common.na') : '@${u.username}',
+                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55)),
                     ),
                   ],
                 ),
@@ -235,12 +237,12 @@ class _ResultsList extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: AppColors.chaputBlack,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Text(
-                    'Private',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                  child: Text(
+                    context.t('search.private'),
+                    style: const TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                 ),
             ],

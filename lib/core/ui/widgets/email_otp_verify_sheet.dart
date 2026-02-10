@@ -3,6 +3,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../constants/app_colors.dart';
+import '../../i18n/app_localizations.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 typedef VerifyResult = ({bool ok, String? errorText, int? lockSeconds});
 
@@ -17,8 +20,8 @@ Future<bool?> showEmailOtpVerifySheet({
     isScrollControlled: true,
     isDismissible: true,
     enableDrag: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.transparent,
+    backgroundColor: AppColors.chaputTransparent,
+    barrierColor: AppColors.chaputTransparent,
     builder: (_) {
       return _BlurBarrier(
         onClose: () => Navigator.of(context).pop(false),
@@ -47,7 +50,7 @@ class _BlurBarrier extends StatelessWidget {
             onTap: onClose,
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-              child: Container(color: Colors.black.withOpacity(0.25)),
+              child: Container(color: AppColors.chaputBlack.withOpacity(0.25)),
             ),
           ),
         ),
@@ -182,7 +185,7 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
       _startResendCountdown(seconds: 60);
     } catch (_) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorText = 'Kod gönderilemedi. Tekrar dene.');
+      setState(() => _errorText = context.t('errors.code_send_failed'));
     }
   }
 
@@ -206,14 +209,14 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
       }
 
       _shakeController.forward(from: 0);
-      setState(() => _errorText = res.errorText ?? 'Kod doğrulanamadı.');
+      setState(() => _errorText = res.errorText ?? context.t('errors.code_verify_failed'));
 
       if (res.lockSeconds != null && res.lockSeconds! > 0) {
         _startLockCountdown(res.lockSeconds!);
       }
     } catch (_) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorText = 'Bir şey ters gitti. Tekrar dene.');
+      setState(() => _errorText = context.t('errors.generic'));
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -238,9 +241,9 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
             child: Container(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.88),
+                color: AppColors.chaputWhite.withOpacity(0.88),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                border: Border.all(color: Colors.white.withOpacity(0.6)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.6)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -251,20 +254,20 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                       width: 44,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.12),
+                        color: AppColors.chaputBlack.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'Kodu gir',
-                    style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w800),
+                  Text(
+                    context.t('code.title'),
+                    style: const TextStyle(color: AppColors.chaputBlack, fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'We sent a code to ${widget.email}',
-                    style: TextStyle(color: Colors.black.withOpacity(0.65), fontSize: 13, height: 1.3),
+                    context.t('code.subtitle', params: {'email': widget.email}),
+                    style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.65), fontSize: 13, height: 1.3),
                   ),
                   const SizedBox(height: 14),
 
@@ -289,8 +292,8 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(border: InputBorder.none),
-                      style: const TextStyle(color: Colors.transparent),
-                      cursorColor: Colors.transparent,
+                      style: const TextStyle(color: AppColors.chaputTransparent),
+                      cursorColor: AppColors.chaputTransparent,
                       enableInteractiveSelection: false,
                       showCursor: false,
                     ),
@@ -299,15 +302,15 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                   const SizedBox(height: 10),
 
                   if (_errorText != null) ...[
-                    Text(_errorText!, style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w700)),
+                    Text(_errorText!, style: const TextStyle(color: AppColors.chaputMaterialRed, fontSize: 13, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 10),
                   ] else
                     const SizedBox(height: 4),
 
                   if (isLocked) ...[
                     Text(
-                      'Tekrar denemek için ${_lockSeconds}s bekle',
-                      style: TextStyle(color: Colors.black.withOpacity(0.65), fontSize: 13),
+                      context.t('code.lock_wait', params: {'seconds': _lockSeconds.toString()}),
+                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.65), fontSize: 13),
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -317,8 +320,8 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                     child: ElevatedButton(
                       onPressed: (!isLocked && _code.length == 6 && !_verifying) ? _verify : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        disabledBackgroundColor: Colors.black.withOpacity(0.25),
+                        backgroundColor: AppColors.chaputBlack,
+                        disabledBackgroundColor: AppColors.chaputBlack.withOpacity(0.25),
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
@@ -326,9 +329,12 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                           ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite),
                       )
-                          : const Text('Verify', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                          : Text(
+                              context.t('code.verify'),
+                              style: const TextStyle(color: AppColors.chaputWhite, fontSize: 16, fontWeight: FontWeight.w800),
+                            ),
                     ),
                   ),
 
@@ -337,9 +343,11 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                   TextButton(
                     onPressed: canResend ? _resend : null,
                     child: Text(
-                      canResend ? 'Resend' : 'Resend in ${_resendSeconds}s',
+                      canResend
+                          ? context.t('code.resend')
+                          : context.t('code.resend_in', params: {'seconds': _resendSeconds.toString()}),
                       style: TextStyle(
-                        color: Colors.black.withOpacity(canResend ? 0.9 : 0.35),
+                        color: AppColors.chaputBlack.withOpacity(canResend ? 0.9 : 0.35),
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -369,10 +377,10 @@ class _StarPinRow extends StatelessWidget {
             height: 56,
             margin: EdgeInsets.only(left: i == 0 ? 0 : 10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
+              color: AppColors.chaputWhite.withOpacity(0.95),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: filled ? Colors.black.withOpacity(0.35) : Colors.black.withOpacity(0.12),
+                color: filled ? AppColors.chaputBlack.withOpacity(0.35) : AppColors.chaputBlack.withOpacity(0.12),
               ),
             ),
             child: Center(
@@ -381,7 +389,7 @@ class _StarPinRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: filled ? Colors.black : Colors.black.withOpacity(0.25),
+                  color: filled ? AppColors.chaputBlack : AppColors.chaputBlack.withOpacity(0.25),
                 ),
               ),
             ),

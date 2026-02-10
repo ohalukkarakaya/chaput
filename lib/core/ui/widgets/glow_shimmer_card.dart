@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
 
 /// ✅ Glass + shimmer border + glow
 /// ✅ Shimmer döngüsü bitince X ms bekler, sonra yeniden başlar.
@@ -15,7 +16,7 @@ class GlowShimmerCard extends StatefulWidget {
     // glass
     this.enableBlur = true,
     this.blurSigma = 16,
-    this.glassColor = Colors.white,
+    this.glassColor = AppColors.chaputWhite,
     this.glassOpacity = 0.18,
 
     // shimmer/border
@@ -94,12 +95,12 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
     final r = BorderRadius.circular(widget.radius);
 
     const shimmerColors = [
-      Color(0x00FFFFFF),
-      Color(0xFFB86BFF),
-      Color(0xFF7C3AED),
-      Color(0xFFFF4DFF),
-      Color(0xFFB86BFF),
-      Color(0x00FFFFFF),
+      AppColors.chaputTransparent,
+      AppColors.chaputViolet,
+      AppColors.chaputDeepPurple,
+      AppColors.chaputMagenta,
+      AppColors.chaputViolet,
+      AppColors.chaputTransparent,
     ];
 
     return AnimatedBuilder(
@@ -159,7 +160,7 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
                             stops: const [0.00, 0.20, 0.45, 0.60, 0.80, 1.00],
                           ).createShader(bounds);
                         },
-                        child: Container(color: Colors.white),
+                        child: Container(color: AppColors.chaputWhite),
                       ),
                     ),
                   ),
@@ -253,7 +254,7 @@ class _BorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..shader = gradient.createShader(rect)
-      ..color = Colors.white.withOpacity(glowOpacity);
+      ..color = AppColors.chaputWhite.withOpacity(glowOpacity);
 
     if (blurSigma > 0) {
       paint.maskFilter = MaskFilter.blur(BlurStyle.normal, blurSigma);

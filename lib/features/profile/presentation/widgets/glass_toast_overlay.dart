@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 class GlassToastOverlay extends StatefulWidget {
   const GlassToastOverlay({
@@ -89,10 +90,10 @@ class _GlassToastOverlayState extends State<GlassToastOverlay>
                           filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.55),
+                              color: AppColors.chaputBlack.withOpacity(0.55),
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.12),
+                                color: AppColors.chaputWhite.withOpacity(0.12),
                                 width: 1,
                               ),
                             ),
@@ -104,12 +105,12 @@ class _GlassToastOverlayState extends State<GlassToastOverlay>
                                     width: 34,
                                     height: 34,
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.10),
+                                      color: AppColors.chaputWhite.withOpacity(0.10),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
                                       widget.icon,
-                                      color: Colors.white.withOpacity(0.92),
+                                      color: AppColors.chaputWhite.withOpacity(0.92),
                                       size: 18,
                                     ),
                                   ),
@@ -120,7 +121,7 @@ class _GlassToastOverlayState extends State<GlassToastOverlay>
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        color: Colors.white,
+                                        color: AppColors.chaputWhite,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
                                         height: 1.2,

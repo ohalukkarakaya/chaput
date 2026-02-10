@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/i18n/app_localizations.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 class ChaputApp extends ConsumerWidget {
   const ChaputApp({super.key});
@@ -21,16 +22,16 @@ class ChaputApp extends ConsumerWidget {
         fontFamily: 'Qanelas',
         useMaterial3: true,
 
-        scaffoldBackgroundColor: Colors.white,
+        scaffoldBackgroundColor: AppColors.chaputWhite,
 
         colorScheme: const ColorScheme.light(
-          primary: Colors.black,
-          secondary: Colors.black,
-          surface: Colors.white,
-          background: Colors.white,
-          onBackground: Colors.black,
-          onSurface: Colors.black,
-          onPrimary: Colors.white,
+          primary: AppColors.chaputBlack,
+          secondary: AppColors.chaputBlack,
+          surface: AppColors.chaputWhite,
+          background: AppColors.chaputWhite,
+          onBackground: AppColors.chaputBlack,
+          onSurface: AppColors.chaputBlack,
+          onPrimary: AppColors.chaputWhite,
         )
       ),
       darkTheme: AppTheme.light(),

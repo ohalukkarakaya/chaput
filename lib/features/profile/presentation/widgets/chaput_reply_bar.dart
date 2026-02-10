@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import 'black_glass.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChaputReplyBar extends StatefulWidget {
   const ChaputReplyBar({
@@ -89,9 +92,9 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: AppColors.chaputWhite.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.12)),
+                    border: Border.all(color: AppColors.chaputWhite.withOpacity(0.12)),
                   ),
                   child: Row(
                     children: [
@@ -99,7 +102,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                         width: 3,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.6),
+                          color: AppColors.chaputWhite.withOpacity(0.6),
                           borderRadius: BorderRadius.circular(99),
                         ),
                       ),
@@ -113,7 +116,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
+                                color: AppColors.chaputWhite.withOpacity(0.9),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -124,7 +127,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
+                                color: AppColors.chaputWhite.withOpacity(0.6),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -136,17 +139,17 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                       GestureDetector(
                         onTap: widget.onClearReply,
                         child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.14),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.close, size: 14, color: Colors.white.withOpacity(0.8)),
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: AppColors.chaputWhite.withOpacity(0.14),
+                          shape: BoxShape.circle,
                         ),
+                        child: Icon(Icons.close, size: 14, color: AppColors.chaputWhite.withOpacity(0.8)),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
                 ),
               ),
             Row(
@@ -161,14 +164,14 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isWhisper ? Colors.white : Colors.white.withOpacity(0.12),
+                      color: isWhisper ? AppColors.chaputWhite : AppColors.chaputWhite.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.white.withOpacity(0.18)),
+                      border: Border.all(color: AppColors.chaputWhite.withOpacity(0.18)),
                     ),
                     child: Text(
-                      'Fısılda',
+                      context.t('chat.whisper_label'),
                       style: TextStyle(
-                        color: isWhisper ? Colors.black : Colors.white,
+                        color: isWhisper ? AppColors.chaputBlack : AppColors.chaputWhite,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -183,13 +186,13 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                     controller: _controller,
                     focusNode: _focusNode,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.chaputWhite,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                     decoration: InputDecoration(
-                      hintText: isWhisper ? 'Fısıltı mesajı...' : 'Mesaj yaz...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                      hintText: isWhisper ? context.t('chat.whisper_hint') : context.t('chat.message_input_hint'),
+                      hintStyle: TextStyle(color: AppColors.chaputWhite.withOpacity(0.4)),
                       border: InputBorder.none,
                     ),
                     minLines: 1,
@@ -202,7 +205,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
 
                 IconButton(
                   onPressed: _send,
-                  icon: const Icon(Icons.send, color: Colors.white),
+                  icon: const Icon(Icons.send, color: AppColors.chaputWhite),
                 ),
               ],
             ),

@@ -2,13 +2,15 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../constants/app_colors.dart';
+import '../../i18n/app_localizations.dart';
 import 'glass_cta_button.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class EmailCtaForm extends StatelessWidget {
   final TextEditingController controller;
-  final String label;
-  final String hint;
-  final String buttonText;
+  final String? hint;
+  final String? buttonText;
   final bool isLoading;
   final Future<void> Function() onSubmit;
   final bool enabled;
@@ -17,9 +19,8 @@ class EmailCtaForm extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onSubmit,
-    this.label = 'Email',
-    this.hint = 'email',
-    this.buttonText = 'Continue',
+    this.hint,
+    this.buttonText,
     this.isLoading = false,
     this.enabled = true,
   });
@@ -47,10 +48,10 @@ class EmailCtaForm extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 // 👇 beyaz cam hissi
-                color: Colors.white.withOpacity(0.72),
+                color: AppColors.chaputWhite.withOpacity(0.72),
                 borderRadius: BorderRadius.circular(_radius),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.55),
+                  color: AppColors.chaputWhite.withOpacity(0.55),
                 ),
               ),
               child: TextField(
@@ -64,13 +65,13 @@ class EmailCtaForm extends StatelessWidget {
                 },
                 decoration: InputDecoration(
                   border: InputBorder.none,
-                  hintText: hint,
+                  hintText: hint ?? context.t('common.email'),
                   hintStyle: TextStyle(
-                    color: Colors.black.withOpacity(0.45),
+                    color: AppColors.chaputBlack.withOpacity(0.45),
                   ),
                   prefixIcon: Icon(
                     Icons.mail_outline,
-                    color: Colors.black.withOpacity(0.55),
+                    color: AppColors.chaputBlack.withOpacity(0.55),
                   ),
                   prefixIconConstraints:
                   const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -78,7 +79,7 @@ class EmailCtaForm extends StatelessWidget {
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 style: const TextStyle(
-                  color: Colors.black,
+                  color: AppColors.chaputBlack,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -90,7 +91,7 @@ class EmailCtaForm extends StatelessWidget {
         const SizedBox(height: 14),
 
         GlassCtaButton(
-          text: buttonText,
+          text: buttonText ?? context.t('common.continue'),
           isLoading: isLoading,
           enabled: !isLoading,
           height: _buttonHeight,

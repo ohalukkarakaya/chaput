@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/config/env.dart';
+import '../../../../core/i18n/app_localizations.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChaputAdsWatchScreen extends StatefulWidget {
   const ChaputAdsWatchScreen({
@@ -68,7 +71,7 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
           setState(() {
             _loading = false;
             _watching = false;
-            _error = 'Reklam yüklenemedi. Lütfen tekrar dene.';
+            _error = context.t('ads.load_failed');
           });
         },
       ),
@@ -81,7 +84,7 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
     final ok = await widget.onComplete();
     if (!mounted) return;
     if (!ok) {
-      setState(() => _error = 'Ödül doğrulanamadı.');
+      setState(() => _error = context.t('ads.reward_verify_failed'));
       return;
     }
     Navigator.pop(context, true);
@@ -115,7 +118,7 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
         if (!mounted) return;
         setState(() {
           _watching = false;
-          _error = 'Reklam gösterilemedi. Lütfen tekrar dene.';
+          _error = context.t('ads.show_failed');
         });
       },
     );
@@ -135,12 +138,12 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.chaputBlack,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.chaputBlack,
+        foregroundColor: AppColors.chaputWhite,
         elevation: 0,
-        title: const Text('Reklam İzle'),
+        title: Text(context.t('ads.watch_title')),
       ),
       body: SafeArea(
         child: Padding(
@@ -149,9 +152,12 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Chaput hakkı kazanmak için $widget.requiredAds reklam izlemen gerekiyor.',
+                context.t(
+                  'ads.watch_desc',
+                  params: {'count': widget.requiredAds.toString()},
+                ),
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.chaputWhite,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   height: 1.3,
@@ -161,9 +167,9 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: AppColors.chaputWhite.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withOpacity(0.12)),
+                  border: Border.all(color: AppColors.chaputWhite.withOpacity(0.12)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,9 +178,15 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            'İzlenen: $_watched / ${widget.requiredAds}',
+                            context.t(
+                              'ads.watched_progress',
+                              params: {
+                                'watched': _watched.toString(),
+                                'total': widget.requiredAds.toString(),
+                              },
+                            ),
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.chaputWhite,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -186,7 +198,7 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.chaputWhite),
                             ),
                           ),
                       ],
@@ -197,8 +209,8 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                       child: LinearProgressIndicator(
                         value: widget.requiredAds == 0 ? 0 : _watched / widget.requiredAds,
                         minHeight: 6,
-                        backgroundColor: Colors.white.withOpacity(0.12),
-                        color: Colors.white,
+                        backgroundColor: AppColors.chaputWhite.withOpacity(0.12),
+                        color: AppColors.chaputWhite,
                       ),
                     ),
                     if (_error != null) ...[
@@ -221,14 +233,14 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                 child: ElevatedButton(
                   onPressed: null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: AppColors.chaputWhite,
+                    foregroundColor: AppColors.chaputBlack,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   child: Text(
                     _remaining == 0
-                        ? 'Tamamlandı'
-                        : (_loading ? 'Reklam yükleniyor...' : 'Reklamlar izleniyor...'),
+                        ? context.t('ads.completed')
+                        : (_loading ? context.t('ads.loading') : context.t('ads.watching')),
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -242,9 +254,9 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                     _canceled = true;
                     Navigator.pop(context, false);
                   },
-                  child: const Text(
-                    'Vazgeç',
-                    style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700),
+                  child: Text(
+                    context.t('common.cancel'),
+                    style: const TextStyle(color: AppColors.chaputWhite70, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),

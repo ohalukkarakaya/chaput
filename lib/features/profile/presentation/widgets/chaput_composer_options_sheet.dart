@@ -2,6 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 class ComposerOptionsSheet extends StatelessWidget {
   const ComposerOptionsSheet({
     super.key,
@@ -32,8 +35,8 @@ class ComposerOptionsSheet extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.70),
-            border: Border.all(color: Colors.white.withOpacity(0.10)),
+            color: AppColors.chaputBlack.withOpacity(0.70),
+            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Padding(
@@ -47,16 +50,16 @@ class ComposerOptionsSheet extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _ComposerOptionTile(
-                  title: 'Kimliğini gizle',
-                  subtitle: 'Bu chaput anonim görünür.',
+                  title: context.t('chat.option_anon_title'),
+                  subtitle: context.t('chat.option_anon_sub'),
                   value: anonEnabled,
                   onChanged: onToggleAnon,
                   onBlocked: onPaywallAnon,
                 ),
                 const SizedBox(height: 6),
                 _ComposerOptionTile(
-                  title: 'Öne çıkar',
-                  subtitle: 'Daha görünür olur (plan/kredi gerekebilir).',
+                  title: context.t('chat.option_highlight_title'),
+                  subtitle: context.t('chat.option_highlight_sub'),
                   value: highlightEnabled,
                   onChanged: onToggleHighlight,
                   onBlocked: onPaywallBoost,
@@ -96,7 +99,7 @@ class _ComposerOptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.chaputTransparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: _handleToggle,
@@ -111,7 +114,7 @@ class _ComposerOptionTile extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.chaputWhite,
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
@@ -120,7 +123,7 @@ class _ComposerOptionTile extends StatelessWidget {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: AppColors.chaputWhite70,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),

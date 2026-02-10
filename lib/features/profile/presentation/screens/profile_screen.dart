@@ -48,6 +48,8 @@ import '../../../social/application/follow_list_controller.dart';
 import '../widgets/subscription_replace_sheet.dart';
 import '../widgets/chaput_thread_sheet.dart';
 import '../widgets/chaput_native_ad_card.dart';
+import 'package:chaput/core/constants/app_colors.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -627,9 +629,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
 
       // Lights
-      threeJsRef.scene.add(three.AmbientLight(0xffffff, 0.75));
+      threeJsRef.scene.add(three.AmbientLight(AppColors.chaputWhiteHex, 0.75));
 
-      final dir = three.DirectionalLight(0xffffff, 0.95);
+      final dir = three.DirectionalLight(AppColors.chaputWhiteHex, 0.95);
       dir.position.setValues(2.5, 6.0, 3.5);
       dir.castShadow = true;
 
@@ -899,7 +901,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.chaputTransparent,
       isScrollControlled: true,
       builder: (_) {
         return Padding(
@@ -1037,7 +1039,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _applyBillingResult(res);
       return true;
     } catch (_) {
-      _showGlassToast('Satın alma doğrulanamadı', icon: Icons.error_outline);
+      _showGlassToast(context.t('profile.toast.purchase_verify_failed'), icon: Icons.error_outline);
       return false;
     }
   }
@@ -1079,7 +1081,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         : null;
     final res = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.chaputTransparent,
       isScrollControlled: true,
       builder: (_) => SubscriptionReplaceSheet(
         untilText: untilText,
@@ -1091,7 +1093,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   Future<bool> _openAdOfferSheet({required int requiredAds, required bool canWatch}) async {
     final res = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.chaputTransparent,
       isScrollControlled: true,
       builder: (_) => ChaputAdOfferSheet(
         requiredAds: requiredAds,
@@ -1184,7 +1186,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               curve: Curves.easeOutCubic,
               builder: (ctx, t, _) {
                 return Container(
-                  color: Colors.black.withOpacity(0.12 * t),
+                  color: AppColors.chaputBlack.withOpacity(0.12 * t),
                 );
               },
             ),
@@ -1339,7 +1341,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (freshHidden > 0) {
       final ok = await _hideNow();
       if (!ok) {
-        _showGlassToast('Chaput gizlenemedi', icon: Icons.error_outline);
+        _showGlassToast(context.t('profile.toast.chaput_hide_failed'), icon: Icons.error_outline);
         return;
       }
 
@@ -1349,7 +1351,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           .read(chaputThreadsControllerProvider(chaputArgs).notifier)
           .updateThreadKind(thread.threadId, 'HIDDEN');
 
-      _showGlassToast('Chaput gizlendi', icon: Icons.lock_outline);
+      _showGlassToast(context.t('profile.toast.chaput_hidden'), icon: Icons.lock_outline);
       return;
     }
 
@@ -1363,7 +1365,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     // Satın aldıktan sonra tekrar dene (istersen tekrar fetch yap)
     final ok = await _hideNow();
     if (!ok) {
-      _showGlassToast('Chaput gizlenemedi', icon: Icons.error_outline);
+      _showGlassToast(context.t('profile.toast.chaput_hide_failed'), icon: Icons.error_outline);
       return;
     }
 
@@ -1374,7 +1376,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         .read(chaputThreadsControllerProvider(chaputArgs).notifier)
         .updateThreadKind(thread.threadId, 'HIDDEN');
 
-    _showGlassToast('Chaput gizlendi', icon: Icons.lock_outline);
+    _showGlassToast(context.t('profile.toast.chaput_hidden'), icon: Icons.lock_outline);
   }
 
   Future<void> _sendChaputMessage({
@@ -1386,12 +1388,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }) async {
     if (_chaputSendLoading) return;
     if (profileId.length != 32) {
-      _showGlassToast('Profil bulunamadı', icon: Icons.error_outline);
+      _showGlassToast(context.t('profile.toast.profile_not_found'), icon: Icons.error_outline);
       return;
     }
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) {
-      _showGlassToast('Önce mesajını yaz', icon: Icons.edit_outlined);
+      _showGlassToast(context.t('profile.toast.enter_message'), icon: Icons.edit_outlined);
       return;
     }
 
@@ -1446,14 +1448,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _chaputThreadCreated = true;
       _msgCtrl.clear();
       _closeComposer();
-      _showGlassToast('Chaput gönderildi', icon: Icons.check_circle_outline);
+      _showGlassToast(context.t('profile.toast.chaput_sent'), icon: Icons.check_circle_outline);
       if (_decisionProfileId != null) {
         ref
             .read(chaputDecisionControllerProvider(_decisionProfileId!).notifier)
             .fetchDecision();
       }
     } catch (e) {
-      _showGlassToast('Chaput gönderilemedi', icon: Icons.error_outline);
+      _showGlassToast(context.t('profile.toast.chaput_send_failed'), icon: Icons.error_outline);
     } finally {
       if (mounted) {
         setState(() => _chaputSendLoading = false);
@@ -1468,7 +1470,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required LiteUser? targetUser,
   }) async {
     if (threadIdHex.length != 32) {
-      _showGlassToast('Chaput bulunamadı', icon: Icons.error_outline);
+      _showGlassToast(context.t('profile.toast.chaput_not_found'), icon: Icons.error_outline);
       return;
     }
     final api = ref.read(chaputApiProvider);
@@ -1498,38 +1500,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (_decisionProfileId != null) {
         ref.read(chaputDecisionControllerProvider(profileIdHex).notifier).fetchDecision();
       }
-      _showGlassToast('Chaput kurtarıldı', icon: Icons.check_circle_outline);
+      _showGlassToast(context.t('profile.toast.chaput_revived'), icon: Icons.check_circle_outline);
     } catch (e) {
-      _showGlassToast('Chaput kurtarılamadı', icon: Icons.error_outline);
+      _showGlassToast(context.t('profile.toast.chaput_revive_failed'), icon: Icons.error_outline);
     }
   }
 
 
   void _onOptionsEmptyTap() {
-    _showGlassToast('Önce mesajını yaz', icon: Icons.edit_outlined);
+    _showGlassToast(context.t('profile.toast.enter_message'), icon: Icons.edit_outlined);
   }
 
   Future<void> _handleBindPressed({required String profileId}) async {
     if (_chaputThreadCreated || _composerOpen) return;
     if (profileId.length != 32) {
-      _showGlassToast('Profil bulunamadı', icon: Icons.error_outline);
+      _showGlassToast(context.t('profile.toast.profile_not_found'), icon: Icons.error_outline);
       return;
     }
     if (_decisionProfileId == null) {
-      _showGlassToast('Chaput hakların yükleniyor', icon: Icons.hourglass_empty);
+      _showGlassToast(context.t('profile.toast.chaput_rights_loading'), icon: Icons.hourglass_empty);
       return;
     }
     if (!_decisionLoaded) {
-      _showGlassToast('Chaput hakların yükleniyor', icon: Icons.hourglass_empty);
+      _showGlassToast(context.t('profile.toast.chaput_rights_loading'), icon: Icons.hourglass_empty);
       return;
     }
     if (_decisionHasThread) {
-      _showGlassToast('Bu kullanıcıyla zaten chaput var', icon: Icons.chat_bubble_outline);
+      _showGlassToast(context.t('profile.toast.chaput_exists'), icon: Icons.chat_bubble_outline);
       return;
     }
 
     if (!_decisionCanStart || _decisionPath == 'FORBIDDEN') {
-      _showGlassToast('Bu kullanıcıyla chaput başlatamazsın', icon: Icons.block);
+      _showGlassToast(context.t('profile.toast.chaput_cannot_start'), icon: Icons.block);
       return;
     }
 
@@ -1580,7 +1582,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final effectivePlanPeriod = _planPeriod;
     return showModalBottomSheet<PaywallPurchase>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.chaputTransparent,
       isScrollControlled: true,
       useSafeArea: false,
       builder: (_) => FakePaywallSheet(
@@ -1820,7 +1822,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _origMaterials.putIfAbsent(obj, () => obj.material);
 
         final black = three.MeshBasicMaterial();
-        black.color = three_math.Color.fromHex32(0xFF000000);
+        black.color = three_math.Color.fromHex32(AppColors.chaputBlack.value);
 
         obj.material = black;
       });
@@ -2136,7 +2138,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
 
     final preset = (tid == null) ? null : TreeCatalog.resolve(tid);
-    final bg = Color(preset?.bgColor ?? 0xFF000000);
+    final bg = Color(preset?.bgColor ?? AppColors.chaputBlack.value);
 
     final showLoading = st.isLoading || (tid != null && !_threeReady && _threeError == null);
 
@@ -2505,7 +2507,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: Material(
-                            color: Colors.white.withOpacity(0.35),
+                            color: AppColors.chaputWhite.withOpacity(0.35),
                             shape: const CircleBorder(),
                             child: InkWell(
                               onTap: () => Navigator.of(context).pop(),
@@ -2514,7 +2516,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 width: 44,
                                 height: 44,
                                 child: Center(
-                                  child: Icon(Icons.chevron_left, size: 30, color: Colors.black),
+                                  child: Icon(Icons.chevron_left, size: 30, color: AppColors.chaputBlack),
                                 ),
                               ),
                             ),
@@ -2540,7 +2542,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: Material(
-                        color: Colors.white.withOpacity(0.35),
+                        color: AppColors.chaputWhite.withOpacity(0.35),
                         shape: const CircleBorder(),
                         child: InkWell(
                           onTap: _toggleProfileCard,
@@ -2557,7 +2559,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                             ? profilePhotoUrl
                                             : defaultAvatar,
                                       )
-                                    : const ColoredBox(color: Colors.transparent),
+                                    : const ColoredBox(color: AppColors.chaputTransparent),
                               ),
                             ),
                           ),
@@ -2610,9 +2612,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                     filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.35),
+                                        color: AppColors.chaputWhite.withOpacity(0.35),
                                         border: Border.all(
-                                          color: Colors.white.withOpacity(0.25),
+                                          color: AppColors.chaputWhite.withOpacity(0.25),
                                           width: 1,
                                         ),
                                       ),
@@ -2641,7 +2643,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                 ? profilePhotoUrl
                                                 : defaultAvatar,
                                           )
-                                              : const ColoredBox(color: Colors.transparent),
+                                              : const ColoredBox(color: AppColors.chaputTransparent),
                                         ),
                                       ),
                                     ),
@@ -2668,7 +2670,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                     ),
                                                     Text(
                                                       '@$username',
-                                                      style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.65)),
+                                                      style: TextStyle(fontSize: 13, color: AppColors.chaputBlack.withOpacity(0.65)),
                                                     ),
                                                     const SizedBox(height: 6),
                                                     Wrap(
@@ -2677,11 +2679,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                       children: [
                                                         ProfileStatChip(
                                                           value: effectiveFollowerCount,
-                                                          label: 'Takipçi',
+                                                          label: context.t('profile.followers_label'),
                                                           onTap: () {
                                                             if (heRestrictedMe || (isPrivateTarget && !effectiveIsFollowing && !isMe)) {
                                                               ScaffoldMessenger.of(context).showSnackBar(
-                                                                const SnackBar(content: Text('Bu listeyi göremezsin')),
+                                                                SnackBar(content: Text(context.t('profile.follow_list_forbidden'))),
                                                               );
                                                               return;
                                                             }
@@ -2691,7 +2693,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                                   username: username,
                                                                   kind: FollowListKind.followers,
                                                                   isMe: isMe,
-                                                                  title: 'Takipçiler',
+                                                                  title: context.t('profile.followers_title'),
                                                                 ),
                                                               ),
                                                             );
@@ -2699,11 +2701,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                         ),
                                                         ProfileStatChip(
                                                           value: followingCount,
-                                                          label: 'Takip',
+                                                          label: context.t('profile.following_label'),
                                                           onTap: () {
                                                             if (heRestrictedMe || (isPrivateTarget && !effectiveIsFollowing && !isMe)) {
                                                               ScaffoldMessenger.of(context).showSnackBar(
-                                                                const SnackBar(content: Text('Bu listeyi göremezsin')),
+                                                                SnackBar(content: Text(context.t('profile.follow_list_forbidden'))),
                                                               );
                                                               return;
                                                             }
@@ -2713,7 +2715,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                                   username: username,
                                                                   kind: FollowListKind.following,
                                                                   isMe: isMe,
-                                                                  title: 'Takip',
+                                                                  title: context.t('profile.following_title'),
                                                                 ),
                                                               ),
                                                             );
@@ -2733,15 +2735,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                   },
                                                   style: TextButton.styleFrom(
                                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                    backgroundColor: Colors.black,
-                                                    foregroundColor: Colors.white,
+                                                    backgroundColor: AppColors.chaputBlack,
+                                                    foregroundColor: AppColors.chaputWhite,
                                                     shape: RoundedRectangleBorder(
                                                       borderRadius: BorderRadius.circular(12),
                                                     ),
                                                   ),
-                                                  child: const Text(
-                                                    'Ayarlar',
-                                                    style: TextStyle(fontSize: 12),
+                                                  child: Text(
+                                                    context.t('profile.settings'),
+                                                    style: const TextStyle(fontSize: 12),
                                                   ),
                                                 )
                                               else
@@ -2812,21 +2814,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                       style: TextButton.styleFrom(
                                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                                         backgroundColor: isBlocked
-                                                            ? Colors.red.shade200
+                                                            ? AppColors.chaputRed200
                                                             : requestAlreadySent
-                                                            ? Colors.blue
+                                                            ? AppColors.chaputMaterialBlue
                                                             : effectiveIsFollowing
-                                                            ? Colors.grey.shade300
-                                                            : Colors.black,
+                                                            ? AppColors.chaputGrey300
+                                                            : AppColors.chaputBlack,
                                                         foregroundColor: requestAlreadySent
-                                                            ? Colors.white
-                                                            : (effectiveIsFollowing ? Colors.black : Colors.white),
+                                                            ? AppColors.chaputWhite
+                                                            : (effectiveIsFollowing ? AppColors.chaputBlack : AppColors.chaputWhite),
 
                                                         // disabled iken de beyaz kalsın
-                                                        disabledForegroundColor: requestAlreadySent ? Colors.white : Colors.white70,
+                                                        disabledForegroundColor: requestAlreadySent ? AppColors.chaputWhite : AppColors.chaputWhite70,
 
                                                         // disabled iken arka plan da mavi kalsın
-                                                        disabledBackgroundColor: requestAlreadySent ? Colors.blue : Colors.grey.shade300,
+                                                        disabledBackgroundColor: requestAlreadySent ? AppColors.chaputMaterialBlue : AppColors.chaputGrey300,
 
                                                         shape: RoundedRectangleBorder(
                                                           borderRadius: BorderRadius.circular(12),
@@ -2840,8 +2842,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                       )
                                                           : Text(
                                                         requestAlreadySent
-                                                            ? 'İstek Gönderildi'
-                                                            : (effectiveIsFollowing ? 'Takibi Bırak' : 'Takip Et'),
+                                                            ? context.t('profile.follow_request_sent')
+                                                            : (effectiveIsFollowing
+                                                                ? context.t('profile.unfollow')
+                                                                : context.t('profile.follow')),
                                                         style: const TextStyle(fontSize: 12),
                                                       ),
                                                     ),
@@ -2893,13 +2897,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             width: 10,
                             height: 10,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppColors.chaputWhite,
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
                                   blurRadius: 8,
                                   spreadRadius: 1,
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: AppColors.chaputWhite.withOpacity(0.6),
                                 ),
                               ],
                             ),
@@ -3143,7 +3147,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       if (afterWhisper > 0) {
                         setState(() => _replyWhisperMode = true);
                       } else {
-                        _showGlassToast('Fısılda hakkı gelmedi', icon: Icons.error_outline);
+                        _showGlassToast(context.t('profile.toast.whisper_unavailable'), icon: Icons.error_outline);
                       }
                     },
 
@@ -3297,21 +3301,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                               ? Icons.lock_clock
                                               : (_decisionPath == 'NEED_AD' ? Icons.play_circle : Icons.draw),
                                       size: 18,
-                                      color: Colors.white,
+                                      color: AppColors.chaputWhite,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
                                       decisionHasArchived
-                                          ? "Arşivden Kurtar"
+                                          ? context.t('profile.bind.restore_archive')
                                           : showBindExhausted
-                                              ? "Bugün Chaput Hakkın Bitti"
+                                              ? context.t('profile.bind.rights_exhausted')
                                               : (_decisionPath == 'NEED_AD'
-                                                  ? "Reklamla Chaput Bağla"
-                                                  : "Bir Chaput Bağla"),
+                                                  ? context.t('profile.bind.watch_ad')
+                                                  : context.t('profile.bind.start_one')),
                                       style: const TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
-                                        color: Colors.white,
+                                        color: AppColors.chaputWhite,
                                       ),
                                     ),
                                   ],

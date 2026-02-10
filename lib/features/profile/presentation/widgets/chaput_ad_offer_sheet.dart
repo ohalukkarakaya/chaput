@@ -2,7 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import 'sheet_handle.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChaputAdOfferSheet extends StatelessWidget {
   const ChaputAdOfferSheet({
@@ -33,9 +36,9 @@ class ChaputAdOfferSheet extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 14),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.78),
+                color: AppColors.chaputBlack.withOpacity(0.78),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white.withOpacity(0.10)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -49,10 +52,10 @@ class ChaputAdOfferSheet extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Reklamla Hak Kazan',
+                              Text(
+                                context.t('ads.offer_title'),
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.chaputWhite,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -60,10 +63,13 @@ class ChaputAdOfferSheet extends StatelessWidget {
                               const SizedBox(height: 6),
                               Text(
                                 canWatch
-                                    ? 'Arka arkaya $safeRequired reklam izleyerek 1 chaput hakkı kazanabilirsin.'
-                                    : 'Bugün reklam hakkın doldu. Yarın tekrar deneyebilirsin.',
+                                    ? context.t(
+                                        'ads.offer_desc',
+                                        params: {'count': safeRequired.toString()},
+                                      )
+                                    : context.t('ads.offer_desc_unavailable'),
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.72),
+                                  color: AppColors.chaputWhite.withOpacity(0.72),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   height: 1.25,
@@ -80,10 +86,10 @@ class ChaputAdOfferSheet extends StatelessWidget {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.08),
+                              color: AppColors.chaputWhite.withOpacity(0.08),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.close, size: 20, color: Colors.white),
+                            child: const Icon(Icons.close, size: 20, color: AppColors.chaputWhite),
                           ),
                         ),
                       ],
@@ -100,13 +106,13 @@ class ChaputAdOfferSheet extends StatelessWidget {
                             child: OutlinedButton(
                               onPressed: () => Navigator.pop(context, false),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(color: Colors.white.withOpacity(0.25)),
+                                foregroundColor: AppColors.chaputWhite,
+                                side: BorderSide(color: AppColors.chaputWhite.withOpacity(0.25)),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
-                              child: const Text(
-                                'Vazgeç',
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                              child: Text(
+                                context.t('common.cancel'),
+                                style: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                             ),
                           ),
@@ -118,14 +124,14 @@ class ChaputAdOfferSheet extends StatelessWidget {
                             child: ElevatedButton(
                               onPressed: canWatch ? () => Navigator.pop(context, true) : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
+                                backgroundColor: AppColors.chaputWhite,
+                                foregroundColor: AppColors.chaputBlack,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                 elevation: 0,
                               ),
-                              child: const Text(
-                                'Reklam İzle',
-                                style: TextStyle(fontWeight: FontWeight.w900),
+                              child: Text(
+                                context.t('ads.watch_title'),
+                                style: const TextStyle(fontWeight: FontWeight.w900),
                               ),
                             ),
                           ),

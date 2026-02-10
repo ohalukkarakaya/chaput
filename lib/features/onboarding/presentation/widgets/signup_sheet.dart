@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:chaput/core/constants/app_colors.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class SignupDraft {
   final String gender; // "M" | "F"
@@ -25,7 +27,7 @@ Future<SignupDraft?> showSignupSheet({
     isScrollControlled: true,
     isDismissible: true, // ✅ kapatılabilir
     enableDrag: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.chaputTransparent,
     builder: (_) => _SignupSheet(email: email),
   );
 }
@@ -116,9 +118,9 @@ class _SignupSheetState extends State<_SignupSheet> {
           child: Container(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.88),
+              color: AppColors.chaputWhite.withOpacity(0.88),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-              border: Border.all(color: Colors.white.withOpacity(0.6)),
+              border: Border.all(color: AppColors.chaputWhite.withOpacity(0.6)),
             ),
             child: SafeArea(
               top: false,
@@ -136,7 +138,7 @@ class _SignupSheetState extends State<_SignupSheet> {
                             width: 44,
                             height: 5,
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.12),
+                              color: AppColors.chaputBlack.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
@@ -149,19 +151,19 @@ class _SignupSheetState extends State<_SignupSheet> {
                       ),
                       const SizedBox(height: 6),
 
-                      const Text(
-                        'Hesap oluştur',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      Text(
+                        context.t('signup.title'),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         widget.email,
-                        style: TextStyle(color: Colors.black.withOpacity(0.6)),
+                        style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.6)),
                       ),
                       const SizedBox(height: 14),
 
                       // Gender selector
-                      const Text('Cinsiyet', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text(context.t('signup.gender'), style: const TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -169,7 +171,7 @@ class _SignupSheetState extends State<_SignupSheet> {
                             child: _GenderButton(
                               selected: _gender == 'M',
                               icon: Icons.male,
-                              label: 'Erkek',
+                              label: context.t('signup.gender_male'),
                               onTap: () => setState(() => _gender = 'M'),
                             ),
                           ),
@@ -178,7 +180,7 @@ class _SignupSheetState extends State<_SignupSheet> {
                             child: _GenderButton(
                               selected: _gender == 'F',
                               icon: Icons.female,
-                              label: 'Kadın',
+                              label: context.t('signup.gender_female'),
                               onTap: () => setState(() => _gender = 'F'),
                             ),
                           ),
@@ -189,14 +191,14 @@ class _SignupSheetState extends State<_SignupSheet> {
 
                       TextFormField(
                         controller: _fullName,
-                        decoration: const InputDecoration(
-                          labelText: 'Ad Soyad',
+                        decoration: InputDecoration(
+                          labelText: context.t('signup.full_name'),
                           border: OutlineInputBorder(),
                         ),
                         validator: (v) {
                           final s = (v ?? '').trim();
-                          if (s.isEmpty) return 'Ad soyad gerekli';
-                          if (!_isTwoWords(s)) return 'En az iki kelime olmalı';
+                          if (s.isEmpty) return context.t('signup.full_name_required');
+                          if (!_isTwoWords(s)) return context.t('signup.full_name_two_words');
                           return null;
                         },
                       ),
@@ -206,15 +208,15 @@ class _SignupSheetState extends State<_SignupSheet> {
                       TextFormField(
                         controller: _username,
                         textInputAction: TextInputAction.done,
-                        decoration: const InputDecoration(
-                          labelText: 'Kullanıcı adı',
-                          helperText: '3-20 karakter: a-z, 0-9, _ veya .',
+                        decoration: InputDecoration(
+                          labelText: context.t('signup.username'),
+                          helperText: context.t('signup.username_hint'),
                           border: OutlineInputBorder(),
                         ),
                         validator: (v) {
                           final s = (v ?? '').trim().toLowerCase();
-                          if (s.isEmpty) return 'Kullanıcı adı gerekli';
-                          if (!_validUsername(s)) return 'Geçersiz kullanıcı adı';
+                          if (s.isEmpty) return context.t('signup.username_required');
+                          if (!_validUsername(s)) return context.t('signup.username_invalid');
                           return null;
                         },
                       ),
@@ -225,8 +227,10 @@ class _SignupSheetState extends State<_SignupSheet> {
                         onPressed: _pickBirthDate,
                         child: Text(
                           _birthDate == null
-                              ? 'Doğum tarihi seç'
-                              : 'Doğum tarihi: ${_birthDate!.toIso8601String().substring(0, 10)}',
+                              ? context.t('signup.birthdate_pick')
+                              : context.t('signup.birthdate_selected', params: {
+                                  'date': _birthDate!.toIso8601String().substring(0, 10),
+                                }),
                         ),
                       ),
 
@@ -237,15 +241,15 @@ class _SignupSheetState extends State<_SignupSheet> {
                         child: ElevatedButton(
                           onPressed: _submit,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
+                            backgroundColor: AppColors.chaputBlack,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          child: const Text(
-                            'Devam',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                          child: Text(
+                            context.t('common.continue'),
+                            style: const TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w800),
                           ),
                         ),
                       ),
@@ -282,19 +286,19 @@ class _GenderButton extends StatelessWidget {
       child: Container(
         height: 56,
         decoration: BoxDecoration(
-          color: selected ? Colors.black : Colors.white,
+          color: selected ? AppColors.chaputBlack : AppColors.chaputWhite,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withOpacity(0.12)),
+          border: Border.all(color: AppColors.chaputBlack.withOpacity(0.12)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: selected ? Colors.white : Colors.black),
+            Icon(icon, color: selected ? AppColors.chaputWhite : AppColors.chaputBlack),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: selected ? Colors.white : Colors.black,
+                color: selected ? AppColors.chaputWhite : AppColors.chaputBlack,
                 fontWeight: FontWeight.w800,
               ),
             ),

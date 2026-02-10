@@ -15,6 +15,7 @@ import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'black_glass.dart';
 import 'chaput_native_ad_card.dart';
 import 'sheet_handle.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChaputThreadSheet extends ConsumerWidget {
   const ChaputThreadSheet({
@@ -120,7 +121,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                           ? LiteUser(
                               id: otherId,
                               username: null,
-                              fullName: 'Anonim Kullanıcı',
+                              fullName: ctx.t('chat.anonymous_user'),
                               bio: null,
                               defaultAvatar: rawOtherUser?.defaultAvatar ?? ownerUser?.defaultAvatar ?? '',
                               profilePhotoKey: null,
@@ -283,9 +284,9 @@ class _SheetPage extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.80),
+                color: AppColors.chaputBlack.withOpacity(0.80),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                border: Border.all(color: Colors.white.withOpacity(0.10)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
               ),
               child: compact
                   ? SizedBox(
@@ -311,7 +312,7 @@ class _SheetPage extends StatelessWidget {
                                     isHidden: thread.kind == 'HIDDEN',
                                     isParticipant: isParticipant,
                                     otherName: (thread.kind == 'HIDDEN' && !isParticipant)
-                                        ? 'Anonim Kullanıcı'
+                                        ? context.t('chat.anonymous_user')
                                         : (otherUser?.fullName ?? ''),
                                     otherUsername:
                                         (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
@@ -414,7 +415,7 @@ class _ThreadPage extends ConsumerWidget {
     final viewerIsStarter = thread.starterId == viewerId;
     final isPending = thread.state == 'PENDING';
 
-    final otherName = (isHidden && !isParticipant) ? 'Anonim Kullanıcı' : (otherUser?.fullName ?? '');
+    final otherName = (isHidden && !isParticipant) ? context.t('chat.anonymous_user') : (otherUser?.fullName ?? '');
     final otherUsername = (isHidden && !isParticipant) ? null : otherUser?.username;
     final canReply = isParticipant && (!isPending || !viewerIsStarter);
 
@@ -583,7 +584,7 @@ class _ThreadHeader extends StatelessWidget {
                 Text(
                   otherName,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.chaputWhite,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
@@ -592,16 +593,16 @@ class _ThreadHeader extends StatelessWidget {
                   Text(
                     '@$otherUsername',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.65),
+                      color: AppColors.chaputWhite.withOpacity(0.65),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                if ((otherUsername == null || otherUsername!.isEmpty) && otherName == 'Anonim Kullanıcı')
+                if ((otherUsername == null || otherUsername!.isEmpty) && isHidden && !isParticipant)
                   Text(
-                    'Bu chaputun kullanıcısı gizlidir',
+                    context.t('chat.hidden_user_desc'),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.55),
+                      color: AppColors.chaputWhite.withOpacity(0.55),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -615,14 +616,14 @@ class _ThreadHeader extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: canMakeHidden ? Colors.white : Colors.white.withOpacity(0.12),
+                  color: canMakeHidden ? AppColors.chaputWhite : AppColors.chaputWhite.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
                 ),
                 child: Text(
-                  'Gizle',
+                  context.t('chat.hide'),
                   style: TextStyle(
-                    color: canMakeHidden ? Colors.black : Colors.white,
+                    color: canMakeHidden ? AppColors.chaputBlack : AppColors.chaputWhite,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -633,14 +634,14 @@ class _ThreadHeader extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
+                color: AppColors.chaputWhite.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
               ),
               child: const Icon(
                 Icons.lock,
                 size: 14,
-                color: Colors.white,
+                color: AppColors.chaputWhite,
               ),
             ),
         ],
@@ -749,7 +750,7 @@ class ChatComposerAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return CircleAvatar(
       radius: 16,
-      backgroundColor: Colors.white.withOpacity(0.05),
+      backgroundColor: AppColors.chaputWhite.withOpacity(0.05),
       backgroundImage: null,
       child: SizedBox(
         width: 32,
@@ -903,8 +904,8 @@ class _MessagesListState extends State<_MessagesList> {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'likes',
-      barrierColor: Colors.black.withOpacity(0.35),
+      barrierLabel: context.t('chat.likes_label'),
+      barrierColor: AppColors.chaputBlack.withOpacity(0.35),
       transitionDuration: const Duration(milliseconds: 180),
       pageBuilder: (ctx, a1, a2) {
         return _MessageLikesDialog(
@@ -926,13 +927,13 @@ class _MessagesListState extends State<_MessagesList> {
   Widget build(BuildContext context) {
     final items = widget.state.items;
     if (widget.state.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return const Center(child: CircularProgressIndicator(color: AppColors.chaputWhite));
     }
     if (items.isEmpty) {
       return Center(
         child: Text(
-          'Henüz mesaj yok',
-          style: TextStyle(color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.w700),
+          context.t('chat.no_messages'),
+          style: TextStyle(color: AppColors.chaputWhite.withOpacity(0.6), fontWeight: FontWeight.w700),
         ),
       );
     }
@@ -1148,14 +1149,14 @@ class _MessageGroupBubble extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: AppColors.chaputWhite.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: Colors.white.withOpacity(0.16)),
+                  border: Border.all(color: AppColors.chaputWhite.withOpacity(0.16)),
                 ),
                 child: Text(
                   dayLabel!,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: AppColors.chaputWhite.withOpacity(0.8),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.2,
@@ -1353,11 +1354,11 @@ class _MessageBubble extends StatelessWidget {
     final isWhisperHidden = message.kind == 'WHISPER_HIDDEN';
     final isWhisper = message.kind == 'WHISPER';
     final whisperBg = AppColors.chaputLightBlue;
-    final whisperFg = Colors.black;
+    final whisperFg = AppColors.chaputBlack;
     final bg = isWhisper
         ? whisperBg
-        : (isMine ? Colors.white : Colors.white.withOpacity(0.12));
-    final fg = isWhisper ? whisperFg : (isMine ? Colors.black : Colors.white);
+        : (isMine ? AppColors.chaputWhite : AppColors.chaputWhite.withOpacity(0.12));
+    final fg = isWhisper ? whisperFg : (isMine ? AppColors.chaputBlack : AppColors.chaputWhite);
 
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(14),
@@ -1374,20 +1375,20 @@ class _MessageBubble extends StatelessWidget {
         message.replyToBody != null &&
         message.replyToBody!.isNotEmpty;
     final hasLikes = message.likeCount > 0;
-    final replyLabel = replyAuthor.isNotEmpty ? replyAuthor : 'Yanıt';
+    final replyLabel = replyAuthor.isNotEmpty ? replyAuthor : context.t('chat.reply_default');
     final showTicks = isParticipant && isMine && timeText != null;
-    final tickColor = message.readByOther ? Colors.lightBlueAccent : fg.withOpacity(0.45);
+    final tickColor = message.readByOther ? AppColors.chaputLightBlueAccent : fg.withOpacity(0.45);
     final tickIcon = message.delivered ? Icons.done_all : Icons.check;
 
     final maxWidth = MediaQuery.of(context).size.width * 0.72;
-    final replyBg = isMine ? Colors.black.withOpacity(0.18) : Colors.white.withOpacity(0.2);
+    final replyBg = isMine ? AppColors.chaputBlack.withOpacity(0.18) : AppColors.chaputWhite.withOpacity(0.2);
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isWhisperHidden ? Colors.white.withOpacity(0.08) : bg,
+        color: isWhisperHidden ? AppColors.chaputWhite.withOpacity(0.08) : bg,
         borderRadius: radius,
-        border: Border.all(color: Colors.white.withOpacity(isMine ? 0.0 : 0.06)),
+        border: Border.all(color: AppColors.chaputWhite.withOpacity(isMine ? 0.0 : 0.06)),
       ),
       child: IntrinsicWidth(
         child: ConstrainedBox(
@@ -1408,7 +1409,7 @@ class _MessageBubble extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: replyBg,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.16)),
+                      border: Border.all(color: AppColors.chaputWhite.withOpacity(0.16)),
                     ),
                     child: Row(
                       children: [
@@ -1416,7 +1417,7 @@ class _MessageBubble extends StatelessWidget {
                           width: 3,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.7),
+                            color: AppColors.chaputWhite.withOpacity(0.7),
                             borderRadius: BorderRadius.circular(99),
                           ),
                         ),
@@ -1456,7 +1457,7 @@ class _MessageBubble extends StatelessWidget {
               Text(
                 displayText,
                 style: TextStyle(
-                  color: isWhisperHidden ? Colors.white.withOpacity(0.7) : fg,
+                  color: isWhisperHidden ? AppColors.chaputWhite.withOpacity(0.7) : fg,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1480,7 +1481,7 @@ class _MessageBubble extends StatelessWidget {
                           Text(
                             timeText,
                             style: TextStyle(
-                              color: (isWhisperHidden ? Colors.white.withOpacity(0.45) : fg.withOpacity(0.45)),
+                              color: (isWhisperHidden ? AppColors.chaputWhite.withOpacity(0.45) : fg.withOpacity(0.45)),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -1591,15 +1592,15 @@ class _LikeStack extends StatelessWidget {
                   width: size,
                   height: size,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
+                    color: AppColors.chaputWhite.withOpacity(0.18),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     '+$overflow',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: AppColors.chaputWhite.withOpacity(0.9),
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1647,7 +1648,7 @@ class _ReplySwipeBackground extends StatelessWidget {
     return Container(
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.only(left: 18),
-      child: Icon(Icons.reply_rounded, color: Colors.white.withOpacity(0.7), size: 20),
+      child: Icon(Icons.reply_rounded, color: AppColors.chaputWhite.withOpacity(0.7), size: 20),
     );
   }
 }
@@ -1680,9 +1681,9 @@ class _TypingIndicator extends StatelessWidget {
         Text(
           shown.length == 1
               ? context.t('chat_typing')
-              : '${shown.length} ${context.t('chat_typing')}',
+              : context.t('chat.typing_multi', params: {'count': shown.length.toString()}),
           style: TextStyle(
-            color: Colors.white.withOpacity(0.65),
+            color: AppColors.chaputWhite.withOpacity(0.65),
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -1789,13 +1790,13 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(color: Colors.black.withOpacity(0.35)),
+              child: Container(color: AppColors.chaputBlack.withOpacity(0.35)),
             ),
           ),
           Positioned.fill(
             child: GestureDetector(
               onTap: () => Navigator.of(context).pop(),
-              child: Container(color: Colors.transparent),
+              child: Container(color: AppColors.chaputTransparent),
             ),
           ),
           Center(
@@ -1806,9 +1807,9 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                 height: h * 0.65,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.82),
+                  color: AppColors.chaputBlack.withOpacity(0.82),
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white.withOpacity(0.12)),
+                  border: Border.all(color: AppColors.chaputWhite.withOpacity(0.12)),
                 ),
                 child: Column(
                   children: [
@@ -1831,13 +1832,13 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                     const SizedBox(height: 12),
                     Expanded(
                       child: _loading
-                          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                          ? const Center(child: CircularProgressIndicator(color: AppColors.chaputWhite))
                           : _items.isEmpty
                               ? Center(
                                   child: Text(
                                     context.t('chat_no_likes'),
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
+                                      color: AppColors.chaputWhite.withOpacity(0.7),
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -1845,13 +1846,13 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                               : ListView.separated(
                                   controller: _ctrl,
                                   itemCount: _items.length + (_loadingMore ? 1 : 0),
-                                  separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.08)),
+                                  separatorBuilder: (_, __) => Divider(color: AppColors.chaputWhite.withOpacity(0.08)),
                                   itemBuilder: (ctx, i) {
                                     if (i >= _items.length) {
                                       return const Padding(
                                         padding: EdgeInsets.symmetric(vertical: 10),
                                         child: Center(
-                                          child: CircularProgressIndicator(color: Colors.white),
+                                          child: CircularProgressIndicator(color: AppColors.chaputWhite),
                                         ),
                                       );
                                     }
@@ -1879,7 +1880,7 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
-                                                  color: Colors.white,
+                                                  color: AppColors.chaputWhite,
                                                   fontWeight: FontWeight.w800,
                                                 ),
                                               ),
@@ -1887,7 +1888,7 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                                                 Text(
                                                   '@${u.username}',
                                                   style: TextStyle(
-                                                    color: Colors.white.withOpacity(0.6),
+                                                    color: AppColors.chaputWhite.withOpacity(0.6),
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w600,
                                                   ),
@@ -1919,27 +1920,30 @@ class _PendingNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final until = pendingUntil;
     final text = until != null
-        ? 'Karşı tarafın yanıtı için ${_formatRemaining(until)} kaldı.'
-        : 'Karşı tarafın yanıtı bekleniyor.';
+        ? context.t(
+            'chat.pending_time',
+            params: {'time': _formatRemaining(context, until)},
+          )
+        : context.t('chat.pending_wait');
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
       child: Center(
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
+          style: TextStyle(color: AppColors.chaputWhite.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
         ),
       ),
     );
   }
 
-  String _formatRemaining(DateTime until) {
+  String _formatRemaining(BuildContext context, DateTime until) {
     final diff = until.toUtc().difference(DateTime.now().toUtc());
     final mins = diff.inMinutes;
-    if (mins <= 0) return '0 dk';
+    if (mins <= 0) return context.t('time.minutes_short', params: {'count': '0'});
     final hours = diff.inHours;
-    if (hours >= 1) return '${hours} saat';
-    return '${mins} dk';
+    if (hours >= 1) return context.t('time.hours_short', params: {'count': '$hours'});
+    return context.t('time.minutes_short', params: {'count': '$mins'});
   }
 }
 
@@ -1951,8 +1955,8 @@ class _PendingReplyHint extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
       child: Text(
-        'Cevap vermezsen bu chaput arşive gidebilir.',
-        style: TextStyle(color: Colors.white.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
+        context.t('chat.pending_hint'),
+        style: TextStyle(color: AppColors.chaputWhite.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
       ),
     );
   }

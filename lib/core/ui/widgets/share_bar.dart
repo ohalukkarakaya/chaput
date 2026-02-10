@@ -3,6 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../constants/app_colors.dart';
+import '../../i18n/app_localizations.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ShareBar extends StatefulWidget {
   const ShareBar({
@@ -28,7 +31,7 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
 
   late final AnimationController _shakeCtrl;
 
-  static const _confirmGreen = Color(0xFF22C55E); // güzel “success green” tonu
+  static const _confirmGreen = AppColors.chaputGreen; // güzel “success green” tonu
 
   @override
   void initState() {
@@ -80,7 +83,7 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final bg = const Color(0xffE9EEF3);
+    const bg = AppColors.chaputCloudBlue;
 
     return AnimatedBuilder(
       animation: _shakeCtrl,
@@ -93,17 +96,19 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Color.lerp(bg, Colors.white, 0.55),
+          color: Color.lerp(bg, AppColors.chaputWhite, 0.55),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             // ✅ kopyalanınca hafif yeşil border
-            color: _copied ? _confirmGreen.withOpacity(0.35) : Colors.black.withOpacity(0.06),
+            color: _copied
+                ? _confirmGreen.withOpacity(0.35)
+                : AppColors.chaputBlack.withOpacity(0.06),
           ),
           boxShadow: [
             BoxShadow(
               blurRadius: 18,
               offset: const Offset(0, 8),
-              color: Colors.black.withOpacity(0.06),
+              color: AppColors.chaputBlack.withOpacity(0.06),
             ),
 
             // ✅ kopyalanınca glow
@@ -140,7 +145,7 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                         fontSize: 12,
                         fontStyle: FontStyle.italic,
                         fontWeight: FontWeight.w500,
-                        color: Colors.black.withOpacity(0.55),
+                        color: AppColors.chaputBlack.withOpacity(0.55),
                       ),
                     ),
                 ],
@@ -153,11 +158,11 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
                   decoration: BoxDecoration(
-                    color: _copied ? _confirmGreen.withOpacity(0.10) : Colors.transparent,
+                    color: _copied ? _confirmGreen.withOpacity(0.10) : AppColors.chaputTransparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: IconButton(
-                    tooltip: _copied ? 'Kopyalandı' : 'Kopyala',
+                    tooltip: _copied ? context.t('common.copied') : context.t('common.copy'),
                     onPressed: _busy ? null : _onCopy,
                     icon: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 160),
@@ -173,7 +178,7 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                           : Icon(
                         Icons.copy_rounded,
                         key: const ValueKey('copy'),
-                        color: Colors.black.withOpacity(0.85),
+                        color: AppColors.chaputBlack.withOpacity(0.85),
                       ),
                     ),
                   ),
@@ -187,7 +192,7 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                     maxLines: 1,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: Colors.black.withOpacity(0.68),
+                      color: AppColors.chaputBlack.withOpacity(0.68),
                     ),
                   ),
                 ),
@@ -198,20 +203,20 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                     onPressed: () {
                       Share.share(
                         widget.link,
-                        subject: 'Chaput linki',
+                        subject: context.t('share.subject'),
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.chaputBlack,
+                      foregroundColor: AppColors.chaputWhite,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
                     icon: const Icon(Icons.ios_share_rounded, size: 18),
-                    label: const Text(
-                      'Paylaş',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    label: Text(
+                      context.t('common.share'),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],

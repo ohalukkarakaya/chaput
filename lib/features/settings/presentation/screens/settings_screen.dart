@@ -5,6 +5,8 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/features/settings/presentation/screens/photo_settings_screen.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/storage/secure_storage_provider.dart';
@@ -20,6 +22,7 @@ import 'email_change_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import 'package:chaput/core/router/routes.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 
 class SettingsScreen extends ConsumerWidget {
@@ -30,7 +33,7 @@ class SettingsScreen extends ConsumerWidget {
     final meAsync = ref.watch(meControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xffEEF2F6),
+      backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -46,8 +49,8 @@ class SettingsScreen extends ConsumerWidget {
                   data: (me) {
                     final user = me?.user;
                     final username = user?.username ?? '';
-                    final usernameLabel = username.isEmpty ? '—' : '@$username';
-                    final fullName = user?.fullName ?? '—';
+                    final usernameLabel = username.isEmpty ? context.t('common.na') : '@$username';
+                    final fullName = user?.fullName ?? context.t('common.na');
                 
                     final defaultAvatar = user?.defaultAvatar;
                     final profilePhotoUrl = user?.profilePhotoUrl;
@@ -96,7 +99,7 @@ class SettingsScreen extends ConsumerWidget {
                           if (username.isEmpty) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Username not available')),
+                                SnackBar(content: Text(context.t('settings.username_not_available'))),
                               );
                             }
                             return;
@@ -105,9 +108,9 @@ class SettingsScreen extends ConsumerWidget {
                           final ok = await _confirmUsernameDialog(
                             context,
                             expectedUsername: username,
-                            title: 'Pause account',
-                            description: 'To pause your account, type your username to confirm.',
-                            confirmLabel: 'Pause',
+                            title: context.t('settings.pause_title'),
+                            description: context.t('settings.pause_desc'),
+                            confirmLabel: context.t('settings.pause_confirm'),
                           );
                           if (!ok) return;
 
@@ -116,7 +119,7 @@ class SettingsScreen extends ConsumerWidget {
 
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Account paused')),
+                                SnackBar(content: Text(context.t('settings.pause_success'))),
                               );
                             }
 
@@ -124,7 +127,7 @@ class SettingsScreen extends ConsumerWidget {
                           } catch (_) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Pause failed')),
+                                SnackBar(content: Text(context.t('settings.pause_failed'))),
                               );
                             }
                           }
@@ -134,7 +137,7 @@ class SettingsScreen extends ConsumerWidget {
                           if (username.isEmpty) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Username not available')),
+                                SnackBar(content: Text(context.t('settings.username_not_available'))),
                               );
                             }
                             return;
@@ -143,9 +146,9 @@ class SettingsScreen extends ConsumerWidget {
                           final ok = await _confirmUsernameDialog(
                             context,
                             expectedUsername: username,
-                            title: 'Close account',
-                            description: 'This will permanently delete your account. Type your username to confirm.',
-                            confirmLabel: 'Delete',
+                            title: context.t('settings.close_title'),
+                            description: context.t('settings.close_desc'),
+                            confirmLabel: context.t('settings.close_confirm'),
                           );
                           if (!ok) return;
 
@@ -154,7 +157,7 @@ class SettingsScreen extends ConsumerWidget {
 
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Account deleted')),
+                                SnackBar(content: Text(context.t('settings.close_success'))),
                               );
                             }
 
@@ -162,7 +165,7 @@ class SettingsScreen extends ConsumerWidget {
                           } catch (_) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Delete failed')),
+                                SnackBar(content: Text(context.t('settings.close_failed'))),
                               );
                             }
                           }
@@ -200,7 +203,7 @@ class SettingsScreen extends ConsumerWidget {
                                 .catchError((_) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Privacy update failed')),
+                                  SnackBar(content: Text(context.t('settings.privacy_update_failed'))),
                                 );
                               }
                             }),
@@ -336,8 +339,8 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
             TextField(
               controller: c,
               decoration: InputDecoration(
-                labelText: 'Username',
-                hintText: 'Enter your username',
+                labelText: context.t('settings.username_label'),
+                hintText: context.t('settings.username_hint'),
                 errorText: errorText,
               ),
             ),
@@ -347,13 +350,13 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(context.t('common.cancel')),
         ),
         ElevatedButton(
           onPressed: () {
             final input = c.text.trim();
             if (input != widget.expectedUsername) {
-              setState(() => errorText = 'Username does not match');
+              setState(() => errorText = context.t('settings.username_mismatch'));
               return;
             }
             Navigator.of(context).pop(true);
@@ -380,7 +383,7 @@ class _SoftBlob extends StatelessWidget {
         child: Container(
           width: width,
           height: height,
-          color: Colors.white.withOpacity(0.35),
+          color: AppColors.chaputWhite.withOpacity(0.35),
         ),
       ),
     );
@@ -482,7 +485,7 @@ class _SettingsContent extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.black.withOpacity(0.55),
+                              color: AppColors.chaputBlack.withOpacity(0.55),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -490,9 +493,9 @@ class _SettingsContent extends StatelessWidget {
                           const SizedBox(height: 8),
 
                           Text(
-                            'Manage your account settings here. You can update your profile, privacy preferences, and archived items anytime.',
+                            context.t('settings.manage_desc'),
                             style: TextStyle(
-                              color: Colors.black.withOpacity(0.60),
+                              color: AppColors.chaputBlack.withOpacity(0.60),
                               fontWeight: FontWeight.w500,
                               height: 1.35,
                             ),
@@ -527,9 +530,9 @@ class _SettingsContent extends StatelessWidget {
                 const SizedBox(height: 18),
 
                 Text(
-                  'Living setup',
+                  context.t('settings.section_living_setup'),
                   style: TextStyle(
-                    color: Colors.black.withOpacity(0.60),
+                    color: AppColors.chaputBlack.withOpacity(0.60),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -537,38 +540,38 @@ class _SettingsContent extends StatelessWidget {
 
                 _SettingsRow(
                   icon: Icons.photo_camera_outlined,
-                  title: 'Profile photo',
-                  subtitle: 'Change or remove your photo',
+                  title: context.t('settings.row_profile_photo'),
+                  subtitle: context.t('settings.row_profile_photo_sub'),
                   onTap: onOpenPhoto,
                 ),
                 const SizedBox(height: 8),
                 _SettingsRow(
                   icon: Icons.alternate_email,
-                  title: 'Email',
-                  subtitle: 'Change your email address',
+                  title: context.t('settings.row_email'),
+                  subtitle: context.t('settings.row_email_sub'),
                   onTap: onOpenEmail,
                 ),
                 const SizedBox(height: 8),
                 _SettingsRow(
                   icon: Icons.block_outlined,
-                  title: 'Blocks & restrictions',
-                  subtitle: 'See blocked/restricted users',
+                  title: context.t('settings.row_blocks'),
+                  subtitle: context.t('settings.row_blocks_sub'),
                   onTap: onOpenPrivacy,
                 ),
                 const SizedBox(height: 8),
                 _SettingsRow(
                   icon: Icons.archive_outlined,
-                  title: 'Archived chaputs',
-                  subtitle: 'Revive from archive',
+                  title: context.t('settings.row_archived'),
+                  subtitle: context.t('settings.row_archived_sub'),
                   onTap: onOpenArchive,
                 ),
 
                 const SizedBox(height: 18),
 
                 Text(
-                  'Account Control',
+                  context.t('settings.section_account_control'),
                   style: TextStyle(
-                    color: Colors.black.withOpacity(0.60),
+                    color: AppColors.chaputBlack.withOpacity(0.60),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -584,9 +587,9 @@ class _SettingsContent extends StatelessWidget {
                 Wrap(
                   children: [
                     Text(
-                      'You can pause your account if you need a break ',
+                      context.t('settings.pause_prefix'),
                       style: TextStyle(
-                        color: Colors.black.withOpacity(0.60),
+                        color: AppColors.chaputBlack.withOpacity(0.60),
                         fontWeight: FontWeight.w600,
                         height: 1.25,
                         fontSize: 13,
@@ -594,11 +597,11 @@ class _SettingsContent extends StatelessWidget {
                     ),
                     InkWell(
                       onTap: onPauseAccount,
-                      child: const Text(
-                        'from here',
+                      child: Text(
+                        context.t('settings.pause_link'),
                         style: TextStyle(
                           decoration: TextDecoration.underline,
-                          color: Color(0xffF4B400),
+                          color: AppColors.chaputGolden,
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
                           height: 1.25,
@@ -606,9 +609,9 @@ class _SettingsContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      ', or close it permanently ',
+                      context.t('settings.close_prefix'),
                       style: TextStyle(
-                        color: Colors.black.withOpacity(0.60),
+                        color: AppColors.chaputBlack.withOpacity(0.60),
                         fontWeight: FontWeight.w600,
                         height: 1.25,
                         fontSize: 13,
@@ -616,11 +619,11 @@ class _SettingsContent extends StatelessWidget {
                     ),
                     InkWell(
                       onTap: onCloseAccount,
-                      child: const Text(
-                        'from here',
+                      child: Text(
+                        context.t('settings.close_link'),
                         style: TextStyle(
                           decoration: TextDecoration.underline,
-                          color: Color(0xffE53935),
+                          color: AppColors.chaputErrorRed,
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
                           height: 1.25,
@@ -628,9 +631,9 @@ class _SettingsContent extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '.',
+                      context.t('settings.close_suffix'),
                       style: TextStyle(
-                        color: Colors.black.withOpacity(0.60),
+                        color: AppColors.chaputBlack.withOpacity(0.60),
                         fontWeight: FontWeight.w600,
                         height: 1.25,
                         fontSize: 13,
@@ -646,13 +649,13 @@ class _SettingsContent extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: onLogout,
                     icon: const Icon(Icons.logout, size: 18),
-                    label: const Text(
-                      'Logout Safely',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                    label: Text(
+                      context.t('settings.logout_button'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.chaputBlack,
+                      foregroundColor: AppColors.chaputWhite,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
@@ -692,7 +695,7 @@ class _Dot extends StatelessWidget {
       width: 6,
       height: 6,
       decoration: BoxDecoration(
-        color: active ? Colors.white : Colors.white.withOpacity(0.45),
+        color: active ? AppColors.chaputWhite : AppColors.chaputWhite.withOpacity(0.45),
         borderRadius: BorderRadius.circular(999),
       ),
     );
@@ -730,7 +733,7 @@ class _AvatarWithRing extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xffFF4D8D), Color(0xffFF8A00)],
+                colors: [AppColors.chaputPink, AppColors.chaputOrange],
               ),
             ),
             child: ClipOval(
@@ -739,7 +742,7 @@ class _AvatarWithRing extends StatelessWidget {
                 height: inner,
                 radius: 999,
                 borderWidth: 0,
-                bgColor: Colors.black,
+                bgColor: AppColors.chaputBlack,
                 isDefaultAvatar: isDefaultAvatar,
                 imageUrl: avatarUrl,
               ),
@@ -755,17 +758,17 @@ class _AvatarWithRing extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.chaputWhite,
                   borderRadius: BorderRadius.circular(999),
                   boxShadow: [
                     BoxShadow(
                       blurRadius: 14,
                       offset: const Offset(0, 6),
-                      color: Colors.black.withOpacity(0.12),
+                      color: AppColors.chaputBlack.withOpacity(0.12),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.settings, size: 18, color: Colors.black),
+                child: const Icon(Icons.settings, size: 18, color: AppColors.chaputBlack),
               ),
             ),
           ),
@@ -791,7 +794,7 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: AppColors.chaputWhite,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
@@ -799,9 +802,9 @@ class _SettingsRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.chaputWhite,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.black.withOpacity(0.06)),
+            border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
           ),
           child: Row(
             children: [
@@ -809,10 +812,10 @@ class _SettingsRow extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.06),
+                  color: AppColors.chaputBlack.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, size: 18, color: Colors.black),
+                child: Icon(icon, size: 18, color: AppColors.chaputBlack),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -824,7 +827,7 @@ class _SettingsRow extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        color: Colors.black.withOpacity(0.55),
+                        color: AppColors.chaputBlack.withOpacity(0.55),
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
@@ -832,7 +835,7 @@ class _SettingsRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.black.withOpacity(0.35)),
+              Icon(Icons.chevron_right, color: AppColors.chaputBlack.withOpacity(0.35)),
             ],
           ),
         ),
@@ -863,8 +866,8 @@ class _ErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        'Could not load settings',
-        style: TextStyle(color: Colors.black.withOpacity(0.65), fontWeight: FontWeight.w700),
+        context.t('settings.load_failed'),
+        style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.65), fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -888,13 +891,13 @@ class _PrivateAccountRow extends StatelessWidget {
     return Opacity(
       opacity: opacity,
       child: Material(
-        color: Colors.white,
+        color: AppColors.chaputWhite,
         borderRadius: BorderRadius.circular(18),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.black.withOpacity(0.06)),
+            border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
           ),
           child: Row(
             children: [
@@ -902,13 +905,13 @@ class _PrivateAccountRow extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.06),
+                  color: AppColors.chaputBlack.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.lock_outline,
                   size: 18,
-                  color: Colors.black,
+                  color: AppColors.chaputBlack,
                 ),
               ),
               const SizedBox(width: 12),
@@ -917,15 +920,15 @@ class _PrivateAccountRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Private account',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                    Text(
+                      context.t('settings.private_account_title'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Only approved followers can see your content',
+                      context.t('settings.private_account_subtitle'),
                       style: TextStyle(
-                        color: Colors.black.withOpacity(0.55),
+                        color: AppColors.chaputBlack.withOpacity(0.55),
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),

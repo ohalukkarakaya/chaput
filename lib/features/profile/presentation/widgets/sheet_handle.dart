@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 class SheetHandle extends StatelessWidget {
   const SheetHandle({super.key});
@@ -11,7 +12,7 @@ class SheetHandle extends StatelessWidget {
         width: 36,
         height: 4,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.2),
+          color: AppColors.chaputBlack.withOpacity(0.2),
           borderRadius: BorderRadius.circular(2),
         ),
       ),

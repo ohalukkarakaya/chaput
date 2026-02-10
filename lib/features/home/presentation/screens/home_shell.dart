@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,6 +18,7 @@ import '../../../user_search/presentation/search_overlay.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
 import '../../../../core/ui/widgets/glow_shimmer_card.dart';
 import '../../../../core/ui/widgets/share_bar.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -73,14 +75,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffE9EEF3),
+      backgroundColor: AppColors.chaputCloudBlue,
       resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
           const RepaintBoundary(
             child: AnimatedMeshBackground(
-              baseColor: Color(0xffE9EEF3),
+              baseColor: AppColors.chaputCloudBlue,
             ),
           ),
 
@@ -148,11 +150,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   Text(
-                                                    'Hoş geldin',
+                                                    context.t('home.welcome'),
                                                     style: TextStyle(
                                                       fontSize: 13,
                                                       fontWeight: FontWeight.w300,
-                                                      color: Colors.black
+                                                      color: AppColors.chaputBlack
                                                           .withOpacity(0.55),
                                                     ),
                                                   ),
@@ -166,7 +168,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                                         Icon(
                                                           Icons.keyboard_arrow_down,
                                                           size: 18,
-                                                          color: Colors.black.withOpacity(0.6),
+                                                          color: AppColors.chaputBlack.withOpacity(0.6),
                                                         ),
                                                         if (unread > 0)
                                                           Positioned(
@@ -175,7 +177,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                                             child: Container(
                                                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                                               decoration: BoxDecoration(
-                                                                color: Colors.black,
+                                                                color: AppColors.chaputBlack,
                                                                 borderRadius: BorderRadius.circular(10),
                                                               ),
                                                               child: Text(
@@ -183,7 +185,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                                                 style: const TextStyle(
                                                                   fontSize: 10,
                                                                   fontWeight: FontWeight.w800,
-                                                                  color: Colors.white,
+                                                                  color: AppColors.chaputWhite,
                                                                 ),
                                                               ),
                                                             ),
@@ -195,14 +197,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                               ),
                                               Text(
                                                 fullName.isEmpty
-                                                    ? '—'
+                                                    ? context.t('common.na')
                                                     : fullName,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.w800,
-                                                  color: Colors.black,
+                                                  color: AppColors.chaputBlack,
                                                 ),
                                               ),
                                             ],
@@ -245,7 +247,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                             height: 42,
                                             radius: 999,
                                             borderWidth: 2,
-                                            bgColor: Colors.black,
+                                            bgColor: AppColors.chaputBlack,
                                             isDefaultAvatar:
                                             user.profilePhotoUrl == null,
                                             imageUrl: user.profilePhotoUrl ??
@@ -265,7 +267,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                             Hero(
                               tag: SearchOverlay.heroTag,
                               child: Material(
-                                color: Colors.transparent,
+                                color: AppColors.chaputTransparent,
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(16),
                                   onTap: () => Navigator.of(context)
@@ -275,7 +277,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 12),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.92),
+                                      color: AppColors.chaputWhite.withOpacity(0.92),
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Row(
@@ -283,9 +285,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                         const Icon(Icons.search, size: 20),
                                         const SizedBox(width: 8),
                                         Text(
-                                          'Search users...',
+                                          context.t('search.hint'),
                                           style: TextStyle(
-                                            color: Colors.black
+                                            color: AppColors.chaputBlack
                                                 .withOpacity(0.55),
                                           ),
                                         ),
@@ -335,8 +337,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
                                 return ShareBar(
                                   link: link,
-                                  title: '🔗 Bio’da daha iyi durur:',
-                                  subtitle: '(Her bio’ya uygundur)',
+                                  title: context.t('home.share_title'),
+                                  subtitle: context.t('home.share_subtitle'),
                                   showShareButton: false,
                                 );
 
@@ -373,17 +375,17 @@ class _RecommendedUserCard extends ConsumerWidget {
     return recAsync.when(
       loading: () => wrap(
         Row(
-          children: const [
-            SizedBox(
+          children: [
+            const SizedBox(
               width: 40,
               height: 40,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
-                "Finding someone for you…",
-                style: TextStyle(fontWeight: FontWeight.w600),
+                context.t('home.reco_loading'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -392,19 +394,19 @@ class _RecommendedUserCard extends ConsumerWidget {
       error: (e, _) => wrap(
         Row(
           children: [
-            const Icon(Icons.error_outline, color: Colors.white70),
+            const Icon(Icons.error_outline, color: AppColors.chaputWhite70),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                "Couldn’t load recommendation",
-                style: TextStyle(fontWeight: FontWeight.w600),
+                context.t('home.reco_failed'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
             TextButton(
               onPressed: () => ref
                   .read(recommendedUserControllerProvider.notifier)
                   .refresh(),
-              child: const Text("Retry"),
+              child: Text(context.t('common.retry')),
             ),
           ],
         ),
@@ -414,19 +416,19 @@ class _RecommendedUserCard extends ConsumerWidget {
           return wrap(
             Row(
               children: [
-                const Icon(Icons.people_outline, color: Colors.white70),
+                const Icon(Icons.people_outline, color: AppColors.chaputWhite70),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    "No recommendation right now",
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    context.t('home.reco_empty'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 TextButton(
                   onPressed: () => ref
                       .read(recommendedUserControllerProvider.notifier)
                       .refresh(),
-                  child: const Text("Refresh"),
+                  child: Text(context.t('common.refresh')),
                 ),
               ],
             ),
@@ -452,7 +454,7 @@ class _RecommendedUserCard extends ConsumerWidget {
                         height: 40,
                         radius: 999,
                         borderWidth: 2,
-                        bgColor: Colors.black,
+                        bgColor: AppColors.chaputBlack,
                         isDefaultAvatar: u.profilePhotoPath == null || u.profilePhotoPath!.isEmpty,
                         imageUrl: (u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty)
                             ? u.profilePhotoPath!
@@ -469,7 +471,7 @@ class _RecommendedUserCard extends ConsumerWidget {
                                 fontWeight: FontWeight.w600),
                           ),
                           Text(
-                            u.username == null ? '—' : '@${u.username}',
+                            u.username == null ? context.t('common.na') : '@${u.username}',
                             style: const TextStyle(fontSize: 12),
                           ),
                         ],
@@ -486,10 +488,10 @@ class _RecommendedUserCard extends ConsumerWidget {
                     .read(recommendedUserControllerProvider.notifier)
                     .refresh(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.black.withOpacity(0.6),
-                  disabledForegroundColor: Colors.white.withOpacity(0.7),
+                  backgroundColor: AppColors.chaputBlack,
+                  foregroundColor: AppColors.chaputWhite,
+                  disabledBackgroundColor: AppColors.chaputBlack.withOpacity(0.6),
+                  disabledForegroundColor: AppColors.chaputWhite.withOpacity(0.7),
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 10),
                   shape: RoundedRectangleBorder(
@@ -504,12 +506,12 @@ class _RecommendedUserCard extends ConsumerWidget {
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor:
-                    AlwaysStoppedAnimation<Color>(Colors.white),
+                    AlwaysStoppedAnimation<Color>(AppColors.chaputWhite),
                   ),
                 )
                     : const Icon(Icons.refresh_rounded, size: 18),
                 label: Text(
-                  isLoading ? "Yükleniyor" : "Yenile",
+                  isLoading ? context.t('common.loading') : context.t('common.refresh'),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -526,7 +528,7 @@ class _SearchOverlayRoute extends PageRouteBuilder<void> {
       : super(
     opaque: false,
     barrierDismissible: true,
-    barrierColor: Colors.transparent,
+    barrierColor: AppColors.chaputTransparent,
     transitionDuration: const Duration(milliseconds: 220),
     reverseTransitionDuration: const Duration(milliseconds: 180),
     pageBuilder: (context, animation, secondaryAnimation) =>

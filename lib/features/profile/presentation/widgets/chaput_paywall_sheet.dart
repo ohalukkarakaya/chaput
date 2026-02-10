@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import 'sheet_handle.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 enum PaywallFeature { bind, hideCredentials, boost, whisper, revive }
 
@@ -49,65 +51,66 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
     final isFree = !isPro && !isPlus;
     final isProMonthly = isPro && planPeriod == 'MONTH';
     final isProYearly = isPro && planPeriod == 'YEAR';
+    final t = context.t;
 
     final title = widget.feature == PaywallFeature.bind
-        ? 'Chaput Bağlama Hakkı'
+        ? t('paywall.title.bind')
         : (widget.feature == PaywallFeature.hideCredentials
-            ? 'Anonim Chaput'
+            ? t('paywall.title.hidden')
             : widget.feature == PaywallFeature.whisper
-                ? 'Fısıltı Mesajı'
+                ? t('paywall.title.whisper')
                 : widget.feature == PaywallFeature.revive
-                    ? 'Chaput Kurtar'
-                : 'Öne Çıkar');
+                    ? t('paywall.title.revive')
+                : t('paywall.title.boost'));
 
     final subtitle = widget.feature == PaywallFeature.bind
-        ? 'Bugün hakkın bitti. Hemen hak satın al veya paket seç.'
+        ? t('paywall.subtitle.bind')
         : (widget.feature == PaywallFeature.hideCredentials
-            ? 'Kimliğini gizleyerek chaput bağla. Daha özgür, daha güvenli.'
+            ? t('paywall.subtitle.hidden')
             : widget.feature == PaywallFeature.whisper
-                ? 'Fısıltı mesajları yalnızca taraflara görünür.'
+                ? t('paywall.subtitle.whisper')
                 : widget.feature == PaywallFeature.revive
-                    ? 'Arşive düşen chaputu geri getir.'
-                : 'Chaputunu daha görünür yap. Daha fazla kişi görsün.');
+                    ? t('paywall.subtitle.revive')
+                : t('paywall.subtitle.boost'));
 
     final proMonthly = PaywallPlan(
-      badge: 'AYLIK',
-      title: 'Pro',
-      price: '€9.99 / ay',
-      hint: 'Tüm haklar + bonus',
+      badge: t('paywall.badge.monthly'),
+      title: t('paywall.plan.pro'),
+      price: t('paywall.price_per_month', params: {'price': '€9.99'}),
+      hint: t('paywall.hint.all_rights_bonus'),
       productId: 'chaput_pro_month',
-      bullets: const [
-        'Anonim chaput',
-        'Öne çıkarma',
-        'Daha fazla günlük boost',
-        'Özel rozet (fake)',
+      bullets: [
+        t('paywall.bullets.hidden_chaput'),
+        t('paywall.bullets.boost'),
+        t('paywall.bullets.more_daily_boost'),
+        t('paywall.bullets.special_badge_fake'),
       ],
     );
 
     final proYearly = PaywallPlan(
-      badge: 'YILLIK',
-      title: 'Pro Yıllık',
-      price: '€79.99 / yıl',
-      hint: '2 ay bedava (fake)',
+      badge: t('paywall.badge.yearly'),
+      title: t('paywall.plan.pro_yearly'),
+      price: t('paywall.price_per_year', params: {'price': '€79.99'}),
+      hint: t('paywall.hint.two_months_free_fake'),
       productId: 'chaput_pro_year',
-      bullets: const [
-        'Tüm Pro ayrıcalıkları',
-        'Daha ucuz yıllık fiyat',
-        'Erken erişim (fake)',
+      bullets: [
+        t('paywall.bullets.all_pro_perks'),
+        t('paywall.bullets.cheaper_yearly'),
+        t('paywall.bullets.early_access_fake'),
       ],
     );
 
     final plusMonthly = PaywallPlan(
-      badge: 'EN POPÜLER',
-      title: 'Plus',
-      price: '€4.99 / ay',
-      hint: 'Anonim + Öne çıkar',
+      badge: t('paywall.badge.popular'),
+      title: t('paywall.plan.plus'),
+      price: t('paywall.price_per_month', params: {'price': '€4.99'}),
+      hint: t('paywall.hint.hidden_plus_boost'),
       productId: 'chaput_plus_month',
-      bullets: const [
-        'Anonim chaput',
-        'Öne çıkarma',
-        'Daha yüksek görünürlük',
-        'Öncelikli destek (fake)',
+      bullets: [
+        t('paywall.bullets.hidden_chaput'),
+        t('paywall.bullets.boost'),
+        t('paywall.bullets.more_visibility'),
+        t('paywall.bullets.priority_support_fake'),
       ],
     );
 
@@ -125,30 +128,95 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
 
     final singles = widget.feature == PaywallFeature.bind
         ? <PaywallSingle>[
-            PaywallSingle(title: 'Chaput Hak (1)', price: '€0.99', caption: '1 chaput bağla', productId: 'chaput_bind_1'),
-            PaywallSingle(title: 'Chaput Paket (5)', price: '€3.49', caption: '5 chaput bağla', productId: 'chaput_bind_5'),
-            PaywallSingle(title: 'Chaput Paket (20)', price: '€9.99', caption: 'En uygun (fake)', productId: 'chaput_bind_20'),
+            PaywallSingle(
+              title: t('paywall.single.chaput_right', params: {'count': '1'}),
+              price: '€0.99',
+              caption: t('paywall.single.bind_caption', params: {'count': '1'}),
+              productId: 'chaput_bind_1',
+            ),
+            PaywallSingle(
+              title: t('paywall.single.chaput_pack', params: {'count': '5'}),
+              price: '€3.49',
+              caption: t('paywall.single.bind_caption', params: {'count': '5'}),
+              productId: 'chaput_bind_5',
+            ),
+            PaywallSingle(
+              title: t('paywall.single.chaput_pack', params: {'count': '20'}),
+              price: '€9.99',
+              caption: t('paywall.single.best_value_fake'),
+              productId: 'chaput_bind_20',
+            ),
           ]
         : widget.feature == PaywallFeature.hideCredentials
         ? <PaywallSingle>[
-            PaywallSingle(title: 'Anonim Hak (1)', price: '€0.99', caption: '1 chaput anonim', productId: 'chaput_hidden_1'),
-            PaywallSingle(title: 'Anonim Paket (5)', price: '€3.49', caption: '5 chaput anonim', productId: 'chaput_hidden_5'),
-            PaywallSingle(title: 'Anonim Paket (20)', price: '€9.99', caption: 'En uygun (fake)', productId: 'chaput_hidden_20'),
+            PaywallSingle(
+              title: t('paywall.single.hidden_right', params: {'count': '1'}),
+              price: '€0.99',
+              caption: t('paywall.single.hidden_caption', params: {'count': '1'}),
+              productId: 'chaput_hidden_1',
+            ),
+            PaywallSingle(
+              title: t('paywall.single.hidden_pack', params: {'count': '5'}),
+              price: '€3.49',
+              caption: t('paywall.single.hidden_caption', params: {'count': '5'}),
+              productId: 'chaput_hidden_5',
+            ),
+            PaywallSingle(
+              title: t('paywall.single.hidden_pack', params: {'count': '20'}),
+              price: '€9.99',
+              caption: t('paywall.single.best_value_fake'),
+              productId: 'chaput_hidden_20',
+            ),
           ]
         : widget.feature == PaywallFeature.whisper
         ? <PaywallSingle>[
-            PaywallSingle(title: 'Fısıltı (1)', price: '€0.79', caption: '1 fısıltı mesajı', productId: 'chaput_whisper_1'),
-            PaywallSingle(title: 'Fısıltı (10)', price: '€3.49', caption: '10 fısıltı mesajı', productId: 'chaput_whisper_10'),
-            PaywallSingle(title: 'Fısıltı (30)', price: '€7.99', caption: 'En uygun (fake)', productId: 'chaput_whisper_30'),
+            PaywallSingle(
+              title: t('paywall.single.whisper', params: {'count': '1'}),
+              price: '€0.79',
+              caption: t('paywall.single.whisper_caption', params: {'count': '1'}),
+              productId: 'chaput_whisper_1',
+            ),
+            PaywallSingle(
+              title: t('paywall.single.whisper', params: {'count': '10'}),
+              price: '€3.49',
+              caption: t('paywall.single.whisper_caption', params: {'count': '10'}),
+              productId: 'chaput_whisper_10',
+            ),
+            PaywallSingle(
+              title: t('paywall.single.whisper', params: {'count': '30'}),
+              price: '€7.99',
+              caption: t('paywall.single.best_value_fake'),
+              productId: 'chaput_whisper_30',
+            ),
           ]
         : widget.feature == PaywallFeature.revive
         ? <PaywallSingle>[
-            PaywallSingle(title: 'Kurtar (1)', price: '€0.99', caption: '1 chaput kurtar', productId: 'chaput_revive_1'),
+            PaywallSingle(
+              title: t('paywall.single.revive', params: {'count': '1'}),
+              price: '€0.99',
+              caption: t('paywall.single.revive_caption', params: {'count': '1'}),
+              productId: 'chaput_revive_1',
+            ),
           ]
         : <PaywallSingle>[
-            PaywallSingle(title: 'Boost (1)', price: '€0.79', caption: '1 kez öne çıkar', productId: 'chaput_special_1'),
-            PaywallSingle(title: 'Boost (5)', price: '€2.99', caption: '5 kez öne çıkar', productId: 'chaput_special_5'),
-            PaywallSingle(title: 'Boost (20)', price: '€8.99', caption: 'En uygun (fake)', productId: 'chaput_special_20'),
+            PaywallSingle(
+              title: t('paywall.single.boost', params: {'count': '1'}),
+              price: '€0.79',
+              caption: t('paywall.single.boost_caption', params: {'count': '1'}),
+              productId: 'chaput_special_1',
+            ),
+            PaywallSingle(
+              title: t('paywall.single.boost', params: {'count': '5'}),
+              price: '€2.99',
+              caption: t('paywall.single.boost_caption', params: {'count': '5'}),
+              productId: 'chaput_special_5',
+            ),
+            PaywallSingle(
+              title: t('paywall.single.boost', params: {'count': '20'}),
+              price: '€8.99',
+              caption: t('paywall.single.best_value_fake'),
+              productId: 'chaput_special_20',
+            ),
           ];
 
     String _txId() {
@@ -187,7 +255,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
             child: Container(
               padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 12),
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: AppColors.chaputWhite,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
               ),
               child: SingleChildScrollView(
@@ -210,7 +278,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w900,
-                                    color: Colors.black,
+                                    color: AppColors.chaputBlack,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
@@ -219,7 +287,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.black.withOpacity(0.65),
+                                    color: AppColors.chaputBlack.withOpacity(0.65),
                                     height: 1.25,
                                   ),
                                 ),
@@ -234,10 +302,10 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.06),
+                                color: AppColors.chaputBlack.withOpacity(0.06),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.close, size: 20, color: Colors.black),
+                              child: const Icon(Icons.close, size: 20, color: AppColors.chaputBlack),
                             ),
                           ),
                         ],
@@ -289,13 +357,13 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                               Navigator.pop(context, _planPurchase());
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              foregroundColor: Colors.white,
+                              backgroundColor: AppColors.chaputBlack,
+                              foregroundColor: AppColors.chaputWhite,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               elevation: 0,
                             ),
                             child: Text(
-                              '${plans[selectedIndex].title} ile aç',
+                              t('paywall.action_unlock_with', params: {'plan': plans[selectedIndex].title}),
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
                             ),
                           ),
@@ -311,11 +379,11 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                         child: Row(
                           children: [
                             Text(
-                              'Kurtarma satın al',
+                              t('paywall.section.revive_purchase'),
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.black.withOpacity(0.85),
+                                color: AppColors.chaputBlack.withOpacity(0.85),
                               ),
                             ),
                           ],
@@ -336,20 +404,20 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                         child: Row(
                           children: [
                             Text(
-                              'Tekli satın al',
+                              t('paywall.section.single_purchase'),
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.black.withOpacity(0.85),
+                                color: AppColors.chaputBlack.withOpacity(0.85),
                               ),
                             ),
                             const Spacer(),
                             Text(
-                              'İhtiyacın kadar',
+                              t('paywall.section.as_needed'),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.black.withOpacity(0.55),
+                                color: AppColors.chaputBlack.withOpacity(0.55),
                               ),
                             ),
                           ],
@@ -379,11 +447,11 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        'Bu ekran şimdilik demo. Fiyatlar ve haklar örnektir.',
+                        t('paywall.disclaimer_demo'),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black.withOpacity(0.45),
+                          color: AppColors.chaputBlack.withOpacity(0.45),
                         ),
                       ),
                     ),
@@ -433,9 +501,9 @@ class _ReviveTargetCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.04),
+            color: AppColors.chaputBlack.withOpacity(0.04),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.black.withOpacity(0.08)),
+            border: Border.all(color: AppColors.chaputBlack.withOpacity(0.08)),
           ),
           child: Row(
             children: [
@@ -459,7 +527,7 @@ class _ReviveTargetCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '@${target.username}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.6)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.chaputBlack.withOpacity(0.6)),
                     ),
                   ],
                 ),
@@ -468,18 +536,18 @@ class _ReviveTargetCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: AppColors.chaputBlack,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: const Text(
                   'Kurtar',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+                  style: TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w800, fontSize: 12),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 priceLabel,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.6)),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.chaputBlack.withOpacity(0.6)),
               ),
             ],
           ),
@@ -544,10 +612,10 @@ class PlanCard extends StatelessWidget {
         width: 240,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected ? Colors.black : Colors.white,
+          color: selected ? AppColors.chaputBlack : AppColors.chaputWhite,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected ? Colors.black : Colors.black.withOpacity(0.10),
+            color: selected ? AppColors.chaputBlack : AppColors.chaputBlack.withOpacity(0.10),
             width: 1,
           ),
           boxShadow: [
@@ -555,7 +623,7 @@ class PlanCard extends StatelessWidget {
               blurRadius: 18,
               spreadRadius: 0,
               offset: const Offset(0, 10),
-              color: Colors.black.withOpacity(selected ? 0.25 : 0.08),
+              color: AppColors.chaputBlack.withOpacity(selected ? 0.25 : 0.08),
             ),
           ],
         ),
@@ -565,13 +633,13 @@ class PlanCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: selected ? Colors.white.withOpacity(0.14) : Colors.black.withOpacity(0.06),
+                color: selected ? AppColors.chaputWhite.withOpacity(0.14) : AppColors.chaputBlack.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
                 plan.badge,
                 style: TextStyle(
-                  color: selected ? Colors.white : Colors.black.withOpacity(0.70),
+                  color: selected ? AppColors.chaputWhite : AppColors.chaputBlack.withOpacity(0.70),
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.2,
@@ -584,7 +652,7 @@ class PlanCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
-                color: selected ? Colors.white : Colors.black,
+                color: selected ? AppColors.chaputWhite : AppColors.chaputBlack,
               ),
             ),
             const SizedBox(height: 4),
@@ -593,7 +661,7 @@ class PlanCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: selected ? Colors.white.withOpacity(0.92) : Colors.black.withOpacity(0.85),
+                color: selected ? AppColors.chaputWhite.withOpacity(0.92) : AppColors.chaputBlack.withOpacity(0.85),
               ),
             ),
             const Spacer(),
@@ -604,7 +672,7 @@ class PlanCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: selected ? Colors.white.withOpacity(0.70) : Colors.black.withOpacity(0.55),
+                color: selected ? AppColors.chaputWhite.withOpacity(0.70) : AppColors.chaputBlack.withOpacity(0.55),
               ),
             ),
           ],
@@ -623,9 +691,9 @@ class PlanBullets extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.04),
+        color: AppColors.chaputBlack.withOpacity(0.04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
       ),
       child: Column(
         children: plan.bullets
@@ -638,10 +706,10 @@ class PlanBullets extends StatelessWidget {
                       width: 18,
                       height: 18,
                       decoration: BoxDecoration(
-                        color: Colors.black,
+                        color: AppColors.chaputBlack,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Icon(Icons.check, size: 12, color: Colors.white),
+                      child: const Icon(Icons.check, size: 12, color: AppColors.chaputWhite),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -650,7 +718,7 @@ class PlanBullets extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black.withOpacity(0.78),
+                          color: AppColors.chaputBlack.withOpacity(0.78),
                         ),
                       ),
                     ),
@@ -678,14 +746,14 @@ class SingleCard extends StatelessWidget {
         width: 150,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.chaputWhite,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withOpacity(0.10)),
+          border: Border.all(color: AppColors.chaputBlack.withOpacity(0.10)),
           boxShadow: [
             BoxShadow(
               blurRadius: 14,
               offset: const Offset(0, 10),
-              color: Colors.black.withOpacity(0.06),
+              color: AppColors.chaputBlack.withOpacity(0.06),
             ),
           ],
         ),
@@ -700,7 +768,7 @@ class SingleCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w900,
-                color: Colors.black,
+                color: AppColors.chaputBlack,
                 height: 1.05,
               ),
             ),
@@ -716,7 +784,7 @@ class SingleCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black.withOpacity(0.55),
+                    color: AppColors.chaputBlack.withOpacity(0.55),
                     height: 1.05,
                   ),
                 ),
@@ -736,7 +804,7 @@ class SingleCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w900,
-                        color: Colors.black,
+                        color: AppColors.chaputBlack,
                       ),
                     ),
                   ),
@@ -746,10 +814,10 @@ class SingleCard extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: AppColors.chaputBlack,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.add, size: 15, color: Colors.white),
+                  child: const Icon(Icons.add, size: 15, color: AppColors.chaputWhite),
                 ),
               ],
             ),

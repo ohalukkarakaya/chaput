@@ -3,6 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'sheet_handle.dart';
+import 'package:chaput/core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class SubscriptionReplaceSheet extends StatelessWidget {
   const SubscriptionReplaceSheet({
@@ -30,9 +33,9 @@ class SubscriptionReplaceSheet extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 14),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.78),
+                color: AppColors.chaputBlack.withOpacity(0.78),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white.withOpacity(0.10)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -46,10 +49,10 @@ class SubscriptionReplaceSheet extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Üyelik değişimi',
-                                style: TextStyle(
-                                  color: Colors.white,
+                              Text(
+                                context.t('subscription_replace.title'),
+                                style: const TextStyle(
+                                  color: AppColors.chaputWhite,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -57,12 +60,12 @@ class SubscriptionReplaceSheet extends StatelessWidget {
                               const SizedBox(height: 6),
                               Text(
                                 untilText != null
-                                    ? 'Mevcut üyeliğin $untilText tarihine kadar geçerli. '
-                                        'Bu satın alma mevcut üyeliğini değiştirir.'
-                                    : 'Mevcut üyeliğin aktif olabilir. '
-                                        'Bu satın alma mevcut üyeliğini değiştirir.',
+                                    ? context.t('subscription_replace.body_with_date', params: {
+                                        'date': untilText!,
+                                      })
+                                    : context.t('subscription_replace.body_no_date'),
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.72),
+                                  color: AppColors.chaputWhite.withOpacity(0.72),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   height: 1.25,
@@ -79,10 +82,10 @@ class SubscriptionReplaceSheet extends StatelessWidget {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.08),
+                              color: AppColors.chaputWhite.withOpacity(0.08),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.close, size: 20, color: Colors.white),
+                            child: const Icon(Icons.close, size: 20, color: AppColors.chaputWhite),
                           ),
                         ),
                       ],
@@ -99,13 +102,13 @@ class SubscriptionReplaceSheet extends StatelessWidget {
                             child: OutlinedButton(
                               onPressed: () => Navigator.pop(context, false),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(color: Colors.white.withOpacity(0.25)),
+                                foregroundColor: AppColors.chaputWhite,
+                                side: BorderSide(color: AppColors.chaputWhite.withOpacity(0.25)),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
-                              child: const Text(
-                                'Vazgeç',
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                              child: Text(
+                                context.t('common.cancel'),
+                                style: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                             ),
                           ),
@@ -117,14 +120,14 @@ class SubscriptionReplaceSheet extends StatelessWidget {
                             child: ElevatedButton(
                               onPressed: () => Navigator.pop(context, true),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
+                                backgroundColor: AppColors.chaputWhite,
+                                foregroundColor: AppColors.chaputBlack,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                 elevation: 0,
                               ),
-                              child: const Text(
-                                'Devam et',
-                                style: TextStyle(fontWeight: FontWeight.w800),
+                              child: Text(
+                                context.t('common.continue'),
+                                style: const TextStyle(fontWeight: FontWeight.w800),
                               ),
                             ),
                           ),

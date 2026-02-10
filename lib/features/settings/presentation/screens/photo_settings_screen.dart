@@ -2,11 +2,13 @@ import 'dart:ui';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../me/application/me_controller.dart';
 import '../../application/photo_settings_controller.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class PhotoSettingsScreen extends ConsumerWidget {
   const PhotoSettingsScreen({super.key});
@@ -27,7 +29,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
 
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotoğrafı güncellendi.')),
+        SnackBar(content: Text(context.t('photo.updated'))),
       );
     }
   }
@@ -37,9 +39,9 @@ class PhotoSettingsScreen extends ConsumerWidget {
 
     final yes = await showDialog<bool>(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.25),
+      barrierColor: AppColors.chaputBlack.withOpacity(0.25),
       builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.chaputTransparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 22),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(22),
@@ -48,27 +50,27 @@ class PhotoSettingsScreen extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.78),
+                color: AppColors.chaputBlack.withOpacity(0.78),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white.withOpacity(0.12)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.12)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Fotoğrafı kaldır?',
+                  Text(
+                    context.t('photo.remove_title'),
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.chaputWhite,
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Profil fotoğrafın silinecek. Devam edilsin mi?',
+                    context.t('photo.remove_body'),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.72),
+                      color: AppColors.chaputWhite.withOpacity(0.72),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       height: 1.25,
@@ -81,14 +83,14 @@ class PhotoSettingsScreen extends ConsumerWidget {
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(context, false),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: BorderSide(color: Colors.white.withOpacity(0.25)),
+                            foregroundColor: AppColors.chaputWhite,
+                            side: BorderSide(color: AppColors.chaputWhite.withOpacity(0.25)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          child: const Text('Vazgeç', style: TextStyle(fontWeight: FontWeight.w800)),
+                          child: Text(context.t('common.cancel'), style: const TextStyle(fontWeight: FontWeight.w800)),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -96,14 +98,14 @@ class PhotoSettingsScreen extends ConsumerWidget {
                         child: ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
+                            backgroundColor: AppColors.chaputWhite,
+                            foregroundColor: AppColors.chaputBlack,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          child: const Text('Kaldır', style: TextStyle(fontWeight: FontWeight.w900)),
+                          child: Text(context.t('common.remove'), style: const TextStyle(fontWeight: FontWeight.w900)),
                         ),
                       ),
                     ],
@@ -123,7 +125,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
 
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotoğrafı kaldırıldı.')),
+        SnackBar(content: Text(context.t('photo.removed'))),
       );
     }
   }
@@ -134,7 +136,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
     final st = ref.watch(photoSettingsControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xffEEF2F6),
+      backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -149,7 +151,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('‹ Back', style: TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                       const Spacer(),
                     ],
@@ -163,7 +165,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
                         loading: () => const Center(
                           child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
                         ),
-                        error: (_, __) => const Text('Could not load profile'),
+                        error: (_, __) => Text(context.t('photo.load_failed')),
                         data: (me) {
                           final user = me?.user;
 
@@ -177,14 +179,16 @@ class PhotoSettingsScreen extends ConsumerWidget {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text(
-                                'Profile photo',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                              Text(
+                                context.t('photo.title'),
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                hasPhoto ? 'This photo is visible on your profile.' : 'You are using a default avatar.',
-                                style: TextStyle(color: Colors.black.withOpacity(0.60), fontWeight: FontWeight.w600),
+                                hasPhoto
+                                    ? context.t('photo.visible_hint')
+                                    : context.t('photo.default_hint'),
+                                style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.60), fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 14),
 
@@ -193,7 +197,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(18),
                                 child: Container(
                                   height: 260,
-                                  color: Colors.black.withOpacity(0.06),
+                                  color: AppColors.chaputBlack.withOpacity(0.06),
                                   child: Stack(
                                     fit: StackFit.expand,
                                     children: [
@@ -206,7 +210,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
                                           height: 160,
                                           radius: 999,
                                           borderWidth: 2,
-                                          bgColor: Colors.black,
+                                          bgColor: AppColors.chaputBlack,
                                           isDefaultAvatar: !hasPhoto,
                                           imageUrl: imgUrl,
                                         ),
@@ -214,7 +218,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
 
                                       if (st.isLoading)
                                         Container(
-                                          color: Colors.black.withOpacity(0.12),
+                                          color: AppColors.chaputBlack.withOpacity(0.12),
                                           child: const Center(
                                             child: SizedBox(
                                               width: 26,
@@ -232,8 +236,8 @@ class PhotoSettingsScreen extends ConsumerWidget {
 
                               if (st.errorMessage != null) ...[
                                 Text(
-                                  st.errorMessage!,
-                                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+                                  context.t(st.errorMessage!),
+                                  style: const TextStyle(color: AppColors.chaputMaterialRed, fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 10),
                               ],
@@ -244,14 +248,16 @@ class PhotoSettingsScreen extends ConsumerWidget {
                                 child: ElevatedButton.icon(
                                   onPressed: st.isLoading ? null : () => _pickAndUpload(context, ref),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.black,
-                                    foregroundColor: Colors.white,
+                                    backgroundColor: AppColors.chaputBlack,
+                                    foregroundColor: AppColors.chaputWhite,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   ),
                                   icon: const Icon(Icons.photo_library_outlined),
                                   label: Text(
-                                    st.busyAction == 'upload' ? 'Uploading…' : 'Upload new photo',
+                                    st.busyAction == 'upload'
+                                        ? context.t('photo.uploading')
+                                        : context.t('photo.upload'),
                                     style: const TextStyle(fontWeight: FontWeight.w800),
                                   ),
                                 ),
@@ -264,13 +270,15 @@ class PhotoSettingsScreen extends ConsumerWidget {
                                 child: OutlinedButton.icon(
                                   onPressed: (!hasPhoto || st.isLoading) ? null : () => _confirmDelete(context, ref),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.black,
-                                    side: BorderSide(color: Colors.black.withOpacity(0.12)),
+                                    foregroundColor: AppColors.chaputBlack,
+                                    side: BorderSide(color: AppColors.chaputBlack.withOpacity(0.12)),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   ),
                                   icon: const Icon(Icons.delete_outline),
                                   label: Text(
-                                    st.busyAction == 'delete' ? 'Removing…' : 'Remove photo',
+                                    st.busyAction == 'delete'
+                                        ? context.t('photo.removing')
+                                        : context.t('photo.remove'),
                                     style: const TextStyle(fontWeight: FontWeight.w800),
                                   ),
                                 ),
@@ -299,13 +307,13 @@ class _WhiteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: AppColors.chaputWhite.withOpacity(0.92),
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
             blurRadius: 26,
             offset: const Offset(0, 14),
-            color: Colors.black.withOpacity(0.08),
+            color: AppColors.chaputBlack.withOpacity(0.08),
           ),
         ],
       ),

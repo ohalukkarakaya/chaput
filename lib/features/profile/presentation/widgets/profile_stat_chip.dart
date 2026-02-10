@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 class ProfileStatChip extends StatelessWidget {
   const ProfileStatChip({
@@ -24,7 +25,7 @@ class ProfileStatChip extends StatelessWidget {
     final v = _compact(value);
 
     return Material(
-      color: Colors.transparent,
+      color: AppColors.chaputTransparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -32,10 +33,10 @@ class ProfileStatChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           constraints: const BoxConstraints(minHeight: 28),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.10),
+            color: AppColors.chaputBlack.withOpacity(0.10),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withOpacity(0.18),
+              color: AppColors.chaputWhite.withOpacity(0.18),
               width: 1,
             ),
           ),
@@ -49,7 +50,7 @@ class ProfileStatChip extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: Colors.black,
+                  color: AppColors.chaputBlack,
                 ),
               ),
               const SizedBox(width: 6),
@@ -60,7 +61,7 @@ class ProfileStatChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black.withOpacity(0.65),
+                  color: AppColors.chaputBlack.withOpacity(0.65),
                 ),
               ),
             ],

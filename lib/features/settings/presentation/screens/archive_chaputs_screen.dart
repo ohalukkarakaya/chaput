@@ -5,10 +5,12 @@ import 'package:chaput/features/billing/data/billing_api_provider.dart';
 import 'package:chaput/features/me/application/me_controller.dart';
 import 'package:chaput/features/profile/presentation/widgets/chaput_paywall_sheet.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../application/archive_controller.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ArchiveChaputsScreen extends ConsumerWidget {
   const ArchiveChaputsScreen({super.key});
@@ -27,7 +29,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     } catch (_) {
       if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Satın alma doğrulanamadı')),
+        SnackBar(content: Text(context.t('billing.verify_failed'))),
       );
       return false;
     }
@@ -42,7 +44,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     final planType = (me?.subscription.plan ?? 'FREE');
     return showModalBottomSheet<PaywallPurchase>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.chaputTransparent,
       isScrollControlled: true,
       useSafeArea: false,
       builder: (_) => FakePaywallSheet(
@@ -61,7 +63,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     final isPro = plan.contains('PRO');
 
     return Scaffold(
-      backgroundColor: const Color(0xffEEF2F6),
+      backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -76,7 +78,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('‹ Back', style: TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                       const Spacer(),
                       IconButton(
@@ -91,10 +93,10 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Archived chaputs',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            context.t('archive.title'),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                           ),
                         ),
                         if (st.isLoading)
@@ -115,20 +117,20 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text(st.error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                                Text(context.t(st.error!), style: const TextStyle(color: AppColors.chaputMaterialRed, fontWeight: FontWeight.w700)),
                                 const SizedBox(height: 12),
                                 ElevatedButton(
                                   onPressed: () => ref.read(archiveControllerProvider.notifier).refresh(),
-                                  child: const Text('Retry'),
+                                  child: Text(context.t('common.retry')),
                                 ),
                               ],
                             ),
                           )
                         : (st.items.isEmpty && !st.isLoading)
-                            ? const Center(
+                            ? Center(
                                 child: Text(
-                                  'Hiç yok',
-                                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black54),
+                                  context.t('common.empty'),
+                                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.chaputBlack54),
                                 ),
                               )
                             : NotificationListener<ScrollNotification>(
@@ -162,7 +164,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                                     final it = st.items[i];
                                     final u = st.usersById[it.otherUserId];
 
-                                      final fullName = u?.fullName ?? '—';
+                                      final fullName = u?.fullName ?? context.t('common.na');
                                       final rawUsername = u?.username;
                                       final username = (rawUsername == null || rawUsername.isEmpty) ? it.otherUserId : rawUsername;
                                       final defaultAvatar = u?.defaultAvatar ?? '';
@@ -205,7 +207,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                                                 if (!context.mounted) return;
                                                 if (ok) {
                                                   ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(content: Text('Chaput kurtarıldı ✅')),
+                                                    SnackBar(content: Text(context.t('archive.revived_ok'))),
                                                   );
                                                 }
                                               },
@@ -252,9 +254,9 @@ class _ArchivedRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.96),
+          color: AppColors.chaputWhite.withOpacity(0.96),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.black.withOpacity(0.06)),
+          border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +266,7 @@ class _ArchivedRow extends StatelessWidget {
               height: 44,
               radius: 999,
               borderWidth: 2,
-              bgColor: Colors.black,
+              bgColor: AppColors.chaputBlack,
               isDefaultAvatar: isDefaultAvatar,
               imageUrl: avatarUrl,
             ),
@@ -278,7 +280,7 @@ class _ArchivedRow extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 2),
                   Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.black.withOpacity(0.55), fontWeight: FontWeight.w600)),
+                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55), fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -290,14 +292,14 @@ class _ArchivedRow extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: onRevive,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.chaputBlack,
+                  foregroundColor: AppColors.chaputWhite,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: busy
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Kurtar', style: TextStyle(fontWeight: FontWeight.w900)),
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite))
+                    : Text(context.t('archive.revive'), style: const TextStyle(fontWeight: FontWeight.w900)),
               ),
             ),
           ],
@@ -315,13 +317,13 @@ class _WhiteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: AppColors.chaputWhite.withOpacity(0.92),
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
             blurRadius: 26,
             offset: const Offset(0, 14),
-            color: Colors.black.withOpacity(0.08),
+            color: AppColors.chaputBlack.withOpacity(0.08),
           ),
         ],
       ),

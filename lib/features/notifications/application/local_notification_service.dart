@@ -1,7 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+
+import '../../../core/i18n/app_localizations.dart';
 
 class LocalNotificationService {
   LocalNotificationService._();
@@ -31,20 +35,21 @@ class LocalNotificationService {
     final now = DateTime.now();
     await _storage.write(key: _kLastOpenKey, value: now.millisecondsSinceEpoch.toString());
     final scheduled = now.add(const Duration(hours: 24));
-    const details = NotificationDetails(
+    final l10n = await AppLocalizations.load(PlatformDispatcher.instance.locale);
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
         'chaput_local',
-        'Local',
-        channelDescription: 'Local reminders',
+        l10n.t('notifications.local_channel_name'),
+        channelDescription: l10n.t('notifications.local_channel_desc'),
         importance: Importance.defaultImportance,
         priority: Priority.defaultPriority,
       ),
-      iOS: DarwinNotificationDetails(),
+      iOS: const DarwinNotificationDetails(),
     );
     await _plugin.zonedSchedule(
       id: _kMissYouId,
-      title: 'Seni özledik',
-      body: 'Chaput seni özledi, geri gel!',
+      title: l10n.t('notifications.miss_you_title'),
+      body: l10n.t('notifications.miss_you_body'),
       scheduledDate: tz.TZDateTime.from(scheduled, tz.local),
       notificationDetails: details,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

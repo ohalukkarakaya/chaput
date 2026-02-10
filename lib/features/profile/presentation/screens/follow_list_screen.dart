@@ -1,10 +1,12 @@
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../social/application/follow_list_controller.dart';
 import '../../../../core/router/routes.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class FollowListScreen extends ConsumerStatefulWidget {
   const FollowListScreen({
@@ -55,7 +57,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
     }).toList(growable: false);
 
     return Scaffold(
-      backgroundColor: const Color(0xffEEF2F6),
+      backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -70,7 +72,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('‹ Back', style: TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                       const Spacer(),
                       IconButton(
@@ -108,17 +110,17 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                         controller: _searchCtrl,
                         onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
-                          hintText: 'Ara',
+                          hintText: context.t('common.search'),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.96),
+                          fillColor: AppColors.chaputWhite.withOpacity(0.96),
                           prefixIcon: const Icon(Icons.search),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: Colors.black.withOpacity(0.08)),
+                            borderSide: BorderSide(color: AppColors.chaputBlack.withOpacity(0.08)),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: Colors.black.withOpacity(0.08)),
+                            borderSide: BorderSide(color: AppColors.chaputBlack.withOpacity(0.08)),
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
@@ -130,9 +132,9 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                     child: st.isForbidden
                         ? Center(
                             child: Text(
-                              'Bu listeyi göremezsin',
+                              context.t('follow_list.forbidden'),
                               style: TextStyle(
-                                color: Colors.black.withOpacity(0.6),
+                                color: AppColors.chaputBlack.withOpacity(0.6),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -143,11 +145,11 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('Error: ${st.error}', style: const TextStyle(color: Colors.red)),
+                          Text('${context.t('common.error')}: ${st.error}', style: const TextStyle(color: AppColors.chaputMaterialRed)),
                           const SizedBox(height: 12),
                           ElevatedButton(
                           onPressed: () => ref.read(followListControllerProvider(_args).notifier).refresh(),
-                            child: const Text('Retry'),
+                            child: Text(context.t('common.retry')),
                           ),
                         ],
                       ),
@@ -155,9 +157,9 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                         : (items.isEmpty && !st.isLoading)
                             ? Center(
                                 child: Text(
-                                  'Kimse yok',
+                                  context.t('common.empty'),
                                   style: TextStyle(
-                                    color: Colors.black.withOpacity(0.55),
+                                    color: AppColors.chaputBlack.withOpacity(0.55),
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -183,7 +185,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
 
                                   final title = u?.fullName.isNotEmpty == true
                                       ? u!.fullName
-                                      : (it.fullName.isNotEmpty ? it.fullName : '—');
+                                      : (it.fullName.isNotEmpty ? it.fullName : context.t('common.na'));
                                   final uname = (u?.username?.isNotEmpty == true)
                                       ? u!.username
                                       : it.username;
@@ -216,7 +218,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                                       } catch (e) {
                                         if (!context.mounted) return;
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Remove failed: $e')),
+                                          SnackBar(content: Text('${context.t('common.remove_failed')}: $e')),
                                         );
                                       }
                                     },
@@ -262,9 +264,9 @@ class _FollowRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.96),
+        color: AppColors.chaputWhite.withOpacity(0.96),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
       ),
       child: Row(
         children: [
@@ -283,7 +285,7 @@ class _FollowRow extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 2),
                   Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.black.withOpacity(0.55), fontWeight: FontWeight.w600)),
+                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55), fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -292,7 +294,7 @@ class _FollowRow extends StatelessWidget {
             const SizedBox(width: 10),
             TextButton(
               onPressed: onRemove,
-              child: const Text('Kaldır'),
+              child: Text(context.t('common.remove')),
             ),
           ],
         ],

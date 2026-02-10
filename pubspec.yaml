@@ -85,6 +85,11 @@ flutter:
     - assets/i18n/tr.json
     - assets/i18n/de.json
     - assets/i18n/fr.json
+    - assets/i18n/sv.json
+    - assets/i18n/nb.json
+    - assets/i18n/da.json
+    - assets/i18n/fi.json
+    - assets/i18n/es.json
 
   fonts:
     - family: Qanelas

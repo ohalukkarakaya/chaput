@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
+
 @immutable
 class TreePreset {
   final String id;                 // "tree_003" gibi
@@ -23,37 +25,37 @@ class TreeCatalog {
     TreePreset(
       id: '1',
       assetPath: 'tree_001.glb',
-      bgColor: 0xEADBC8,
+      bgColor: AppColors.chaputTreeBg1Hex,
       targetHeight: 0.55,
     ),
     TreePreset(
       id: '2',
       assetPath: 'tree_002.glb',
-      bgColor: 0xE6F0E6,
+      bgColor: AppColors.chaputTreeBg2Hex,
       targetHeight: 0.55,
     ),
     TreePreset(
       id: '3',
       assetPath: 'tree_003.glb',
-      bgColor: 0xF3C6A6,
+      bgColor: AppColors.chaputTreeBg3Hex,
       targetHeight: 0.55,
     ),
     TreePreset(
       id: '4',
       assetPath: 'tree_004.glb',
-      bgColor: 0xE9EEF3,
+      bgColor: AppColors.chaputCloudBlueHex,
       targetHeight: 0.60,
     ),
     TreePreset(
       id: '5',
       assetPath: 'tree_005.glb',
-      bgColor: 0xE6D9F0,
+      bgColor: AppColors.chaputTreeBg5Hex,
       targetHeight: 0.58,
     ),
     TreePreset(
       id: '6',
       assetPath: 'tree_006.glb',
-      bgColor: 0xDCEFE6,
+      bgColor: AppColors.chaputTreeBg6Hex,
       targetHeight: 0.56,
     ),
   ];

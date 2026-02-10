@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,6 +14,7 @@ import '../../data/notification_api_provider.dart';
 import '../../domain/notification_item.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../../core/router/routes.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -74,7 +76,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final entries = _buildEntries(st.items);
 
     return Scaffold(
-      backgroundColor: const Color(0xffEEF2F6),
+      backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -89,7 +91,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('‹ Back', style: TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                       const Spacer(),
                       IconButton(
@@ -103,10 +105,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Bildirimler',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            context.t('notifications.title'),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                           ),
                         ),
                         if (st.isLoading)
@@ -126,20 +128,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text('Error: ${st.error}', style: const TextStyle(color: Colors.red)),
+                                Text('${context.t('common.error')}: ${st.error}', style: const TextStyle(color: AppColors.chaputMaterialRed)),
                                 const SizedBox(height: 12),
                                 ElevatedButton(
                                   onPressed: () => ref.read(notificationsControllerProvider.notifier).refresh(),
-                                  child: const Text('Retry'),
+                                  child: Text(context.t('common.retry')),
                                 ),
                               ],
                             ),
                           )
                         : (st.items.isEmpty && !st.isLoading)
-                            ? const Center(
+                            ? Center(
                                 child: Text(
-                                  'Hiç yok',
-                                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black54),
+                                  context.t('common.empty'),
+                                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.chaputBlack54),
                                 ),
                               )
                             : NotificationListener<ScrollNotification>(
@@ -163,7 +165,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                           style: const TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w900,
-                                            color: Colors.black54,
+                                            color: AppColors.chaputBlack54,
                                           ),
                                         ),
                                       );
@@ -291,7 +293,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     final entries = <_NotifEntry>[];
     if (followReqs.isNotEmpty) {
-      entries.add(const _NotifEntry.header('Takip istekleri'));
+      entries.add(_NotifEntry.header(context.t('notifications.follow_requests')));
       for (final it in followReqs) {
         entries.add(_NotifEntry.item(it));
       }
@@ -315,8 +317,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final date = DateTime(dt.year, dt.month, dt.day);
     final diff = today.difference(date).inDays;
-    if (diff == 0) return 'Bugün';
-    if (diff == 1) return 'Dün';
+    if (diff == 0) return context.t('common.today');
+    if (diff == 1) return context.t('common.yesterday');
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 }
@@ -338,16 +340,16 @@ class _NotificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = actor?.fullName ?? 'Bir kullanıcı';
+    final title = actor?.fullName ?? context.t('common.user');
     final username = actor?.username;
     final avatarUrl = (actor?.profilePhotoPath?.isNotEmpty == true)
         ? actor!.profilePhotoPath!
         : (actor?.defaultAvatar ?? '');
     final isDefault = actor?.profilePhotoPath == null || actor?.profilePhotoPath == '';
 
-    final message = _buildMessage(item);
+    final message = _buildMessage(context, item);
 
-    final bubbleColor = item.isRead ? Colors.white : const Color(0xffE6ECF5);
+    final bubbleColor = item.isRead ? AppColors.chaputWhite : AppColors.chaputPaleBlue;
     return Material(
       color: bubbleColor,
       borderRadius: BorderRadius.circular(18),
@@ -385,8 +387,8 @@ class _NotificationRow extends StatelessWidget {
                         ),
                         if (item.createdAt != null)
                           Text(
-                            _timeAgo(item.createdAt!),
-                            style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.45)),
+                            _timeAgo(context, item.createdAt!),
+                            style: TextStyle(fontSize: 12, color: AppColors.chaputBlack.withOpacity(0.45)),
                           ),
                       ],
                     ),
@@ -395,7 +397,7 @@ class _NotificationRow extends StatelessWidget {
                       username == null || username.isEmpty ? message : '$message • @$username',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.65)),
+                      style: TextStyle(fontSize: 13, color: AppColors.chaputBlack.withOpacity(0.65)),
                     ),
                   ],
                 ),
@@ -408,7 +410,7 @@ class _NotificationRow extends StatelessWidget {
                   margin: const EdgeInsets.only(top: 6),
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Color(0xff2F6BFF),
+                    color: AppColors.chaputRoyalBlue,
                   ),
                 )
               else
@@ -421,17 +423,17 @@ class _NotificationRow extends StatelessWidget {
                     if (onReject != null)
                       _ActionIconButton(
                         onPressed: onReject!,
-                        background: const Color(0xffD9DEE6),
+                        background: AppColors.chaputSilver,
                         icon: Icons.close,
-                        iconColor: Colors.black87,
+                        iconColor: AppColors.chaputBlack87,
                       ),
                     if (onApprove != null) ...[
                       const SizedBox(width: 8),
                       _ActionIconButton(
                         onPressed: onApprove!,
-                        background: Colors.black,
+                        background: AppColors.chaputBlack,
                         icon: Icons.check,
-                        iconColor: Colors.white,
+                        iconColor: AppColors.chaputWhite,
                       ),
                     ],
                   ],
@@ -444,36 +446,38 @@ class _NotificationRow extends StatelessWidget {
     );
   }
 
-  String _buildMessage(AppNotification n) {
+  String _buildMessage(BuildContext context, AppNotification n) {
     switch (n.type) {
       case 'followed':
-        return 'Seni takip etti';
+        return context.t('notifications.followed');
       case 'follow_request':
-        return 'Takip isteği gönderdi';
+        return context.t('notifications.follow_request_sent');
       case 'follow_approved':
-        return 'Takip isteğini onayladı';
+        return context.t('notifications.follow_approved');
       case 'chaput_started':
-        return 'Sana chaput bağladı';
+        return context.t('notifications.chaput_started');
       case 'chaput_message':
         final body = n.payload['body']?.toString();
-        return body == null || body.isEmpty ? 'Yeni mesaj' : body;
+        return body == null || body.isEmpty ? context.t('notifications.chaput_message') : body;
       case 'chaput_revive':
-        return 'Chaputu arşivden kurtardı';
+        return context.t('notifications.chaput_revive');
       case 'chaput_message_like':
         final body = n.payload['body']?.toString();
-        return body == null || body.isEmpty ? 'Mesajını beğendi' : 'Mesajını beğendi: $body';
+        return body == null || body.isEmpty
+            ? context.t('notifications.message_liked')
+            : context.t('notifications.message_liked_with_body', params: {'body': body});
       default:
-        return 'Bildirim';
+        return context.t('notifications.generic');
     }
   }
 
-  static String _timeAgo(DateTime dt) {
+  static String _timeAgo(BuildContext context, DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return '${diff.inSeconds}s';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}dk';
-    if (diff.inHours < 24) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}g';
+    if (diff.inSeconds < 60) return context.t('time.seconds', params: {'count': diff.inSeconds.toString()});
+    if (diff.inMinutes < 60) return context.t('time.minutes', params: {'count': diff.inMinutes.toString()});
+    if (diff.inHours < 24) return context.t('time.hours', params: {'count': diff.inHours.toString()});
+    if (diff.inDays < 7) return context.t('time.days', params: {'count': diff.inDays.toString()});
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 }

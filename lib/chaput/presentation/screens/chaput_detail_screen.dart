@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChaputDetailScreen extends StatelessWidget {
   final String chaputId;
@@ -7,8 +8,8 @@ class ChaputDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Chaput $chaputId')),
-      body: const Center(child: Text('Chaput detail + comments (MVP sonra)')),
+      appBar: AppBar(title: Text(context.t('chaput.detail_title', params: {'id': chaputId}))),
+      body: Center(child: Text(context.t('chaput.detail_placeholder'))),
     );
   }
 }

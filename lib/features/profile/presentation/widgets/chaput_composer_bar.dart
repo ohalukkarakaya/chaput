@@ -2,7 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChatComposerBar extends StatefulWidget {
   const ChatComposerBar({
@@ -81,8 +84,8 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.55),
-            border: Border.all(color: Colors.white.withOpacity(0.10)),
+            color: AppColors.chaputBlack.withOpacity(0.55),
+            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Padding(
@@ -99,14 +102,14 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.14),
+                      color: AppColors.chaputWhite.withOpacity(0.14),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.white.withOpacity(0.10)),
+                      border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
                     ),
-                    child: const Text(
-                      'Anonim',
+                    child: Text(
+                      context.t('chat.anon_label'),
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.chaputWhite,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -120,11 +123,11 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                     focusNode: widget.focusNode,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => widget.onSend(),
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    decoration: const InputDecoration(
+                    style: const TextStyle(color: AppColors.chaputWhite, fontSize: 16),
+                    decoration: InputDecoration(
                       isDense: true,
-                      hintText: 'Message',
-                      hintStyle: TextStyle(color: Colors.white54),
+                      hintText: context.t('chat.message_hint'),
+                      hintStyle: const TextStyle(color: AppColors.chaputWhite54),
                       border: InputBorder.none,
                     ),
                   ),
@@ -170,10 +173,10 @@ class _RoundIconButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
+          color: AppColors.chaputWhite.withOpacity(0.10),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: Colors.white, size: 22),
+        child: Icon(icon, color: AppColors.chaputWhite, size: 22),
       ),
     );
   }
@@ -199,12 +202,12 @@ class _InkAvatarButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
+          color: AppColors.chaputWhite.withOpacity(0.10),
           shape: BoxShape.circle,
         ),
         child: ClipOval(
           child: (avatarUrl == null || avatarUrl!.isEmpty)
-              ? const ColoredBox(color: Colors.transparent)
+              ? const ColoredBox(color: AppColors.chaputTransparent)
               : ChaputCircleAvatar(
                   isDefaultAvatar: isDefaultAvatar,
                   imageUrl: avatarUrl!,

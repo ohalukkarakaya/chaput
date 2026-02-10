@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/ui/video/video_background.dart';
 import '../../application/auth_controller.dart';
 import '../widgets/auth_text_field.dart';
+import 'package:chaput/core/constants/app_colors.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -32,7 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       next.whenOrNull(
         error: (e, st) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login failed: $e')),
+            SnackBar(content: Text('${context.t('auth.login_failed')}: $e')),
           );
         },
       );
@@ -49,17 +51,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 const SizedBox(height: 40),
                 Text(
-                  'Chaput',
+                  context.t('app.name'),
                   style: Theme.of(context)
                       .textTheme
                       .headlineMedium
-                      ?.copyWith(color: Colors.white),
+                      ?.copyWith(color: AppColors.chaputWhite),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Bir ağaca kısa bir iz bırak.',
-                  style: TextStyle(color: Colors.white70),
+                  context.t('auth.tagline'),
+                  style: const TextStyle(color: AppColors.chaputWhite70),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),

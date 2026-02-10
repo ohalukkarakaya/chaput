@@ -1,9 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../i18n/app_localizations.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class GlassEmailInput extends StatelessWidget {
   final TextEditingController controller;
-  final String hintText;
+  final String? hintText;
   final Future<void> Function() onSubmit;
   final double radius;
 
@@ -11,7 +14,7 @@ class GlassEmailInput extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onSubmit,
-    this.hintText = 'email',
+    this.hintText,
     this.radius = 18,
   });
 
@@ -26,9 +29,9 @@ class GlassEmailInput extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.35),
+            color: AppColors.chaputBlack.withOpacity(0.35),
             borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.14)),
+            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.14)),
           ),
           child: Row(
             children: [
@@ -39,7 +42,7 @@ class GlassEmailInput extends StatelessWidget {
                   alignment: Alignment.center,
                   child: TextField(
                     controller: controller,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppColors.chaputWhite),
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) async {
@@ -49,8 +52,8 @@ class GlassEmailInput extends StatelessWidget {
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
-                      hintText: hintText,
-                      hintStyle: const TextStyle(color: Colors.white54),
+                      hintText: hintText ?? context.t('common.email'),
+                      hintStyle: const TextStyle(color: AppColors.chaputWhite54),
                     ),
                   ),
                 ),
@@ -89,7 +92,7 @@ class GlassSquareIconButton extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.chaputTransparent,
         child: InkWell(
           onTap: () async {
             debugPrint('➡️ GlassArrowButton tapped'); // DEBUG
@@ -101,12 +104,12 @@ class GlassSquareIconButton extends StatelessWidget {
               width: size,
               height: size,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.45),
+                color: AppColors.chaputBlack.withOpacity(0.45),
                 borderRadius: BorderRadius.circular(radius),
-                border: Border.all(color: Colors.white.withOpacity(0.18)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.18)),
               ),
               child: Center(
-                child: Icon(icon, size: 16, color: Colors.white),
+                child: Icon(icon, size: 16, color: AppColors.chaputWhite),
               ),
             ),
           ),

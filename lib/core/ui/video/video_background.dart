@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 class VideoBackground extends StatefulWidget {
   final Widget child;
@@ -72,7 +73,7 @@ class _VideoBackgroundState extends State<VideoBackground> with WidgetsBindingOb
             future: _init,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done || !_controller.value.isInitialized) {
-                return const ColoredBox(color: Colors.black);
+                return const ColoredBox(color: AppColors.chaputBlack);
               }
 
               return FittedBox(
@@ -91,7 +92,7 @@ class _VideoBackgroundState extends State<VideoBackground> with WidgetsBindingOb
         Positioned.fill(
           child: IgnorePointer(
             ignoring: true,
-            child: Container(color: Colors.black.withOpacity(widget.overlayOpacity)),
+            child: Container(color: AppColors.chaputBlack.withOpacity(widget.overlayOpacity)),
           ),
         ),
 

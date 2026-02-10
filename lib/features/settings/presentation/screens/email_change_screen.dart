@@ -1,11 +1,13 @@
 import 'package:chaput/core/ui/widgets/code_verify_sheet.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/ui/widgets/email_otp_verify_sheet.dart';
 import '../../../me/application/me_controller.dart';
 import '../../application/email_change_controller.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class EmailChangeScreen extends ConsumerStatefulWidget {
   const EmailChangeScreen({super.key});
@@ -71,7 +73,7 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
     final st = ref.watch(emailChangeControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xffEEF2F6),
+      backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
         bottom: false,
         child: Center(
@@ -86,7 +88,7 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('‹ Back', style: TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
                       ),
                       const Spacer(),
                     ],
@@ -100,18 +102,18 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                         loading: () => const Center(
                           child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
                         ),
-                        error: (_, __) => const Text('Could not load'),
+                        error: (_, __) => Text(context.t('common.load_failed')),
                         data: (me) {
-                          final current = me?.user.email ?? '—';
+                          final current = me?.user.email ?? context.t('common.na');
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text('Email', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                              Text(context.t('common.email'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                               const SizedBox(height: 6),
                               Text(
-                                'Current: $current',
-                                style: TextStyle(color: Colors.black.withOpacity(0.60), fontWeight: FontWeight.w600),
+                                context.t('settings.email_current', params: {'email': current}),
+                                style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.60), fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 14),
 
@@ -121,16 +123,16 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                                 textInputAction: TextInputAction.done,
                                 onChanged: (_) => ref.read(emailChangeControllerProvider.notifier).clearError(),
                                 decoration: InputDecoration(
-                                  hintText: 'newmail@example.com',
+                                  hintText: context.t('settings.email_new_placeholder'),
                                   filled: true,
-                                  fillColor: Colors.black.withOpacity(0.04),
+                                  fillColor: AppColors.chaputBlack.withOpacity(0.04),
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                                 ),
                               ),
                               const SizedBox(height: 10),
 
                               if (st.errorMessage != null) ...[
-                                Text(st.errorMessage!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                                Text(context.t(st.errorMessage!), style: const TextStyle(color: AppColors.chaputMaterialRed, fontWeight: FontWeight.w700)),
                                 const SizedBox(height: 10),
                               ],
 
@@ -161,14 +163,14 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                                     }
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.black,
-                                    foregroundColor: Colors.white,
+                                    backgroundColor: AppColors.chaputBlack,
+                                    foregroundColor: AppColors.chaputWhite,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   ),
                                   child: st.isLoading
-                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                      : const Text('Send code', style: TextStyle(fontWeight: FontWeight.w800)),
+                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite))
+                                      : Text(context.t('common.send_code'), style: const TextStyle(fontWeight: FontWeight.w800)),
                                 ),
                               ),
                             ],
@@ -195,13 +197,13 @@ class _WhiteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: AppColors.chaputWhite.withOpacity(0.92),
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
             blurRadius: 26,
             offset: const Offset(0, 14),
-            color: Colors.black.withOpacity(0.08),
+            color: AppColors.chaputBlack.withOpacity(0.08),
           ),
         ],
       ),

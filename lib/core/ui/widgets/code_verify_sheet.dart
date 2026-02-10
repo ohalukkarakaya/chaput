@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:chaput/core/i18n/app_localizations.dart';
+import '../../constants/app_colors.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,8 +20,8 @@ Future<LoginVerifyResponse?> showCodeVerifySheet({
     isScrollControlled: true,
     isDismissible: false,
     enableDrag: false,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.transparent,
+    backgroundColor: AppColors.chaputTransparent,
+    barrierColor: AppColors.chaputTransparent,
     builder: (_) {
       return _BlurBarrier(
         child: _CodeSheet(
@@ -47,7 +48,7 @@ class _BlurBarrier extends StatelessWidget {
             absorbing: true,
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-              child: Container(color: Colors.black.withOpacity(0.25)),
+              child: Container(color: AppColors.chaputBlack.withOpacity(0.25)),
             ),
           ),
         ),
@@ -192,7 +193,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
       setState(() => _errorText = _dioErrorToMessage(e));
     } catch (_) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorText = 'Bir şey ters gitti. Tekrar dene.');
+      setState(() => _errorText = context.t('errors.generic'));
     }
   }
 
@@ -238,7 +239,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
       }
     } catch (_) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorText = 'Bir şey ters gitti. Tekrar dene.');
+      setState(() => _errorText = context.t('errors.generic'));
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -250,14 +251,14 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
     // backend string döndürebilir: "invalid_code" gibi
     final s = data is String ? data : data?.toString() ?? '';
 
-    if (s.contains('invalid_code')) return 'Kod yanlış. Tekrar dene.';
-    if (s.contains('code_expired')) return 'Kodun süresi doldu. Yeniden kod iste.';
-    if (s.contains('code_required')) return 'Kodu girmen gerekiyor.';
-    if (s.contains('too_many_attempts')) return 'Çok fazla deneme. Biraz bekle.';
-    if (s.contains('db_error')) return 'Sunucu hatası. Tekrar dene.';
+    if (s.contains('invalid_code')) return context.t('errors.code_invalid');
+    if (s.contains('code_expired')) return context.t('errors.code_expired');
+    if (s.contains('code_required')) return context.t('errors.code_required');
+    if (s.contains('too_many_attempts')) return context.t('errors.too_many_attempts');
+    if (s.contains('db_error')) return context.t('errors.db_error');
 
     final status = e.response?.statusCode;
-    return 'Hata ($status). Tekrar dene.';
+    return context.t('errors.http_status', params: {'status': status?.toString() ?? '-'});
   }
 
   int? _extractRetryAfterSeconds(dynamic data) {
@@ -290,9 +291,9 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
             child: Container(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.88),
+                color: AppColors.chaputWhite.withOpacity(0.88),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                border: Border.all(color: Colors.white.withOpacity(0.6)),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.6)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -303,17 +304,17 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                       width: 44,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.12),
+                        color: AppColors.chaputBlack.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
                   ),
                   const SizedBox(height: 14),
 
-                  const Text(
-                    'Kodu gir',
+                  Text(
+                    context.t('code.title'),
                     style: TextStyle(
-                      color: Colors.black,
+                      color: AppColors.chaputBlack,
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
@@ -322,7 +323,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                   Text(
                     context.t('code.subtitle', params: {'email': widget.email}),
                     style: TextStyle(
-                      color: Colors.black.withOpacity(0.65),
+                      color: AppColors.chaputBlack.withOpacity(0.65),
                       fontSize: 13,
                       height: 1.3,
                     ),
@@ -353,8 +354,8 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(border: InputBorder.none),
-                      style: const TextStyle(color: Colors.transparent),
-                      cursorColor: Colors.transparent,
+                      style: const TextStyle(color: AppColors.chaputTransparent),
+                      cursorColor: AppColors.chaputTransparent,
                       enableInteractiveSelection: false,
                       showCursor: false,
                     ),
@@ -366,7 +367,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                     Text(
                       _errorText!,
                       style: const TextStyle(
-                        color: Colors.red,
+                        color: AppColors.chaputMaterialRed,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -379,7 +380,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                     Text(
                       context.t('code.resend_in', params: {'seconds': _lockSeconds.toString()}),
                       style: TextStyle(
-                        color: Colors.black.withOpacity(0.65),
+                        color: AppColors.chaputBlack.withOpacity(0.65),
                         fontSize: 13,
                       ),
                     ),
@@ -391,8 +392,8 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                     child: ElevatedButton(
                       onPressed: (!isLocked && _code.length == 6 && !_verifying) ? _verify : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        disabledBackgroundColor: Colors.black.withOpacity(0.25),
+                        backgroundColor: AppColors.chaputBlack,
+                        disabledBackgroundColor: AppColors.chaputBlack.withOpacity(0.25),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -402,12 +403,12 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                           ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite),
                       )
                           : Text(
                             context.t('code.verify'),
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.chaputWhite,
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                             ),
@@ -422,7 +423,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                     child: Text(
                       canResend ? context.t('code.resend') : context.t('code.resend_in', params: {'seconds': _resendSeconds.toString()}),
                       style: TextStyle(
-                        color: Colors.black.withOpacity(canResend ? 0.9 : 0.35),
+                        color: AppColors.chaputBlack.withOpacity(canResend ? 0.9 : 0.35),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -452,10 +453,10 @@ class _StarPinRow extends StatelessWidget {
             height: 56,
             margin: EdgeInsets.only(left: i == 0 ? 0 : 10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
+              color: AppColors.chaputWhite.withOpacity(0.95),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: filled ? Colors.black.withOpacity(0.35) : Colors.black.withOpacity(0.12),
+                color: filled ? AppColors.chaputBlack.withOpacity(0.35) : AppColors.chaputBlack.withOpacity(0.12),
               ),
             ),
             child: Center(
@@ -464,7 +465,7 @@ class _StarPinRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: filled ? Colors.black : Colors.black.withOpacity(0.25),
+                  color: filled ? AppColors.chaputBlack : AppColors.chaputBlack.withOpacity(0.25),
                 ),
               ),
             ),

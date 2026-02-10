@@ -6,6 +6,9 @@ import '../../../../features/social/application/block_controller.dart';
 import '../../../../features/social/application/restrictions_controller.dart';
 import '../../../../features/social/application/ui_restriction_override_provider.dart';
 import 'sheet_handle.dart';
+import 'package:chaput/core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
+import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ProfileActionsButton extends StatelessWidget {
   const ProfileActionsButton({
@@ -26,7 +29,7 @@ class ProfileActionsButton extends StatelessWidget {
       onTap: () {
         showModalBottomSheet(
           context: context,
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.chaputTransparent,
           builder: (_) => ProfileActionsSheet(
             username: username,
             userId: userId,
@@ -38,13 +41,13 @@ class ProfileActionsButton extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.08),
+          color: AppColors.chaputBlack.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(
           Icons.more_vert,
           size: 18,
-          color: Colors.black,
+          color: AppColors.chaputBlack,
         ),
       ),
     );
@@ -79,7 +82,7 @@ class ProfileActionsSheet extends ConsumerWidget {
         bottom: bottomInset > 0 ? bottomInset : 12,
       ),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.chaputWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -89,10 +92,10 @@ class ProfileActionsSheet extends ConsumerWidget {
 
           ProfileActionTile(
             icon: Icons.remove_circle_outline,
-            title: iRestrictedHim ? 'Zaten kısıtlı' : 'Kısıtla',
+            title: iRestrictedHim ? context.t('profile_actions.restrict_already') : context.t('profile_actions.restrict'),
             subtitle: iRestrictedHim
-                ? 'Bu kullanıcıyı zaten kısıtladın'
-                : 'Bu kullanıcının etkileşimleri sınırlandırılır',
+                ? context.t('profile_actions.restrict_already_desc')
+                : context.t('profile_actions.restrict_desc'),
             enabled: !restrictDisabled,
             onTap: () async {
               ref.read(uiRestrictedOverrideProvider(userId).notifier).state = true;
@@ -112,8 +115,8 @@ class ProfileActionsSheet extends ConsumerWidget {
 
           ProfileActionTile(
             icon: Icons.block,
-            title: 'Engelle',
-            subtitle: 'Bu kullanıcı seni göremez ve etkileşemez',
+            title: context.t('profile_actions.block'),
+            subtitle: context.t('profile_actions.block_desc'),
             destructive: true,
             onTap: busy
                 ? () {}
@@ -157,7 +160,7 @@ class ProfileActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = !enabled ? Colors.grey : (destructive ? Colors.red : Colors.black);
+    final color = !enabled ? AppColors.chaputGrey : (destructive ? AppColors.chaputMaterialRed : AppColors.chaputBlack);
 
     return ListTile(
       enabled: enabled,
@@ -173,7 +176,7 @@ class ProfileActionTile extends StatelessWidget {
         subtitle,
         style: TextStyle(
           fontSize: 12,
-          color: enabled ? Colors.black.withOpacity(0.6) : Colors.grey,
+          color: enabled ? AppColors.chaputBlack.withOpacity(0.6) : AppColors.chaputGrey,
         ),
       ),
       onTap: enabled ? onTap : null,

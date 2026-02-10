@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:chaput/core/constants/app_colors.dart';
 
 class FadingVideoHeader extends StatefulWidget {
   final String assetPath;
@@ -82,9 +83,9 @@ class _FadingVideoHeaderState extends State<FadingVideoHeader> {
                     1.0,
                   ],
                   colors: const [
-                    Colors.white, // full visible
-                    Colors.white, // still visible
-                    Colors.transparent, // fade out
+                    AppColors.chaputWhite, // full visible
+                    AppColors.chaputWhite, // still visible
+                    AppColors.chaputTransparent, // fade out
                   ],
                 ).createShader(rect);
               },

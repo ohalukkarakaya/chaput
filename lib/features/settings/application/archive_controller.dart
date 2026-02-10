@@ -78,17 +78,16 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
     if (e is DioException) {
       final data = e.response?.data;
       final s = (data is Map) ? (data['error']?.toString() ?? '') : data?.toString() ?? '';
-      if (s.contains('unauthorized')) return 'Oturum hatası. Tekrar giriş yapman gerekebilir.';
-      if (s.contains('not_found')) return 'Bulunamadı.';
-      if (s.contains('forbidden')) return 'Bu işlem için yetkin yok.';
-      if (s.contains('not_archived')) return 'Bu chaput zaten arşivde değil.';
-      if (s.contains('db_error')) return 'Sunucu hatası. Tekrar dene.';
-      final code = e.response?.statusCode;
-      return 'Hata ($code). Tekrar dene.';
+      if (s.contains('unauthorized')) return 'errors.unauthorized';
+      if (s.contains('not_found')) return 'errors.not_found';
+      if (s.contains('forbidden')) return 'errors.forbidden';
+      if (s.contains('not_archived')) return 'errors.not_archived';
+      if (s.contains('db_error')) return 'errors.db_error';
+      return 'errors.http_status';
     }
     final s = e.toString();
-    if (s.contains('unauthorized')) return 'Oturum hatası.';
-    return 'Bir şey ters gitti. Tekrar dene.';
+    if (s.contains('unauthorized')) return 'errors.unauthorized';
+    return 'errors.generic';
   }
 
   Future<Map<String, LiteUser>> _hydrateUsers(List<String> ids) async {

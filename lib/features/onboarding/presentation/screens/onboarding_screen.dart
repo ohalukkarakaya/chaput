@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:chaput/core/i18n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_colors.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -225,7 +226,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           Text(
                             context.t('onboarding.welcome_title'),
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.chaputWhite,
                               fontSize: 30,
                               height: 1.1,
                               fontWeight: FontWeight.w700,
@@ -235,7 +236,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           Text(
                             context.t('onboarding.welcome_subtitle'),
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.80),
+                              color: AppColors.chaputWhite.withOpacity(0.80),
                               fontSize: 16,
                               height: 1.25,
                               fontWeight: FontWeight.w400,

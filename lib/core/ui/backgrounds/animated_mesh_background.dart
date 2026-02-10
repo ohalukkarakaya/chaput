@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
 
 class AnimatedMeshBackground extends StatefulWidget {
   const AnimatedMeshBackground({
@@ -73,8 +74,8 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
                       center: p1,
                       radius: 1.2,
                       colors: [
-                        const Color(0xFF7CB8FF).withOpacity(a1),
-                        Colors.transparent,
+                        AppColors.chaputSkyBlue.withOpacity(a1),
+                        AppColors.chaputTransparent,
                       ],
                       stops: const [0.0, 1.0],
                     ),
@@ -87,8 +88,8 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
                       center: p2,
                       radius: 1.15,
                       colors: [
-                        const Color(0xFFB79CFF).withOpacity(a2),
-                        Colors.transparent,
+                        AppColors.chaputLavender.withOpacity(a2),
+                        AppColors.chaputTransparent,
                       ],
                       stops: const [0.0, 1.0],
                     ),
@@ -101,8 +102,8 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
                       center: p3,
                       radius: 1.25,
                       colors: [
-                        const Color(0xFF7FE7D6).withOpacity(a3),
-                        Colors.transparent,
+                        AppColors.chaputMint.withOpacity(a3),
+                        AppColors.chaputTransparent,
                       ],
                       stops: const [0.0, 1.0],
                     ),
@@ -116,8 +117,8 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withOpacity(0.00),
-                        Colors.black.withOpacity(0.05),
+                        AppColors.chaputWhite.withOpacity(0.00),
+                        AppColors.chaputBlack.withOpacity(0.05),
                       ],
                     ),
                   ),

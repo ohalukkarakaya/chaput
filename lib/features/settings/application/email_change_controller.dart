@@ -50,20 +50,19 @@ class EmailChangeController extends AutoDisposeNotifier<EmailChangeState> {
     final data = e.response?.data;
     final s = (data is Map) ? (data['error']?.toString() ?? '') : (data?.toString() ?? '');
 
-    if (s.contains('missing_new_email')) return 'Yeni e-posta gerekli.';
-    if (s.contains('missing_fields')) return 'Eksik alan var.';
-    if (s.contains('invalid_email')) return 'E-posta formatı hatalı.';
-    if (s.contains('email_taken')) return 'Bu e-posta zaten kullanımda.';
-    if (s.contains('rate_limited')) return 'Çok hızlı deniyorsun. Biraz bekleyip tekrar dene.';
-    if (s.contains('code_not_found')) return 'Kod bulunamadı. Yeniden kod iste.';
-    if (s.contains('code_expired')) return 'Kodun süresi doldu. Yeniden kod iste.';
-    if (s.contains('invalid_code')) return 'Kod yanlış. Tekrar dene.';
-    if (s.contains('too_many_attempts')) return 'Çok fazla deneme. Bir süre bekle.';
-    if (s.contains('db_error')) return 'Sunucu hatası. Tekrar dene.';
-    if (s.contains('unauthorized')) return 'Oturum hatası. Tekrar giriş yapman gerekebilir.';
+    if (s.contains('missing_new_email')) return 'errors.missing_new_email';
+    if (s.contains('missing_fields')) return 'errors.missing_fields';
+    if (s.contains('invalid_email')) return 'errors.invalid_email';
+    if (s.contains('email_taken')) return 'errors.email_taken';
+    if (s.contains('rate_limited')) return 'errors.rate_limited';
+    if (s.contains('code_not_found')) return 'errors.code_not_found';
+    if (s.contains('code_expired')) return 'errors.code_expired';
+    if (s.contains('invalid_code')) return 'errors.invalid_code';
+    if (s.contains('too_many_attempts')) return 'errors.too_many_attempts';
+    if (s.contains('db_error')) return 'errors.db_error';
+    if (s.contains('unauthorized')) return 'errors.unauthorized';
 
-    final code = e.response?.statusCode;
-    return 'Hata ($code). Tekrar dene.';
+    return 'errors.generic';
   }
 
   Future<bool> requestCode(String email) async {
@@ -79,7 +78,7 @@ class EmailChangeController extends AutoDisposeNotifier<EmailChangeState> {
       return false;
     } catch (e, st) {
       log('request email change unknown error', error: e, stackTrace: st);
-      state = state.copyWith(isLoading: false, errorMessage: 'Bir şey ters gitti. Tekrar dene.');
+      state = state.copyWith(isLoading: false, errorMessage: 'errors.generic');
       return false;
     }
   }
@@ -109,8 +108,8 @@ class EmailChangeController extends AutoDisposeNotifier<EmailChangeState> {
 
       return (ok: false, errorText: msg, lockSeconds: null);
     } catch (_) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Bir şey ters gitti. Tekrar dene.');
-      return (ok: false, errorText: 'Bir şey ters gitti. Tekrar dene.', lockSeconds: null);
+      state = state.copyWith(isLoading: false, errorMessage: 'errors.generic');
+      return (ok: false, errorText: 'errors.generic', lockSeconds: null);
     }
   }
 

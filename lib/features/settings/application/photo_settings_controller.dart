@@ -49,21 +49,20 @@ class PhotoSettingsController extends AutoDisposeNotifier<PhotoSettingsState> {
       final data = e.response?.data;
       final s = (data is Map) ? (data['error']?.toString() ?? '') : data?.toString() ?? '';
 
-      if (s.contains('file_required')) return 'Lütfen bir fotoğraf seç.';
-      if (s.contains('file_too_large')) return 'Dosya çok büyük. Daha küçük bir fotoğraf dene.';
-      if (s.contains('image_decode_failed')) return 'Bu dosya resim gibi okunamadı.';
-      if (s.contains('bad_multipart')) return 'Yükleme formatı hatalı. Tekrar dene.';
-      if (s.contains('db_error')) return 'Sunucu hatası. Tekrar dene.';
-      if (s.contains('unauthorized')) return 'Oturum hatası. Tekrar giriş yapman gerekebilir.';
+      if (s.contains('file_required')) return 'errors.file_required';
+      if (s.contains('file_too_large')) return 'errors.file_too_large';
+      if (s.contains('image_decode_failed')) return 'errors.image_decode_failed';
+      if (s.contains('bad_multipart')) return 'errors.bad_multipart';
+      if (s.contains('db_error')) return 'errors.db_error';
+      if (s.contains('unauthorized')) return 'errors.unauthorized';
 
-      final code = e.response?.statusCode;
-      return 'Hata ($code). Tekrar dene.';
+      return 'errors.http_status';
     }
 
     final s = e.toString();
-    if (s.contains('user_not_found')) return 'Kullanıcı bulunamadı.';
-    if (s.contains('unknown_error')) return 'Beklenmeyen hata. Tekrar dene.';
-    return 'Bir şey ters gitti. Tekrar dene.';
+    if (s.contains('user_not_found')) return 'errors.user_not_found';
+    if (s.contains('unknown_error')) return 'errors.unknown_error';
+    return 'errors.generic';
   }
 
   String? _loggedInUserId() {
