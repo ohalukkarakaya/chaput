@@ -1347,9 +1347,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       // UI/State: 1 kredi düş
       decisionNotifier.applyCreditsDelta(hidden: -1);
+      final nextKind = thread.isSpecial ? 'HIDDEN_SPECIAL' : 'HIDDEN';
       ref
           .read(chaputThreadsControllerProvider(chaputArgs).notifier)
-          .updateThreadKind(thread.threadId, 'HIDDEN');
+          .updateThreadKind(thread.threadId, nextKind);
 
       _showGlassToast(context.t('profile.toast.chaput_hidden'), icon: Icons.lock_outline);
       return;
@@ -1372,9 +1373,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     // satın alma doğrulandıysa server zaten krediyi yazmış olmalı,
     // ama UI için güvenli şekilde local düşür / güncelle
     decisionNotifier.applyCreditsDelta(hidden: -1);
+    final nextKind = thread.isSpecial ? 'HIDDEN_SPECIAL' : 'HIDDEN';
     ref
         .read(chaputThreadsControllerProvider(chaputArgs).notifier)
-        .updateThreadKind(thread.threadId, 'HIDDEN');
+        .updateThreadKind(thread.threadId, nextKind);
 
     _showGlassToast(context.t('profile.toast.chaput_hidden'), icon: Icons.lock_outline);
   }
@@ -1400,9 +1402,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     setState(() => _chaputSendLoading = true);
     try {
       final api = ref.read(chaputApiProvider);
-      final kind = _highlightMode
-          ? 'SPECIAL'
-          : (_anonMode ? 'HIDDEN' : 'NORMAL');
+      final kind = (_highlightMode && _anonMode)
+          ? 'HIDDEN_SPECIAL'
+          : (_highlightMode ? 'SPECIAL' : (_anonMode ? 'HIDDEN' : 'NORMAL'));
 
       final anchor = _focusAnchor ?? _draftAnchor;
 

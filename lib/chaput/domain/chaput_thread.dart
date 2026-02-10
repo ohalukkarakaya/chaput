@@ -18,7 +18,7 @@ class ChaputThreadItem {
   final String userAId;
   final String userBId;
   final String starterId;
-  final String kind; // NORMAL/HIDDEN/SPECIAL
+  final String kind; // NORMAL/HIDDEN/SPECIAL/HIDDEN_SPECIAL
   final String state; // PENDING/OPEN/ARCHIVED
   final DateTime? lastMessageAt;
   final DateTime? pendingExpiresAt;
@@ -83,4 +83,8 @@ class ChaputThreadItem {
   }
 
   bool hasCoords() => x != null && y != null && z != null;
+
+  bool get isHidden => kind == 'HIDDEN' || kind == 'HIDDEN_SPECIAL';
+
+  bool get isSpecial => kind == 'SPECIAL' || kind == 'HIDDEN_SPECIAL';
 }

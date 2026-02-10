@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -116,7 +117,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                       final ownerUser = usersById[ownerId];
                       final rawOtherUser =
                           usersById[otherId] ?? (viewerUser != null && otherId == viewerUser!.id ? viewerUser : null);
-                      final isHiddenForViewer = thread.kind == 'HIDDEN' && !isParticipant;
+                      final isHiddenForViewer = thread.isHidden && !isParticipant;
                       final otherUser = isHiddenForViewer
                           ? LiteUser(
                               id: otherId,
@@ -309,16 +310,17 @@ class _SheetPage extends StatelessWidget {
                                   child: _ThreadHeader(
                                     ownerUser: ownerUser,
                                     otherUser: otherUser,
-                                    isHidden: thread.kind == 'HIDDEN',
+                                    isHidden: thread.isHidden,
+                                    isSpecial: thread.isSpecial,
                                     isParticipant: isParticipant,
-                                    otherName: (thread.kind == 'HIDDEN' && !isParticipant)
+                                    otherName: (thread.isHidden && !isParticipant)
                                         ? context.t('chat.anonymous_user')
                                         : (otherUser?.fullName ?? ''),
                                     otherUsername:
-                                        (thread.kind == 'HIDDEN' && !isParticipant) ? null : otherUser?.username,
+                                        (thread.isHidden && !isParticipant) ? null : otherUser?.username,
                                     onOpenProfile: onOpenProfile,
                                     threadId: thread.threadId,
-                                    showHideAction: isParticipant && thread.kind == 'NORMAL',
+                                    showHideAction: isParticipant && !thread.isHidden,
                                     canMakeHidden: canMakeHidden,
                                     onMakeHidden: () => onMakeHidden(thread),
                                   ),
@@ -411,7 +413,8 @@ class _ThreadPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final args = ChaputMessagesArgs(threadId: thread.threadId, profileId: profileId);
     final messagesState = ref.watch(chaputMessagesControllerProvider(args));
-    final isHidden = thread.kind == 'HIDDEN';
+    final isHidden = thread.isHidden;
+    final isSpecial = thread.isSpecial;
     final viewerIsStarter = thread.starterId == viewerId;
     final isPending = thread.state == 'PENDING';
 
@@ -456,12 +459,13 @@ class _ThreadPage extends ConsumerWidget {
                   ownerUser: ownerUser,
                   otherUser: otherUser,
                   isHidden: isHidden,
+                  isSpecial: isSpecial,
                   isParticipant: isParticipant,
                   otherName: otherName,
                   otherUsername: otherUsername,
                   onOpenProfile: onOpenProfile,
                   threadId: thread.threadId,
-                  showHideAction: isParticipant && thread.kind == 'NORMAL',
+                  showHideAction: isParticipant && !isHidden,
                   canMakeHidden: canMakeHidden,
                   onMakeHidden: () => onMakeHidden(thread),
                 ),
@@ -538,6 +542,7 @@ class _ThreadHeader extends StatelessWidget {
     required this.ownerUser,
     required this.otherUser,
     required this.isHidden,
+    required this.isSpecial,
     required this.isParticipant,
     required this.otherName,
     required this.otherUsername,
@@ -551,6 +556,7 @@ class _ThreadHeader extends StatelessWidget {
   final LiteUser? ownerUser;
   final LiteUser? otherUser;
   final bool isHidden;
+  final bool isSpecial;
   final bool isParticipant;
   final String otherName;
   final String? otherUsername;
@@ -610,6 +616,17 @@ class _ThreadHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (showHideAction && isSpecial)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.chaputWhite.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
+              ),
+              child: _SuperBadge(),
+            ),
           if (showHideAction)
             GestureDetector(
               onTap: onMakeHidden,
@@ -630,7 +647,7 @@ class _ThreadHeader extends StatelessWidget {
                 ),
               ),
             ),
-          if (!showHideAction && isHidden)
+          if (!showHideAction && (isHidden || isSpecial))
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -638,13 +655,38 @@ class _ThreadHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
               ),
-              child: const Icon(
-                Icons.lock,
-                size: 14,
-                color: AppColors.chaputWhite,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isHidden)
+                    const Icon(
+                      Icons.lock,
+                      size: 14,
+                      color: AppColors.chaputWhite,
+                    ),
+                  if (isSpecial) ...[
+                    if (isHidden) const SizedBox(width: 6),
+                    _SuperBadge(),
+                  ],
+                ],
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _SuperBadge extends StatelessWidget {
+  const _SuperBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      '💎',
+      style: TextStyle(
+        fontSize: 14,
+        height: 1,
       ),
     );
   }

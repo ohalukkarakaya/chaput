@@ -179,7 +179,7 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
       return ourThread;
     }
 
-    final specials = items.where((t) => t.kind == 'SPECIAL' && !ourThread.contains(t)).toList();
+    final specials = items.where((t) => t.isSpecial && !ourThread.contains(t)).toList();
     final rest = items.where((t) => !ourThread.contains(t) && !specials.contains(t)).toList();
     int byCreatedDesc(ChaputThreadItem a, ChaputThreadItem b) {
       final ta = a.lastMessageAt ?? a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
