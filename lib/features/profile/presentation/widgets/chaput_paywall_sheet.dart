@@ -77,13 +77,16 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
       badge: t('paywall.badge.monthly'),
       title: t('paywall.plan.pro'),
       price: t('paywall.price_per_month', params: {'price': '€9.99'}),
-      hint: t('paywall.hint.all_rights_bonus'),
+      hint: t(
+        'paywall.hint.all_rights_bonus',
+        params: {'hidden': '5', 'special': '4', 'whisper': '30'},
+      ),
       productId: 'chaput_pro_month',
       bullets: [
-        t('paywall.bullets.hidden_chaput'),
-        t('paywall.bullets.boost'),
-        t('paywall.bullets.more_daily_boost'),
-        t('paywall.bullets.special_badge_fake'),
+        t('paywall.bullets.unlimited_chaput'),
+        t('paywall.bullets.gift_hidden', params: {'count': '5'}),
+        t('paywall.bullets.gift_special', params: {'count': '4'}),
+        t('paywall.bullets.gift_whisper', params: {'count': '30'}),
       ],
     );
 
@@ -91,12 +94,16 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
       badge: t('paywall.badge.yearly'),
       title: t('paywall.plan.pro_yearly'),
       price: t('paywall.price_per_year', params: {'price': '€79.99'}),
-      hint: t('paywall.hint.two_months_free_fake'),
+      hint: t(
+        'paywall.hint.two_months_free_fake',
+        params: {'hidden': '5', 'special': '4', 'whisper': '30'},
+      ),
       productId: 'chaput_pro_year',
       bullets: [
-        t('paywall.bullets.all_pro_perks'),
-        t('paywall.bullets.cheaper_yearly'),
-        t('paywall.bullets.early_access_fake'),
+        t('paywall.bullets.unlimited_chaput'),
+        t('paywall.bullets.gift_hidden', params: {'count': '5'}),
+        t('paywall.bullets.gift_special', params: {'count': '4'}),
+        t('paywall.bullets.gift_whisper', params: {'count': '30'}),
       ],
     );
 
@@ -104,13 +111,16 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
       badge: t('paywall.badge.popular'),
       title: t('paywall.plan.plus'),
       price: t('paywall.price_per_month', params: {'price': '€4.99'}),
-      hint: t('paywall.hint.hidden_plus_boost'),
+      hint: t(
+        'paywall.hint.hidden_plus_boost',
+        params: {'hidden': '2', 'special': '1', 'whisper': '10'},
+      ),
       productId: 'chaput_plus_month',
       bullets: [
-        t('paywall.bullets.hidden_chaput'),
-        t('paywall.bullets.boost'),
-        t('paywall.bullets.more_visibility'),
-        t('paywall.bullets.priority_support_fake'),
+        t('paywall.bullets.daily_chaput', params: {'count': '5'}),
+        t('paywall.bullets.gift_hidden', params: {'count': '2'}),
+        t('paywall.bullets.gift_special', params: {'count': '1'}),
+        t('paywall.bullets.gift_whisper', params: {'count': '10'}),
       ],
     );
 
