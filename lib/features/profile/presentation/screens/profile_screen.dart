@@ -141,6 +141,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _navToOtherProfile = false;
   bool _routeSubscribed = false;
   bool _forceTreeReload = false;
+  bool _reloadOnPopNext = false;
 
   String? _lastTreeId;
   String? _lastProfileUserId;
@@ -524,7 +525,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   void didPopNext() {
-    if (!mounted) return;
+    if (!mounted || !_reloadOnPopNext) return;
+    _reloadOnPopNext = false;
     _navToOtherProfile = false;
     _disposeThree();
     _lastTreeId = null;
@@ -1262,6 +1264,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final mask = _showNavMask();
     final router = GoRouter.of(context);
+    _reloadOnPopNext = true;
     await router.push('/profile/$userId', extra: {'threadId': threadId});
     if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 220));
