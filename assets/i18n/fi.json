@@ -309,5 +309,6 @@
   "paywall.bullets.unlimited_chaput": "Rajattomasti chaputeja",
   "paywall.bullets.gift_hidden": "{count} piilotettua chaputia (lahja)",
   "paywall.bullets.gift_special": "{count} Super Chaputia (lahja)",
-  "paywall.bullets.gift_whisper": "{count} kuiskausoikeutta (lahja)"
+  "paywall.bullets.gift_whisper": "{count} kuiskausoikeutta (lahja)",
+  "paywall.bullets.unlimited_revive": "Rajaton chaput-palautus"
 }

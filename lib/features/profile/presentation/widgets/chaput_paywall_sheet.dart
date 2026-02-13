@@ -48,9 +48,6 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
     final planPeriod = widget.planPeriod?.toUpperCase();
     final isPro = planType == 'PRO' || planType.contains('PRO');
     final isPlus = planType == 'PLUS' || planType.contains('PLUS');
-    final isFree = !isPro && !isPlus;
-    final isProMonthly = isPro && planPeriod == 'MONTH';
-    final isProYearly = isPro && planPeriod == 'YEAR';
     final t = context.t;
 
     final title = widget.feature == PaywallFeature.bind
@@ -73,6 +70,14 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                     ? t('paywall.subtitle.revive')
                 : t('paywall.subtitle.boost'));
 
+    final proBullets = <String>[
+      t('paywall.bullets.unlimited_chaput'),
+      if (widget.feature == PaywallFeature.revive) t('paywall.bullets.unlimited_revive'),
+      t('paywall.bullets.gift_hidden', params: {'count': '5'}),
+      t('paywall.bullets.gift_special', params: {'count': '4'}),
+      t('paywall.bullets.gift_whisper', params: {'count': '30'}),
+    ];
+
     final proMonthly = PaywallPlan(
       badge: t('paywall.badge.monthly'),
       title: t('paywall.plan.pro'),
@@ -82,12 +87,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
         params: {'hidden': '5', 'special': '4', 'whisper': '30'},
       ),
       productId: 'chaput_pro_month',
-      bullets: [
-        t('paywall.bullets.unlimited_chaput'),
-        t('paywall.bullets.gift_hidden', params: {'count': '5'}),
-        t('paywall.bullets.gift_special', params: {'count': '4'}),
-        t('paywall.bullets.gift_whisper', params: {'count': '30'}),
-      ],
+      bullets: proBullets,
     );
 
     final proYearly = PaywallPlan(
@@ -99,12 +99,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
         params: {'hidden': '5', 'special': '4', 'whisper': '30'},
       ),
       productId: 'chaput_pro_year',
-      bullets: [
-        t('paywall.bullets.unlimited_chaput'),
-        t('paywall.bullets.gift_hidden', params: {'count': '5'}),
-        t('paywall.bullets.gift_special', params: {'count': '4'}),
-        t('paywall.bullets.gift_whisper', params: {'count': '30'}),
-      ],
+      bullets: proBullets,
     );
 
     final plusMonthly = PaywallPlan(
@@ -124,16 +119,22 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
       ],
     );
 
-    final plans = <PaywallPlan>[
-      if (widget.feature != PaywallFeature.revive) ...[
-        if (isFree) plusMonthly,
-        if (isFree || isPlus) proMonthly,
-        if (isFree || isPlus || isProMonthly) proYearly,
-      ] else ...[
-        if (isFree || isPlus) proMonthly,
-        if (isFree || isPlus || isProMonthly) proYearly,
-      ],
+    int currentRank() {
+      if (isPro) {
+        if (planPeriod == 'YEAR' || planPeriod == 'YEARLY') return 3;
+        return 2;
+      }
+      if (isPlus) return 1;
+      return 0;
+    }
+
+    final userRank = currentRank();
+    final rankedPlans = <({int rank, PaywallPlan plan})>[
+      (rank: 1, plan: plusMonthly),
+      (rank: 2, plan: proMonthly),
+      (rank: 3, plan: proYearly),
     ];
+    final plans = rankedPlans.where((p) => p.rank > userRank).map((p) => p.plan).toList();
     final selectedIndex = plans.isEmpty ? 0 : _selectedIndex.clamp(0, plans.length - 1);
 
     final singles = widget.feature == PaywallFeature.bind

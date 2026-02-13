@@ -309,5 +309,6 @@
   "paywall.bullets.unlimited_chaput": "Unbegrenzte Chaputs",
   "paywall.bullets.gift_hidden": "{count} versteckte Chaput-Geschenke",
   "paywall.bullets.gift_special": "{count} Super-Chaput-Geschenke",
-  "paywall.bullets.gift_whisper": "{count} Flüsterrechte"
+  "paywall.bullets.gift_whisper": "{count} Flüsterrechte",
+  "paywall.bullets.unlimited_revive": "Unbegrenzte Chaput-Wiederherstellung"
 }

@@ -309,5 +309,6 @@
   "paywall.bullets.unlimited_chaput": "Sınırsız chaput",
   "paywall.bullets.gift_hidden": "{count} gizli chaput hediye",
   "paywall.bullets.gift_special": "{count} süper chaput hediye",
-  "paywall.bullets.gift_whisper": "{count} fısıldama hakkı hediye"
+  "paywall.bullets.gift_whisper": "{count} fısıldama hakkı hediye",
+  "paywall.bullets.unlimited_revive": "Sınırsız chaput kurtarma"
 }

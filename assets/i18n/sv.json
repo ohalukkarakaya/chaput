@@ -309,5 +309,6 @@
   "paywall.bullets.unlimited_chaput": "Obegränsade chaputs",
   "paywall.bullets.gift_hidden": "{count} dolda chaput-gåvor",
   "paywall.bullets.gift_special": "{count} Super Chaput-gåvor",
-  "paywall.bullets.gift_whisper": "{count} visk-rättigheter"
+  "paywall.bullets.gift_whisper": "{count} visk-rättigheter",
+  "paywall.bullets.unlimited_revive": "Obegränsad chaput-återställning"
 }

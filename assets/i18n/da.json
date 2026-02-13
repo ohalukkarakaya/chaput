@@ -309,5 +309,6 @@
   "paywall.bullets.unlimited_chaput": "Ubegrænsede chaputs",
   "paywall.bullets.gift_hidden": "{count} skjulte chaput-gaver",
   "paywall.bullets.gift_special": "{count} Super Chaput-gaver",
-  "paywall.bullets.gift_whisper": "{count} hviskerettigheder"
+  "paywall.bullets.gift_whisper": "{count} hviskerettigheder",
+  "paywall.bullets.unlimited_revive": "Ubegrænset chaput-gendannelse"
 }
