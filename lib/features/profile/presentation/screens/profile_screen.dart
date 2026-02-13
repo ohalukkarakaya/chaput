@@ -2565,7 +2565,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 10, 14, 0),
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
