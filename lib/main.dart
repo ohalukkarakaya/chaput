@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'features/notifications/application/local_notification_service.dart';
+import 'features/profile/presentation/utils/tree_model_cache.dart';
 import 'app.dart';
 
 Future<void> main() async {
@@ -25,4 +26,9 @@ Future<void> main() async {
   ]);
 
   runApp(const ProviderScope(child: ChaputApp()));
+
+  // Warm tree models after first frame to speed up profile opens.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    TreeModelCache.instance.warmUpAll();
+  });
 }
