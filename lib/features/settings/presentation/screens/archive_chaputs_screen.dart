@@ -7,6 +7,7 @@ import 'package:chaput/features/profile/presentation/widgets/chaput_paywall_shee
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../application/archive_controller.dart';
@@ -111,7 +112,9 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
 
                   Expanded(
-                    child: st.error != null
+                    child: st.isLoading && st.items.isEmpty
+                        ? const _ArchiveShimmerList()
+                        : st.error != null
                         ? Padding(
                             padding: const EdgeInsets.all(18),
                             child: Column(
@@ -303,6 +306,26 @@ class _ArchivedRow extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ArchiveShimmerList extends StatelessWidget {
+  const _ArchiveShimmerList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShimmerLoading(
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, __) => const ShimmerUserCard(
+          radius: 20,
+          line1Factor: 0.75,
+          line2Factor: 0.55,
         ),
       ),
     );

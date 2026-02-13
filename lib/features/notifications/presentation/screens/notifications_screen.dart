@@ -4,6 +4,7 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../chaput/data/chaput_socket.dart';
@@ -122,7 +123,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: st.error != null
+                    child: st.isLoading && st.items.isEmpty
+                        ? const _NotificationsShimmerList()
+                        : st.error != null
                         ? Padding(
                             padding: const EdgeInsets.all(18),
                             child: Column(
@@ -479,6 +482,26 @@ class _NotificationRow extends StatelessWidget {
     if (diff.inHours < 24) return context.t('time.hours', params: {'count': diff.inHours.toString()});
     if (diff.inDays < 7) return context.t('time.days', params: {'count': diff.inDays.toString()});
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+  }
+}
+
+class _NotificationsShimmerList extends StatelessWidget {
+  const _NotificationsShimmerList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShimmerLoading(
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, __) => const ShimmerUserCard(
+          radius: 18,
+          line1Factor: 0.7,
+          line2Factor: 0.5,
+        ),
+      ),
+    );
   }
 }
 

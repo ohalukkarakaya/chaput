@@ -18,6 +18,7 @@ import '../../../user_search/presentation/search_overlay.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
 import '../../../../core/ui/widgets/glow_shimmer_card.dart';
 import '../../../../core/ui/widgets/share_bar.dart';
+import '../../../../core/ui/widgets/shimmer_skeleton.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -131,10 +132,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                       ref.watch(meControllerProvider);
 
                                       return meAsync.when(
-                                        loading: () =>
-                                        const SizedBox(height: 44),
-                                        error: (_, __) =>
-                                        const SizedBox(height: 44),
+                                        loading: () => const _HomeHeaderShimmer(),
+                                        error: (_, __) => const SizedBox(height: 44),
                                         data: (me) {
                                           final rawName =
                                               me?.user.fullName ?? '';
@@ -223,14 +222,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                     ref.watch(meControllerProvider);
 
                                     return meAsync.when(
-                                      loading: () => const SizedBox(
-                                        width: 40,
-                                        height: 40,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2),
-                                      ),
-                                      error: (_, __) => const SizedBox(
-                                          width: 40, height: 40),
+                                      loading: () => const _HomeAvatarShimmer(),
+                                      error: (_, __) => const SizedBox(width: 40, height: 40),
                                       data: (me) {
                                         if (me == null) {
                                           return const SizedBox(
@@ -322,7 +315,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                             final meAsync = ref.watch(meControllerProvider);
 
                             return meAsync.when(
-                              loading: () => const SizedBox(),
+                              loading: () => const _ShareBarShimmer(),
                               error: (_, __) => const SizedBox(),
                               data: (me) {
                                 if (me == null) return const SizedBox();
@@ -373,24 +366,7 @@ class _RecommendedUserCard extends ConsumerWidget {
     );
 
     return recAsync.when(
-      loading: () => wrap(
-        Row(
-          children: [
-            const SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                context.t('home.reco_loading'),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ),
+      loading: () => wrap(const _RecommendedUserShimmer()),
       error: (e, _) => wrap(
         Row(
           children: [
@@ -519,6 +495,80 @@ class _RecommendedUserCard extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _HomeHeaderShimmer extends StatelessWidget {
+  const _HomeHeaderShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ShimmerLoading(
+      child: SizedBox(
+        height: 44,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ShimmerLine(width: 90, height: 10),
+            SizedBox(height: 8),
+            ShimmerLine(width: 160, height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeAvatarShimmer extends StatelessWidget {
+  const _HomeAvatarShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ShimmerLoading(
+      child: ShimmerCircle(size: 42),
+    );
+  }
+}
+
+class _ShareBarShimmer extends StatelessWidget {
+  const _ShareBarShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ShimmerLoading(
+      child: ShimmerBlock(
+        height: 52,
+        radius: 18,
+      ),
+    );
+  }
+}
+
+class _RecommendedUserShimmer extends StatelessWidget {
+  const _RecommendedUserShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ShimmerLoading(
+      child: Row(
+        children: [
+          ShimmerCircle(size: 40),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShimmerLine(width: 140, height: 12),
+                SizedBox(height: 6),
+                ShimmerLine(width: 90, height: 10),
+              ],
+            ),
+          ),
+          SizedBox(width: 12),
+          ShimmerBlock(width: 72, height: 32, radius: 12),
+        ],
+      ),
     );
   }
 }

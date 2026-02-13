@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 
 import '../../../me/application/me_controller.dart';
 import '../../application/photo_settings_controller.dart';
@@ -162,9 +163,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(18),
                       child: meAsync.when(
-                        loading: () => const Center(
-                          child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
-                        ),
+                        loading: () => const _PhotoSettingsShimmer(),
                         error: (_, __) => Text(context.t('photo.load_failed')),
                         data: (me) {
                           final user = me?.user;
@@ -294,6 +293,56 @@ class PhotoSettingsScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PhotoSettingsShimmer extends StatelessWidget {
+  const _PhotoSettingsShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShimmerLoading(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ShimmerLine(width: 120, height: 14),
+          const SizedBox(height: 10),
+          const ShimmerLine(width: 240, height: 10),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              ShimmerCircle(
+                size: 64,
+                color: AppColors.chaputBlack.withOpacity(0.08),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerLine(width: 180, height: 12),
+                    SizedBox(height: 6),
+                    ShimmerLine(width: 140, height: 10),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ShimmerBlock(
+            height: 46,
+            radius: 14,
+            color: AppColors.chaputBlack.withOpacity(0.10),
+          ),
+          const SizedBox(height: 10),
+          ShimmerBlock(
+            height: 46,
+            radius: 14,
+            color: AppColors.chaputBlack.withOpacity(0.06),
+          ),
+        ],
       ),
     );
   }

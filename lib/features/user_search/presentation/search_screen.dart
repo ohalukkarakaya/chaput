@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/user_search_controller.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -155,7 +156,21 @@ class _ResultsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      final cardBg = AppColors.chaputWhite.withOpacity(0.12);
+      return ShimmerLoading(
+        baseColor: AppColors.chaputWhite.withOpacity(0.10),
+        highlightColor: AppColors.chaputWhite.withOpacity(0.28),
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          itemCount: 6,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, __) => ShimmerUserCard(
+            backgroundColor: cardBg,
+            line1Factor: 0.58,
+            line2Factor: 0.35,
+          ),
+        ),
+      );
     }
 
     if ((state.query.trim().length <= 5)) {
@@ -192,9 +207,13 @@ class _ResultsList extends StatelessWidget {
       itemBuilder: (context, i) {
         if (i == state.items.length) {
           return state.isLoadingMore
-              ? const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
+              ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: ShimmerLoading(
+              baseColor: AppColors.chaputWhite.withOpacity(0.10),
+              highlightColor: AppColors.chaputWhite.withOpacity(0.28),
+              child: const ShimmerLine(width: 140, height: 10),
+            ),
           )
               : const SizedBox(height: 12);
         }

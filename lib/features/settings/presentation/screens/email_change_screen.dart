@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/ui/widgets/email_otp_verify_sheet.dart';
+import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import '../../../me/application/me_controller.dart';
 import '../../application/email_change_controller.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
@@ -99,9 +100,7 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(18),
                       child: meAsync.when(
-                        loading: () => const Center(
-                          child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
-                        ),
+                        loading: () => const _EmailChangeShimmer(),
                         error: (_, __) => Text(context.t('common.load_failed')),
                         data: (me) {
                           final current = me?.user.email ?? context.t('common.na');
@@ -184,6 +183,36 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EmailChangeShimmer extends StatelessWidget {
+  const _EmailChangeShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShimmerLoading(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ShimmerLine(width: 140, height: 14),
+          const SizedBox(height: 10),
+          const ShimmerLine(width: 220, height: 10),
+          const SizedBox(height: 16),
+          ShimmerBlock(
+            height: 46,
+            radius: 14,
+            color: AppColors.chaputBlack.withOpacity(0.06),
+          ),
+          const SizedBox(height: 14),
+          ShimmerBlock(
+            height: 52,
+            radius: 14,
+            color: AppColors.chaputBlack.withOpacity(0.10),
+          ),
+        ],
       ),
     );
   }

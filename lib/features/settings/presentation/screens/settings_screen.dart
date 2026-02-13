@@ -7,6 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/storage/secure_storage_provider.dart';
@@ -849,11 +850,75 @@ class _LoadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: SizedBox(
-        width: 26,
-        height: 26,
-        child: CircularProgressIndicator(strokeWidth: 2),
+    final lineColor = AppColors.chaputBlack.withOpacity(0.08);
+
+    Widget listRow() {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.chaputWhite,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
+        ),
+        child: Row(
+          children: [
+            ShimmerBlock(
+              width: 34,
+              height: 34,
+              radius: 12,
+              color: lineColor,
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerLine(width: 160, height: 12),
+                  SizedBox(height: 6),
+                  ShimmerLine(width: 120, height: 10),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ShimmerLoading(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.chaputWhite,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
+            ),
+            child: Row(
+              children: [
+                ShimmerCircle(size: 52, color: lineColor),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShimmerLine(width: 180, height: 14),
+                      SizedBox(height: 6),
+                      ShimmerLine(width: 120, height: 10),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          listRow(),
+          listRow(),
+          listRow(),
+          listRow(),
+        ],
       ),
     );
   }

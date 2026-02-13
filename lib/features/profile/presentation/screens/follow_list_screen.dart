@@ -2,6 +2,7 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../social/application/follow_list_controller.dart';
@@ -139,6 +140,8 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                               ),
                             ),
                           )
+                        : (st.isLoading && items.isEmpty)
+                        ? const _FollowListShimmer()
                         : st.error != null
                         ? Padding(
                       padding: const EdgeInsets.all(18),
@@ -232,6 +235,26 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FollowListShimmer extends StatelessWidget {
+  const _FollowListShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShimmerLoading(
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, __) => const ShimmerUserCard(
+          radius: 18,
+          line1Factor: 0.72,
+          line2Factor: 0.48,
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 
 import '../../application/visibility_controller.dart';
 import '../../domain/visibility_item.dart';
@@ -63,10 +64,12 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
 
                   Expanded(
-                    child: st.error != null
-                          ? Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
+                    child: st.isLoading && st.items.isEmpty
+                        ? const _BlockedShimmerList()
+                        : st.error != null
+                        ? Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text('${context.t('common.error')}: ${st.error}', style: const TextStyle(color: AppColors.chaputMaterialRed)),
@@ -219,6 +222,29 @@ class _UserRow extends ConsumerWidget {
             child: Text(context.t('common.remove')),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BlockedShimmerList extends StatelessWidget {
+  const _BlockedShimmerList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShimmerLoading(
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, __) => const ShimmerUserCard(
+          radius: 18,
+          line1Factor: 0.7,
+          line2Factor: 0.5,
+          showTrailing: true,
+          trailingWidth: 60,
+          trailingHeight: 22,
+        ),
       ),
     );
   }
