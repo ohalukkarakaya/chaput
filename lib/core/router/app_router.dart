@@ -14,10 +14,12 @@ import '../../features/notifications/presentation/screens/notifications_screen.d
 
 import '../network/dio_provider.dart';
 import 'routes.dart';
+import 'route_observer.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: Routes.boot,
+    observers: [routeObserver],
     routes: [
       GoRoute(
         path: Routes.boot,
@@ -59,6 +61,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             }
           }
           return ProfileScreen(
+            key: ValueKey('profile-$userId'),
             userId: userId,
             initialThreadId: initialThreadId,
             initialMessageId: initialMessageId,

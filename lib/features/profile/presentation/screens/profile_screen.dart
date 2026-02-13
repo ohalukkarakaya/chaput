@@ -20,6 +20,7 @@ import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../../core/config/env.dart';
 import '../../../../core/router/routes.dart';
+import '../../../../core/router/route_observer.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../billing/data/billing_api_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
@@ -68,10 +69,11 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, RouteAware {
 
   OverlayEntry? _toastEntry;
   bool _toastShowing = false;
+  bool _isDisposed = false;
 
   late final AnimationController _profileCardCtrl;
   late final Animation<double> _profileCardT;
@@ -137,6 +139,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _threeReady = false;
   String? _threeError;
   bool _navToOtherProfile = false;
+  bool _routeSubscribed = false;
+  bool _forceTreeReload = false;
 
   String? _lastTreeId;
   String? _lastProfileUserId;
@@ -508,6 +512,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeSubscribed) return;
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      routeObserver.subscribe(this, route);
+      _routeSubscribed = true;
+    }
+  }
+
+  @override
+  void didPopNext() {
+    if (!mounted) return;
+    _navToOtherProfile = false;
+    _disposeThree();
+    _lastTreeId = null;
+    _threeError = null;
+    _threeReady = false;
+    setState(() {});
+    final st = ref.read(profileControllerProvider(widget.userId));
+    final tid = st.treeId;
+    if (tid == null) {
+      ref.read(profileControllerProvider(widget.userId).notifier).refetch();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _createThreeIfNeeded(tid);
+      });
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
@@ -530,6 +566,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   void dispose() {
+    _isDisposed = true;
+    if (_routeSubscribed) {
+      routeObserver.unsubscribe(this);
+      _routeSubscribed = false;
+    }
     _disposeThree();
     three.loading.clear();
     _focusScreen.dispose();
@@ -541,6 +582,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _socketSub = null;
     _clearSocketSubscriptions();
     super.dispose();
+  }
+
+  void _triggerTreeReload() {
+    if (!mounted) return;
+    _forceTreeReload = true;
+    _navToOtherProfile = false;
+    _disposeThree();
+    _lastTreeId = null;
+    _threeError = null;
+    setState(() {});
+    final st = ref.read(profileControllerProvider(widget.userId));
+    if (st.treeId == null) {
+      ref.read(profileControllerProvider(widget.userId).notifier).refetch();
+    }
   }
 
   void _toggleProfileCard() {
@@ -1205,14 +1260,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (userId.isEmpty || userId == widget.userId) return;
     FocusScope.of(context).unfocus();
 
-    setState(() => _navToOtherProfile = true);
-    _disposeThree();
-
     final mask = _showNavMask();
     final router = GoRouter.of(context);
-    router.go(Routes.home);
-    await Future.delayed(const Duration(milliseconds: 140));
-    router.push('/profile/$userId', extra: {'threadId': threadId});
+    await router.push('/profile/$userId', extra: {'threadId': threadId});
+    if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 220));
     if (mask.mounted) mask.remove();
   }
@@ -1777,6 +1828,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
 
   void _updateCamera(three.ThreeJS js, double dt) {
+    if (_isDisposed || !mounted) return;
     final minY = _groundY + _camGroundMargin;
 
     // 1) ground constraint ile base pitch clamp
@@ -1840,6 +1892,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _updateFocusScreenPosition(three.ThreeJS js, double dt) {
+    if (_isDisposed || !mounted) return;
     // Marker gösterme koşulları
     if (_focusAnchor == null || _isInteracting || _snapActive) {
       _focusScreen.value = null;
@@ -2137,6 +2190,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         if (!mounted) return;
         _createThreeIfNeeded(tid);
       });
+    }
+    if (_forceTreeReload) {
+      if (tid != null) {
+        _forceTreeReload = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _createThreeIfNeeded(tid);
+        });
+      } else if (!st.isLoading) {
+        ref.read(profileControllerProvider(widget.userId).notifier).refetch();
+      }
     }
 
     final preset = (tid == null) ? null : TreeCatalog.resolve(tid);
@@ -2460,11 +2524,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       resizeToAvoidBottomInset: false,
       backgroundColor: bg,
       body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          FocusScope.of(context).unfocus();
-        },
-        child: Stack(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            FocusScope.of(context).unfocus();
+          },
+          child: Stack(
           fit: StackFit.expand,
           children: [
             // ThreeJS TAM EKRAN
@@ -2512,7 +2576,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             color: AppColors.chaputWhite.withOpacity(0.35),
                             shape: const CircleBorder(),
                             child: InkWell(
-                              onTap: () => Navigator.of(context).pop(),
+                              onTap: () => GoRouter.of(context).go(Routes.home),
                               customBorder: const CircleBorder(),
                               child: const SizedBox(
                                 width: 44,
