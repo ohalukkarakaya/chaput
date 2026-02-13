@@ -8,6 +8,8 @@ import '../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import '../application/user_search_controller.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'package:chaput/core/router/routes.dart';
+import 'package:go_router/go_router.dart';
 
 class SearchOverlay extends ConsumerStatefulWidget {
   const SearchOverlay({super.key});
@@ -253,53 +255,62 @@ class _ResultsList extends StatelessWidget {
 
         final u = state.items[i];
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.chaputWhite.withOpacity(0.92),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              // Avatar
-              ChaputCircleAvatar(
-                isDefaultAvatar: u.profilePhotoKey == null,
-                imageUrl: u.profilePhotoUrl ?? u.defaultAvatar,
-                width: 42,
-                height: 42,
-                radius: 999,
-                borderWidth: 2,
-              ),
-              const SizedBox(width: 12),
+        return InkWell(
+          onTap: () async {
+            final id = u.id;
+            if (id.isEmpty) return;
+            Navigator.of(context).pop();
+            context.push(await Routes.profile(id));
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.chaputWhite.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                // Avatar
+                ChaputCircleAvatar(
+                  isDefaultAvatar: u.profilePhotoKey == null,
+                  imageUrl: u.profilePhotoUrl ?? u.defaultAvatar,
+                  width: 42,
+                  height: 42,
+                  radius: 999,
+                  borderWidth: 2,
+                ),
+                const SizedBox(width: 12),
 
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(u.fullName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 2),
-                    Text(
-                      u.username == null ? context.t('common.na') : '@${u.username}',
-                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(u.fullName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      Text(
+                        u.username == null ? context.t('common.na') : '@${u.username}',
+                        style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55)),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (!u.isPublic)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.chaputBlack,
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                  ],
-                ),
-              ),
-
-              if (!u.isPublic)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.chaputBlack,
-                    borderRadius: BorderRadius.circular(999),
+                    child: Text(
+                      context.t('search.private'),
+                      style: const TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
                   ),
-                  child: Text(
-                    context.t('search.private'),
-                    style: const TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w700, fontSize: 12),
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },
