@@ -112,6 +112,7 @@ class SettingsScreen extends ConsumerWidget {
                             title: context.t('settings.pause_title'),
                             description: context.t('settings.pause_desc'),
                             confirmLabel: context.t('settings.pause_confirm'),
+                            isDestructive: false,
                           );
                           if (!ok) return;
 
@@ -150,6 +151,7 @@ class SettingsScreen extends ConsumerWidget {
                             title: context.t('settings.close_title'),
                             description: context.t('settings.close_desc'),
                             confirmLabel: context.t('settings.close_confirm'),
+                            isDestructive: true,
                           );
                           if (!ok) return;
 
@@ -229,6 +231,7 @@ class SettingsScreen extends ConsumerWidget {
         required String title,
         required String description,
         required String confirmLabel,
+        bool isDestructive = false,
       }) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -239,6 +242,7 @@ class SettingsScreen extends ConsumerWidget {
           title: title,
           description: description,
           confirmLabel: confirmLabel,
+          isDestructive: isDestructive,
         );
       },
     );
@@ -300,12 +304,14 @@ class _UsernameConfirmDialog extends StatefulWidget {
     required this.title,
     required this.description,
     required this.confirmLabel,
+    this.isDestructive = false,
   });
 
   final String expectedUsername;
   final String title;
   final String description;
   final String confirmLabel;
+  final bool isDestructive;
 
   @override
   State<_UsernameConfirmDialog> createState() => _UsernameConfirmDialogState();
@@ -329,42 +335,124 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(widget.description),
-            const SizedBox(height: 12),
-            TextField(
-              controller: c,
-              decoration: InputDecoration(
-                labelText: context.t('settings.username_label'),
-                hintText: context.t('settings.username_hint'),
-                errorText: errorText,
+    final accent = widget.isDestructive ? AppColors.chaputRed : AppColors.chaputBlack;
+    final badgeBg = widget.isDestructive
+        ? AppColors.chaputLightRed
+        : AppColors.chaputBlack.withOpacity(0.06);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      backgroundColor: AppColors.chaputWhite.withOpacity(0.98),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: badgeBg,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      widget.isDestructive ? Icons.warning_rounded : Icons.lock_outline,
+                      color: accent,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                widget.description,
+                style: TextStyle(
+                  color: AppColors.chaputBlack.withOpacity(0.65),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: c,
+                decoration: InputDecoration(
+                  labelText: context.t('settings.username_label'),
+                  hintText: context.t('settings.username_hint'),
+                  errorText: errorText,
+                  filled: true,
+                  fillColor: AppColors.chaputBlack.withOpacity(0.04),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.chaputBlack,
+                        side: BorderSide(color: AppColors.chaputBlack.withOpacity(0.12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        context.t('common.cancel'),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final input = c.text.trim();
+                        if (input != widget.expectedUsername) {
+                          setState(() => errorText = context.t('settings.username_mismatch'));
+                          return;
+                        }
+                        Navigator.of(context).pop(true);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accent,
+                        foregroundColor: AppColors.chaputWhite,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        widget.confirmLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(context.t('common.cancel')),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final input = c.text.trim();
-            if (input != widget.expectedUsername) {
-              setState(() => errorText = context.t('settings.username_mismatch'));
-              return;
-            }
-            Navigator.of(context).pop(true);
-          },
-          child: Text(widget.confirmLabel),
-        ),
-      ],
     );
   }
 }
