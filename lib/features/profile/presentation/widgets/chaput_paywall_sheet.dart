@@ -26,12 +26,14 @@ class FakePaywallSheet extends StatefulWidget {
     this.planType = 'FREE',
     this.planPeriod,
     this.reviveTarget,
+    this.onRestorePurchases,
   });
 
   final PaywallFeature feature;
   final String planType;
   final String? planPeriod;
   final PaywallReviveTarget? reviveTarget;
+  final Future<bool> Function()? onRestorePurchases;
 
   @override
   State<FakePaywallSheet> createState() => _FakePaywallSheetState();
@@ -39,6 +41,28 @@ class FakePaywallSheet extends StatefulWidget {
 
 class _FakePaywallSheetState extends State<FakePaywallSheet> {
   int _selectedIndex = 0;
+  bool _restoreBusy = false;
+
+  Future<void> _handleRestore() async {
+    if (_restoreBusy || widget.onRestorePurchases == null) return;
+    setState(() => _restoreBusy = true);
+    final t = context.t;
+    try {
+      final restored = await widget.onRestorePurchases!();
+      if (!mounted) return;
+      final msg = restored ? t('paywall.restore_success') : t('paywall.restore_empty');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t('paywall.restore_failed'))),
+      );
+    } finally {
+      if (mounted) setState(() => _restoreBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -452,6 +476,64 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                         ),
                       ),
                     ],
+
+                    const SizedBox(height: 10),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: InkWell(
+                        onTap: _restoreBusy ? null : _handleRestore,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.chaputBlack.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.chaputBlack.withOpacity(0.08)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 30,
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  color: AppColors.chaputBlack.withOpacity(0.08),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.restore_rounded,
+                                  size: 16,
+                                  color: AppColors.chaputBlack.withOpacity(0.7),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  t('paywall.restore_purchases'),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.chaputBlack,
+                                  ),
+                                ),
+                              ),
+                              if (_restoreBusy)
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              else
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 20,
+                                  color: AppColors.chaputBlack.withOpacity(0.55),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
 
                     const SizedBox(height: 10),
 

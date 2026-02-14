@@ -25,6 +25,7 @@ import '../../../../core/i18n/app_localizations.dart';
 import '../../../billing/data/billing_api_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
+import '../../../settings/data/account_api.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../social/application/follow_state.dart';
 import '../../../social/application/ui_restriction_override_provider.dart';
@@ -1646,6 +1647,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         planType: effectivePlanType,
         planPeriod: effectivePlanPeriod,
         reviveTarget: reviveTarget,
+        onRestorePurchases: () async {
+          final restored = await ref.read(accountApiProvider).restorePurchases();
+          if (restored) {
+            await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+          }
+          return restored;
+        },
       ),
     );
   }

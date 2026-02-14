@@ -4,6 +4,7 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/features/billing/data/billing_api_provider.dart';
 import 'package:chaput/features/me/application/me_controller.dart';
 import 'package:chaput/features/profile/presentation/widgets/chaput_paywall_sheet.dart';
+import 'package:chaput/features/settings/data/account_api.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,6 +53,13 @@ class ArchiveChaputsScreen extends ConsumerWidget {
         feature: PaywallFeature.revive,
         planType: planType,
         reviveTarget: reviveTarget,
+        onRestorePurchases: () async {
+          final restored = await ref.read(accountApiProvider).restorePurchases();
+          if (restored) {
+            await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+          }
+          return restored;
+        },
       ),
     );
   }

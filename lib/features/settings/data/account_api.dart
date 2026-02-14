@@ -44,4 +44,17 @@ class AccountApi {
       type: DioExceptionType.badResponse,
     );
   }
+
+  Future<bool> restorePurchases() async {
+    final r = await _dio.post('/me/purchases/restore');
+    final data = r.data;
+    if (data is Map && data['ok'] == true) {
+      return data['restored'] == true;
+    }
+    throw DioException(
+      requestOptions: r.requestOptions,
+      response: r,
+      type: DioExceptionType.badResponse,
+    );
+  }
 }
