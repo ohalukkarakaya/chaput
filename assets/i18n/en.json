@@ -314,5 +314,11 @@
   "paywall.bullets.gift_hidden": "{count} hidden chaput gift",
   "paywall.bullets.gift_special": "{count} Super Chaput gift",
   "paywall.bullets.gift_whisper": "{count} whisper gift",
-  "paywall.bullets.unlimited_revive": "Unlimited chaput recovery"
+  "paywall.bullets.unlimited_revive": "Unlimited chaput recovery",
+  "showcase.home_reco_title": "Recommended users",
+  "showcase.home_reco_body": "Discover people to follow here.",
+  "showcase.profile_follow_title": "Open profile menu",
+  "showcase.profile_follow_body": "You can open the menu by tapping the profile photo.",
+  "showcase.profile_settings_title": "Settings",
+  "showcase.profile_settings_body": "Tap here to open settings."
 }

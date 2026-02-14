@@ -314,5 +314,11 @@
   "paywall.bullets.gift_hidden": "{count} dolda chaput-gåvor",
   "paywall.bullets.gift_special": "{count} Super Chaput-gåvor",
   "paywall.bullets.gift_whisper": "{count} visk-rättigheter",
-  "paywall.bullets.unlimited_revive": "Obegränsad chaput-återställning"
+  "paywall.bullets.unlimited_revive": "Obegränsad chaput-återställning",
+  "showcase.home_reco_title": "Rekommenderade användare",
+  "showcase.home_reco_body": "Hitta och följ nya personer här.",
+  "showcase.profile_follow_title": "Profilmeny",
+  "showcase.profile_follow_body": "Du kan öppna menyn genom att trycka på profilbilden.",
+  "showcase.profile_settings_title": "Inställningar",
+  "showcase.profile_settings_body": "Tryck här för att öppna inställningarna."
 }

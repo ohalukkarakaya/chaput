@@ -7,6 +7,7 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:showcaseview/showcaseview.dart';
 import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
@@ -22,6 +23,7 @@ import '../../../../core/config/env.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/router/route_observer.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/storage/tutorial_storage.dart';
 import '../../../billing/data/billing_api_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
@@ -79,6 +81,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   late final AnimationController _profileCardCtrl;
   late final Animation<double> _profileCardT;
   bool _profileCardOpen = false;
+
+  final GlobalKey _profileMenuShowcaseKey = GlobalKey();
+  final GlobalKey _settingsShowcaseKey = GlobalKey();
+  bool _profileShowcaseScheduled = false;
+  bool _settingsShowcaseScheduled = false;
 
   bool _pendingTreeModeShift = false;
   bool _treeModeShiftDoneThisGesture = false;
@@ -608,6 +615,78 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     } else {
       _profileCardCtrl.reverse(from: 1);
     }
+  }
+
+  void _openProfileCardIfNeeded() {
+    if (_profileCardOpen) return;
+    _toggleProfileCard();
+  }
+
+  Future<void> _scheduleProfileShowcase(BuildContext context, String viewerId) async {
+    final storage = ref.read(tutorialStorageProvider);
+    final shouldShow = await storage.shouldShow(viewerId, 'profile_follow');
+    if (!shouldShow || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ShowCaseWidget.of(context).startShowCase([_profileMenuShowcaseKey]);
+      storage.markShown(viewerId, 'profile_follow');
+    });
+  }
+
+  Future<void> _scheduleSettingsShowcase(BuildContext context, String viewerId) async {
+    final storage = ref.read(tutorialStorageProvider);
+    final shouldShow = await storage.shouldShow(viewerId, 'profile_settings');
+    if (!shouldShow || !mounted) return;
+
+    _openProfileCardIfNeeded();
+    Future.delayed(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      ShowCaseWidget.of(context).startShowCase([_settingsShowcaseKey]);
+      storage.markShown(viewerId, 'profile_settings');
+    });
+  }
+
+  Widget _buildShowcaseCard(BuildContext context, String title, String body) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.chaputBlack.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.chaputBlack.withOpacity(0.25),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.chaputWhite,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              body,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.3,
+                color: AppColors.chaputWhite.withOpacity(0.9),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _disposeThree() {
@@ -2531,17 +2610,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     }
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: bg,
-      body: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            FocusScope.of(context).unfocus();
-          },
-          child: Stack(
-          fit: StackFit.expand,
-          children: [
+    final profileReadyForShowcase =
+        userId.isNotEmpty && !st.isLoading && _threeReady && _threeError == null;
+
+    return ShowCaseWidget(
+      builder: (showcaseContext) {
+        if (viewerId.isNotEmpty && profileReadyForShowcase) {
+          if (!isMe && !_profileShowcaseScheduled) {
+            _profileShowcaseScheduled = true;
+            _scheduleProfileShowcase(showcaseContext, viewerId);
+          }
+          if (isMe && !_settingsShowcaseScheduled) {
+            _settingsShowcaseScheduled = true;
+            _scheduleSettingsShowcase(showcaseContext, viewerId);
+          }
+        }
+
+        return Scaffold(
+            resizeToAvoidBottomInset: false,
+            backgroundColor: bg,
+            body: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                },
+                child: Stack(
+                fit: StackFit.expand,
+                children: [
             // ThreeJS TAM EKRAN
             Positioned.fill(
               child: (_threeJs == null || _navToOtherProfile)
@@ -2616,27 +2711,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   duration: const Duration(milliseconds: 120),
                   opacity: _profileCardOpen ? 0.0 : 1.0, // kart açılınca kaybol
                   child: ClipOval(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Material(
-                        color: AppColors.chaputWhite.withOpacity(0.35),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          onTap: _toggleProfileCard,
-                          customBorder: const CircleBorder(),
-                          child: SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Center(
-                              child: ClipOval(
-                                child: (defaultAvatar != null)
-                                    ? ChaputCircleAvatar(
-                                        isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
-                                        imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
-                                            ? profilePhotoUrl
-                                            : defaultAvatar,
-                                      )
-                                    : const ColoredBox(color: AppColors.chaputTransparent),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Showcase.withWidget(
+                          key: _profileMenuShowcaseKey,
+                          targetPadding: const EdgeInsets.all(6),
+                          targetShapeBorder: const CircleBorder(),
+                          tooltipPosition: TooltipPosition.bottom,
+                          toolTipMargin: 8,
+                          targetTooltipGap: 8,
+                          container: _buildShowcaseCard(
+                            context,
+                            context.t('showcase.profile_follow_title'),
+                            context.t('showcase.profile_follow_body'),
+                          ),
+                          child: Material(
+                            color: AppColors.chaputWhite.withOpacity(0.35),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              onTap: _toggleProfileCard,
+                              customBorder: const CircleBorder(),
+                              child: SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Center(
+                                  child: ClipOval(
+                                    child: (defaultAvatar != null)
+                                        ? ChaputCircleAvatar(
+                                      isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
+                                      imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
+                                          ? profilePhotoUrl
+                                          : defaultAvatar,
+                                    )
+                                        : const ColoredBox(color: AppColors.chaputTransparent),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -2646,7 +2755,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
               ),
-            ),
 
 
             // Expanded profile card overlay
@@ -2806,21 +2914,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
                                               // ================= ACTION BUTTON =================
                                               if (isMe)
-                                                TextButton(
-                                                  onPressed: () {
-                                                    context.push(Routes.settings);
-                                                  },
-                                                  style: TextButton.styleFrom(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                    backgroundColor: AppColors.chaputBlack,
-                                                    foregroundColor: AppColors.chaputWhite,
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(12),
-                                                    ),
+                                                Showcase.withWidget(
+                                                  key: _settingsShowcaseKey,
+                                                  targetPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                                  targetShapeBorder: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(12),
                                                   ),
-                                                  child: Text(
-                                                    context.t('profile.settings'),
-                                                    style: const TextStyle(fontSize: 12),
+                                                  tooltipPosition: TooltipPosition.top,
+                                                  toolTipMargin: 8,
+                                                  targetTooltipGap: 8,
+                                                  container: _buildShowcaseCard(
+                                                    context,
+                                                    context.t('showcase.profile_settings_title'),
+                                                    context.t('showcase.profile_settings_body'),
+                                                  ),
+                                                  child: TextButton(
+                                                    onPressed: () {
+                                                      context.push(Routes.settings);
+                                                    },
+                                                    style: TextButton.styleFrom(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                      backgroundColor: AppColors.chaputBlack,
+                                                      foregroundColor: AppColors.chaputWhite,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      context.t('profile.settings'),
+                                                      style: const TextStyle(fontSize: 12),
+                                                    ),
                                                   ),
                                                 )
                                               else
@@ -3493,6 +3616,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           ],
         ),
       ),
+        );
+      },
     );
 
   }

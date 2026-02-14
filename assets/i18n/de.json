@@ -314,5 +314,11 @@
   "paywall.bullets.gift_hidden": "{count} versteckte Chaput-Geschenke",
   "paywall.bullets.gift_special": "{count} Super-Chaput-Geschenke",
   "paywall.bullets.gift_whisper": "{count} Flüsterrechte",
-  "paywall.bullets.unlimited_revive": "Unbegrenzte Chaput-Wiederherstellung"
+  "paywall.bullets.unlimited_revive": "Unbegrenzte Chaput-Wiederherstellung",
+  "showcase.home_reco_title": "Empfohlene Nutzer",
+  "showcase.home_reco_body": "Hier kannst du neue Personen entdecken und folgen.",
+  "showcase.profile_follow_title": "Profilmenü",
+  "showcase.profile_follow_body": "Du kannst das Menü öffnen, indem du auf das Profilfoto tippst.",
+  "showcase.profile_settings_title": "Einstellungen",
+  "showcase.profile_settings_body": "Tippe hier, um die Einstellungen zu öffnen."
 }

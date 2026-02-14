@@ -314,5 +314,11 @@
   "paywall.bullets.gift_hidden": "{count} skjulte chaput-gaver",
   "paywall.bullets.gift_special": "{count} Super Chaput-gaver",
   "paywall.bullets.gift_whisper": "{count} hviskerettigheter",
-  "paywall.bullets.unlimited_revive": "Ubegrenset chaput-gjenoppretting"
+  "paywall.bullets.unlimited_revive": "Ubegrenset chaput-gjenoppretting",
+  "showcase.home_reco_title": "Anbefalte brukere",
+  "showcase.home_reco_body": "Finn og følg nye personer her.",
+  "showcase.profile_follow_title": "Profilmeny",
+  "showcase.profile_follow_body": "Du kan åpne menyen ved å trykke på profilbildet.",
+  "showcase.profile_settings_title": "Innstillinger",
+  "showcase.profile_settings_body": "Trykk her for å åpne innstillingene."
 }

@@ -314,5 +314,11 @@
   "paywall.bullets.gift_hidden": "{count} chaputs cachés offerts",
   "paywall.bullets.gift_special": "{count} Super Chaputs offerts",
   "paywall.bullets.gift_whisper": "{count} droits de chuchotement offerts",
-  "paywall.bullets.unlimited_revive": "Récupération de chaput illimitée"
+  "paywall.bullets.unlimited_revive": "Récupération de chaput illimitée",
+  "showcase.home_reco_title": "Utilisateurs recommandés",
+  "showcase.home_reco_body": "Découvre et suis de nouvelles personnes ici.",
+  "showcase.profile_follow_title": "Menu du profil",
+  "showcase.profile_follow_body": "Vous pouvez ouvrir le menu en touchant la photo de profil.",
+  "showcase.profile_settings_title": "Paramètres",
+  "showcase.profile_settings_body": "Touchez ici pour ouvrir les paramètres."
 }

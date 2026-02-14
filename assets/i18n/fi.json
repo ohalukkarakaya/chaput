@@ -314,5 +314,11 @@
   "paywall.bullets.gift_hidden": "{count} piilotettua chaputia (lahja)",
   "paywall.bullets.gift_special": "{count} Super Chaputia (lahja)",
   "paywall.bullets.gift_whisper": "{count} kuiskausoikeutta (lahja)",
-  "paywall.bullets.unlimited_revive": "Rajaton chaput-palautus"
+  "paywall.bullets.unlimited_revive": "Rajaton chaput-palautus",
+  "showcase.home_reco_title": "Suositellut käyttäjät",
+  "showcase.home_reco_body": "Löydä ja seuraa uusia ihmisiä täältä.",
+  "showcase.profile_follow_title": "Profiilivalikko",
+  "showcase.profile_follow_body": "Voit avata valikon napauttamalla profiilikuvaa.",
+  "showcase.profile_settings_title": "Asetukset",
+  "showcase.profile_settings_body": "Napauta tästä avataksesi asetukset."
 }

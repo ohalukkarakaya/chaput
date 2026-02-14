@@ -314,5 +314,11 @@
   "paywall.bullets.gift_hidden": "{count} gizli chaput hediye",
   "paywall.bullets.gift_special": "{count} süper chaput hediye",
   "paywall.bullets.gift_whisper": "{count} fısıldama hakkı hediye",
-  "paywall.bullets.unlimited_revive": "Sınırsız chaput kurtarma"
+  "paywall.bullets.unlimited_revive": "Sınırsız chaput kurtarma",
+  "showcase.home_reco_title": "Önerilen kullanıcılar",
+  "showcase.home_reco_body": "Buradan yeni kişileri keşfedip takip edebilirsin.",
+  "showcase.profile_follow_title": "Profil menüsü",
+  "showcase.profile_follow_body": "Profil fotoğrafına dokunarak menüyü açabilirsin.",
+  "showcase.profile_settings_title": "Ayarlar",
+  "showcase.profile_settings_body": "Ayarlar ekranına buradan gidebilirsin."
 }

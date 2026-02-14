@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 import '../../../../core/router/routes.dart';
 import '../../../../core/ui/backgrounds/animated_mesh_background.dart';
+import '../../../../core/storage/tutorial_storage.dart';
 
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
@@ -30,6 +32,20 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<ChaputSocketEvent>? _socketSub;
+  final GlobalKey _recoShowcaseKey = GlobalKey();
+  bool _homeShowcaseScheduled = false;
+
+  Future<void> _scheduleHomeShowcase(BuildContext context, String userId) async {
+    final storage = ref.read(tutorialStorageProvider);
+    final shouldShow = await storage.shouldShow(userId, 'home_recommended');
+    if (!shouldShow || !mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ShowCaseWidget.of(context).startShowCase([_recoShowcaseKey]);
+      storage.markShown(userId, 'home_recommended');
+    });
+  }
 
   @override
   void initState() {
@@ -75,49 +91,58 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.chaputCloudBlue,
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const RepaintBoundary(
-            child: AnimatedMeshBackground(
-              baseColor: AppColors.chaputCloudBlue,
-            ),
-          ),
+    return ShowCaseWidget(
+      builder: (showcaseContext) {
+        final me = ref.watch(meControllerProvider).valueOrNull;
+        final meId = me?.user?.userId ?? '';
+        if (!_homeShowcaseScheduled && meId.isNotEmpty) {
+          _homeShowcaseScheduled = true;
+          _scheduleHomeShowcase(showcaseContext, meId);
+        }
 
-          // 🌳 ALT DEKOR (SafeArea DIŞINDA) → tam en alta, tam sağ/sola oturur
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: 0.95,
-                child: Image.asset(
-                  'assets/images/tree_bg.png',
-                  fit: BoxFit.contain,
-                  alignment: Alignment.bottomCenter,
-                ),
-              ),
-            ),
-          ),
-
-          // ✅ UI katmanı (SafeArea içinde) → görselin üstünde kalır
-          SafeArea(
-            child: Stack(
-              clipBehavior: Clip.none,
+        return Scaffold(
+            backgroundColor: AppColors.chaputCloudBlue,
+            resizeToAvoidBottomInset: false,
+            body: Stack(
+              fit: StackFit.expand,
               children: [
-                // ✅ Header + Search (üst)
+                const RepaintBoundary(
+                  child: AnimatedMeshBackground(
+                    baseColor: AppColors.chaputCloudBlue,
+                  ),
+                ),
+
+                // 🌳 ALT DEKOR (SafeArea DIŞINDA) → tam en alta, tam sağ/sola oturur
                 Positioned(
-                  top: 12,
-                  left: 16,
-                  right: 16,
-                  child: SafeArea(
-                    bottom: false,
-                    child: Center(
-                      child: ConstrainedBox(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.95,
+                      child: Image.asset(
+                        'assets/images/tree_bg.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ✅ UI katmanı (SafeArea içinde) → görselin üstünde kalır
+                SafeArea(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // ✅ Header + Search (üst)
+                      Positioned(
+                        top: 12,
+                        left: 16,
+                        right: 16,
+                        child: SafeArea(
+                          bottom: false,
+                          child: Center(
+                            child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 520),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -292,11 +317,62 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                             ),
 
                             const SizedBox(height: 14),
-                            _RecommendedUserCard(),
+                            Showcase.withWidget(
+                              key: _recoShowcaseKey,
+                              targetPadding: EdgeInsets.zero,
+                              targetBorderRadius: BorderRadius.circular(22),
+                              targetShapeBorder: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                              tooltipPosition: TooltipPosition.bottom,
+                              toolTipMargin: 8,
+                              targetTooltipGap: 8,
+                              container: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.chaputBlack.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.chaputBlack.withOpacity(0.25),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.t('showcase.home_reco_title'),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.chaputWhite,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      context.t('showcase.home_reco_body'),
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        height: 1.3,
+                                        color: AppColors.chaputWhite.withOpacity(0.9),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              child: _RecommendedUserCard(),
+                            ),
                           ],
                         ),
                       ),
                     ),
+                  ),
+                ),
+                    ],
                   ),
                 ),
 
@@ -345,9 +421,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
+          );
+      },
     );
   }
 }
