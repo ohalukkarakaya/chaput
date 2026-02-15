@@ -617,19 +617,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
-  void _openProfileCardIfNeeded() {
-    if (_profileCardOpen) return;
-    _toggleProfileCard();
-  }
-
   Future<void> _scheduleProfileShowcase(BuildContext context, String viewerId) async {
     final storage = ref.read(tutorialStorageProvider);
     final shouldShow = await storage.shouldShow(viewerId, 'profile_follow');
     if (!shouldShow || !mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ShowCaseWidget.of(context).startShowCase([_profileMenuShowcaseKey]);
-      storage.markShown(viewerId, 'profile_follow');
+      Future.delayed(const Duration(milliseconds: 120), () {
+        if (!mounted) return;
+        ShowCaseWidget.of(context).startShowCase([_profileMenuShowcaseKey]);
+        storage.markShown(viewerId, 'profile_follow');
+      });
     });
   }
 
@@ -638,11 +636,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final shouldShow = await storage.shouldShow(viewerId, 'profile_settings');
     if (!shouldShow || !mounted) return;
 
-    _openProfileCardIfNeeded();
-    Future.delayed(const Duration(milliseconds: 180), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ShowCaseWidget.of(context).startShowCase([_settingsShowcaseKey]);
-      storage.markShown(viewerId, 'profile_settings');
+      Future.delayed(const Duration(milliseconds: 120), () {
+        if (!mounted) return;
+        ShowCaseWidget.of(context).startShowCase([_settingsShowcaseKey]);
+        storage.markShown(viewerId, 'profile_settings');
+      });
     });
   }
 
@@ -2619,7 +2619,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             _profileShowcaseScheduled = true;
             _scheduleProfileShowcase(showcaseContext, viewerId);
           }
-          if (isMe && !_settingsShowcaseScheduled) {
+          if (isMe && _profileCardOpen && !_settingsShowcaseScheduled) {
             _settingsShowcaseScheduled = true;
             _scheduleSettingsShowcase(showcaseContext, viewerId);
           }
