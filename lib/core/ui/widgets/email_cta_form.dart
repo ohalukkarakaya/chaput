@@ -6,6 +6,7 @@ import '../../constants/app_colors.dart';
 import '../../i18n/app_localizations.dart';
 import 'glass_cta_button.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'app_text_context_menu.dart';
 
 class EmailCtaForm extends StatelessWidget {
   final TextEditingController controller;
@@ -59,6 +60,7 @@ class EmailCtaForm extends StatelessWidget {
                 enabled: enabled,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.done,
+                contextMenuBuilder: appTextContextMenuBuilder,
                 onSubmitted: (_) async {
                   if (!enabled) return;
                   await onSubmit();

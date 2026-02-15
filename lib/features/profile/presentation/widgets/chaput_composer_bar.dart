@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 
 class ChatComposerBar extends StatefulWidget {
   const ChatComposerBar({
@@ -122,6 +123,7 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                     controller: widget.controller,
                     focusNode: widget.focusNode,
                     textInputAction: TextInputAction.send,
+                    contextMenuBuilder: appTextContextMenuBuilder,
                     onSubmitted: (_) => widget.onSend(),
                     style: const TextStyle(color: AppColors.chaputWhite, fontSize: 16),
                     decoration: InputDecoration(

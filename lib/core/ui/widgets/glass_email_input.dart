@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../i18n/app_localizations.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'app_text_context_menu.dart';
 
 class GlassEmailInput extends StatelessWidget {
   final TextEditingController controller;
@@ -45,6 +46,7 @@ class GlassEmailInput extends StatelessWidget {
                     style: const TextStyle(color: AppColors.chaputWhite),
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.done,
+                    contextMenuBuilder: appTextContextMenuBuilder,
                     onSubmitted: (_) async {
                       debugPrint('⌨️ TextField submitted');
                       await onSubmit();

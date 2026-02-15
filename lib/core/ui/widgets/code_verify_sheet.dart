@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../features/auth/data/dto/login_verify_response.dart';
+import 'app_text_context_menu.dart';
 
 Future<LoginVerifyResponse?> showCodeVerifySheet({
   required BuildContext context,
@@ -353,6 +354,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                       enabled: !isLocked,
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.done,
+                      contextMenuBuilder: appTextContextMenuBuilder,
                       decoration: const InputDecoration(border: InputBorder.none),
                       style: const TextStyle(color: AppColors.chaputTransparent),
                       cursorColor: AppColors.chaputTransparent,

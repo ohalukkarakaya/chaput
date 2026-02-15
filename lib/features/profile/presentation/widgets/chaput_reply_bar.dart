@@ -3,6 +3,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import 'black_glass.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 
 class ChaputReplyBar extends StatefulWidget {
   const ChaputReplyBar({
@@ -185,6 +186,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                   child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
+                    contextMenuBuilder: appTextContextMenuBuilder,
                     style: const TextStyle(
                       color: AppColors.chaputWhite,
                       fontSize: 13,

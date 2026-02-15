@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
+import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/storage/secure_storage_provider.dart';
@@ -389,6 +390,7 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
               const SizedBox(height: 16),
               TextField(
                 controller: c,
+                contextMenuBuilder: appTextContextMenuBuilder,
                 decoration: InputDecoration(
                   labelText: context.t('settings.username_label'),
                   hintText: context.t('settings.username_hint'),

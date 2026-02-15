@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/ui/widgets/email_otp_verify_sheet.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
+import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 import '../../../me/application/me_controller.dart';
 import '../../application/email_change_controller.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
@@ -120,6 +121,7 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                                 controller: _controller,
                                 keyboardType: TextInputType.emailAddress,
                                 textInputAction: TextInputAction.done,
+                                contextMenuBuilder: appTextContextMenuBuilder,
                                 onChanged: (_) => ref.read(emailChangeControllerProvider.notifier).clearError(),
                                 decoration: InputDecoration(
                                   hintText: context.t('settings.email_new_placeholder'),

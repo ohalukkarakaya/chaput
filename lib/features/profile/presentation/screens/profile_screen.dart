@@ -2610,13 +2610,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     }
 
-    final profileReadyForShowcase =
-        userId.isNotEmpty && !st.isLoading && _threeReady && _threeError == null;
-
     return ShowCaseWidget(
       builder: (showcaseContext) {
+        final profileReadyForShowcase = userId.isNotEmpty && !st.isLoading;
+
         if (viewerId.isNotEmpty && profileReadyForShowcase) {
-          if (!isMe && !_profileShowcaseScheduled) {
+          if (!_profileShowcaseScheduled) {
             _profileShowcaseScheduled = true;
             _scheduleProfileShowcase(showcaseContext, viewerId);
           }

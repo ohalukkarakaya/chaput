@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 
 class AuthTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -17,6 +18,7 @@ class AuthTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       obscureText: obscure,
+      contextMenuBuilder: appTextContextMenuBuilder,
       decoration: InputDecoration(labelText: label),
     );
   }

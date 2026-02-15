@@ -9,6 +9,7 @@ import '../application/user_search_controller.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
+import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 import 'package:chaput/core/router/routes.dart';
 import 'package:go_router/go_router.dart';
 
@@ -151,6 +152,7 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
                                 autofocus: true,
                                 onChanged: _onChanged,
                                 textInputAction: TextInputAction.search,
+                                contextMenuBuilder: appTextContextMenuBuilder,
                                 decoration: InputDecoration(
                                   border: InputBorder.none,
                                   hintText: context.t('search.hint'),

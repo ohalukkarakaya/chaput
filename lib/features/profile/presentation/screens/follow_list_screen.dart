@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
+import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../social/application/follow_list_controller.dart';
@@ -110,6 +111,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                       child: TextField(
                         controller: _searchCtrl,
                         onChanged: (_) => setState(() {}),
+                        contextMenuBuilder: appTextContextMenuBuilder,
                         decoration: InputDecoration(
                           hintText: context.t('common.search'),
                           filled: true,

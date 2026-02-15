@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import '../../i18n/app_localizations.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'app_text_context_menu.dart';
 
 typedef VerifyResult = ({bool ok, String? errorText, int? lockSeconds});
 
@@ -291,6 +292,7 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                       enabled: !isLocked,
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.done,
+                      contextMenuBuilder: appTextContextMenuBuilder,
                       decoration: const InputDecoration(border: InputBorder.none),
                       style: const TextStyle(color: AppColors.chaputTransparent),
                       cursorColor: AppColors.chaputTransparent,

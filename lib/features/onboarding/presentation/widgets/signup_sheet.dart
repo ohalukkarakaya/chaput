@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 
 class SignupDraft {
   final String gender; // "M" | "F"
@@ -191,6 +192,7 @@ class _SignupSheetState extends State<_SignupSheet> {
 
                       TextFormField(
                         controller: _fullName,
+                        contextMenuBuilder: appTextContextMenuBuilder,
                         decoration: InputDecoration(
                           labelText: context.t('signup.full_name'),
                           border: OutlineInputBorder(),
@@ -208,6 +210,7 @@ class _SignupSheetState extends State<_SignupSheet> {
                       TextFormField(
                         controller: _username,
                         textInputAction: TextInputAction.done,
+                        contextMenuBuilder: appTextContextMenuBuilder,
                         decoration: InputDecoration(
                           labelText: context.t('signup.username'),
                           helperText: context.t('signup.username_hint'),
