@@ -199,7 +199,7 @@ class _BlobPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final shortest = size.shortestSide;
-    final speedBoost = 1.0 + (motion * 1.2);
+    final speedBoost = 1.0 + (motion * 0.55);
     final time = t * 2 * pi * speedBoost;
 
     for (final blob in blobs) {
