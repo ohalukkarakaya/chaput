@@ -264,20 +264,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   alignment: Alignment.topLeft,
                                 ),
                               ),
-                              Positioned.fill(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        AppColors.chaputTransparent,
-                                        AppColors.chaputBlack.withOpacity(0.55),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         );
