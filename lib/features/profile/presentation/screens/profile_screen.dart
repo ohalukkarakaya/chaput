@@ -45,6 +45,7 @@ import '../widgets/chaput_composer_options_sheet.dart';
 import '../widgets/chaput_paywall_sheet.dart';
 import '../widgets/chaput_reply_bar.dart';
 import '../widgets/glass_toast_overlay.dart';
+import '../widgets/empty_chaput_sheet.dart';
 import '../widgets/profile_actions_sheet.dart';
 import '../widgets/profile_stat_chip.dart';
 import '../widgets/tree_silhouette_shimmer.dart';
@@ -78,6 +79,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   OverlayEntry? _toastEntry;
   bool _toastShowing = false;
   bool _isDisposed = false;
+
+  static const List<String> _emptyChaputMessageKeysOther = [
+    'profile.empty_chaput_1',
+    'profile.empty_chaput_2',
+    'profile.empty_chaput_3',
+    'profile.empty_chaput_4',
+    'profile.empty_chaput_5',
+    'profile.empty_chaput_6',
+    'profile.empty_chaput_7',
+    'profile.empty_chaput_8',
+  ];
+  static const List<String> _emptyChaputMessageKeysSelf = [
+    'profile.empty_chaput_self_1',
+    'profile.empty_chaput_self_2',
+    'profile.empty_chaput_self_3',
+    'profile.empty_chaput_self_4',
+  ];
+
+  int? _emptyChaputIndex;
+  String? _emptyChaputProfileId;
+  bool? _emptyChaputIsMe;
+  bool _emptyChaputAnchorPicked = false;
 
   late final AnimationController _profileCardCtrl;
   late final Animation<double> _profileCardT;
@@ -974,6 +997,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _lastProjected = null;
     _stableFor = 0.0;
     _showFocusMarker = false;
+  }
+
+  int _resolveEmptyChaputIndex(String userId, bool isMe) {
+    if (_emptyChaputProfileId != userId ||
+        _emptyChaputIndex == null ||
+        _emptyChaputIsMe != isMe) {
+      _emptyChaputProfileId = userId;
+      _emptyChaputIsMe = isMe;
+      final keys = isMe ? _emptyChaputMessageKeysSelf : _emptyChaputMessageKeysOther;
+      _emptyChaputIndex = math.Random().nextInt(keys.length);
+    }
+    return _emptyChaputIndex!;
+  }
+
+  void _scheduleEmptyChaputAnchorPick() {
+    if (_emptyChaputAnchorPicked || !_threeReady || _treeGroup == null) return;
+    _emptyChaputAnchorPicked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_treeGroup == null) return;
+      _pickNewRandomAnchorAndSnap();
+    });
+  }
+
+  void _clearEmptyChaputState() {
+    _emptyChaputAnchorPicked = false;
+    _emptyChaputIndex = null;
+    _emptyChaputProfileId = null;
+    _emptyChaputIsMe = null;
   }
 
 
@@ -2306,6 +2358,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _lastProfileUserId = userId;
       _lastTreeId = null;
       _disposeThree();
+      _clearEmptyChaputState();
     }
     final fullName = user?['full_name']?.toString() ?? '';
     final username = user?['username']?.toString() ?? '';
@@ -2505,6 +2558,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         : ChaputThreadsState.empty;
 
     final chaputThreads = chaputThreadsState.items;
+    final bool showEmptyChaputSheet = chaputAllowed &&
+        chaputThreads.isEmpty &&
+        !showLoading &&
+        !_composerOpen &&
+        !_silhouetteMode;
+
+    final String? emptyChaputMessage = showEmptyChaputSheet
+        ? context.t(
+            (isMe ? _emptyChaputMessageKeysSelf : _emptyChaputMessageKeysOther)[
+              _resolveEmptyChaputIndex(userId, isMe)
+            ],
+          )
+        : null;
+
+    if (showEmptyChaputSheet) {
+      _scheduleEmptyChaputAnchorPick();
+    } else if (chaputThreads.isNotEmpty) {
+      _clearEmptyChaputState();
+    }
     final typingUsersByThread = <String, List<LiteUser>>{};
     _typingUsersByThread.forEach((threadId, ids) {
       final list = <LiteUser>[];
@@ -3275,6 +3347,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
               ),
 
+            if (showEmptyChaputSheet && emptyChaputMessage != null)
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * _chaputSheetMin,
+                    child: IgnorePointer(
+                      child: EmptyChaputSheet(
+                        message: emptyChaputMessage,
+                        height: MediaQuery.of(context).size.height * _chaputSheetMin,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
             if (showReplyBar)
               Positioned(
                 left: 0,
@@ -3458,8 +3546,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             right: 14,
             bottom: (chaputThreads.isNotEmpty
                     ? (MediaQuery.of(context).size.height * _chaputSheetExtent + 10)
-                    : 14),
+                    : (showEmptyChaputSheet
+                        ? (MediaQuery.of(context).size.height * _chaputSheetMin + 10)
+                        : 14)),
             child: SafeArea(
+              top: false,
+              bottom: !(showEmptyChaputSheet && chaputThreads.isEmpty),
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 160),
                 child: (_composerOpen ||
