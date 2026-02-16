@@ -38,7 +38,7 @@ class _VideoBackgroundState extends State<VideoBackground>
 
     _blobs = [
       _Blob(
-        color: const Color(0xFF0B1E40),
+        color: const Color(0xFF140711),
         center: const Offset(0.15, 0.22),
         radius: 0.58,
         amplitude: const Offset(0.08, 0.12),
@@ -46,7 +46,7 @@ class _VideoBackgroundState extends State<VideoBackground>
         phase: 0.0,
       ),
       _Blob(
-        color: const Color(0xFF1B3F7A),
+        color: const Color(0xFF4A0E4E),
         center: const Offset(0.82, 0.18),
         radius: 0.46,
         amplitude: const Offset(0.12, 0.08),
@@ -54,7 +54,7 @@ class _VideoBackgroundState extends State<VideoBackground>
         phase: 1.6,
       ),
       _Blob(
-        color: const Color(0xFF0E2C66),
+        color: const Color(0xFFB61B57),
         center: const Offset(0.58, 0.78),
         radius: 0.62,
         amplitude: const Offset(0.1, 0.1),
