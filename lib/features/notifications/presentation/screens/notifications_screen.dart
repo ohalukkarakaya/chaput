@@ -381,6 +381,7 @@ class _NotificationRow extends StatelessWidget {
                           child: Text(
                             title,
                             maxLines: 1,
+                            softWrap: false,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 15,
@@ -391,6 +392,9 @@ class _NotificationRow extends StatelessWidget {
                         if (item.createdAt != null)
                           Text(
                             _timeAgo(context, item.createdAt!),
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 12, color: AppColors.chaputBlack.withOpacity(0.45)),
                           ),
                       ],
