@@ -308,10 +308,19 @@ class _ResultsList extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(u.fullName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Text(
+                        u.fullName,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         u.username == null ? context.t('common.na') : '@${u.username}',
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55)),
                       ),
                     ],

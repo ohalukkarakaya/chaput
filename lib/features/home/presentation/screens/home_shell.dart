@@ -224,6 +224,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                                     ? context.t('common.na')
                                                     : fullName,
                                                 maxLines: 1,
+                                                softWrap: false,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
                                                   fontSize: 18,
@@ -492,42 +493,51 @@ class _RecommendedUserCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () async => context.push(await Routes.profile(u.id)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ChaputCircleAvatar(
-                        width: 40,
-                        height: 40,
-                        radius: 999,
-                        borderWidth: 2,
-                        bgColor: AppColors.chaputBlack,
-                        isDefaultAvatar: u.profilePhotoPath == null || u.profilePhotoPath!.isEmpty,
-                        imageUrl: (u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty)
-                            ? u.profilePhotoPath!
-                            : u.defaultAvatar,
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            u.fullName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () async => context.push(await Routes.profile(u.id)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        ChaputCircleAvatar(
+                          width: 40,
+                          height: 40,
+                          radius: 999,
+                          borderWidth: 2,
+                          bgColor: AppColors.chaputBlack,
+                          isDefaultAvatar: u.profilePhotoPath == null || u.profilePhotoPath!.isEmpty,
+                          imageUrl: (u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty)
+                              ? u.profilePhotoPath!
+                              : u.defaultAvatar,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                u.fullName,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                u.username == null ? context.t('common.na') : '@${u.username}',
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
                           ),
-                          Text(
-                            u.username == null ? context.t('common.na') : '@${u.username}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

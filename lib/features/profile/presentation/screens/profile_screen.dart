@@ -3352,11 +3352,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 child: Align(
                   alignment: Alignment.bottomCenter,
                   child: SizedBox(
-                    height: MediaQuery.of(context).size.height * _chaputSheetMin,
+                    height: (MediaQuery.of(context).size.height * _chaputSheetMin) +
+                        MediaQuery.of(context).padding.bottom,
                     child: IgnorePointer(
                       child: EmptyChaputSheet(
                         message: emptyChaputMessage,
-                        height: MediaQuery.of(context).size.height * _chaputSheetMin,
+                        height: (MediaQuery.of(context).size.height * _chaputSheetMin) +
+                            MediaQuery.of(context).padding.bottom,
                       ),
                     ),
                   ),
@@ -3547,7 +3549,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             bottom: (chaputThreads.isNotEmpty
                     ? (MediaQuery.of(context).size.height * _chaputSheetExtent + 10)
                     : (showEmptyChaputSheet
-                        ? (MediaQuery.of(context).size.height * _chaputSheetMin + 10)
+                        ? (MediaQuery.of(context).size.height * _chaputSheetMin +
+                            MediaQuery.of(context).padding.bottom +
+                            6)
                         : 14)),
             child: SafeArea(
               top: false,

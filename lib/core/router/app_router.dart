@@ -8,6 +8,7 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/profile/presentation/screens/profile_username_redirect_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 
@@ -40,6 +41,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadePage(
           state: state,
           child: const HomeShell(),
+        ),
+      ),
+      GoRoute(
+        path: '/me/:username',
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: ProfileUsernameRedirectScreen(
+            username: state.pathParameters['username']!,
+          ),
         ),
       ),
       GoRoute(

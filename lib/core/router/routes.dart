@@ -6,6 +6,7 @@ class Routes {
   static const tree = '/u/:userId';
   static const home = '/home';
   static const notifications = '/notifications';
+  static const profileByUsername = '/me/:username';
   static const profileBase = '/profile';
   static const settings = '/settings';
 
