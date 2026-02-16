@@ -47,6 +47,7 @@ import '../widgets/chaput_reply_bar.dart';
 import '../widgets/glass_toast_overlay.dart';
 import '../widgets/profile_actions_sheet.dart';
 import '../widgets/profile_stat_chip.dart';
+import '../widgets/tree_silhouette_shimmer.dart';
 import 'follow_list_screen.dart';
 import '../../../social/application/follow_list_controller.dart';
 import '../widgets/subscription_replace_sheet.dart';
@@ -2662,6 +2663,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
               ),
             ),
+
+            if (showLoading)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  child: ColoredBox(
+                    color: bg,
+                    child: Center(
+                      child: TreeSilhouetteShimmer(
+                        size: math.min(MediaQuery.of(context).size.width * 0.6, 240),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
 
             // TOP BAR (overlay – yer kaplamaz)
             SafeArea(
