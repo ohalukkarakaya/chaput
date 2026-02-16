@@ -208,8 +208,18 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                                     canOpen: it.canOpenProfile,
                                     onTap: () async {
                                       if (!it.canOpenProfile) return;
+                                      final route = await Routes.profile(it.userId);
                                       if (!context.mounted) return;
-                                      context.push(await Routes.profile(it.userId));
+                                      final router = GoRouter.of(context);
+                                      if (router.canPop()) router.pop();
+                                      if (router.canPop()) router.pop();
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        if (!context.mounted) return;
+                                        Future.delayed(const Duration(milliseconds: 160), () {
+                                          if (!context.mounted) return;
+                                          router.push(route);
+                                        });
+                                      });
                                     },
                                     showRemove: widget.isMe && widget.kind == FollowListKind.followers,
                                     onRemove: () async {
