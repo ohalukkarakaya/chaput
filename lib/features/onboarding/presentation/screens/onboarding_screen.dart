@@ -278,22 +278,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: AnimatedPadding(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, 6 + keyboard + mq.padding.bottom),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          height: cardHeight,
-                          child: PageView.builder(
-                            controller: _textController,
-                            itemCount: sliderTexts.length,
-                            onPageChanged: _onTextPageChanged,
-                            itemBuilder: (context, index) {
-                              final item = sliderTexts[index];
-                              return Column(
+                padding: EdgeInsets.fromLTRB(0, 8, 0, 6 + keyboard + mq.padding.bottom),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: cardHeight,
+                        child: PageView.builder(
+                          controller: _textController,
+                          itemCount: sliderTexts.length,
+                          onPageChanged: _onTextPageChanged,
+                          itemBuilder: (context, index) {
+                            final item = sliderTexts[index];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
@@ -315,12 +317,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     ),
                                   ),
                                 ],
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
                         ),
-                        const SizedBox(height: 6),
-                        Row(
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: List.generate(
                             sliderTexts.length,
@@ -341,19 +346,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Divider(color: AppColors.chaputWhite.withOpacity(0.12)),
-                        const SizedBox(height: 6),
-                        EmailCtaForm(
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Divider(color: AppColors.chaputWhite.withOpacity(0.12)),
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: EmailCtaForm(
                           controller: _emailController,
                           hint: context.t('common.email'),
                           buttonText: context.t('common.continue'),
                           onSubmit: _onSubmit,
                         ),
-                        SizedBox(height: isKeyboardOpen ? 0 : 4),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: isKeyboardOpen ? 0 : 4),
+                    ],
                   ),
+                ),
                 ),
               ),
             ],
