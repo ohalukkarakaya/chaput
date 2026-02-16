@@ -32,17 +32,37 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _emailController = TextEditingController();
   final PageController _textController = PageController();
+  final ValueNotifier<double> _scrollMotion = ValueNotifier<double>(0.0);
   int _currentIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _textController.addListener(_handleTextScroll);
+  }
+
+  @override
   void dispose() {
+    _textController.removeListener(_handleTextScroll);
     _emailController.dispose();
     _textController.dispose();
+    _scrollMotion.dispose();
     super.dispose();
+  }
+
+  void _handleTextScroll() {
+    if (!_textController.hasClients) return;
+    final page = _textController.page ?? _currentIndex.toDouble();
+    final delta = (page - page.roundToDouble()).abs();
+    final motion = (delta * 2).clamp(0.0, 1.0);
+    if (_scrollMotion.value != motion) {
+      _scrollMotion.value = motion;
+    }
   }
 
   void _onTextPageChanged(int index) {
     setState(() => _currentIndex = index);
+    HapticFeedback.selectionClick();
   }
 
   Future<void> _startLoginFlow({
@@ -224,6 +244,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       body: VideoBackground(
         assetPath: 'assets/videos/chaput_bg.M4V',
         overlayOpacity: 0.45,
+        motion: _scrollMotion,
         child: SafeArea(
           bottom: false,
           child: Column(

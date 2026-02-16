@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 
@@ -9,12 +10,14 @@ class VideoBackground extends StatefulWidget {
   final double overlayOpacity;
   // assetPath kept for API compatibility; video is no longer used.
   final String? assetPath;
+  final ValueListenable<double>? motion;
 
   const VideoBackground({
     super.key,
     required this.child,
     this.assetPath,
     this.overlayOpacity = 0.45,
+    this.motion,
   });
 
   @override
@@ -39,6 +42,7 @@ class _VideoBackgroundState extends State<VideoBackground>
     _blobs = [
       _Blob(
         color: const Color(0xFF140711),
+        accentColor: const Color(0xFF3A0E25),
         center: const Offset(0.15, 0.22),
         radius: 0.58,
         amplitude: const Offset(0.08, 0.12),
@@ -47,6 +51,7 @@ class _VideoBackgroundState extends State<VideoBackground>
       ),
       _Blob(
         color: const Color(0xFF4A0E4E),
+        accentColor: const Color(0xFF8A1C6F),
         center: const Offset(0.82, 0.18),
         radius: 0.46,
         amplitude: const Offset(0.12, 0.08),
@@ -55,6 +60,7 @@ class _VideoBackgroundState extends State<VideoBackground>
       ),
       _Blob(
         color: const Color(0xFFB61B57),
+        accentColor: const Color(0xFFF04885),
         center: const Offset(0.58, 0.78),
         radius: 0.62,
         amplitude: const Offset(0.1, 0.1),
@@ -93,9 +99,11 @@ class _VideoBackgroundState extends State<VideoBackground>
                 child: AnimatedBuilder(
                   animation: _controller,
                   builder: (context, _) {
+                    final motion = (widget.motion?.value ?? 0.0).clamp(0.0, 1.0);
                     return CustomPaint(
                       painter: _BlobPainter(
                         t: _controller.value,
+                        motion: motion,
                         blobs: _blobs,
                       ),
                       isComplex: true,
@@ -159,6 +167,7 @@ class _VideoBackgroundState extends State<VideoBackground>
 
 class _Blob {
   final Color color;
+  final Color accentColor;
   final Offset center;
   final double radius;
   final Offset amplitude;
@@ -167,6 +176,7 @@ class _Blob {
 
   const _Blob({
     required this.color,
+    required this.accentColor,
     required this.center,
     required this.radius,
     required this.amplitude,
@@ -177,26 +187,31 @@ class _Blob {
 
 class _BlobPainter extends CustomPainter {
   final double t;
+  final double motion;
   final List<_Blob> blobs;
 
   const _BlobPainter({
     required this.t,
+    required this.motion,
     required this.blobs,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final shortest = size.shortestSide;
-    final time = t * 2 * pi;
+    final speedBoost = 1.0 + (motion * 1.2);
+    final time = t * 2 * pi * speedBoost;
 
     for (final blob in blobs) {
       final dx = (blob.center.dx + blob.amplitude.dx * sin(time * blob.speed + blob.phase)) * size.width;
       final dy = (blob.center.dy + blob.amplitude.dy * cos(time * blob.speed + blob.phase)) * size.height;
       final radius = blob.radius * shortest;
       final blurSigma = radius * 0.35;
+      final mix = (motion * 0.85).clamp(0.0, 1.0);
+      final color = Color.lerp(blob.color, blob.accentColor, mix) ?? blob.color;
 
       final paint = Paint()
-        ..color = blob.color.withOpacity(0.82)
+        ..color = color.withOpacity(0.82)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, blurSigma);
 
       canvas.drawCircle(Offset(dx, dy), radius, paint);
@@ -205,7 +220,9 @@ class _BlobPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BlobPainter oldDelegate) {
-    return oldDelegate.t != t || oldDelegate.blobs != blobs;
+    return oldDelegate.t != t ||
+        oldDelegate.motion != motion ||
+        oldDelegate.blobs != blobs;
   }
 }
 
