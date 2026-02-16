@@ -79,6 +79,8 @@ flutter:
     - assets/images/tree_bg.png
     - assets/images/chaput_logo_256px_h.png
     - assets/images/chaput_tying_lady.png
+    - assets/images/chaput_tying_lady_2.png
+    - assets/images/chaput_slider.png
     - assets/images/avatar_assets/
     - assets/images/avatar_assets/background/
     - assets/images/avatar_assets/male/

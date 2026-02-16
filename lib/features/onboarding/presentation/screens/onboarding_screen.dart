@@ -31,11 +31,18 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _emailController = TextEditingController();
+  final PageController _textController = PageController();
+  int _currentIndex = 0;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _textController.dispose();
     super.dispose();
+  }
+
+  void _onTextPageChanged(int index) {
+    setState(() => _currentIndex = index);
   }
 
   Future<void> _startLoginFlow({
@@ -198,6 +205,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final mq = MediaQuery.of(context);
     final keyboard = mq.viewInsets.bottom;
     final isKeyboardOpen = keyboard > 0;
+    final screenHeight = mq.size.height;
+    final cardHeight = (screenHeight * 0.085).clamp(64.0, 92.0);
+
+    final sliderTexts = [
+      {
+        'title': context.t('onboarding.slide1_title'),
+        'subtitle': context.t('onboarding.slide1_subtitle'),
+      },
+      {
+        'title': context.t('onboarding.slide2_title'),
+        'subtitle': context.t('onboarding.slide2_subtitle'),
+      },
+    ];
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -206,52 +226,146 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         overlayOpacity: 0.45,
         child: SafeArea(
           bottom: false,
-          child: Stack(
+          child: Column(
             children: [
-              Align(
-                alignment: Alignment.bottomCenter,
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final h = constraints.maxHeight;
+                    final w = constraints.maxWidth;
+                    return AnimatedBuilder(
+                      animation: _textController,
+                      builder: (context, _) {
+                        final maxPage = (sliderTexts.length - 1).clamp(1, 999);
+                        final page = _textController.hasClients
+                            ? (_textController.page ?? _currentIndex.toDouble())
+                            : _currentIndex.toDouble();
+                        final t = (page / maxPage).clamp(0.0, 1.0);
+                        final maxWidth = w * 1.25;
+                        final minWidth = w;
+                        final heightDrivenWidth = h * 1.35;
+                        final imageWidth = heightDrivenWidth.clamp(minWidth, maxWidth);
+                        const sidePadding = 12.0;
+                        final dx = sidePadding + (w - imageWidth - 2 * sidePadding) * t;
+
+                        return ClipRect(
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                left: dx,
+                                top: 0,
+                                width: imageWidth,
+                                height: h,
+                                child: Image.asset(
+                                  'assets/images/chaput_slider.png',
+                                  width: imageWidth,
+                                  height: h,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.topLeft,
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        AppColors.chaputTransparent,
+                                        AppColors.chaputBlack.withOpacity(0.55),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              Container(
+                width: double.infinity,
+                color: AppColors.chaputBlack.withOpacity(0.78),
                 child: AnimatedPadding(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + keyboard),
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 6 + keyboard + mq.padding.bottom),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
-                    child: SingleChildScrollView(
-                      reverse: true,
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            context.t('onboarding.welcome_title'),
-                            style: const TextStyle(
-                              color: AppColors.chaputWhite,
-                              fontSize: 30,
-                              height: 1.1,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: cardHeight,
+                          child: PageView.builder(
+                            controller: _textController,
+                            itemCount: sliderTexts.length,
+                            onPageChanged: _onTextPageChanged,
+                            itemBuilder: (context, index) {
+                              final item = sliderTexts[index];
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item['title'] ?? '',
+                                    style: const TextStyle(
+                                      color: AppColors.chaputWhite,
+                                      fontSize: 20,
+                                      height: 1.15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    item['subtitle'] ?? '',
+                                    style: TextStyle(
+                                      color: AppColors.chaputWhite.withOpacity(0.78),
+                                      fontSize: 13,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            context.t('onboarding.welcome_subtitle'),
-                            style: TextStyle(
-                              color: AppColors.chaputWhite.withOpacity(0.80),
-                              fontSize: 16,
-                              height: 1.25,
-                              fontWeight: FontWeight.w400,
-                            ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: List.generate(
+                            sliderTexts.length,
+                            (index) {
+                              final isActive = index == _currentIndex;
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                margin: const EdgeInsets.only(right: 6),
+                                width: isActive ? 14 : 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: isActive
+                                      ? AppColors.chaputWhite
+                                      : AppColors.chaputWhite.withOpacity(0.35),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              );
+                            },
                           ),
-                          const SizedBox(height: 18),
-                          EmailCtaForm(
-                            controller: _emailController,
-                            hint: context.t('common.email'),
-                            buttonText: context.t('common.continue'),
-                            onSubmit: _onSubmit,
-                          ),
-                          SizedBox(height: isKeyboardOpen ? 0 : 32),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 6),
+                        Divider(color: AppColors.chaputWhite.withOpacity(0.12)),
+                        const SizedBox(height: 6),
+                        EmailCtaForm(
+                          controller: _emailController,
+                          hint: context.t('common.email'),
+                          buttonText: context.t('common.continue'),
+                          onSubmit: _onSubmit,
+                        ),
+                        SizedBox(height: isKeyboardOpen ? 0 : 4),
+                      ],
                     ),
                   ),
                 ),

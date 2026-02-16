@@ -27,8 +27,8 @@ class EmailCtaForm extends StatelessWidget {
   });
 
   static const double _radius = 18;
-  static const double _fieldHeight = 56;
-  static const double _buttonHeight = 56;
+  static const double _fieldHeight = 52;
+  static const double _buttonHeight = 52;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +37,7 @@ class EmailCtaForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         // ✅ White input
         ClipRRect(
           borderRadius: BorderRadius.circular(_radius),
@@ -90,7 +90,7 @@ class EmailCtaForm extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
 
         GlassCtaButton(
           text: buttonText ?? context.t('common.continue'),
