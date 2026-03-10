@@ -2729,7 +2729,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               top: topInset + topBarHeight,
               bottom: 0,
               child: IgnorePointer(
-                ignoring: !_threeReady,
+                ignoring: !_threeReady || _isAdPageActive,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onScaleStart: _onScaleStart,
