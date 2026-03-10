@@ -1398,6 +1398,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final mask = _showNavMask();
     final router = GoRouter.of(context);
     _reloadOnPopNext = true;
+    setState(() {
+      _navToOtherProfile = true;
+    });
+    _disposeThree();
     await router.push('/profile/$userId', extra: {'threadId': threadId});
     if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 220));
