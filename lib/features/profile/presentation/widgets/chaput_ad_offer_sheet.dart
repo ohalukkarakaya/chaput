@@ -131,6 +131,10 @@ class ChaputAdOfferSheet extends StatelessWidget {
                               ),
                               child: Text(
                                 context.t('ads.watch_title'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                                textAlign: TextAlign.center,
                                 style: const TextStyle(fontWeight: FontWeight.w900),
                               ),
                             ),

@@ -181,8 +181,7 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                             context.t(
                               'ads.watched_progress',
                               params: {
-                                'watched': _watched.toString(),
-                                'total': widget.requiredAds.toString(),
+                                'count': _watched.toString(),
                               },
                             ),
                             style: const TextStyle(
