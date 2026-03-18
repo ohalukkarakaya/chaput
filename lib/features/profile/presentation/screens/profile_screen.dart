@@ -14,7 +14,6 @@ import 'package:three_js_math/three_js_math.dart' as three_math;
 import '../../../../chaput/application/chaput_decision_controller.dart';
 import '../../../../chaput/application/chaput_messages_controller.dart';
 import '../../../../chaput/application/chaput_threads_controller.dart';
-import '../../../../chaput/data/chaput_api.dart';
 import '../../../../chaput/data/chaput_socket.dart';
 import '../../../../chaput/domain/chaput_decision.dart';
 import '../../../../chaput/domain/chaput_message.dart';
@@ -27,6 +26,8 @@ import '../../../../core/storage/tutorial_storage.dart';
 import '../../../billing/data/billing_api_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
+import '../../../reports/data/reports_api.dart';
+import '../../../reports/presentation/widgets/report_content_sheet.dart';
 import '../../../settings/data/account_api.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../social/application/follow_state.dart';
@@ -55,7 +56,6 @@ import '../widgets/subscription_replace_sheet.dart';
 import '../widgets/chaput_thread_sheet.dart';
 import '../widgets/chaput_native_ad_card.dart';
 import 'package:chaput/core/constants/app_colors.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -75,7 +75,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen>
     with SingleTickerProviderStateMixin, RouteAware {
-
   OverlayEntry? _toastEntry;
   bool _toastShowing = false;
   bool _isDisposed = false;
@@ -132,9 +131,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _activeThreadId;
   ChaputThreadsArgs? _lastChaputArgs;
 
-  bool _composerOpen = false;                 // input bar açık mı?
-  three.Vector3? _draftAnchor;                // mesaj varken hatırlanan anchor
-  three.Vector3? _activeAnchor;               // şu an focus olunan anchor (genelde _focusAnchor)
+  bool _composerOpen = false; // input bar açık mı?
+  three.Vector3? _draftAnchor; // mesaj varken hatırlanan anchor
+  three.Vector3?
+  _activeAnchor; // şu an focus olunan anchor (genelde _focusAnchor)
 
   bool get _composerHasKeyboard => MediaQuery.of(context).viewInsets.bottom > 0;
   double _composerPitchBias = 0.0;
@@ -146,7 +146,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _isInteracting = false;
   bool _showFocusMarker = false;
 
-// snap-back animasyonu
+  // snap-back animasyonu
   late double _snapFromYaw, _snapToYaw;
   late double _snapFromPitch, _snapToPitch;
 
@@ -205,9 +205,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   static const double _maxPitch = 0.45;
 
   // orbit merkez (ağacın merkezi) + bakış hedefi
-  three.Vector3 _treeCenter = three.Vector3(0, 0.9, 0);  // sabit: ağacın merkezi
-  three.Vector3 _orbitCenter = three.Vector3(0, 0.9, 0); // dinamik: treeCenter <-> focusAnchor
-  three.Vector3 _lookAt = three.Vector3(0, 0.9, 0);      // genelde orbitCenter ile aynı gider
+  three.Vector3 _treeCenter = three.Vector3(0, 0.9, 0); // sabit: ağacın merkezi
+  three.Vector3 _orbitCenter = three.Vector3(
+    0,
+    0.9,
+    0,
+  ); // dinamik: treeCenter <-> focusAnchor
+  three.Vector3 _lookAt = three.Vector3(
+    0,
+    0.9,
+    0,
+  ); // genelde orbitCenter ile aynı gider
 
   bool _centerShiftActive = false;
   double _centerShiftT = 0.0;
@@ -233,7 +241,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _silhouetteApplied = false;
 
   // ===== COMPOSER OPTIONS =====
-  bool _anonMode = false;     // "Kimliğini gizle"
+  bool _anonMode = false; // "Kimliğini gizle"
   bool _highlightMode = false; // "Öne çıkar" (şimdilik dummy)
 
   // ===== CHAPUT DECISION / ENTITLEMENTS =====
@@ -250,7 +258,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   double _sheetExtentBeforeAd = _chaputSheetMin;
   bool _isAdPageActive = false;
   bool _nativeAdPreloaded = false;
-  final DraggableScrollableController _chaputSheetCtrl = DraggableScrollableController();
+  final DraggableScrollableController _chaputSheetCtrl =
+      DraggableScrollableController();
   bool _sheetAutoExpanded = false;
   double _sheetExtentBeforeKeyboard = _chaputSheetMin;
   String? _chaputProfileId;
@@ -354,8 +363,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _clearSocketSubscriptions() {
-    if (_socketProfileId != null) _socketClient.unsubscribeProfile(_socketProfileId!);
-    if (_socketThreadId != null) _socketClient.unsubscribeThread(_socketThreadId!);
+    if (_socketProfileId != null)
+      _socketClient.unsubscribeProfile(_socketProfileId!);
+    if (_socketThreadId != null)
+      _socketClient.unsubscribeThread(_socketThreadId!);
     _socketProfileId = null;
     _socketThreadId = null;
     _typingUsersByThread.clear();
@@ -390,22 +401,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       final args = _lastChaputArgs;
       if (args != null) {
-        ref.read(chaputThreadsControllerProvider(args).notifier).upsertThreadFromSocket(item, args);
+        ref
+            .read(chaputThreadsControllerProvider(args).notifier)
+            .upsertThreadFromSocket(item, args);
         final missingIds = <String>{};
-        if (!ref.read(chaputThreadsControllerProvider(args)).usersById.containsKey(item.userAId)) {
+        if (!ref
+            .read(chaputThreadsControllerProvider(args))
+            .usersById
+            .containsKey(item.userAId)) {
           missingIds.add(item.userAId);
         }
-        if (!ref.read(chaputThreadsControllerProvider(args)).usersById.containsKey(item.userBId)) {
+        if (!ref
+            .read(chaputThreadsControllerProvider(args))
+            .usersById
+            .containsKey(item.userBId)) {
           missingIds.add(item.userBId);
         }
         if (missingIds.isNotEmpty) {
           final api = ref.read(userApiProvider);
-          final res = await api.batchLite(userIds: missingIds.toList(growable: false));
+          final res = await api.batchLite(
+            userIds: missingIds.toList(growable: false),
+          );
           final map = <String, LiteUser>{};
           for (final u in res.items) {
             map[u.id] = u;
           }
-          ref.read(chaputThreadsControllerProvider(args).notifier).addUsers(map);
+          ref
+              .read(chaputThreadsControllerProvider(args).notifier)
+              .addUsers(map);
         }
       }
       return;
@@ -417,7 +440,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (threadId.isEmpty || msg is! Map<String, dynamic>) return;
       if (_chaputProfileId == null) return;
       final senderId = msg['sender_id']?.toString() ?? '';
-      final args = ChaputMessagesArgs(threadId: threadId, profileId: _chaputProfileId!);
+      final args = ChaputMessagesArgs(
+        threadId: threadId,
+        profileId: _chaputProfileId!,
+      );
       final parsed = ChaputMessage.fromJson(msg);
       final message = parsed.createdAt == null
           ? ChaputMessage(
@@ -436,7 +462,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               topLikers: parsed.topLikers,
             )
           : parsed;
-      ref.read(chaputMessagesControllerProvider(args).notifier).upsertMessageFromSocket(message);
+      ref
+          .read(chaputMessagesControllerProvider(args).notifier)
+          .upsertMessageFromSocket(message);
 
       if (senderId.isNotEmpty) {
         final argsThreads = _lastChaputArgs;
@@ -447,9 +475,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               final api = ref.read(userApiProvider);
               final res = await api.batchLite(userIds: [senderId]);
               if (res.items.isNotEmpty) {
-                ref.read(chaputThreadsControllerProvider(argsThreads).notifier).addUsers(
-                      {for (final u in res.items) u.id: u},
-                    );
+                ref
+                    .read(chaputThreadsControllerProvider(argsThreads).notifier)
+                    .addUsers({for (final u in res.items) u.id: u});
               }
             } catch (_) {}
           }
@@ -458,7 +486,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       if (_activeThreadId == threadId && _activeThreadIsParticipant) {
         try {
-          await ref.read(chaputApiProvider).markThreadRead(threadIdHex: threadId);
+          await ref
+              .read(chaputApiProvider)
+              .markThreadRead(threadIdHex: threadId);
         } catch (_) {}
       }
       return;
@@ -468,7 +498,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final threadId = data['thread_id']?.toString() ?? '';
       final msgId = data['message_id']?.toString() ?? '';
       if (threadId.isEmpty || msgId.isEmpty || _chaputProfileId == null) return;
-      final args = ChaputMessagesArgs(threadId: threadId, profileId: _chaputProfileId!);
+      final args = ChaputMessagesArgs(
+        threadId: threadId,
+        profileId: _chaputProfileId!,
+      );
       final likerId = data['user_id']?.toString() ?? '';
       final likeCount = (data['like_count'] ?? 0) as int;
       final liked = data['liked'] == true;
@@ -477,7 +510,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (likerJson is Map<String, dynamic>) {
         liker = ChaputMessageLiker.fromJson(likerJson);
       }
-      ref.read(chaputMessagesControllerProvider(args).notifier).applyLikeFromSocket(
+      ref
+          .read(chaputMessagesControllerProvider(args).notifier)
+          .applyLikeFromSocket(
             messageId: msgId,
             likeCount: likeCount,
             likerId: likerId,
@@ -491,13 +526,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final threadId = data['thread_id']?.toString() ?? '';
       final readerId = data['user_id']?.toString() ?? '';
       if (threadId.isEmpty || _chaputProfileId == null) return;
-      final meId = ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
+      final meId =
+          ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
       final meNorm = meId.toLowerCase();
       final readerNorm = readerId.toLowerCase();
       if (meId.isNotEmpty && readerNorm == meNorm) return;
       final argsThreads = _lastChaputArgs;
       if (argsThreads == null) return;
-      final thread = ref.read(chaputThreadsControllerProvider(argsThreads)).items
+      final thread = ref
+          .read(chaputThreadsControllerProvider(argsThreads))
+          .items
           .where((t) => t.threadId == threadId)
           .cast<ChaputThreadItem?>()
           .firstWhere((t) => t != null, orElse: () => null);
@@ -505,11 +543,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final otherId = thread.userAId.toLowerCase() == meNorm
           ? thread.userBId
           : thread.userBId.toLowerCase() == meNorm
-              ? thread.userAId
-              : '';
+          ? thread.userAId
+          : '';
       if (otherId.isEmpty || readerNorm != otherId.toLowerCase()) return;
-      final args = ChaputMessagesArgs(threadId: threadId, profileId: _chaputProfileId!);
-      ref.read(chaputMessagesControllerProvider(args).notifier).markReadByOther();
+      final args = ChaputMessagesArgs(
+        threadId: threadId,
+        profileId: _chaputProfileId!,
+      );
+      ref
+          .read(chaputMessagesControllerProvider(args).notifier)
+          .markReadByOther();
       return;
     }
 
@@ -522,14 +565,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final argsThreads = _lastChaputArgs;
       if (argsThreads != null) {
         final state = ref.read(chaputThreadsControllerProvider(argsThreads));
-        if (!state.usersById.containsKey(userId) && !state.usersById.containsKey(userIdNorm)) {
+        if (!state.usersById.containsKey(userId) &&
+            !state.usersById.containsKey(userIdNorm)) {
           try {
             final api = ref.read(userApiProvider);
             final res = await api.batchLite(userIds: [userIdNorm]);
             if (res.items.isNotEmpty) {
-              ref.read(chaputThreadsControllerProvider(argsThreads).notifier).addUsers(
-                    {for (final u in res.items) u.id: u},
-                  );
+              ref
+                  .read(chaputThreadsControllerProvider(argsThreads).notifier)
+                  .addUsers({for (final u in res.items) u.id: u});
             }
           } catch (_) {}
         }
@@ -641,7 +685,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
-  Future<void> _scheduleProfileShowcase(BuildContext context, String viewerId) async {
+  Future<void> _scheduleProfileShowcase(
+    BuildContext context,
+    String viewerId,
+  ) async {
     final storage = ref.read(tutorialStorageProvider);
     final shouldShow = await storage.shouldShow(viewerId, 'profile_follow');
     if (!shouldShow || !mounted) return;
@@ -655,7 +702,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     });
   }
 
-  Future<void> _scheduleSettingsShowcase(BuildContext context, String viewerId) async {
+  Future<void> _scheduleSettingsShowcase(
+    BuildContext context,
+    String viewerId,
+  ) async {
     final storage = ref.read(tutorialStorageProvider);
     final shouldShow = await storage.shouldShow(viewerId, 'profile_settings');
     if (!shouldShow || !mounted) return;
@@ -809,7 +859,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       threeJsRef.scene.add(dir);
 
       // Load GLB
-      final loader = three.GLTFLoader(flipY: true).setPath('assets/tree_models/');
+      final loader = three.GLTFLoader(
+        flipY: true,
+      ).setPath('assets/tree_models/');
       final gltf = await loader.fromAsset(preset.assetPath);
       if (gltf == null) throw Exception('GLB null (${preset.assetPath})');
 
@@ -831,7 +883,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final size2 = sizeOfBounds(b2);
 
       _modelHeight = size2.y.clamp(0.1, 1000.0);
-      _modelMaxDim = math.max(size2.x, math.max(size2.y, size2.z)).clamp(0.1, 1000.0);
+      _modelMaxDim = math
+          .max(size2.x, math.max(size2.y, size2.z))
+          .clamp(0.1, 1000.0);
 
       // D) ground + center
       final centerX = (b2.min.x + b2.max.x) * 0.5;
@@ -848,7 +902,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final size3 = sizeOfBounds(b3);
 
       _modelHeight = size3.y.clamp(0.1, 1000.0);
-      _modelMaxDim = math.max(size3.x, math.max(size3.y, size3.z)).clamp(0.1, 1000.0);
+      _modelMaxDim = math
+          .max(size3.x, math.max(size3.y, size3.z))
+          .clamp(0.1, 1000.0);
 
       _groundY = 0.0;
 
@@ -859,8 +915,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       // ilk başta normal merkez
       _orbitCenter = _treeCenter.clone();
       _lookAt = _orbitCenter.clone();
-
-
 
       // radius
       final fovRad = (45.0 * math.pi) / 180.0;
@@ -894,8 +948,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       // merkez treeCenter'da kalsın
       _orbitCenter = _treeCenter.clone();
       _lookAt = _orbitCenter.clone();
-
-
 
       // Ground
       final groundSize = (_modelMaxDim * 20).clamp(10.0, 200.0);
@@ -973,11 +1025,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final i = rnd.nextInt(count);
 
-    final local = three.Vector3(
-      pos.getX(i),
-      pos.getY(i),
-      pos.getZ(i),
-    );
+    final local = three.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
 
     local.applyMatrix4(mesh.matrixWorld);
     return local;
@@ -1005,7 +1053,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _emptyChaputIsMe != isMe) {
       _emptyChaputProfileId = userId;
       _emptyChaputIsMe = isMe;
-      final keys = isMe ? _emptyChaputMessageKeysSelf : _emptyChaputMessageKeysOther;
+      final keys = isMe
+          ? _emptyChaputMessageKeysSelf
+          : _emptyChaputMessageKeysOther;
       _emptyChaputIndex = math.Random().nextInt(keys.length);
     }
     return _emptyChaputIndex!;
@@ -1027,7 +1077,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _emptyChaputProfileId = null;
     _emptyChaputIsMe = null;
   }
-
 
   void _pickNewRandomAnchorAndSnap() {
     _centerShiftActive = false;
@@ -1078,7 +1127,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void _openComposerOptionsSheet() {
     // Klavye açıkken sheet görünür alanı aşmasın diye kb’yi alıyoruz
     final kb = MediaQuery.of(context).viewInsets.bottom;
-    if (kb > 0 && !_composerOpen && _chaputSheetExtent < _chaputSheetMax - 0.01) {
+    if (kb > 0 &&
+        !_composerOpen &&
+        _chaputSheetExtent < _chaputSheetMax - 0.01) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_chaputSheetCtrl.isAttached) return;
         _chaputSheetCtrl.animateTo(
@@ -1138,17 +1189,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     _openBoostPaywall();
                   },
           ),
-
         );
       },
     );
   }
 
   void _showGlassToast(
-      String message, {
-        IconData icon = Icons.info_outline,
-        Duration duration = const Duration(milliseconds: 900),
-      }) {
+    String message, {
+    IconData icon = Icons.info_outline,
+    Duration duration = const Duration(milliseconds: 900),
+  }) {
     if (!mounted) return;
 
     _toastEntry?.remove();
@@ -1188,7 +1238,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   String _resolveProfileId(Map<String, dynamic>? profileJson, String fallback) {
     if (profileJson == null) return fallback;
-    final user = (profileJson['user'] is Map) ? (profileJson['user'] as Map) : null;
+    final user = (profileJson['user'] is Map)
+        ? (profileJson['user'] as Map)
+        : null;
     final direct = profileJson['profile_id']?.toString();
     final fromUser = user?['profile_id']?.toString();
     final userId = user?['id']?.toString();
@@ -1229,12 +1281,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _applyBillingResult(res);
       return true;
     } catch (_) {
-      _showGlassToast(context.t('profile.toast.purchase_verify_failed'), icon: Icons.error_outline);
+      _showGlassToast(
+        context.t('profile.toast.purchase_verify_failed'),
+        icon: Icons.error_outline,
+      );
       return false;
     }
   }
 
-  Future<bool> _confirmReplaceSubscriptionIfNeeded(PaywallPurchase purchase) async {
+  Future<bool> _confirmReplaceSubscriptionIfNeeded(
+    PaywallPurchase purchase,
+  ) async {
     const subscriptionProducts = <String>{
       'chaput_plus_month',
       'chaput_pro_month',
@@ -1256,12 +1313,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     DateTime? expiresAt;
     if (expiresAtRaw != null && expiresAtRaw.isNotEmpty) {
       expiresAt = DateTime.tryParse(expiresAtRaw);
-      if (expiresAt != null && !expiresAt.isUtc && !expiresAtRaw.contains('Z')) {
+      if (expiresAt != null &&
+          !expiresAt.isUtc &&
+          !expiresAtRaw.contains('Z')) {
         expiresAt = DateTime.parse('${expiresAtRaw}Z');
       }
     }
 
-    if (expiresAt != null && expiresAt.isBefore(DateTime.now().toUtc())) return true;
+    if (expiresAt != null && expiresAt.isBefore(DateTime.now().toUtc()))
+      return true;
 
     // Only warn when we have a non-free active plan.
     if (plan == 'FREE') return true;
@@ -1273,22 +1333,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       context: context,
       backgroundColor: AppColors.chaputTransparent,
       isScrollControlled: true,
-      builder: (_) => SubscriptionReplaceSheet(
-        untilText: untilText,
-      ),
+      builder: (_) => SubscriptionReplaceSheet(untilText: untilText),
     );
     return res == true;
   }
 
-  Future<bool> _openAdOfferSheet({required int requiredAds, required bool canWatch}) async {
+  Future<bool> _openAdOfferSheet({
+    required int requiredAds,
+    required bool canWatch,
+  }) async {
     final res = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: AppColors.chaputTransparent,
       isScrollControlled: true,
-      builder: (_) => ChaputAdOfferSheet(
-        requiredAds: requiredAds,
-        canWatch: canWatch,
-      ),
+      builder: (_) =>
+          ChaputAdOfferSheet(requiredAds: requiredAds, canWatch: canWatch),
     );
     return res == true;
   }
@@ -1311,7 +1370,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 watchedCount: requiredAds,
               );
               ref
-                  .read(chaputDecisionControllerProvider(_decisionProfileId!).notifier)
+                  .read(
+                    chaputDecisionControllerProvider(
+                      _decisionProfileId!,
+                    ).notifier,
+                  )
                   .fetchDecision();
               return true;
             } catch (_) {
@@ -1434,12 +1497,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (body.trim().isEmpty) return;
     final api = ref.read(chaputApiProvider);
     final kind = whisper ? 'WHISPER' : 'NORMAL';
-    final replyToId = (_replyTarget != null && _replyTargetThreadId == thread.threadId)
+    final replyToId =
+        (_replyTarget != null && _replyTargetThreadId == thread.threadId)
         ? _replyTarget!.id
         : null;
-    final replyTarget = (_replyTarget != null && _replyTargetThreadId == thread.threadId) ? _replyTarget : null;
+    final replyTarget =
+        (_replyTarget != null && _replyTargetThreadId == thread.threadId)
+        ? _replyTarget
+        : null;
     final localId = 'local_${DateTime.now().millisecondsSinceEpoch}';
-    final meId = ref.read(meControllerProvider).valueOrNull?.user.userId ?? viewerId;
+    final meId =
+        ref.read(meControllerProvider).valueOrNull?.user.userId ?? viewerId;
     final msg = ChaputMessage(
       id: localId,
       senderId: meId.isNotEmpty ? meId.toLowerCase() : '',
@@ -1458,18 +1526,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     ref
         .read(
           chaputMessagesControllerProvider(
-            ChaputMessagesArgs(threadId: thread.threadId, profileId: profileIdHex),
+            ChaputMessagesArgs(
+              threadId: thread.threadId,
+              profileId: profileIdHex,
+            ),
           ).notifier,
         )
         .addLocalMessage(msg);
 
     try {
-      final serverMsg =
-          await api.sendMessage(threadIdHex: thread.threadId, body: body, kind: kind, replyToId: replyToId);
+      final serverMsg = await api.sendMessage(
+        threadIdHex: thread.threadId,
+        body: body,
+        kind: kind,
+        replyToId: replyToId,
+      );
       ref
           .read(
             chaputMessagesControllerProvider(
-              ChaputMessagesArgs(threadId: thread.threadId, profileId: profileIdHex),
+              ChaputMessagesArgs(
+                threadId: thread.threadId,
+                profileId: profileIdHex,
+              ),
             ).notifier,
           )
           .confirmDelivered(localId: localId, serverMessage: serverMsg);
@@ -1477,7 +1555,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (thread.state == 'PENDING') {
         ref
             .read(chaputThreadsControllerProvider(chaputArgs).notifier)
-            .updateThreadState(threadId: thread.threadId, newState: 'OPEN', pendingExpiresAt: null);
+            .updateThreadState(
+              threadId: thread.threadId,
+              newState: 'OPEN',
+              pendingExpiresAt: null,
+            );
       }
     } catch (_) {
       // leave local message as-is; UI already shows it as sent but undelivered
@@ -1497,8 +1579,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final api = ref.read(chaputApiProvider);
 
     // ✅ 1) fresh decision'ı direkt API sonucundan al (race yok)
-    final decisionNotifier =
-        ref.read(chaputDecisionControllerProvider(profileIdHex).notifier);
+    final decisionNotifier = ref.read(
+      chaputDecisionControllerProvider(profileIdHex).notifier,
+    );
 
     ChaputDecision? freshDecision;
     try {
@@ -1511,7 +1594,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         whisper: freshDecision.credits.whisper,
       );
       decisionNotifier.applyPlanType(freshDecision.plan.type);
-      if (freshDecision.plan.period != null && freshDecision.plan.period!.isNotEmpty) {
+      if (freshDecision.plan.period != null &&
+          freshDecision.plan.period!.isNotEmpty) {
         decisionNotifier.applyPlanPeriod(freshDecision.plan.period!);
       }
     } catch (_) {
@@ -1532,7 +1616,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (freshHidden > 0) {
       final ok = await _hideNow();
       if (!ok) {
-        _showGlassToast(context.t('profile.toast.chaput_hide_failed'), icon: Icons.error_outline);
+        _showGlassToast(
+          context.t('profile.toast.chaput_hide_failed'),
+          icon: Icons.error_outline,
+        );
         return;
       }
 
@@ -1543,12 +1630,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           .read(chaputThreadsControllerProvider(chaputArgs).notifier)
           .updateThreadKind(thread.threadId, nextKind);
 
-      _showGlassToast(context.t('profile.toast.chaput_hidden'), icon: Icons.lock_outline);
+      _showGlassToast(
+        context.t('profile.toast.chaput_hidden'),
+        icon: Icons.lock_outline,
+      );
       return;
     }
 
     // ✅ 3) kredi yoksa paywall
-    final purchase = await _openPaywall(feature: PaywallFeature.hideCredentials);
+    final purchase = await _openPaywall(
+      feature: PaywallFeature.hideCredentials,
+    );
     if (purchase == null) return;
 
     final verified = await _verifyPurchaseAndApply(purchase);
@@ -1557,7 +1649,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     // Satın aldıktan sonra tekrar dene (istersen tekrar fetch yap)
     final ok = await _hideNow();
     if (!ok) {
-      _showGlassToast(context.t('profile.toast.chaput_hide_failed'), icon: Icons.error_outline);
+      _showGlassToast(
+        context.t('profile.toast.chaput_hide_failed'),
+        icon: Icons.error_outline,
+      );
       return;
     }
 
@@ -1569,7 +1664,140 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         .read(chaputThreadsControllerProvider(chaputArgs).notifier)
         .updateThreadKind(thread.threadId, nextKind);
 
-    _showGlassToast(context.t('profile.toast.chaput_hidden'), icon: Icons.lock_outline);
+    _showGlassToast(
+      context.t('profile.toast.chaput_hidden'),
+      icon: Icons.lock_outline,
+    );
+  }
+
+  Future<void> _archiveThread({
+    required ChaputThreadItem thread,
+    required String profileIdHex,
+    required ChaputThreadsArgs chaputArgs,
+  }) async {
+    if (thread.threadId.length != 32) {
+      _showGlassToast(
+        context.t('profile.toast.chaput_not_found'),
+        icon: Icons.error_outline,
+      );
+      return;
+    }
+
+    try {
+      await ref
+          .read(chaputApiProvider)
+          .archiveThread(threadIdHex: thread.threadId);
+      if (!mounted) return;
+
+      setState(() {
+        _chaputActiveIndex = 0;
+        _replyBarThreadId = null;
+        _replyWhisperMode = false;
+        _replyTarget = null;
+        _replyTargetThreadId = null;
+      });
+
+      final threadsNotifier = ref.read(
+        chaputThreadsControllerProvider(chaputArgs).notifier,
+      );
+      threadsNotifier.removeThread(thread.threadId);
+      if (_chaputPageCtrl.hasClients) {
+        _chaputPageCtrl.jumpToPage(0);
+      }
+      unawaited(threadsNotifier.refresh());
+      if (_decisionProfileId != null) {
+        unawaited(
+          ref
+              .read(chaputDecisionControllerProvider(profileIdHex).notifier)
+              .fetchDecision(),
+        );
+      }
+      _showGlassToast(
+        context.t('profile.toast.chaput_archived'),
+        icon: Icons.archive_outlined,
+      );
+    } catch (_) {
+      _showGlassToast(
+        context.t('profile.toast.chaput_archive_failed'),
+        icon: Icons.error_outline,
+      );
+    }
+  }
+
+  Future<void> _reportThread(ChaputThreadItem thread) async {
+    if (thread.threadId.length != 32) {
+      _showGlassToast(
+        context.t('reports.toast.failed'),
+        icon: Icons.error_outline,
+      );
+      return;
+    }
+
+    final draft = await showReportContentSheet(
+      context,
+      targetType: ReportTargetType.chaput,
+    );
+    if (draft == null) return;
+
+    try {
+      await ref
+          .read(reportsApiProvider)
+          .reportChaput(
+            chaputIdHex: thread.threadId,
+            reasonCode: draft.reasonCode,
+            details: draft.details,
+          );
+      _showGlassToast(
+        context.t('reports.toast.thread_success'),
+        icon: Icons.flag_outlined,
+      );
+    } catch (error) {
+      final raw = error.toString();
+      final key = raw.contains('already_reported_recently')
+          ? 'reports.toast.already_sent'
+          : ((raw.contains('not_allowed') || raw.contains('cannot_report_self'))
+                ? 'reports.toast.not_allowed'
+                : 'reports.toast.failed');
+      _showGlassToast(context.t(key), icon: Icons.error_outline);
+    }
+  }
+
+  Future<void> _reportMessage(ChaputMessage message) async {
+    if (message.id.length != 32) {
+      _showGlassToast(
+        context.t('reports.toast.failed'),
+        icon: Icons.error_outline,
+      );
+      return;
+    }
+
+    final draft = await showReportContentSheet(
+      context,
+      targetType: ReportTargetType.message,
+    );
+    if (draft == null) return;
+
+    try {
+      await ref
+          .read(reportsApiProvider)
+          .reportMessage(
+            messageIdHex: message.id,
+            reasonCode: draft.reasonCode,
+            details: draft.details,
+          );
+      _showGlassToast(
+        context.t('reports.toast.message_success'),
+        icon: Icons.flag_outlined,
+      );
+    } catch (error) {
+      final raw = error.toString();
+      final key = raw.contains('already_reported_recently')
+          ? 'reports.toast.already_sent'
+          : ((raw.contains('not_allowed') || raw.contains('cannot_report_self'))
+                ? 'reports.toast.not_allowed'
+                : 'reports.toast.failed');
+      _showGlassToast(context.t(key), icon: Icons.error_outline);
+    }
   }
 
   Future<void> _sendChaputMessage({
@@ -1581,12 +1809,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }) async {
     if (_chaputSendLoading) return;
     if (profileId.length != 32) {
-      _showGlassToast(context.t('profile.toast.profile_not_found'), icon: Icons.error_outline);
+      _showGlassToast(
+        context.t('profile.toast.profile_not_found'),
+        icon: Icons.error_outline,
+      );
       return;
     }
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) {
-      _showGlassToast(context.t('profile.toast.enter_message'), icon: Icons.edit_outlined);
+      _showGlassToast(
+        context.t('profile.toast.enter_message'),
+        icon: Icons.edit_outlined,
+      );
       return;
     }
 
@@ -1599,13 +1833,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       final anchor = _focusAnchor ?? _draftAnchor;
 
-    final out = await api.startThread(
-      profileIdHex: profileId,
-      kind: kind,
-    );
+      final out = await api.startThread(profileIdHex: profileId, kind: kind);
 
-    if (out.threadId.isNotEmpty && anchor != null) {
-      await api.setThreadNode(
+      if (out.threadId.isNotEmpty && anchor != null) {
+        await api.setThreadNode(
           threadIdHex: out.threadId,
           profileIdHex: profileId,
           x: anchor.x,
@@ -1614,41 +1845,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         );
       }
 
-    if (out.threadId.isNotEmpty) {
-      final now = DateTime.now().toUtc();
-      final created = ChaputThreadItem(
-        threadId: out.threadId,
-        userAId: viewerId,
-        userBId: targetUserId,
-        starterId: viewerId,
-        kind: kind,
-        state: 'PENDING',
-        lastMessageAt: now,
-        pendingExpiresAt: null,
-        createdAt: now,
-        x: anchor?.x,
-        y: anchor?.y,
-        z: anchor?.z,
-      );
-      final chaputCtrl = ref.read(chaputThreadsControllerProvider(chaputArgs).notifier);
-      chaputCtrl.addThreadOptimistic(created, chaputArgs);
-      if (viewerLite != null) {
-        chaputCtrl.addUsers({viewerLite.id: viewerLite});
+      if (out.threadId.isNotEmpty) {
+        final now = DateTime.now().toUtc();
+        final created = ChaputThreadItem(
+          threadId: out.threadId,
+          userAId: viewerId,
+          userBId: targetUserId,
+          starterId: viewerId,
+          kind: kind,
+          state: 'PENDING',
+          lastMessageAt: now,
+          pendingExpiresAt: null,
+          createdAt: now,
+          x: anchor?.x,
+          y: anchor?.y,
+          z: anchor?.z,
+        );
+        final chaputCtrl = ref.read(
+          chaputThreadsControllerProvider(chaputArgs).notifier,
+        );
+        chaputCtrl.addThreadOptimistic(created, chaputArgs);
+        if (viewerLite != null) {
+          chaputCtrl.addUsers({viewerLite.id: viewerLite});
+        }
+        await api.sendMessage(threadIdHex: out.threadId, body: text);
       }
-      await api.sendMessage(threadIdHex: out.threadId, body: text);
-    }
 
       _chaputThreadCreated = true;
       _msgCtrl.clear();
       _closeComposer();
-      _showGlassToast(context.t('profile.toast.chaput_sent'), icon: Icons.check_circle_outline);
+      _showGlassToast(
+        context.t('profile.toast.chaput_sent'),
+        icon: Icons.check_circle_outline,
+      );
       if (_decisionProfileId != null) {
         ref
-            .read(chaputDecisionControllerProvider(_decisionProfileId!).notifier)
+            .read(
+              chaputDecisionControllerProvider(_decisionProfileId!).notifier,
+            )
             .fetchDecision();
       }
     } catch (e) {
-      _showGlassToast(context.t('profile.toast.chaput_send_failed'), icon: Icons.error_outline);
+      _showGlassToast(
+        context.t('profile.toast.chaput_send_failed'),
+        icon: Icons.error_outline,
+      );
     } finally {
       if (mounted) {
         setState(() => _chaputSendLoading = false);
@@ -1663,7 +1904,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required LiteUser? targetUser,
   }) async {
     if (threadIdHex.length != 32) {
-      _showGlassToast(context.t('profile.toast.chaput_not_found'), icon: Icons.error_outline);
+      _showGlassToast(
+        context.t('profile.toast.chaput_not_found'),
+        icon: Icons.error_outline,
+      );
       return;
     }
     final api = ref.read(chaputApiProvider);
@@ -1674,14 +1918,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final reviveTarget = targetUser == null
           ? null
           : PaywallReviveTarget(
-              avatarUrl: (targetUser.profilePhotoKey != null && targetUser.profilePhotoKey!.isNotEmpty)
+              avatarUrl:
+                  (targetUser.profilePhotoKey != null &&
+                      targetUser.profilePhotoKey!.isNotEmpty)
                   ? targetUser.profilePhotoKey!
                   : targetUser.defaultAvatar,
-              isDefaultAvatar: targetUser.profilePhotoKey == null || targetUser.profilePhotoKey!.isEmpty,
+              isDefaultAvatar:
+                  targetUser.profilePhotoKey == null ||
+                  targetUser.profilePhotoKey!.isEmpty,
               fullName: targetUser.fullName,
-                                    username: targetUser.username ?? '',
+              username: targetUser.username ?? '',
             );
-      final purchase = await _openPaywall(feature: PaywallFeature.revive, reviveTarget: reviveTarget);
+      final purchase = await _openPaywall(
+        feature: PaywallFeature.revive,
+        reviveTarget: reviveTarget,
+      );
       if (purchase == null) return;
       final ok = await _verifyPurchaseAndApply(purchase);
       if (!ok) return;
@@ -1691,40 +1942,65 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       await api.reviveThread(threadIdHex: threadIdHex);
       ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).refresh();
       if (_decisionProfileId != null) {
-        ref.read(chaputDecisionControllerProvider(profileIdHex).notifier).fetchDecision();
+        ref
+            .read(chaputDecisionControllerProvider(profileIdHex).notifier)
+            .fetchDecision();
       }
-      _showGlassToast(context.t('profile.toast.chaput_revived'), icon: Icons.check_circle_outline);
+      _showGlassToast(
+        context.t('profile.toast.chaput_revived'),
+        icon: Icons.check_circle_outline,
+      );
     } catch (e) {
-      _showGlassToast(context.t('profile.toast.chaput_revive_failed'), icon: Icons.error_outline);
+      _showGlassToast(
+        context.t('profile.toast.chaput_revive_failed'),
+        icon: Icons.error_outline,
+      );
     }
   }
 
-
   void _onOptionsEmptyTap() {
-    _showGlassToast(context.t('profile.toast.enter_message'), icon: Icons.edit_outlined);
+    _showGlassToast(
+      context.t('profile.toast.enter_message'),
+      icon: Icons.edit_outlined,
+    );
   }
 
   Future<void> _handleBindPressed({required String profileId}) async {
     if (_chaputThreadCreated || _composerOpen) return;
     if (profileId.length != 32) {
-      _showGlassToast(context.t('profile.toast.profile_not_found'), icon: Icons.error_outline);
+      _showGlassToast(
+        context.t('profile.toast.profile_not_found'),
+        icon: Icons.error_outline,
+      );
       return;
     }
     if (_decisionProfileId == null) {
-      _showGlassToast(context.t('profile.toast.chaput_rights_loading'), icon: Icons.hourglass_empty);
+      _showGlassToast(
+        context.t('profile.toast.chaput_rights_loading'),
+        icon: Icons.hourglass_empty,
+      );
       return;
     }
     if (!_decisionLoaded) {
-      _showGlassToast(context.t('profile.toast.chaput_rights_loading'), icon: Icons.hourglass_empty);
+      _showGlassToast(
+        context.t('profile.toast.chaput_rights_loading'),
+        icon: Icons.hourglass_empty,
+      );
       return;
     }
     if (_decisionHasThread) {
-      _showGlassToast(context.t('profile.toast.chaput_exists'), icon: Icons.chat_bubble_outline);
+      _showGlassToast(
+        context.t('profile.toast.chaput_exists'),
+        icon: Icons.chat_bubble_outline,
+      );
       return;
     }
 
     if (!_decisionCanStart || _decisionPath == 'FORBIDDEN') {
-      _showGlassToast(context.t('profile.toast.chaput_cannot_start'), icon: Icons.block);
+      _showGlassToast(
+        context.t('profile.toast.chaput_cannot_start'),
+        icon: Icons.block,
+      );
       return;
     }
 
@@ -1743,7 +2019,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (ok) {
         if (_decisionProfileId != null) {
           ref
-              .read(chaputDecisionControllerProvider(_decisionProfileId!).notifier)
+              .read(
+                chaputDecisionControllerProvider(_decisionProfileId!).notifier,
+              )
               .fetchDecision();
         }
         _prepareComposer();
@@ -1770,8 +2048,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }) async {
     final me = ref.read(meControllerProvider).valueOrNull;
     final subPlan = me?.subscription.plan;
-    final effectivePlanType =
-        (_planType.isNotEmpty && _planType != 'FREE') ? _planType : (subPlan ?? _planType);
+    final effectivePlanType = (_planType.isNotEmpty && _planType != 'FREE')
+        ? _planType
+        : (subPlan ?? _planType);
     final effectivePlanPeriod = _planPeriod;
     return showModalBottomSheet<PaywallPurchase>(
       context: context,
@@ -1784,7 +2063,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         planPeriod: effectivePlanPeriod,
         reviveTarget: reviveTarget,
         onRestorePurchases: () async {
-          final restored = await ref.read(accountApiProvider).restorePurchases();
+          final restored = await ref
+              .read(accountApiProvider)
+              .restorePurchases();
           if (restored) {
             await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
           }
@@ -1795,7 +2076,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<void> _openHiddenPaywall() async {
-    final purchase = await _openPaywall(feature: PaywallFeature.hideCredentials);
+    final purchase = await _openPaywall(
+      feature: PaywallFeature.hideCredentials,
+    );
     if (purchase == null) return;
     final ok = await _verifyPurchaseAndApply(purchase);
     if (!ok) return;
@@ -1949,10 +2232,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _startTreeModeFast() {
     // kullanıcı dokununca hızlıca tree center’a geç
-    _startCenterShift(
-      toCenter: _treeCenter,
-      toLookAt: _treeCenter,
-    );
+    _startCenterShift(toCenter: _treeCenter, toLookAt: _treeCenter);
   }
 
   void _yawPitchForFocus({required bool frontByTreeCenter}) {
@@ -1962,7 +2242,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final len = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
     if (len < 1e-6) return;
 
-    v.x /= len; v.y /= len; v.z /= len;
+    v.x /= len;
+    v.y /= len;
+    v.z /= len;
 
     // kamerayı anchor'ın "ön" tarafına al (treeCenter'a göre)
     final camDir = frontByTreeCenter
@@ -1972,7 +2254,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _yaw = math.atan2(camDir.x, camDir.z);
     _pitch = math.asin(camDir.y).clamp(_minPitchHard, _maxPitch);
   }
-
 
   void _updateCamera(three.ThreeJS js, double dt) {
     if (_isDisposed || !mounted) return;
@@ -2126,7 +2407,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final desiredBias = (-diff * 0.0009).clamp(-0.22, 0.22);
 
     // 5) bias'a smooth yaklaş (damping)
-    _composerPitchBias = _composerPitchBias + (desiredBias - _composerPitchBias) * 0.12;
+    _composerPitchBias =
+        _composerPitchBias + (desiredBias - _composerPitchBias) * 0.12;
   }
 
   double _lerpAngle(double a, double b, double t) {
@@ -2228,8 +2510,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final s = t * t * (3 - 2 * t); // smoothstep
 
     _yaw = _lerpAngle(_snapFromYaw, _snapToYaw, s);
-    _pitch = (_snapFromPitch + (_snapToPitch - _snapFromPitch) * s)
-        .clamp(_minPitchHard, _maxPitch);
+    _pitch = (_snapFromPitch + (_snapToPitch - _snapFromPitch) * s).clamp(
+      _minPitchHard,
+      _maxPitch,
+    );
 
     _orbitCenter = three.Vector3(
       _snapFromCenter.x + (_snapToCenter.x - _snapFromCenter.x) * s,
@@ -2240,13 +2524,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     // focus'ta lookAt = center daha iyi hissettirir
     _lookAt = _orbitCenter.clone();
 
-
-    _radius = (_snapFromRadius + (_snapToRadius - _snapFromRadius) * s)
-        .clamp(_minRadius, _maxRadius);
+    _radius = (_snapFromRadius + (_snapToRadius - _snapFromRadius) * s).clamp(
+      _minRadius,
+      _maxRadius,
+    );
   }
-
-
-
 
   void _onScaleStart(ScaleStartDetails d) {
     _isInteracting = true;
@@ -2295,8 +2577,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
-
-
   void _onScaleUpdate(ScaleUpdateDetails d) {
     final w = MediaQuery.of(context).size.width;
     final h = MediaQuery.of(context).size.height;
@@ -2305,15 +2585,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final dy = d.focalPointDelta.dy / (h == 0 ? 1 : h);
 
     // Drag gerçekten başladı mı? (küçük eşik)
-    final moved = (d.focalPointDelta.dx.abs() + d.focalPointDelta.dy.abs()) > 0.8;
+    final moved =
+        (d.focalPointDelta.dx.abs() + d.focalPointDelta.dy.abs()) > 0.8;
     final scaled = (d.scale - 1.0).abs() > 0.002;
 
-    if (_pendingTreeModeShift && !_treeModeShiftDoneThisGesture && (moved || scaled)) {
-      _startTreeModeFast();                // artık tree center’a hızlı geç
+    if (_pendingTreeModeShift &&
+        !_treeModeShiftDoneThisGesture &&
+        (moved || scaled)) {
+      _startTreeModeFast(); // artık tree center’a hızlı geç
       _treeModeShiftDoneThisGesture = true;
       _pendingTreeModeShift = false;
     }
-
 
     _yaw -= dx * 3.2;
     _pitch += dy * 2.2;
@@ -2353,9 +2635,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final preset = (tid == null) ? null : TreeCatalog.resolve(tid);
     final bg = Color(preset?.bgColor ?? AppColors.chaputBlack.value);
 
-    final showLoading = st.isLoading || (tid != null && !_threeReady && _threeError == null);
+    final showLoading =
+        st.isLoading || (tid != null && !_threeReady && _threeError == null);
 
-    final user = (st.profileJson?['user'] is Map) ? (st.profileJson!['user'] as Map) : null;
+    final user = (st.profileJson?['user'] is Map)
+        ? (st.profileJson!['user'] as Map)
+        : null;
 
     final userId = user?['id']?.toString() ?? '';
     if (userId.isNotEmpty && userId != _lastProfileUserId) {
@@ -2399,24 +2684,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final isBlocked = viewerState?['is_blocked'] == true;
     final iRequestedFollow = viewerState?['i_requested_follow'] == true;
 
-
     final iRestrictedHim = viewerState?['i_restricted_him'] == true;
     final heRestrictedMe = viewerState?['he_restricted_me'] == true;
 
-    final uiRestrictedOverride = ref.watch(uiRestrictedOverrideProvider(widget.userId));
+    final uiRestrictedOverride = ref.watch(
+      uiRestrictedOverrideProvider(widget.userId),
+    );
     final effectiveIRestrictedHim = uiRestrictedOverride ?? iRestrictedHim;
 
-
-
-    final int effectiveFollowerCount =  (followerCount + _uiFollowerDelta).clamp(0, 1 << 30);
+    final int effectiveFollowerCount = (followerCount + _uiFollowerDelta).clamp(
+      0,
+      1 << 30,
+    );
     bool effectiveIsFollowing = _uiIsFollowing ?? isFollowing;
     final effectiveRequestedFollow = _uiRequestedFollow ?? iRequestedFollow;
 
-
-
-    final followState = ref.watch(
-      followControllerProvider(username),
-    );
+    final followState = ref.watch(followControllerProvider(username));
 
     if (followState is FollowIdle && followState.isFollowing != null) {
       effectiveIsFollowing = followState.isFollowing!;
@@ -2448,7 +2731,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final profileIdHex = _resolveProfileId(st.profileJson, userId);
     final bool decisionAllowed =
-        profileIdHex.length == 32 && !isMe && !(isPrivateTarget && !effectiveIsFollowing);
+        profileIdHex.length == 32 &&
+        !isMe &&
+        !(isPrivateTarget && !effectiveIsFollowing);
 
     final decisionState = decisionAllowed
         ? ref.watch(chaputDecisionControllerProvider(profileIdHex))
@@ -2459,18 +2744,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final planType = decision?.plan.type ?? 'FREE';
     final planPeriod = decision?.plan.period;
 
-    final creditsNormal  = decision?.credits.normal  ?? 0;
+    final creditsNormal = decision?.credits.normal ?? 0;
     final creditsHidden = decision?.credits.hidden ?? 0;
     final creditsSpecial = decision?.credits.special ?? 0;
-    final creditsRevive  = decision?.credits.revive  ?? 0;
+    final creditsRevive = decision?.credits.revive ?? 0;
     final creditsWhisper = decision?.credits.whisper ?? 0;
 
-    final adsCanWatch     = decision?.ads.canWatch ?? false;
+    final adsCanWatch = decision?.ads.canWatch ?? false;
     final adsWatchedToday = decision?.ads.watchedToday ?? 0;
     final adsRewardsToday = decision?.ads.rewardsToday ?? 0;
     final adsNextRewardIn = decision?.ads.nextRewardIn ?? 0;
 
-    final decisionPath    = decision?.decision.path ?? 'FORBIDDEN';
+    final decisionPath = decision?.decision.path ?? 'FORBIDDEN';
     final decisionCanStart = decision?.target.canStart ?? false;
     final decisionHasThread = decision?.target.hasThread ?? false;
     final decisionThreadState = decision?.target.threadState ?? '';
@@ -2499,7 +2784,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _decisionProfileId = profileIdHex;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ref.read(chaputDecisionControllerProvider(profileIdHex).notifier).fetchDecision();
+        ref
+            .read(chaputDecisionControllerProvider(profileIdHex).notifier)
+            .fetchDecision();
       });
     } else if (decision == null && !decisionState.isLoading) {
       final now = DateTime.now();
@@ -2508,18 +2795,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _lastDecisionFetchAt = now;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          ref.read(chaputDecisionControllerProvider(profileIdHex).notifier).fetchDecision();
+          ref
+              .read(chaputDecisionControllerProvider(profileIdHex).notifier)
+              .fetchDecision();
         });
       }
     }
 
-
     final double topInset = MediaQuery.of(context).padding.top;
     const double topBarHeight = 72;
 
-    final bool showRequestMode = !isMe && isPrivateTarget && !effectiveIsFollowing;
+    final bool showRequestMode =
+        !isMe && isPrivateTarget && !effectiveIsFollowing;
 
-    final bool silhouetteMode = !isMe && isPrivateTarget && !effectiveIsFollowing;
+    final bool silhouetteMode =
+        !isMe && isPrivateTarget && !effectiveIsFollowing;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -2531,7 +2821,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final bool requestAlreadySent = showRequestMode && effectiveRequestedFollow;
 
-    final bool followButtonDisabled = _uiFollowLoading || isBlocked || requestAlreadySent;
+    final bool followButtonDisabled =
+        _uiFollowLoading || isBlocked || requestAlreadySent;
 
     final kb = MediaQuery.of(context).viewInsets.bottom;
 
@@ -2539,16 +2830,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool hasNormalCredit = _creditNormal > 0;
     final bool adsAvailable = _adsCanWatch && _adsNextRewardIn > 0;
     final bool canStartNow = decisionPath == 'CAN_START';
-    final bool decisionHasArchived = decisionHasThread && decisionThreadState == 'ARCHIVED';
+    final bool decisionHasArchived =
+        decisionHasThread && decisionThreadState == 'ARCHIVED';
     final bool showBindExhausted =
-        decisionLoaded
-            && !decisionHasThread
-            && !canStartNow
-            && !isProPlan
-            && !hasNormalCredit
-            && !adsAvailable;
+        decisionLoaded &&
+        !decisionHasThread &&
+        !canStartNow &&
+        !isProPlan &&
+        !hasNormalCredit &&
+        !adsAvailable;
 
-    final bool chaputAllowed = profileIdHex.length == 32 && (!isPrivateTarget || effectiveIsFollowing || isMe);
+    final bool chaputAllowed =
+        profileIdHex.length == 32 &&
+        (!isPrivateTarget || effectiveIsFollowing || isMe);
     final chaputArgs = ChaputThreadsArgs(
       profileId: profileIdHex,
       viewerId: viewerId,
@@ -2557,12 +2851,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
     _lastChaputArgs = chaputArgs;
 
-    final ChaputThreadsState chaputThreadsState = chaputAllowed && viewerId.isNotEmpty
+    final ChaputThreadsState chaputThreadsState =
+        chaputAllowed && viewerId.isNotEmpty
         ? ref.watch(chaputThreadsControllerProvider(chaputArgs))
         : ChaputThreadsState.empty;
 
     final chaputThreads = chaputThreadsState.items;
-    final bool showEmptyChaputSheet = chaputAllowed &&
+    final bool showEmptyChaputSheet =
+        chaputAllowed &&
         chaputThreads.isEmpty &&
         !showLoading &&
         !_composerOpen &&
@@ -2570,9 +2866,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final String? emptyChaputMessage = showEmptyChaputSheet
         ? context.t(
-            (isMe ? _emptyChaputMessageKeysSelf : _emptyChaputMessageKeysOther)[
-              _resolveEmptyChaputIndex(userId, isMe)
-            ],
+            (isMe
+                ? _emptyChaputMessageKeysSelf
+                : _emptyChaputMessageKeysOther)[_resolveEmptyChaputIndex(
+              userId,
+              isMe,
+            )],
           )
         : null;
 
@@ -2593,14 +2892,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
       if (list.isNotEmpty) typingUsersByThread[threadId] = list;
     });
-    if (!_initialThreadApplied && _pendingInitialThreadId != null && chaputThreads.isNotEmpty) {
-      final idx = chaputThreads.indexWhere((t) => t.threadId == _pendingInitialThreadId);
+    if (!_initialThreadApplied &&
+        _pendingInitialThreadId != null &&
+        chaputThreads.isNotEmpty) {
+      final idx = chaputThreads.indexWhere(
+        (t) => t.threadId == _pendingInitialThreadId,
+      );
       if (idx >= 0) {
         _initialThreadApplied = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_chaputPageCtrl.hasClients) {
-            final pageIdx = _pageIndexForThreadIndex(idx, showAds: showNativeAds);
+            final pageIdx = _pageIndexForThreadIndex(
+              idx,
+              showAds: showNativeAds,
+            );
             _chaputPageCtrl.jumpToPage(pageIdx);
           } else {
             setState(() => _chaputActiveIndex = idx);
@@ -2611,19 +2917,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         });
       }
     }
-    final bool hasOurThread = chaputThreads.any((t) =>
-        (t.userAId == userId && t.userBId == viewerId) || (t.userAId == viewerId && t.userBId == userId));
+    final bool hasOurThread = chaputThreads.any(
+      (t) =>
+          (t.userAId == userId && t.userBId == viewerId) ||
+          (t.userAId == viewerId && t.userBId == userId),
+    );
     final ChaputThreadItem? activeThread =
-        chaputThreads.isNotEmpty && _chaputActiveIndex < chaputThreads.length ? chaputThreads[_chaputActiveIndex] : null;
-    final bool activeIsParticipant = activeThread != null &&
+        chaputThreads.isNotEmpty && _chaputActiveIndex < chaputThreads.length
+        ? chaputThreads[_chaputActiveIndex]
+        : null;
+    final bool activeIsParticipant =
+        activeThread != null &&
         (activeThread.userAId == viewerId || activeThread.userBId == viewerId);
-    final bool activeViewerIsStarter = activeThread != null && activeThread.starterId == viewerId;
-    final bool activeIsPending = activeThread != null && activeThread.state == 'PENDING';
-    final bool canReplyOnActive = activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
+    final bool activeViewerIsStarter =
+        activeThread != null && activeThread.starterId == viewerId;
+    final bool activeIsPending =
+        activeThread != null && activeThread.state == 'PENDING';
+    final bool canReplyOnActive =
+        activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
     _activeThreadId = activeThread?.threadId;
     _activeThreadIsParticipant = activeIsParticipant;
 
-    if (chaputAllowed && activeThread != null && activeThread.threadId.isNotEmpty) {
+    if (chaputAllowed &&
+        activeThread != null &&
+        activeThread.threadId.isNotEmpty) {
       if (_socketThreadId != activeThread.threadId) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -2633,15 +2950,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     }
     final ChaputMessage? replyTarget =
-        (_replyTarget != null && _replyTargetThreadId == activeThread?.threadId) ? _replyTarget : null;
+        (_replyTarget != null && _replyTargetThreadId == activeThread?.threadId)
+        ? _replyTarget
+        : null;
     final String? replyAuthor = replyTarget == null
         ? null
         : (replyTarget.senderId == viewerId
-            ? context.t('chat_you')
-            : (chaputThreadsState.usersById[replyTarget.senderId]?.fullName ?? ''));
+              ? context.t('chat_you')
+              : (chaputThreadsState.usersById[replyTarget.senderId]?.fullName ??
+                    ''));
     final String? replyBody = replyTarget?.body;
-    final bool showReplyBar = canReplyOnActive &&
-        (_replyBarThreadId == null || _replyBarThreadId == activeThread?.threadId) &&
+    final bool showReplyBar =
+        canReplyOnActive &&
+        (_replyBarThreadId == null ||
+            _replyBarThreadId == activeThread?.threadId) &&
         _chaputSheetExtent >= _chaputSheetMid - 0.01 &&
         !_composerOpen &&
         !_silhouetteMode;
@@ -2678,7 +3000,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _subscribeThreadSocket(t.threadId, profileIdHex);
         final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
         if (isParticipant) {
-          ref.read(chaputApiProvider).markThreadRead(threadIdHex: t.threadId).catchError((_) {});
+          ref
+              .read(chaputApiProvider)
+              .markThreadRead(threadIdHex: t.threadId)
+              .catchError((_) {});
         }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -2703,1036 +3028,1367 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         }
 
         return Scaffold(
-            resizeToAvoidBottomInset: false,
-            backgroundColor: bg,
-            body: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                },
-                child: Stack(
-                fit: StackFit.expand,
-                children: [
-            // ThreeJS TAM EKRAN
-            Positioned.fill(
-              child: (_threeJs == null || _navToOtherProfile)
-                  ? const SizedBox.shrink()
-                  : SizedBox.expand(
-                    child: _threeJs!.build(),
-                  ),
-            ),
-
-            // Gesture ALANI (top bar ALTINDAN başlar)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: topInset + topBarHeight,
-              bottom: 0,
-              child: IgnorePointer(
-                ignoring: !_threeReady || _isAdPageActive,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onScaleStart: _onScaleStart,
-                  onScaleUpdate: _onScaleUpdate,
-                  onScaleEnd: _onScaleEnd,
-                  child: const SizedBox.expand(),
+          resizeToAvoidBottomInset: false,
+          backgroundColor: bg,
+          body: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              FocusScope.of(context).unfocus();
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // ThreeJS TAM EKRAN
+                Positioned.fill(
+                  child: (_threeJs == null || _navToOtherProfile)
+                      ? const SizedBox.shrink()
+                      : SizedBox.expand(child: _threeJs!.build()),
                 ),
-              ),
-            ),
 
-            if (showLoading)
-              Positioned.fill(
-                child: AbsorbPointer(
-                  child: ColoredBox(
-                    color: bg,
-                    child: Center(
-                      child: TreeSilhouetteShimmer(
-                        size: math.min(MediaQuery.of(context).size.width * 0.6, 240),
-                      ),
+                // Gesture ALANI (top bar ALTINDAN başlar)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: topInset + topBarHeight,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    ignoring: !_threeReady || _isAdPageActive,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onScaleStart: _onScaleStart,
+                      onScaleUpdate: _onScaleUpdate,
+                      onScaleEnd: _onScaleEnd,
+                      child: const SizedBox.expand(),
                     ),
                   ),
                 ),
-              ),
 
-            // TOP BAR (overlay – yer kaplamaz)
-            SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Back button (aynı)
-                    IgnorePointer(
-                      ignoring: _profileCardOpen, // kart açıkken tıklanmasın
-                      child: ClipOval(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Material(
-                            color: AppColors.chaputWhite.withOpacity(0.35),
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              onTap: () => GoRouter.of(context).go(Routes.home),
-                              customBorder: const CircleBorder(),
-                              child: const SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: Center(
-                                  child: Icon(Icons.chevron_left, size: 30, color: AppColors.chaputBlack),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // SMALL AVATAR (sağ üst)
-            Positioned(
-              top: topInset + 10,
-              right: 14,
-              child: IgnorePointer(
-                ignoring: _profileCardOpen, // kart açıkken tıklanmasın
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 120),
-                  opacity: _profileCardOpen ? 0.0 : 1.0, // kart açılınca kaybol
-                  child: ClipOval(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Showcase.withWidget(
-                          key: _profileMenuShowcaseKey,
-                          targetPadding: const EdgeInsets.all(6),
-                          targetShapeBorder: const CircleBorder(),
-                          tooltipPosition: TooltipPosition.bottom,
-                          toolTipMargin: 8,
-                          targetTooltipGap: 8,
-                          container: _buildShowcaseCard(
-                            context,
-                            context.t('showcase.profile_follow_title'),
-                            context.t('showcase.profile_follow_body'),
-                          ),
-                          child: Material(
-                            color: AppColors.chaputWhite.withOpacity(0.35),
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              onTap: _toggleProfileCard,
-                              customBorder: const CircleBorder(),
-                              child: SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: Center(
-                                  child: ClipOval(
-                                    child: (defaultAvatar != null)
-                                        ? ChaputCircleAvatar(
-                                      isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
-                                      imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
-                                          ? profilePhotoUrl
-                                          : defaultAvatar,
-                                    )
-                                        : const ColoredBox(color: AppColors.chaputTransparent),
-                                  ),
-                                ),
-                              ),
+                if (showLoading)
+                  Positioned.fill(
+                    child: AbsorbPointer(
+                      child: ColoredBox(
+                        color: bg,
+                        child: Center(
+                          child: TreeSilhouetteShimmer(
+                            size: math.min(
+                              MediaQuery.of(context).size.width * 0.6,
+                              240,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
 
-
-            // Expanded profile card overlay
-            Positioned(
-              left: 0,
-              right: 0,
-              top: topInset + 10,
-
-              child: IgnorePointer(
-                ignoring: !_profileCardOpen,
-                child: AnimatedBuilder(
-                  animation: _profileCardT,
-                  builder: (_, __) {
-                    final t = _profileCardT.value;
-
-                    // ufak slide + fade
-                    final dy = (1 - t) * -10; // yukarıdan gelsin
-                    return Opacity(
-                      opacity: t,
-                      child: Transform.translate(
-                        offset: Offset(0, dy),
-                        child: Transform.scale(
-                          scale: 0.98 + 0.02 * t,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Positioned(
-                                left: 0,
-                                right: 0,
-
-                                // Bu layer'ın üstü, bulunduğu Positioned'ın üstünden
-                                // topInset+10 yukarı çıkıp ekranın en üstüne oturur:
-                                top: -(topInset + 10),
-
-                                // Altı: içerik yüksekliği kadar kalsın diye 0
-                                bottom: 0,
-
-                                child: ClipRRect(
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.chaputWhite.withOpacity(0.35),
-                                        border: Border.all(
-                                          color: AppColors.chaputWhite.withOpacity(0.25),
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-
-                              // ✅ İÇERİK: senin mevcut içerik aynen
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    InkWell(
-                                      onTap: _toggleProfileCard,
-                                      customBorder: const CircleBorder(),
-                                      child: SizedBox(
-                                        width: 44,
-                                        height: 44,
-                                        child: ClipOval(
-                                          child: (defaultAvatar != null)
-                                              ? ChaputCircleAvatar(
-                                            isDefaultAvatar: profilePhotoKey == null || profilePhotoKey == "",
-                                            imageUrl: profilePhotoUrl != null && profilePhotoUrl != ""
-                                                ? profilePhotoUrl
-                                                : defaultAvatar,
-                                          )
-                                              : const ColoredBox(color: AppColors.chaputTransparent),
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(width: 10),
-
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      fullName,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                                                    ),
-                                                    Text(
-                                                      '@$username',
-                                                      style: TextStyle(fontSize: 13, color: AppColors.chaputBlack.withOpacity(0.65)),
-                                                    ),
-                                                    const SizedBox(height: 6),
-                                                    Wrap(
-                                                      spacing: 8,
-                                                      runSpacing: 6,
-                                                      children: [
-                                                        ProfileStatChip(
-                                                          value: effectiveFollowerCount,
-                                                          label: context.t('profile.followers_label'),
-                                                          onTap: () {
-                                                            if (heRestrictedMe || (isPrivateTarget && !effectiveIsFollowing && !isMe)) {
-                                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                                SnackBar(content: Text(context.t('profile.follow_list_forbidden'))),
-                                                              );
-                                                              return;
-                                                            }
-                                                            Navigator.of(context).push(
-                                                              MaterialPageRoute(
-                                                                builder: (_) => FollowListScreen(
-                                                                  username: username,
-                                                                  kind: FollowListKind.followers,
-                                                                  isMe: isMe,
-                                                                  title: context.t('profile.followers_title'),
-                                                                ),
-                                                              ),
-                                                            );
-                                                          },
-                                                        ),
-                                                        ProfileStatChip(
-                                                          value: followingCount,
-                                                          label: context.t('profile.following_label'),
-                                                          onTap: () {
-                                                            if (heRestrictedMe || (isPrivateTarget && !effectiveIsFollowing && !isMe)) {
-                                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                                SnackBar(content: Text(context.t('profile.follow_list_forbidden'))),
-                                                              );
-                                                              return;
-                                                            }
-                                                            Navigator.of(context).push(
-                                                              MaterialPageRoute(
-                                                                builder: (_) => FollowListScreen(
-                                                                  username: username,
-                                                                  kind: FollowListKind.following,
-                                                                  isMe: isMe,
-                                                                  title: context.t('profile.following_title'),
-                                                                ),
-                                                              ),
-                                                            );
-                                                          },
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-
-                                              // ================= ACTION BUTTON =================
-                                              if (isMe)
-                                                Showcase.withWidget(
-                                                  key: _settingsShowcaseKey,
-                                                  targetPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                                  targetShapeBorder: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  tooltipPosition: TooltipPosition.top,
-                                                  toolTipMargin: 8,
-                                                  targetTooltipGap: 8,
-                                                  container: _buildShowcaseCard(
-                                                    context,
-                                                    context.t('showcase.profile_settings_title'),
-                                                    context.t('showcase.profile_settings_body'),
-                                                  ),
-                                                  child: TextButton(
-                                                    onPressed: () {
-                                                      context.push(Routes.settings);
-                                                    },
-                                                    style: TextButton.styleFrom(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                      backgroundColor: AppColors.chaputBlack,
-                                                      foregroundColor: AppColors.chaputWhite,
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(12),
-                                                      ),
-                                                    ),
-                                                    child: Text(
-                                                      context.t('profile.settings'),
-                                                      style: const TextStyle(fontSize: 12),
-                                                    ),
-                                                  ),
-                                                )
-                                              else
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    // FOLLOW / UNFOLLOW
-                                                    TextButton(
-                                                      onPressed: followButtonDisabled
-                                                          ? null
-                                                          : () async {
-                                                        if (isBlocked) return;
-
-                                                        setState(() => _uiFollowLoading = true);
-
-                                                        // PRIVATE + not following: follow -> request gönderme modu
-                                                        if (showRequestMode) {
-                                                          // optimistic: anında "İstek Gönderildi"
-                                                          setState(() => _uiRequestedFollow = true);
-
-                                                          try {
-                                                            final ctrl = ref.read(
-                                                              followControllerProvider(username).notifier,
-                                                            );
-
-                                                            // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
-                                                            await ctrl.follow();
-
-                                                          } catch (_) {
-                                                            // rollback
-                                                            setState(() => _uiRequestedFollow = null);
-                                                          } finally {
-                                                            setState(() => _uiFollowLoading = false);
-                                                          }
-                                                          return;
-                                                        }
-
-                                                        // PUBLIC veya zaten following/unfollow normal akış
-                                                        setState(() {
-                                                          if (effectiveIsFollowing) {
-                                                            _uiIsFollowing = false;
-                                                            _uiFollowerDelta -= 1;
-                                                          } else {
-                                                            _uiIsFollowing = true;
-                                                            _uiFollowerDelta += 1;
-                                                          }
-                                                        });
-
-                                                        try {
-                                                          final ctrl = ref.read(
-                                                            followControllerProvider(username).notifier,
-                                                          );
-                                                          if (effectiveIsFollowing) {
-                                                            await ctrl.unfollow();
-                                                          } else {
-                                                            await ctrl.follow();
-                                                          }
-                                                        } catch (_) {
-                                                          setState(() {
-                                                            _uiIsFollowing = null;
-                                                            _uiFollowerDelta = 0;
-                                                          });
-                                                        } finally {
-                                                          setState(() => _uiFollowLoading = false);
-                                                        }
-                                                      },
-
-                                                      style: TextButton.styleFrom(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                        backgroundColor: isBlocked
-                                                            ? AppColors.chaputRed200
-                                                            : requestAlreadySent
-                                                            ? AppColors.chaputMaterialBlue
-                                                            : effectiveIsFollowing
-                                                            ? AppColors.chaputGrey300
-                                                            : AppColors.chaputBlack,
-                                                        foregroundColor: requestAlreadySent
-                                                            ? AppColors.chaputWhite
-                                                            : (effectiveIsFollowing ? AppColors.chaputBlack : AppColors.chaputWhite),
-
-                                                        // disabled iken de beyaz kalsın
-                                                        disabledForegroundColor: requestAlreadySent ? AppColors.chaputWhite : AppColors.chaputWhite70,
-
-                                                        // disabled iken arka plan da mavi kalsın
-                                                        disabledBackgroundColor: requestAlreadySent ? AppColors.chaputMaterialBlue : AppColors.chaputGrey300,
-
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(12),
-                                                        ),
-                                                      ),
-                                                      child: _uiFollowLoading
-                                                          ? const SizedBox(
-                                                        width: 14,
-                                                        height: 14,
-                                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                                      )
-                                                          : Text(
-                                                        requestAlreadySent
-                                                            ? context.t('profile.follow_request_sent')
-                                                            : (effectiveIsFollowing
-                                                                ? context.t('profile.unfollow')
-                                                                : context.t('profile.follow')),
-                                                        style: const TextStyle(fontSize: 12),
-                                                      ),
-                                                    ),
-
-                                                    const SizedBox(width: 6),
-
-                                                    // THREE DOT MENU
-                                                    ProfileActionsButton(
-                                                        username: username,
-                                                        userId: userId,
-                                                        iRestrictedHim: effectiveIRestrictedHim,
-                                                    ),
-                                                  ],
-                                                ),
-
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-
-
-            // MARKER (sheet'in arkasında kalmalı)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: ValueListenableBuilder<Offset?>(
-                  valueListenable: _focusScreen,
-                  builder: (_, off, __) {
-                    if (off == null) return const SizedBox.shrink();
-
-                    return Stack(
+                // TOP BAR (overlay – yer kaplamaz)
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Positioned(
-                          left: off.dx - 5,
-                          top: off.dy - 5,
-                          child: Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: AppColors.chaputWhite,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                  color: AppColors.chaputWhite.withOpacity(0.6),
+                        // Back button (aynı)
+                        IgnorePointer(
+                          ignoring:
+                              _profileCardOpen, // kart açıkken tıklanmasın
+                          child: ClipOval(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Material(
+                                color: AppColors.chaputWhite.withOpacity(0.35),
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  onTap: () =>
+                                      GoRouter.of(context).go(Routes.home),
+                                  customBorder: const CircleBorder(),
+                                  child: const SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.chevron_left,
+                                        size: 30,
+                                        color: AppColors.chaputBlack,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
                       ],
-                    );
-                  },
-                ),
-              ),
-            ),
-
-            if (chaputThreads.isNotEmpty && !_composerOpen && !_silhouetteMode)
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                    child: ChaputThreadSheet(
-                      threads: chaputThreads,
-                      usersById: chaputThreadsState.usersById,
-                      typingUsersByThread: typingUsersByThread,
-                      viewerUser: viewerLite,
-                      viewerId: viewerId,
-                      ownerId: userId,
-                      profileId: profileIdHex,
-                      initialThreadId: _pendingInitialThreadId,
-                      initialMessageId: _pendingInitialMessageId,
-                      pageController: _chaputPageCtrl,
-                      sheetController: _chaputSheetCtrl,
-                      initialExtent: _chaputSheetExtent,
-                      showNativeAds: showNativeAds,
-                      onExtentChanged: (v) {
-                        _chaputSheetExtent = v;
-                        if (v > _chaputSheetMin + 0.01) {
-                          _chaputSheetPrevExtent = v;
-                        }
-                        if (v <= _chaputSheetMid + 0.001 && MediaQuery.of(context).viewInsets.bottom > 0) {
-                          FocusScope.of(context).unfocus();
-                        }
-                        setState(() {});
-                      },
-                      onPageChanged: (pageIndex, thread) async {
-                        final threadIndex = thread == null
-                            ? null
-                            : _threadIndexForPageIndex(pageIndex, showAds: showNativeAds);
-                        final isAdPage = threadIndex == null;
-                        if (isAdPage) {
-                          if (!_isAdPageActive) {
-                            _isAdPageActive = true;
-                            _sheetExtentBeforeAd = _chaputSheetExtent;
-                            final screenHeight = MediaQuery.of(context).size.height;
-                            final minAdExtent = (ChaputNativeAdCard.minTotalHeight / screenHeight)
-                                .clamp(_chaputSheetMin, _chaputSheetMax);
-                            final target = _chaputSheetMid >= minAdExtent ? _chaputSheetMid : minAdExtent;
-                            _chaputSheetExtent = target;
-                            if (_chaputSheetCtrl.isAttached) {
-                              _chaputSheetCtrl.animateTo(
-                                target,
-                                duration: const Duration(milliseconds: 180),
-                                curve: Curves.easeOutCubic,
-                              );
-                            }
-                            setState(() {});
-                          }
-                        } else if (_isAdPageActive) {
-                          _isAdPageActive = false;
-                          final target = _sheetExtentBeforeAd.clamp(_chaputSheetMin, _chaputSheetMax);
-                          _chaputSheetExtent = target;
-                          if (_chaputSheetCtrl.isAttached) {
-                            _chaputSheetCtrl.animateTo(
-                              target,
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                            );
-                          }
-                          setState(() {});
-                        }
-                        if (threadIndex != null && threadIndex < chaputThreads.length) {
-                          setState(() => _chaputActiveIndex = threadIndex);
-                        } else {
-                          setState(() {
-                            _replyBarThreadId = '';
-                            _replyTarget = null;
-                            _replyTargetThreadId = null;
-                          });
-                        }
-                        if (threadIndex != null && threadIndex < chaputThreads.length) {
-                          final t = chaputThreads[threadIndex];
-                          _subscribeThreadSocket(t.threadId, profileIdHex);
-                          _focusToThreadAnchor(t, profileIdHex);
-                          final isParticipant = t.userAId == viewerId || t.userBId == viewerId;
-                          final viewerIsStarter = t.starterId == viewerId;
-                          final isPending = t.state == 'PENDING';
-                          _replyBarThreadId = (isParticipant && (!isPending || !viewerIsStarter)) ? t.threadId : null;
-                          _replyWhisperMode = false;
-                          _replyTarget = null;
-                          _replyTargetThreadId = null;
-                          FocusScope.of(context).unfocus();
-                          final isParticipant2 = t.userAId == viewerId || t.userBId == viewerId;
-                          if (!isParticipant2) {
-                            final api = ref.read(chaputApiProvider);
-                            await api.recordView(threadIdHex: t.threadId);
-                          } else {
-                            ref.read(chaputApiProvider).markThreadRead(threadIdHex: t.threadId).catchError((_) {});
-                          }
-                          if (threadIndex >= chaputThreads.length - 2) {
-                            ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).loadMore();
-                          }
-                        }
-                      },
-                      onOpenProfile: (id, threadId) async {
-                        if (id.isEmpty) return;
-                        await _openThreadCounterpartyProfile(userId: id, threadId: threadId);
-                      },
-                      onSendMessage: (thread, body, whisper) async {
-                        await _sendThreadMessage(
-                          thread: thread,
-                          body: body,
-                          whisper: whisper,
-                          profileIdHex: profileIdHex,
-                          chaputArgs: chaputArgs,
-                          viewerId: viewerId,
-                        );
-                      },
-                      onMakeHidden: (thread) async {
-                        await _makeThreadHidden(
-                          thread: thread,
-                          profileIdHex: profileIdHex,
-                          chaputArgs: chaputArgs,
-                        );
-                      },
-                      canMakeHidden: creditsHidden > 0,
-                      onReplyMessage: _handleReplyRequested,
-                      onOpenWhisperPaywall: () async {
-                        await ref.read(chaputDecisionControllerProvider(profileIdHex).notifier).fetchDecision();
-
-                        final freshWhisper = ref
-                            .read(chaputDecisionControllerProvider(profileIdHex))
-                            .decision
-                            ?.credits
-                            .whisper
-                            ?? 0;
-
-                        if (freshWhisper > 0) return; // ✅ kredi varsa paywall yok
-
-                        final purchase = await _openPaywall(feature: PaywallFeature.whisper);
-                        if (purchase == null) return;
-                        await _verifyPurchaseAndApply(purchase);
-                      },
-                      replyOverlay: showReplyBar ? 88.0 : 0.0,
-                      whisperCredits: creditsWhisper,
                     ),
                   ),
                 ),
-              ),
 
-            if (showEmptyChaputSheet && emptyChaputMessage != null)
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SizedBox(
-                    height: (MediaQuery.of(context).size.height * _chaputSheetMin) +
-                        MediaQuery.of(context).padding.bottom,
-                    child: IgnorePointer(
-                      child: EmptyChaputSheet(
-                        message: emptyChaputMessage,
-                        height: (MediaQuery.of(context).size.height * _chaputSheetMin) +
-                            MediaQuery.of(context).padding.bottom,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-            if (showReplyBar)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: AnimatedPadding(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                  child: ChaputReplyBar(
-                    key: ValueKey(activeThread?.threadId ?? 'none'),
-                    canWhisper: creditsWhisper > 0,
-                    whisperMode: _replyWhisperMode,
-                    replyAuthor: replyAuthor,
-                    replyBody: replyBody,
-                    onClearReply: () {
-                      setState(() {
-                        _replyTarget = null;
-                        _replyTargetThreadId = null;
-                      });
-                    },
-
-                    onToggleWhisper: () async {
-                      // kapatmak serbest
-                      if (_replyWhisperMode) {
-                        setState(() => _replyWhisperMode = false);
-                        return;
-                      }
-
-                      // açarken: fresh decision çek
-                      final notifier = ref.read(chaputDecisionControllerProvider(profileIdHex).notifier);
-                      ChaputDecision? freshDecision;
-                      final api = ref.read(chaputApiProvider);
-                      try {
-                        freshDecision = await api.getDecision(profileIdHex);
-                        notifier.setCredits(
-                          normal: freshDecision.credits.normal,
-                          hidden: freshDecision.credits.hidden,
-                          special: freshDecision.credits.special,
-                          revive: freshDecision.credits.revive,
-                          whisper: freshDecision.credits.whisper,
-                        );
-                        notifier.applyPlanType(freshDecision.plan.type);
-                        if (freshDecision.plan.period != null && freshDecision.plan.period!.isNotEmpty) {
-                          notifier.applyPlanPeriod(freshDecision.plan.period!);
-                        }
-                      } catch (_) {
-                        freshDecision = await notifier.fetchDecisionAndReturn();
-                      }
-                      final freshWhisper = freshDecision?.credits.whisper ?? 0;
-
-                      if (freshWhisper > 0) {
-                        setState(() => _replyWhisperMode = true);
-                        return;
-                      }
-
-                      // kredi yok -> paywall
-                      final purchase = await _openPaywall(feature: PaywallFeature.whisper);
-                      if (purchase == null) return;
-
-                      final ok = await _verifyPurchaseAndApply(purchase);
-                      if (!ok) return;
-
-                      // satın alma sonrası tekrar çek
-                      ChaputDecision? after;
-                      try {
-                        after = await api.getDecision(profileIdHex);
-                        notifier.setCredits(
-                          normal: after.credits.normal,
-                          hidden: after.credits.hidden,
-                          special: after.credits.special,
-                          revive: after.credits.revive,
-                          whisper: after.credits.whisper,
-                        );
-                        notifier.applyPlanType(after.plan.type);
-                        if (after.plan.period != null && after.plan.period!.isNotEmpty) {
-                          notifier.applyPlanPeriod(after.plan.period!);
-                        }
-                      } catch (_) {
-                        after = await notifier.fetchDecisionAndReturn();
-                      }
-                      final afterWhisper = after?.credits.whisper ?? 0;
-
-                      if (afterWhisper > 0) {
-                        setState(() => _replyWhisperMode = true);
-                      } else {
-                        _showGlassToast(context.t('profile.toast.whisper_unavailable'), icon: Icons.error_outline);
-                      }
-                    },
-
-                    onWhisperPaywall: () async {
-                      // artık send tetiklemeyecek ama yine de bırakıyoruz
-                      final notifier = ref.read(chaputDecisionControllerProvider(profileIdHex).notifier);
-                      ChaputDecision? freshDecision;
-                      final api = ref.read(chaputApiProvider);
-                      try {
-                        freshDecision = await api.getDecision(profileIdHex);
-                        notifier.setCredits(
-                          normal: freshDecision.credits.normal,
-                          hidden: freshDecision.credits.hidden,
-                          special: freshDecision.credits.special,
-                          revive: freshDecision.credits.revive,
-                          whisper: freshDecision.credits.whisper,
-                        );
-                        notifier.applyPlanType(freshDecision.plan.type);
-                        if (freshDecision.plan.period != null && freshDecision.plan.period!.isNotEmpty) {
-                          notifier.applyPlanPeriod(freshDecision.plan.period!);
-                        }
-                      } catch (_) {
-                        freshDecision = await notifier.fetchDecisionAndReturn();
-                      }
-                      final freshWhisper = freshDecision?.credits.whisper ?? 0;
-
-                      if (freshWhisper > 0) {
-                        setState(() => _replyWhisperMode = true);
-                        return;
-                      }
-
-                      final purchase = await _openPaywall(feature: PaywallFeature.whisper);
-                      if (purchase == null) return;
-
-                      final ok = await _verifyPurchaseAndApply(purchase);
-                      if (!ok) return;
-
-                      setState(() => _replyWhisperMode = true);
-                    },
-
-                    onSend: (text, _ignored) async {
-                      final t = activeThread;
-                      if (t == null) return;
-
-                      await _sendThreadMessage(
-                        thread: t,
-                        body: text,
-                        whisper: _replyWhisperMode,
-                        profileIdHex: profileIdHex,
-                        chaputArgs: chaputArgs,
-                        viewerId: viewerId,
-                      );
-
-                      setState(() => _replyWhisperMode = false);
-                      setState(() {
-                        _replyTarget = null;
-                        _replyTargetThreadId = null;
-                      });
-                    },
-                    onFocus: () {
-                      if (_chaputSheetExtent >= _chaputSheetMax - 0.01) return;
-                      _sheetAutoExpanded = true;
-                      _sheetExtentBeforeKeyboard = _chaputSheetExtent;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!_chaputSheetCtrl.isAttached) return;
-                        _chaputSheetCtrl.animateTo(
-                          _chaputSheetMax,
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOut,
-                        );
-                      });
-                    },
-                    onBlur: () {
-                      if (!_sheetAutoExpanded) return;
-                      _sheetAutoExpanded = false;
-                      final target = _sheetExtentBeforeKeyboard;
-                      if (target < _chaputSheetMax - 0.01) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (!_chaputSheetCtrl.isAttached) return;
-                          _chaputSheetCtrl.animateTo(
-                            target.clamp(_chaputSheetMin, _chaputSheetMax),
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOut,
-                          );
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ),
-
-          // BUTON
-          Positioned(
-            right: 14,
-            bottom: (chaputThreads.isNotEmpty
-                    ? (MediaQuery.of(context).size.height * _chaputSheetExtent + 10)
-                    : (showEmptyChaputSheet
-                        ? (MediaQuery.of(context).size.height * _chaputSheetMin +
-                            MediaQuery.of(context).padding.bottom +
-                            6)
-                        : 14)),
-            child: SafeArea(
-              top: false,
-              bottom: !(showEmptyChaputSheet && chaputThreads.isEmpty),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 160),
-                child: (_composerOpen ||
-                        _silhouetteMode ||
-                        isMe ||
-                        _chaputThreadCreated ||
-                        hasOurThread ||
-                        (chaputThreads.isNotEmpty && _chaputSheetExtent > _chaputSheetMin + 0.01))
-                    ? const SizedBox.shrink()
-                    : IgnorePointer(
-                        ignoring: !_threeReady,
-                        child: BlackGlass(
-                          radius: 16,
-                          blur: 10,
-                          opacity: 0.55,
-                          borderOpacity: 0.12,
-                          child: Material(
-                            type: MaterialType.transparency,
-                            child: InkWell(
-                              onTap: (_silhouetteMode || _composerOpen)
-                                  ? null
-                                  : () async {
-                                      if (decisionHasArchived && decisionThreadId.length == 32) {
-                                        await _handleRevivePressed(
-                                          threadIdHex: decisionThreadId,
-                                          profileIdHex: profileIdHex,
-                                          chaputArgs: chaputArgs,
-                                          targetUser: targetLiteUser,
-                                        );
-                                        return;
-                                      }
-                                      if (showBindExhausted) {
-                                        final purchase = await _openPaywall(feature: PaywallFeature.bind);
-                                        if (purchase != null) {
-                                          final ok = await _verifyPurchaseAndApply(purchase);
-                                          if (ok) {
-                                            _prepareComposer();
-                                          }
-                                        }
-                                        return;
-                                      }
-                                      await _handleBindPressed(profileId: profileIdHex);
-                                    },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      decisionHasArchived
-                                          ? Icons.restore
-                                          : showBindExhausted
-                                              ? Icons.lock_clock
-                                              : (_decisionPath == 'NEED_AD' ? Icons.play_circle : Icons.draw),
-                                      size: 18,
-                                      color: AppColors.chaputWhite,
+                // SMALL AVATAR (sağ üst)
+                Positioned(
+                  top: topInset + 10,
+                  right: 14,
+                  child: IgnorePointer(
+                    ignoring: _profileCardOpen, // kart açıkken tıklanmasın
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 120),
+                      opacity: _profileCardOpen
+                          ? 0.0
+                          : 1.0, // kart açılınca kaybol
+                      child: ClipOval(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: Showcase.withWidget(
+                            key: _profileMenuShowcaseKey,
+                            targetPadding: const EdgeInsets.all(6),
+                            targetShapeBorder: const CircleBorder(),
+                            tooltipPosition: TooltipPosition.bottom,
+                            toolTipMargin: 8,
+                            targetTooltipGap: 8,
+                            container: _buildShowcaseCard(
+                              context,
+                              context.t('showcase.profile_follow_title'),
+                              context.t('showcase.profile_follow_body'),
+                            ),
+                            child: Material(
+                              color: AppColors.chaputWhite.withOpacity(0.35),
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                onTap: _toggleProfileCard,
+                                customBorder: const CircleBorder(),
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Center(
+                                    child: ClipOval(
+                                      child: (defaultAvatar != null)
+                                          ? ChaputCircleAvatar(
+                                              isDefaultAvatar:
+                                                  profilePhotoKey == null ||
+                                                  profilePhotoKey == "",
+                                              imageUrl:
+                                                  profilePhotoUrl != null &&
+                                                      profilePhotoUrl != ""
+                                                  ? profilePhotoUrl
+                                                  : defaultAvatar,
+                                            )
+                                          : const ColoredBox(
+                                              color:
+                                                  AppColors.chaputTransparent,
+                                            ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      decisionHasArchived
-                                          ? context.t('profile.bind.restore_archive')
-                                          : showBindExhausted
-                                              ? context.t('profile.bind.rights_exhausted')
-                                              : (_decisionPath == 'NEED_AD'
-                                                  ? context.t('profile.bind.watch_ad')
-                                                  : context.t('profile.bind.start_one')),
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.chaputWhite,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
-              ),
-            ),
-          ),
-
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 10 + kb,
-              child: SafeArea(
-                top: false,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 160),
-                  child: (!_composerOpen || _silhouetteMode)
-                      ? const SizedBox.shrink()
-                      : meAsync.when(
-                    loading: () => ChatComposerBar(
-                      controller: _msgCtrl,
-                      focusNode: _msgFocus,
-                      avatarUrl: null,
-                      isDefaultAvatar: true,
-                      onAvatarTap: _toggleProfileCard,
-                      onSend: () => _sendChaputMessage(
-                        profileId: profileIdHex,
-                        viewerId: viewerId,
-                        targetUserId: userId,
-                        viewerLite: viewerLite,
-                        chaputArgs: chaputArgs,
-                      ),
-                      anonEnabled: _anonMode,
-                      highlightEnabled: _highlightMode,
-                      onOptionsTap: _openComposerOptionsSheet,
-                      onOptionsEmptyTap: _onOptionsEmptyTap,
                     ),
-                    error: (_, __) => ChatComposerBar(
-                      controller: _msgCtrl,
-                      focusNode: _msgFocus,
-                      avatarUrl: null,
-                      isDefaultAvatar: true,
-                      onAvatarTap: _toggleProfileCard,
-                      onSend: () => _sendChaputMessage(
-                        profileId: profileIdHex,
-                        viewerId: viewerId,
-                        targetUserId: userId,
-                        viewerLite: viewerLite,
-                        chaputArgs: chaputArgs,
-                      ),
-                      anonEnabled: _anonMode,
-                      highlightEnabled: _highlightMode,
-                      onOptionsTap: _openComposerOptionsSheet,
-                      onOptionsEmptyTap: _onOptionsEmptyTap,
-                    ),
-                    data: (me) {
-                      final meUser = me?.user;
-
-                      final meAvatarUrl = (meUser?.profilePhotoUrl != null &&
-                          meUser!.profilePhotoUrl!.isNotEmpty)
-                          ? meUser.profilePhotoUrl
-                          : meUser?.defaultAvatar;
-
-                      final meIsDefault = (meUser?.profilePhotoUrl == null ||
-                          (meUser!.profilePhotoUrl?.isEmpty ?? true));
-
-                      return ChatComposerBar(
-                        controller: _msgCtrl,
-                        focusNode: _msgFocus,
-                        avatarUrl: meAvatarUrl,
-                        isDefaultAvatar: meIsDefault,
-                        onAvatarTap: _toggleProfileCard,
-                        onSend: () => _sendChaputMessage(
-                          profileId: profileIdHex,
-                          viewerId: viewerId,
-                          targetUserId: userId,
-                          viewerLite: viewerLite,
-                          chaputArgs: chaputArgs,
-                        ),
-                        anonEnabled: _anonMode,
-                        highlightEnabled: _highlightMode,
-                        onOptionsTap: _openComposerOptionsSheet,
-                        onOptionsEmptyTap: _onOptionsEmptyTap,
-                      );
-                    },
                   ),
                 ),
-              ),
+
+                // Expanded profile card overlay
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: topInset + 10,
+
+                  child: IgnorePointer(
+                    ignoring: !_profileCardOpen,
+                    child: AnimatedBuilder(
+                      animation: _profileCardT,
+                      builder: (_, __) {
+                        final t = _profileCardT.value;
+
+                        // ufak slide + fade
+                        final dy = (1 - t) * -10; // yukarıdan gelsin
+                        return Opacity(
+                          opacity: t,
+                          child: Transform.translate(
+                            offset: Offset(0, dy),
+                            child: Transform.scale(
+                              scale: 0.98 + 0.02 * t,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+
+                                    // Bu layer'ın üstü, bulunduğu Positioned'ın üstünden
+                                    // topInset+10 yukarı çıkıp ekranın en üstüne oturur:
+                                    top: -(topInset + 10),
+
+                                    // Altı: içerik yüksekliği kadar kalsın diye 0
+                                    bottom: 0,
+
+                                    child: ClipRRect(
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                          sigmaX: 12,
+                                          sigmaY: 12,
+                                        ),
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: AppColors.chaputWhite
+                                                .withOpacity(0.35),
+                                            border: Border.all(
+                                              color: AppColors.chaputWhite
+                                                  .withOpacity(0.25),
+                                              width: 1,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // ✅ İÇERİK: senin mevcut içerik aynen
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        InkWell(
+                                          onTap: _toggleProfileCard,
+                                          customBorder: const CircleBorder(),
+                                          child: SizedBox(
+                                            width: 44,
+                                            height: 44,
+                                            child: ClipOval(
+                                              child: (defaultAvatar != null)
+                                                  ? ChaputCircleAvatar(
+                                                      isDefaultAvatar:
+                                                          profilePhotoKey ==
+                                                              null ||
+                                                          profilePhotoKey == "",
+                                                      imageUrl:
+                                                          profilePhotoUrl !=
+                                                                  null &&
+                                                              profilePhotoUrl !=
+                                                                  ""
+                                                          ? profilePhotoUrl
+                                                          : defaultAvatar,
+                                                    )
+                                                  : const ColoredBox(
+                                                      color: AppColors
+                                                          .chaputTransparent,
+                                                    ),
+                                            ),
+                                          ),
+                                        ),
+
+                                        const SizedBox(width: 10),
+
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          fullName,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                              ),
+                                                        ),
+                                                        Text(
+                                                          '@$username',
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            color: AppColors
+                                                                .chaputBlack
+                                                                .withOpacity(
+                                                                  0.65,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 6,
+                                                        ),
+                                                        Wrap(
+                                                          spacing: 8,
+                                                          runSpacing: 6,
+                                                          children: [
+                                                            ProfileStatChip(
+                                                              value:
+                                                                  effectiveFollowerCount,
+                                                              label: context.t(
+                                                                'profile.followers_label',
+                                                              ),
+                                                              onTap: () {
+                                                                if (heRestrictedMe ||
+                                                                    (isPrivateTarget &&
+                                                                        !effectiveIsFollowing &&
+                                                                        !isMe)) {
+                                                                  ScaffoldMessenger.of(
+                                                                    context,
+                                                                  ).showSnackBar(
+                                                                    SnackBar(
+                                                                      content: Text(
+                                                                        context.t(
+                                                                          'profile.follow_list_forbidden',
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  );
+                                                                  return;
+                                                                }
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).push(
+                                                                  MaterialPageRoute(
+                                                                    builder: (_) => FollowListScreen(
+                                                                      username:
+                                                                          username,
+                                                                      kind: FollowListKind
+                                                                          .followers,
+                                                                      isMe:
+                                                                          isMe,
+                                                                      title: context.t(
+                                                                        'profile.followers_title',
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              },
+                                                            ),
+                                                            ProfileStatChip(
+                                                              value:
+                                                                  followingCount,
+                                                              label: context.t(
+                                                                'profile.following_label',
+                                                              ),
+                                                              onTap: () {
+                                                                if (heRestrictedMe ||
+                                                                    (isPrivateTarget &&
+                                                                        !effectiveIsFollowing &&
+                                                                        !isMe)) {
+                                                                  ScaffoldMessenger.of(
+                                                                    context,
+                                                                  ).showSnackBar(
+                                                                    SnackBar(
+                                                                      content: Text(
+                                                                        context.t(
+                                                                          'profile.follow_list_forbidden',
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  );
+                                                                  return;
+                                                                }
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).push(
+                                                                  MaterialPageRoute(
+                                                                    builder: (_) => FollowListScreen(
+                                                                      username:
+                                                                          username,
+                                                                      kind: FollowListKind
+                                                                          .following,
+                                                                      isMe:
+                                                                          isMe,
+                                                                      title: context.t(
+                                                                        'profile.following_title',
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              },
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+
+                                                  // ================= ACTION BUTTON =================
+                                                  if (isMe)
+                                                    Showcase.withWidget(
+                                                      key: _settingsShowcaseKey,
+                                                      targetPadding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 4,
+                                                          ),
+                                                      targetShapeBorder:
+                                                          RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                          ),
+                                                      tooltipPosition:
+                                                          TooltipPosition.top,
+                                                      toolTipMargin: 8,
+                                                      targetTooltipGap: 8,
+                                                      container: _buildShowcaseCard(
+                                                        context,
+                                                        context.t(
+                                                          'showcase.profile_settings_title',
+                                                        ),
+                                                        context.t(
+                                                          'showcase.profile_settings_body',
+                                                        ),
+                                                      ),
+                                                      child: TextButton(
+                                                        onPressed: () {
+                                                          context.push(
+                                                            Routes.settings,
+                                                          );
+                                                        },
+                                                        style: TextButton.styleFrom(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 12,
+                                                                vertical: 6,
+                                                              ),
+                                                          backgroundColor:
+                                                              AppColors
+                                                                  .chaputBlack,
+                                                          foregroundColor:
+                                                              AppColors
+                                                                  .chaputWhite,
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        child: Text(
+                                                          context.t(
+                                                            'profile.settings',
+                                                          ),
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 12,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                  else
+                                                    Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        // FOLLOW / UNFOLLOW
+                                                        TextButton(
+                                                          onPressed:
+                                                              followButtonDisabled
+                                                              ? null
+                                                              : () async {
+                                                                  if (isBlocked)
+                                                                    return;
+
+                                                                  setState(
+                                                                    () =>
+                                                                        _uiFollowLoading =
+                                                                            true,
+                                                                  );
+
+                                                                  // PRIVATE + not following: follow -> request gönderme modu
+                                                                  if (showRequestMode) {
+                                                                    // optimistic: anında "İstek Gönderildi"
+                                                                    setState(
+                                                                      () => _uiRequestedFollow =
+                                                                          true,
+                                                                    );
+
+                                                                    try {
+                                                                      final ctrl = ref.read(
+                                                                        followControllerProvider(
+                                                                          username,
+                                                                        ).notifier,
+                                                                      );
+
+                                                                      // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
+                                                                      await ctrl
+                                                                          .follow();
+                                                                    } catch (
+                                                                      _
+                                                                    ) {
+                                                                      // rollback
+                                                                      setState(
+                                                                        () => _uiRequestedFollow =
+                                                                            null,
+                                                                      );
+                                                                    } finally {
+                                                                      setState(
+                                                                        () => _uiFollowLoading =
+                                                                            false,
+                                                                      );
+                                                                    }
+                                                                    return;
+                                                                  }
+
+                                                                  // PUBLIC veya zaten following/unfollow normal akış
+                                                                  setState(() {
+                                                                    if (effectiveIsFollowing) {
+                                                                      _uiIsFollowing =
+                                                                          false;
+                                                                      _uiFollowerDelta -=
+                                                                          1;
+                                                                    } else {
+                                                                      _uiIsFollowing =
+                                                                          true;
+                                                                      _uiFollowerDelta +=
+                                                                          1;
+                                                                    }
+                                                                  });
+
+                                                                  try {
+                                                                    final ctrl = ref.read(
+                                                                      followControllerProvider(
+                                                                        username,
+                                                                      ).notifier,
+                                                                    );
+                                                                    if (effectiveIsFollowing) {
+                                                                      await ctrl
+                                                                          .unfollow();
+                                                                    } else {
+                                                                      await ctrl
+                                                                          .follow();
+                                                                    }
+                                                                  } catch (_) {
+                                                                    setState(() {
+                                                                      _uiIsFollowing =
+                                                                          null;
+                                                                      _uiFollowerDelta =
+                                                                          0;
+                                                                    });
+                                                                  } finally {
+                                                                    setState(
+                                                                      () => _uiFollowLoading =
+                                                                          false,
+                                                                    );
+                                                                  }
+                                                                },
+
+                                                          style: TextButton.styleFrom(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      12,
+                                                                  vertical: 6,
+                                                                ),
+                                                            backgroundColor:
+                                                                isBlocked
+                                                                ? AppColors
+                                                                      .chaputRed200
+                                                                : requestAlreadySent
+                                                                ? AppColors
+                                                                      .chaputMaterialBlue
+                                                                : effectiveIsFollowing
+                                                                ? AppColors
+                                                                      .chaputGrey300
+                                                                : AppColors
+                                                                      .chaputBlack,
+                                                            foregroundColor:
+                                                                requestAlreadySent
+                                                                ? AppColors
+                                                                      .chaputWhite
+                                                                : (effectiveIsFollowing
+                                                                      ? AppColors
+                                                                            .chaputBlack
+                                                                      : AppColors
+                                                                            .chaputWhite),
+
+                                                            // disabled iken de beyaz kalsın
+                                                            disabledForegroundColor:
+                                                                requestAlreadySent
+                                                                ? AppColors
+                                                                      .chaputWhite
+                                                                : AppColors
+                                                                      .chaputWhite70,
+
+                                                            // disabled iken arka plan da mavi kalsın
+                                                            disabledBackgroundColor:
+                                                                requestAlreadySent
+                                                                ? AppColors
+                                                                      .chaputMaterialBlue
+                                                                : AppColors
+                                                                      .chaputGrey300,
+
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          child:
+                                                              _uiFollowLoading
+                                                              ? const SizedBox(
+                                                                  width: 14,
+                                                                  height: 14,
+                                                                  child: CircularProgressIndicator(
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
+                                                                )
+                                                              : Text(
+                                                                  requestAlreadySent
+                                                                      ? context.t(
+                                                                          'profile.follow_request_sent',
+                                                                        )
+                                                                      : (effectiveIsFollowing
+                                                                            ? context.t(
+                                                                                'profile.unfollow',
+                                                                              )
+                                                                            : context.t(
+                                                                                'profile.follow',
+                                                                              )),
+                                                                  style:
+                                                                      const TextStyle(
+                                                                        fontSize:
+                                                                            12,
+                                                                      ),
+                                                                ),
+                                                        ),
+
+                                                        const SizedBox(
+                                                          width: 6,
+                                                        ),
+
+                                                        // THREE DOT MENU
+                                                        ProfileActionsButton(
+                                                          username: username,
+                                                          userId: userId,
+                                                          iRestrictedHim:
+                                                              effectiveIRestrictedHim,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                // MARKER (sheet'in arkasında kalmalı)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ValueListenableBuilder<Offset?>(
+                      valueListenable: _focusScreen,
+                      builder: (_, off, __) {
+                        if (off == null) return const SizedBox.shrink();
+
+                        return Stack(
+                          children: [
+                            Positioned(
+                              left: off.dx - 5,
+                              top: off.dy - 5,
+                              child: Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: AppColors.chaputWhite,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                      color: AppColors.chaputWhite.withOpacity(
+                                        0.6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                if (chaputThreads.isNotEmpty &&
+                    !_composerOpen &&
+                    !_silhouetteMode)
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom,
+                        ),
+                        child: ChaputThreadSheet(
+                          threads: chaputThreads,
+                          usersById: chaputThreadsState.usersById,
+                          typingUsersByThread: typingUsersByThread,
+                          viewerUser: viewerLite,
+                          viewerId: viewerId,
+                          ownerId: userId,
+                          profileId: profileIdHex,
+                          initialThreadId: _pendingInitialThreadId,
+                          initialMessageId: _pendingInitialMessageId,
+                          pageController: _chaputPageCtrl,
+                          sheetController: _chaputSheetCtrl,
+                          initialExtent: _chaputSheetExtent,
+                          showNativeAds: showNativeAds,
+                          onExtentChanged: (v) {
+                            _chaputSheetExtent = v;
+                            if (v > _chaputSheetMin + 0.01) {
+                              _chaputSheetPrevExtent = v;
+                            }
+                            if (v <= _chaputSheetMid + 0.001 &&
+                                MediaQuery.of(context).viewInsets.bottom > 0) {
+                              FocusScope.of(context).unfocus();
+                            }
+                            setState(() {});
+                          },
+                          onPageChanged: (pageIndex, thread) async {
+                            final threadIndex = thread == null
+                                ? null
+                                : _threadIndexForPageIndex(
+                                    pageIndex,
+                                    showAds: showNativeAds,
+                                  );
+                            final isAdPage = threadIndex == null;
+                            if (isAdPage) {
+                              if (!_isAdPageActive) {
+                                _isAdPageActive = true;
+                                _sheetExtentBeforeAd = _chaputSheetExtent;
+                                final screenHeight = MediaQuery.of(
+                                  context,
+                                ).size.height;
+                                final minAdExtent =
+                                    (ChaputNativeAdCard.minTotalHeight /
+                                            screenHeight)
+                                        .clamp(
+                                          _chaputSheetMin,
+                                          _chaputSheetMax,
+                                        );
+                                final target = _chaputSheetMid >= minAdExtent
+                                    ? _chaputSheetMid
+                                    : minAdExtent;
+                                _chaputSheetExtent = target;
+                                if (_chaputSheetCtrl.isAttached) {
+                                  _chaputSheetCtrl.animateTo(
+                                    target,
+                                    duration: const Duration(milliseconds: 180),
+                                    curve: Curves.easeOutCubic,
+                                  );
+                                }
+                                setState(() {});
+                              }
+                            } else if (_isAdPageActive) {
+                              _isAdPageActive = false;
+                              final target = _sheetExtentBeforeAd.clamp(
+                                _chaputSheetMin,
+                                _chaputSheetMax,
+                              );
+                              _chaputSheetExtent = target;
+                              if (_chaputSheetCtrl.isAttached) {
+                                _chaputSheetCtrl.animateTo(
+                                  target,
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOutCubic,
+                                );
+                              }
+                              setState(() {});
+                            }
+                            if (threadIndex != null &&
+                                threadIndex < chaputThreads.length) {
+                              setState(() => _chaputActiveIndex = threadIndex);
+                            } else {
+                              setState(() {
+                                _replyBarThreadId = '';
+                                _replyTarget = null;
+                                _replyTargetThreadId = null;
+                              });
+                            }
+                            if (threadIndex != null &&
+                                threadIndex < chaputThreads.length) {
+                              final t = chaputThreads[threadIndex];
+                              _subscribeThreadSocket(t.threadId, profileIdHex);
+                              _focusToThreadAnchor(t, profileIdHex);
+                              final isParticipant =
+                                  t.userAId == viewerId ||
+                                  t.userBId == viewerId;
+                              final viewerIsStarter = t.starterId == viewerId;
+                              final isPending = t.state == 'PENDING';
+                              _replyBarThreadId =
+                                  (isParticipant &&
+                                      (!isPending || !viewerIsStarter))
+                                  ? t.threadId
+                                  : null;
+                              _replyWhisperMode = false;
+                              _replyTarget = null;
+                              _replyTargetThreadId = null;
+                              FocusScope.of(context).unfocus();
+                              final isParticipant2 =
+                                  t.userAId == viewerId ||
+                                  t.userBId == viewerId;
+                              if (!isParticipant2) {
+                                final api = ref.read(chaputApiProvider);
+                                await api.recordView(threadIdHex: t.threadId);
+                              } else {
+                                ref
+                                    .read(chaputApiProvider)
+                                    .markThreadRead(threadIdHex: t.threadId)
+                                    .catchError((_) {});
+                              }
+                              if (threadIndex >= chaputThreads.length - 2) {
+                                ref
+                                    .read(
+                                      chaputThreadsControllerProvider(
+                                        chaputArgs,
+                                      ).notifier,
+                                    )
+                                    .loadMore();
+                              }
+                            }
+                          },
+                          onOpenProfile: (id, threadId) async {
+                            if (id.isEmpty) return;
+                            await _openThreadCounterpartyProfile(
+                              userId: id,
+                              threadId: threadId,
+                            );
+                          },
+                          onSendMessage: (thread, body, whisper) async {
+                            await _sendThreadMessage(
+                              thread: thread,
+                              body: body,
+                              whisper: whisper,
+                              profileIdHex: profileIdHex,
+                              chaputArgs: chaputArgs,
+                              viewerId: viewerId,
+                            );
+                          },
+                          onMakeHidden: (thread) async {
+                            await _makeThreadHidden(
+                              thread: thread,
+                              profileIdHex: profileIdHex,
+                              chaputArgs: chaputArgs,
+                            );
+                          },
+                          onArchiveThread: (thread) async {
+                            await _archiveThread(
+                              thread: thread,
+                              profileIdHex: profileIdHex,
+                              chaputArgs: chaputArgs,
+                            );
+                          },
+                          onReportThread: _reportThread,
+                          onReportMessage: (_, message) =>
+                              _reportMessage(message),
+                          canMakeHidden: creditsHidden > 0,
+                          onReplyMessage: _handleReplyRequested,
+                          onOpenWhisperPaywall: () async {
+                            await ref
+                                .read(
+                                  chaputDecisionControllerProvider(
+                                    profileIdHex,
+                                  ).notifier,
+                                )
+                                .fetchDecision();
+
+                            final freshWhisper =
+                                ref
+                                    .read(
+                                      chaputDecisionControllerProvider(
+                                        profileIdHex,
+                                      ),
+                                    )
+                                    .decision
+                                    ?.credits
+                                    .whisper ??
+                                0;
+
+                            if (freshWhisper > 0)
+                              return; // ✅ kredi varsa paywall yok
+
+                            final purchase = await _openPaywall(
+                              feature: PaywallFeature.whisper,
+                            );
+                            if (purchase == null) return;
+                            await _verifyPurchaseAndApply(purchase);
+                          },
+                          replyOverlay: showReplyBar ? 88.0 : 0.0,
+                          whisperCredits: creditsWhisper,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (showEmptyChaputSheet && emptyChaputMessage != null)
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: SizedBox(
+                        height:
+                            (MediaQuery.of(context).size.height *
+                                _chaputSheetMin) +
+                            MediaQuery.of(context).padding.bottom,
+                        child: IgnorePointer(
+                          child: EmptyChaputSheet(
+                            message: emptyChaputMessage,
+                            height:
+                                (MediaQuery.of(context).size.height *
+                                    _chaputSheetMin) +
+                                MediaQuery.of(context).padding.bottom,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (showReplyBar)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: AnimatedPadding(
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOut,
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: ChaputReplyBar(
+                        key: ValueKey(activeThread?.threadId ?? 'none'),
+                        canWhisper: creditsWhisper > 0,
+                        whisperMode: _replyWhisperMode,
+                        replyAuthor: replyAuthor,
+                        replyBody: replyBody,
+                        onClearReply: () {
+                          setState(() {
+                            _replyTarget = null;
+                            _replyTargetThreadId = null;
+                          });
+                        },
+
+                        onToggleWhisper: () async {
+                          // kapatmak serbest
+                          if (_replyWhisperMode) {
+                            setState(() => _replyWhisperMode = false);
+                            return;
+                          }
+
+                          // açarken: fresh decision çek
+                          final notifier = ref.read(
+                            chaputDecisionControllerProvider(
+                              profileIdHex,
+                            ).notifier,
+                          );
+                          ChaputDecision? freshDecision;
+                          final api = ref.read(chaputApiProvider);
+                          try {
+                            freshDecision = await api.getDecision(profileIdHex);
+                            notifier.setCredits(
+                              normal: freshDecision.credits.normal,
+                              hidden: freshDecision.credits.hidden,
+                              special: freshDecision.credits.special,
+                              revive: freshDecision.credits.revive,
+                              whisper: freshDecision.credits.whisper,
+                            );
+                            notifier.applyPlanType(freshDecision.plan.type);
+                            if (freshDecision.plan.period != null &&
+                                freshDecision.plan.period!.isNotEmpty) {
+                              notifier.applyPlanPeriod(
+                                freshDecision.plan.period!,
+                              );
+                            }
+                          } catch (_) {
+                            freshDecision = await notifier
+                                .fetchDecisionAndReturn();
+                          }
+                          final freshWhisper =
+                              freshDecision?.credits.whisper ?? 0;
+
+                          if (freshWhisper > 0) {
+                            setState(() => _replyWhisperMode = true);
+                            return;
+                          }
+
+                          // kredi yok -> paywall
+                          final purchase = await _openPaywall(
+                            feature: PaywallFeature.whisper,
+                          );
+                          if (purchase == null) return;
+
+                          final ok = await _verifyPurchaseAndApply(purchase);
+                          if (!ok) return;
+
+                          // satın alma sonrası tekrar çek
+                          ChaputDecision? after;
+                          try {
+                            after = await api.getDecision(profileIdHex);
+                            notifier.setCredits(
+                              normal: after.credits.normal,
+                              hidden: after.credits.hidden,
+                              special: after.credits.special,
+                              revive: after.credits.revive,
+                              whisper: after.credits.whisper,
+                            );
+                            notifier.applyPlanType(after.plan.type);
+                            if (after.plan.period != null &&
+                                after.plan.period!.isNotEmpty) {
+                              notifier.applyPlanPeriod(after.plan.period!);
+                            }
+                          } catch (_) {
+                            after = await notifier.fetchDecisionAndReturn();
+                          }
+                          final afterWhisper = after?.credits.whisper ?? 0;
+
+                          if (afterWhisper > 0) {
+                            setState(() => _replyWhisperMode = true);
+                          } else {
+                            _showGlassToast(
+                              context.t('profile.toast.whisper_unavailable'),
+                              icon: Icons.error_outline,
+                            );
+                          }
+                        },
+
+                        onWhisperPaywall: () async {
+                          // artık send tetiklemeyecek ama yine de bırakıyoruz
+                          final notifier = ref.read(
+                            chaputDecisionControllerProvider(
+                              profileIdHex,
+                            ).notifier,
+                          );
+                          ChaputDecision? freshDecision;
+                          final api = ref.read(chaputApiProvider);
+                          try {
+                            freshDecision = await api.getDecision(profileIdHex);
+                            notifier.setCredits(
+                              normal: freshDecision.credits.normal,
+                              hidden: freshDecision.credits.hidden,
+                              special: freshDecision.credits.special,
+                              revive: freshDecision.credits.revive,
+                              whisper: freshDecision.credits.whisper,
+                            );
+                            notifier.applyPlanType(freshDecision.plan.type);
+                            if (freshDecision.plan.period != null &&
+                                freshDecision.plan.period!.isNotEmpty) {
+                              notifier.applyPlanPeriod(
+                                freshDecision.plan.period!,
+                              );
+                            }
+                          } catch (_) {
+                            freshDecision = await notifier
+                                .fetchDecisionAndReturn();
+                          }
+                          final freshWhisper =
+                              freshDecision?.credits.whisper ?? 0;
+
+                          if (freshWhisper > 0) {
+                            setState(() => _replyWhisperMode = true);
+                            return;
+                          }
+
+                          final purchase = await _openPaywall(
+                            feature: PaywallFeature.whisper,
+                          );
+                          if (purchase == null) return;
+
+                          final ok = await _verifyPurchaseAndApply(purchase);
+                          if (!ok) return;
+
+                          setState(() => _replyWhisperMode = true);
+                        },
+
+                        onSend: (text, _ignored) async {
+                          final t = activeThread;
+                          if (t == null) return;
+
+                          await _sendThreadMessage(
+                            thread: t,
+                            body: text,
+                            whisper: _replyWhisperMode,
+                            profileIdHex: profileIdHex,
+                            chaputArgs: chaputArgs,
+                            viewerId: viewerId,
+                          );
+
+                          setState(() => _replyWhisperMode = false);
+                          setState(() {
+                            _replyTarget = null;
+                            _replyTargetThreadId = null;
+                          });
+                        },
+                        onFocus: () {
+                          if (_chaputSheetExtent >= _chaputSheetMax - 0.01)
+                            return;
+                          _sheetAutoExpanded = true;
+                          _sheetExtentBeforeKeyboard = _chaputSheetExtent;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!_chaputSheetCtrl.isAttached) return;
+                            _chaputSheetCtrl.animateTo(
+                              _chaputSheetMax,
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOut,
+                            );
+                          });
+                        },
+                        onBlur: () {
+                          if (!_sheetAutoExpanded) return;
+                          _sheetAutoExpanded = false;
+                          final target = _sheetExtentBeforeKeyboard;
+                          if (target < _chaputSheetMax - 0.01) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (!_chaputSheetCtrl.isAttached) return;
+                              _chaputSheetCtrl.animateTo(
+                                target.clamp(_chaputSheetMin, _chaputSheetMax),
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeOut,
+                              );
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+
+                // BUTON
+                Positioned(
+                  right: 14,
+                  bottom: (chaputThreads.isNotEmpty
+                      ? (MediaQuery.of(context).size.height *
+                                _chaputSheetExtent +
+                            10)
+                      : (showEmptyChaputSheet
+                            ? (MediaQuery.of(context).size.height *
+                                      _chaputSheetMin +
+                                  MediaQuery.of(context).padding.bottom +
+                                  6)
+                            : 14)),
+                  child: SafeArea(
+                    top: false,
+                    bottom: !(showEmptyChaputSheet && chaputThreads.isEmpty),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child:
+                          (_composerOpen ||
+                              _silhouetteMode ||
+                              isMe ||
+                              _chaputThreadCreated ||
+                              hasOurThread ||
+                              (chaputThreads.isNotEmpty &&
+                                  _chaputSheetExtent > _chaputSheetMin + 0.01))
+                          ? const SizedBox.shrink()
+                          : IgnorePointer(
+                              ignoring: !_threeReady,
+                              child: BlackGlass(
+                                radius: 16,
+                                blur: 10,
+                                opacity: 0.55,
+                                borderOpacity: 0.12,
+                                child: Material(
+                                  type: MaterialType.transparency,
+                                  child: InkWell(
+                                    onTap: (_silhouetteMode || _composerOpen)
+                                        ? null
+                                        : () async {
+                                            if (decisionHasArchived &&
+                                                decisionThreadId.length == 32) {
+                                              await _handleRevivePressed(
+                                                threadIdHex: decisionThreadId,
+                                                profileIdHex: profileIdHex,
+                                                chaputArgs: chaputArgs,
+                                                targetUser: targetLiteUser,
+                                              );
+                                              return;
+                                            }
+                                            if (showBindExhausted) {
+                                              final purchase =
+                                                  await _openPaywall(
+                                                    feature:
+                                                        PaywallFeature.bind,
+                                                  );
+                                              if (purchase != null) {
+                                                final ok =
+                                                    await _verifyPurchaseAndApply(
+                                                      purchase,
+                                                    );
+                                                if (ok) {
+                                                  _prepareComposer();
+                                                }
+                                              }
+                                              return;
+                                            }
+                                            await _handleBindPressed(
+                                              profileId: profileIdHex,
+                                            );
+                                          },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 10,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            decisionHasArchived
+                                                ? Icons.restore
+                                                : showBindExhausted
+                                                ? Icons.lock_clock
+                                                : (_decisionPath == 'NEED_AD'
+                                                      ? Icons.play_circle
+                                                      : Icons.draw),
+                                            size: 18,
+                                            color: AppColors.chaputWhite,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            decisionHasArchived
+                                                ? context.t(
+                                                    'profile.bind.restore_archive',
+                                                  )
+                                                : showBindExhausted
+                                                ? context.t(
+                                                    'profile.bind.rights_exhausted',
+                                                  )
+                                                : (_decisionPath == 'NEED_AD'
+                                                      ? context.t(
+                                                          'profile.bind.watch_ad',
+                                                        )
+                                                      : context.t(
+                                                          'profile.bind.start_one',
+                                                        )),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.chaputWhite,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 10 + kb,
+                  child: SafeArea(
+                    top: false,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: (!_composerOpen || _silhouetteMode)
+                          ? const SizedBox.shrink()
+                          : meAsync.when(
+                              loading: () => ChatComposerBar(
+                                controller: _msgCtrl,
+                                focusNode: _msgFocus,
+                                avatarUrl: null,
+                                isDefaultAvatar: true,
+                                onAvatarTap: _toggleProfileCard,
+                                onSend: () => _sendChaputMessage(
+                                  profileId: profileIdHex,
+                                  viewerId: viewerId,
+                                  targetUserId: userId,
+                                  viewerLite: viewerLite,
+                                  chaputArgs: chaputArgs,
+                                ),
+                                anonEnabled: _anonMode,
+                                highlightEnabled: _highlightMode,
+                                onOptionsTap: _openComposerOptionsSheet,
+                                onOptionsEmptyTap: _onOptionsEmptyTap,
+                              ),
+                              error: (_, __) => ChatComposerBar(
+                                controller: _msgCtrl,
+                                focusNode: _msgFocus,
+                                avatarUrl: null,
+                                isDefaultAvatar: true,
+                                onAvatarTap: _toggleProfileCard,
+                                onSend: () => _sendChaputMessage(
+                                  profileId: profileIdHex,
+                                  viewerId: viewerId,
+                                  targetUserId: userId,
+                                  viewerLite: viewerLite,
+                                  chaputArgs: chaputArgs,
+                                ),
+                                anonEnabled: _anonMode,
+                                highlightEnabled: _highlightMode,
+                                onOptionsTap: _openComposerOptionsSheet,
+                                onOptionsEmptyTap: _onOptionsEmptyTap,
+                              ),
+                              data: (me) {
+                                final meUser = me?.user;
+
+                                final meAvatarUrl =
+                                    (meUser?.profilePhotoUrl != null &&
+                                        meUser!.profilePhotoUrl!.isNotEmpty)
+                                    ? meUser.profilePhotoUrl
+                                    : meUser?.defaultAvatar;
+
+                                final meIsDefault =
+                                    (meUser?.profilePhotoUrl == null ||
+                                    (meUser!.profilePhotoUrl?.isEmpty ?? true));
+
+                                return ChatComposerBar(
+                                  controller: _msgCtrl,
+                                  focusNode: _msgFocus,
+                                  avatarUrl: meAvatarUrl,
+                                  isDefaultAvatar: meIsDefault,
+                                  onAvatarTap: _toggleProfileCard,
+                                  onSend: () => _sendChaputMessage(
+                                    profileId: profileIdHex,
+                                    viewerId: viewerId,
+                                    targetUserId: userId,
+                                    viewerLite: viewerLite,
+                                    chaputArgs: chaputArgs,
+                                  ),
+                                  anonEnabled: _anonMode,
+                                  highlightEnabled: _highlightMode,
+                                  onOptionsTap: _openComposerOptionsSheet,
+                                  onOptionsEmptyTap: _onOptionsEmptyTap,
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-
-
-
-          ],
-        ),
-      ),
+          ),
         );
       },
     );
-
   }
 }

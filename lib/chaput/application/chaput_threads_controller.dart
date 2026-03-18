@@ -74,11 +74,14 @@ class ChaputThreadsState {
 }
 
 final chaputThreadsControllerProvider =
-    AutoDisposeNotifierProviderFamily<ChaputThreadsController, ChaputThreadsState, ChaputThreadsArgs>(
-  ChaputThreadsController.new,
-);
+    AutoDisposeNotifierProviderFamily<
+      ChaputThreadsController,
+      ChaputThreadsState,
+      ChaputThreadsArgs
+    >(ChaputThreadsController.new);
 
-class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsState, ChaputThreadsArgs> {
+class ChaputThreadsController
+    extends AutoDisposeFamilyNotifier<ChaputThreadsState, ChaputThreadsArgs> {
   ChaputApi get _api => ref.read(chaputApiProvider);
 
   @override
@@ -89,7 +92,10 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
 
   Future<void> _loadInitial(ChaputThreadsArgs arg) async {
     try {
-      final res = await _api.listThreads(profileIdHex: arg.profileId, limit: 20);
+      final res = await _api.listThreads(
+        profileIdHex: arg.profileId,
+        limit: 20,
+      );
       final items = _reorder(res.items, arg);
       final users = await _hydrateUsers(items);
       state = state.copyWith(
@@ -153,8 +159,21 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
   }) {
     if (threadId.isEmpty) return;
     final nextItems = state.items
-        .map((t) => t.threadId == threadId ? t.copyWith(state: newState, pendingExpiresAt: pendingExpiresAt) : t)
+        .map(
+          (t) => t.threadId == threadId
+              ? t.copyWith(state: newState, pendingExpiresAt: pendingExpiresAt)
+              : t,
+        )
         .toList(growable: false);
+    state = state.copyWith(items: nextItems);
+  }
+
+  void removeThread(String threadId) {
+    if (threadId.isEmpty) return;
+    final nextItems = state.items
+        .where((t) => t.threadId != threadId)
+        .toList(growable: false);
+    if (nextItems.length == state.items.length) return;
     state = state.copyWith(items: nextItems);
   }
 
@@ -168,24 +187,43 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
     return out;
   }
 
-  List<ChaputThreadItem> _reorder(List<ChaputThreadItem> items, ChaputThreadsArgs arg) {
+  List<ChaputThreadItem> _reorder(
+    List<ChaputThreadItem> items,
+    ChaputThreadsArgs arg,
+  ) {
     if (items.isEmpty) return items;
     final owner = arg.ownerId;
     final viewer = arg.viewerId;
 
-    final ourThread = items.where((t) =>
-        (t.userAId == owner && t.userBId == viewer) || (t.userAId == viewer && t.userBId == owner)).toList();
+    final ourThread = items
+        .where(
+          (t) =>
+              (t.userAId == owner && t.userBId == viewer) ||
+              (t.userAId == viewer && t.userBId == owner),
+        )
+        .toList();
     if (arg.restricted) {
       return ourThread;
     }
 
-    final specials = items.where((t) => t.isSpecial && !ourThread.contains(t)).toList();
-    final rest = items.where((t) => !ourThread.contains(t) && !specials.contains(t)).toList();
+    final specials = items
+        .where((t) => t.isSpecial && !ourThread.contains(t))
+        .toList();
+    final rest = items
+        .where((t) => !ourThread.contains(t) && !specials.contains(t))
+        .toList();
     int byCreatedDesc(ChaputThreadItem a, ChaputThreadItem b) {
-      final ta = a.lastMessageAt ?? a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final tb = b.lastMessageAt ?? b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final ta =
+          a.lastMessageAt ??
+          a.createdAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final tb =
+          b.lastMessageAt ??
+          b.createdAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
       return tb.compareTo(ta);
     }
+
     specials.sort(byCreatedDesc);
     rest.sort(byCreatedDesc);
 
@@ -231,15 +269,17 @@ class ChaputThreadsController extends AutoDisposeFamilyNotifier<ChaputThreadsSta
 
   void upsertThreadFromSocket(ChaputThreadItem item, ChaputThreadsArgs arg) {
     if (item.threadId.isEmpty) return;
-    final next = state.items.map((t) {
-      if (t.threadId != item.threadId) return t;
-      return t.copyWith(
-        kind: item.kind,
-        state: item.state,
-        lastMessageAt: item.lastMessageAt ?? t.lastMessageAt,
-        pendingExpiresAt: item.pendingExpiresAt ?? t.pendingExpiresAt,
-      );
-    }).toList(growable: false);
+    final next = state.items
+        .map((t) {
+          if (t.threadId != item.threadId) return t;
+          return t.copyWith(
+            kind: item.kind,
+            state: item.state,
+            lastMessageAt: item.lastMessageAt ?? t.lastMessageAt,
+            pendingExpiresAt: item.pendingExpiresAt ?? t.pendingExpiresAt,
+          );
+        })
+        .toList(growable: false);
 
     final exists = state.items.any((t) => t.threadId == item.threadId);
     final merged = exists ? next : [item, ...next];

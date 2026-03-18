@@ -1,8 +1,6 @@
 import 'dart:ui';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../chaput/application/chaput_decision_controller.dart';
@@ -16,7 +14,6 @@ import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'black_glass.dart';
 import 'chaput_native_ad_card.dart';
 import 'sheet_handle.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChaputThreadSheet extends ConsumerWidget {
   const ChaputThreadSheet({
@@ -39,6 +36,9 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.onOpenProfile,
     required this.onSendMessage,
     required this.onMakeHidden,
+    required this.onArchiveThread,
+    required this.onReportThread,
+    required this.onReportMessage,
     required this.canMakeHidden,
     required this.onOpenWhisperPaywall,
     required this.replyOverlay,
@@ -62,13 +62,23 @@ class ChaputThreadSheet extends ConsumerWidget {
   final void Function(int pageIndex, ChaputThreadItem? thread) onPageChanged;
   final bool showNativeAds;
   final void Function(String userId, String threadId) onOpenProfile;
-  final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
+  final Future<void> Function(
+    ChaputThreadItem thread,
+    String body,
+    bool whisper,
+  )
+  onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
+  final Future<void> Function(ChaputThreadItem thread) onArchiveThread;
+  final Future<void> Function(ChaputThreadItem thread) onReportThread;
+  final Future<void> Function(ChaputThreadItem thread, ChaputMessage message)
+  onReportMessage;
   final bool canMakeHidden;
   final VoidCallback onOpenWhisperPaywall;
   final double replyOverlay;
   final int whisperCredits;
-  final void Function(ChaputThreadItem thread, ChaputMessage message) onReplyMessage;
+  final void Function(ChaputThreadItem thread, ChaputMessage message)
+  onReplyMessage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -108,23 +118,34 @@ class ChaputThreadSheet extends ConsumerWidget {
                         return const _ChaputNativeAdPage();
                       }
                       final thread = entry.thread!;
-                      final isParticipant = thread.userAId == viewerId || thread.userBId == viewerId;
+                      final isParticipant =
+                          thread.userAId == viewerId ||
+                          thread.userBId == viewerId;
                       final otherId = thread.userAId == ownerId
                           ? thread.userBId
                           : thread.userBId == ownerId
-                              ? thread.userAId
-                              : (thread.userAId == viewerId ? thread.userBId : thread.userAId);
+                          ? thread.userAId
+                          : (thread.userAId == viewerId
+                                ? thread.userBId
+                                : thread.userAId);
                       final ownerUser = usersById[ownerId];
                       final rawOtherUser =
-                          usersById[otherId] ?? (viewerUser != null && otherId == viewerUser!.id ? viewerUser : null);
-                      final isHiddenForViewer = thread.isHidden && !isParticipant;
+                          usersById[otherId] ??
+                          (viewerUser != null && otherId == viewerUser!.id
+                              ? viewerUser
+                              : null);
+                      final isHiddenForViewer =
+                          thread.isHidden && !isParticipant;
                       final otherUser = isHiddenForViewer
                           ? LiteUser(
                               id: otherId,
                               username: null,
                               fullName: ctx.t('chat.anonymous_user'),
                               bio: null,
-                              defaultAvatar: rawOtherUser?.defaultAvatar ?? ownerUser?.defaultAvatar ?? '',
+                              defaultAvatar:
+                                  rawOtherUser?.defaultAvatar ??
+                                  ownerUser?.defaultAvatar ??
+                                  '',
                               profilePhotoKey: null,
                               profilePhotoUrl: null,
                             )
@@ -143,6 +164,9 @@ class ChaputThreadSheet extends ConsumerWidget {
                         onOpenProfile: onOpenProfile,
                         onSendMessage: onSendMessage,
                         onMakeHidden: onMakeHidden,
+                        onArchiveThread: onArchiveThread,
+                        onReportThread: onReportThread,
+                        onReportMessage: onReportMessage,
                         canMakeHidden: canMakeHidden,
                         onOpenWhisperPaywall: onOpenWhisperPaywall,
                         replyOverlay: replyOverlay,
@@ -156,7 +180,9 @@ class ChaputThreadSheet extends ConsumerWidget {
                         builder: (ctx, _) {
                           double page = pageController.initialPage.toDouble();
                           if (pageController.hasClients) {
-                            page = pageController.page ?? pageController.initialPage.toDouble();
+                            page =
+                                pageController.page ??
+                                pageController.initialPage.toDouble();
                           }
                           final delta = (page - index).abs().clamp(0.0, 1.0);
                           final scale = 1.0 - (delta * 0.08);
@@ -164,10 +190,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                           return Transform.scale(
                             scale: scale,
                             alignment: Alignment.bottomCenter,
-                            child: Opacity(
-                              opacity: opacity,
-                              child: child,
-                            ),
+                            child: Opacity(opacity: opacity, child: child),
                           );
                         },
                       );
@@ -184,7 +207,10 @@ class ChaputThreadSheet extends ConsumerWidget {
 }
 
 class _ChaputPageEntries {
-  static List<_ChaputPageEntry> build(List<ChaputThreadItem> threads, bool showAds) {
+  static List<_ChaputPageEntry> build(
+    List<ChaputThreadItem> threads,
+    bool showAds,
+  ) {
     final entries = <_ChaputPageEntry>[];
     var threadCount = 0;
     for (var i = 0; i < threads.length; i++) {
@@ -200,9 +226,7 @@ class _ChaputPageEntries {
 
 class _ChaputPageEntry {
   const _ChaputPageEntry.thread(this.thread) : isAd = false;
-  const _ChaputPageEntry.ad()
-      : thread = null,
-        isAd = true;
+  const _ChaputPageEntry.ad() : thread = null, isAd = true;
 
   final ChaputThreadItem? thread;
   final bool isAd;
@@ -245,6 +269,9 @@ class _SheetPage extends StatelessWidget {
     required this.onOpenProfile,
     required this.onSendMessage,
     required this.onMakeHidden,
+    required this.onArchiveThread,
+    required this.onReportThread,
+    required this.onReportMessage,
     required this.canMakeHidden,
     required this.onOpenWhisperPaywall,
     required this.replyOverlay,
@@ -263,13 +290,23 @@ class _SheetPage extends StatelessWidget {
   final String? initialThreadId;
   final String? initialMessageId;
   final void Function(String userId, String threadId) onOpenProfile;
-  final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
+  final Future<void> Function(
+    ChaputThreadItem thread,
+    String body,
+    bool whisper,
+  )
+  onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
+  final Future<void> Function(ChaputThreadItem thread) onArchiveThread;
+  final Future<void> Function(ChaputThreadItem thread) onReportThread;
+  final Future<void> Function(ChaputThreadItem thread, ChaputMessage message)
+  onReportMessage;
   final bool canMakeHidden;
   final VoidCallback onOpenWhisperPaywall;
   final double replyOverlay;
   final int whisperCredits;
-  final void Function(ChaputThreadItem thread, ChaputMessage message) onReplyMessage;
+  final void Function(ChaputThreadItem thread, ChaputMessage message)
+  onReplyMessage;
   final Map<String, List<LiteUser>> typingUsersByThread;
 
   @override
@@ -286,8 +323,12 @@ class _SheetPage extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: AppColors.chaputBlack.withOpacity(0.80),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(22),
+                ),
+                border: Border.all(
+                  color: AppColors.chaputWhite.withOpacity(0.10),
+                ),
               ),
               child: compact
                   ? SizedBox(
@@ -313,16 +354,30 @@ class _SheetPage extends StatelessWidget {
                                     isHidden: thread.isHidden,
                                     isSpecial: thread.isSpecial,
                                     isParticipant: isParticipant,
-                                    otherName: (thread.isHidden && !isParticipant)
+                                    otherName:
+                                        (thread.isHidden && !isParticipant)
                                         ? context.t('chat.anonymous_user')
                                         : (otherUser?.fullName ?? ''),
                                     otherUsername:
-                                        (thread.isHidden && !isParticipant) ? null : otherUser?.username,
+                                        (thread.isHidden && !isParticipant)
+                                        ? null
+                                        : otherUser?.username,
                                     onOpenProfile: onOpenProfile,
                                     threadId: thread.threadId,
-                                    showHideAction: isParticipant && !thread.isHidden,
+                                    showHideAction:
+                                        isParticipant && !thread.isHidden,
                                     canMakeHidden: canMakeHidden,
                                     onMakeHidden: () => onMakeHidden(thread),
+                                    onArchiveThread: () =>
+                                        onArchiveThread(thread),
+                                    onReportThread: () =>
+                                        onReportThread(thread),
+                                    canArchiveThread:
+                                        isParticipant && thread.state == 'OPEN',
+                                    canReportThread:
+                                        isParticipant &&
+                                        thread.starterId.toLowerCase() !=
+                                            viewerId.toLowerCase(),
                                   ),
                                 ),
                               ),
@@ -344,7 +399,8 @@ class _SheetPage extends StatelessWidget {
                             viewerId: viewerId,
                             isParticipant: isParticipant,
                             profileId: profileId,
-                            initialMessageId: (initialThreadId != null &&
+                            initialMessageId:
+                                (initialThreadId != null &&
                                     initialMessageId != null &&
                                     initialThreadId == thread.threadId)
                                 ? initialMessageId
@@ -352,12 +408,17 @@ class _SheetPage extends StatelessWidget {
                             onOpenProfile: onOpenProfile,
                             onSendMessage: onSendMessage,
                             onMakeHidden: onMakeHidden,
+                            onArchiveThread: onArchiveThread,
+                            onReportThread: onReportThread,
+                            onReportMessage: onReportMessage,
                             canMakeHidden: canMakeHidden,
                             onOpenWhisperPaywall: onOpenWhisperPaywall,
                             replyOverlay: replyOverlay,
                             whisperCredits: whisperCredits,
                             onReplyMessage: onReplyMessage,
-                            typingUsers: typingUsersByThread[thread.threadId] ?? const [],
+                            typingUsers:
+                                typingUsersByThread[thread.threadId] ??
+                                const [],
                           ),
                         ),
                       ],
@@ -383,6 +444,9 @@ class _ThreadPage extends ConsumerWidget {
     required this.onOpenProfile,
     required this.onSendMessage,
     required this.onMakeHidden,
+    required this.onArchiveThread,
+    required this.onReportThread,
+    required this.onReportMessage,
     required this.canMakeHidden,
     required this.onOpenWhisperPaywall,
     required this.replyOverlay,
@@ -400,27 +464,48 @@ class _ThreadPage extends ConsumerWidget {
   final String profileId;
   final String? initialMessageId;
   final void Function(String userId, String threadId) onOpenProfile;
-  final Future<void> Function(ChaputThreadItem thread, String body, bool whisper) onSendMessage;
+  final Future<void> Function(
+    ChaputThreadItem thread,
+    String body,
+    bool whisper,
+  )
+  onSendMessage;
   final Future<void> Function(ChaputThreadItem thread) onMakeHidden;
+  final Future<void> Function(ChaputThreadItem thread) onArchiveThread;
+  final Future<void> Function(ChaputThreadItem thread) onReportThread;
+  final Future<void> Function(ChaputThreadItem thread, ChaputMessage message)
+  onReportMessage;
   final bool canMakeHidden;
   final VoidCallback onOpenWhisperPaywall;
   final double replyOverlay;
   final int whisperCredits;
-  final void Function(ChaputThreadItem thread, ChaputMessage message) onReplyMessage;
+  final void Function(ChaputThreadItem thread, ChaputMessage message)
+  onReplyMessage;
   final List<LiteUser> typingUsers;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final args = ChaputMessagesArgs(threadId: thread.threadId, profileId: profileId);
+    final args = ChaputMessagesArgs(
+      threadId: thread.threadId,
+      profileId: profileId,
+    );
     final messagesState = ref.watch(chaputMessagesControllerProvider(args));
     final isHidden = thread.isHidden;
     final isSpecial = thread.isSpecial;
     final viewerIsStarter = thread.starterId == viewerId;
     final isPending = thread.state == 'PENDING';
 
-    final otherName = (isHidden && !isParticipant) ? context.t('chat.anonymous_user') : (otherUser?.fullName ?? '');
-    final otherUsername = (isHidden && !isParticipant) ? null : otherUser?.username;
+    final otherName = (isHidden && !isParticipant)
+        ? context.t('chat.anonymous_user')
+        : (otherUser?.fullName ?? '');
+    final otherUsername = (isHidden && !isParticipant)
+        ? null
+        : otherUser?.username;
     final canReply = isParticipant && (!isPending || !viewerIsStarter);
+    final canArchiveThread = isParticipant && thread.state == 'OPEN';
+    final canReportThread =
+        isParticipant &&
+        thread.starterId.toLowerCase() != viewerId.toLowerCase();
 
     return LayoutBuilder(
       builder: (ctx, constraints) {
@@ -430,8 +515,8 @@ class _ThreadPage extends ConsumerWidget {
         final pendingWidget = (isParticipant && isPending && viewerIsStarter)
             ? _PendingNotice(pendingUntil: thread.pendingExpiresAt)
             : (isParticipant && isPending && !viewerIsStarter)
-                ? const _PendingReplyHint()
-                : null;
+            ? const _PendingReplyHint()
+            : null;
 
         const headerHeight = 64.0;
         const spacing = 8.0;
@@ -440,10 +525,21 @@ class _ThreadPage extends ConsumerWidget {
         const typingHeight = 26.0;
         const typingExtraAbove = 24.0;
         const thirdViewerListLift = 12.0;
-        final bottomPad = composerHeight + pendingHeight + (pendingWidget != null ? spacing : 0) + replyOverlay;
+        final bottomPad =
+            composerHeight +
+            pendingHeight +
+            (pendingWidget != null ? spacing : 0) +
+            replyOverlay;
         final topPad = headerHeight + spacing;
         final hasTyping = typingUsers.isNotEmpty;
-        final listBottom = bottomPad +
+        final typingBottomOffset =
+            (bottomPad -
+                    (isParticipant ? 16.0 : 28.0) +
+                    (isParticipant ? 0.0 : typingExtraAbove))
+                .clamp(6.0, double.infinity)
+                .toDouble();
+        final listBottom =
+            bottomPad +
             (hasTyping ? typingHeight : 0.0) +
             (!isParticipant ? thirdViewerListLift : 0.0);
 
@@ -468,6 +564,10 @@ class _ThreadPage extends ConsumerWidget {
                   showHideAction: isParticipant && !isHidden,
                   canMakeHidden: canMakeHidden,
                   onMakeHidden: () => onMakeHidden(thread),
+                  onArchiveThread: () => onArchiveThread(thread),
+                  onReportThread: () => onReportThread(thread),
+                  canArchiveThread: canArchiveThread,
+                  canReportThread: canReportThread,
                 ),
               ),
               if (showMessages)
@@ -488,6 +588,7 @@ class _ThreadPage extends ConsumerWidget {
                     canReply: canReply,
                     initialMessageId: initialMessageId,
                     onReply: (m) => onReplyMessage(thread, m),
+                    onReportMessage: (m) => onReportMessage(thread, m),
                     onToggleLike: (m, like) {
                       final me = viewerUser == null
                           ? null
@@ -503,7 +604,9 @@ class _ThreadPage extends ConsumerWidget {
                           .read(chaputMessagesControllerProvider(args).notifier)
                           .toggleLike(messageId: m.id, like: like, me: me);
                     },
-                    onLoadMore: () => ref.read(chaputMessagesControllerProvider(args).notifier).loadMore(),
+                    onLoadMore: () => ref
+                        .read(chaputMessagesControllerProvider(args).notifier)
+                        .loadMore(),
                   ),
                 ),
               if (pendingWidget != null)
@@ -517,10 +620,7 @@ class _ThreadPage extends ConsumerWidget {
                 Positioned(
                   left: 16,
                   right: 16,
-                  bottom: (bottomPad -
-                          (isParticipant ? 16.0 : 28.0) +
-                          (isParticipant ? 0.0 : typingExtraAbove))
-                      .clamp(6.0, double.infinity) as double,
+                  bottom: typingBottomOffset,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -551,6 +651,10 @@ class _ThreadHeader extends StatelessWidget {
     required this.showHideAction,
     required this.canMakeHidden,
     required this.onMakeHidden,
+    required this.canArchiveThread,
+    required this.canReportThread,
+    required this.onArchiveThread,
+    required this.onReportThread,
   });
 
   final LiteUser? ownerUser;
@@ -565,6 +669,10 @@ class _ThreadHeader extends StatelessWidget {
   final bool showHideAction;
   final bool canMakeHidden;
   final VoidCallback onMakeHidden;
+  final bool canArchiveThread;
+  final bool canReportThread;
+  final VoidCallback onArchiveThread;
+  final VoidCallback onReportThread;
 
   @override
   Widget build(BuildContext context) {
@@ -604,7 +712,9 @@ class _ThreadHeader extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                if ((otherUsername == null || otherUsername!.isEmpty) && isHidden && !isParticipant)
+                if ((otherUsername == null || otherUsername!.isEmpty) &&
+                    isHidden &&
+                    !isParticipant)
                   Text(
                     context.t('chat.hidden_user_desc'),
                     style: TextStyle(
@@ -623,7 +733,9 @@ class _ThreadHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.chaputWhite.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
+                border: Border.all(
+                  color: AppColors.chaputWhite.withOpacity(0.2),
+                ),
               ),
               child: _SuperBadge(),
             ),
@@ -631,16 +743,25 @@ class _ThreadHeader extends StatelessWidget {
             GestureDetector(
               onTap: onMakeHidden,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: canMakeHidden ? AppColors.chaputWhite : AppColors.chaputWhite.withOpacity(0.12),
+                  color: canMakeHidden
+                      ? AppColors.chaputWhite
+                      : AppColors.chaputWhite.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.2),
+                  ),
                 ),
                 child: Text(
                   context.t('chat.hide'),
                   style: TextStyle(
-                    color: canMakeHidden ? AppColors.chaputBlack : AppColors.chaputWhite,
+                    color: canMakeHidden
+                        ? AppColors.chaputBlack
+                        : AppColors.chaputWhite,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -653,7 +774,9 @@ class _ThreadHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.chaputWhite.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
+                border: Border.all(
+                  color: AppColors.chaputWhite.withOpacity(0.2),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -671,7 +794,288 @@ class _ThreadHeader extends StatelessWidget {
                 ],
               ),
             ),
+          if (canArchiveThread || canReportThread) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _showThreadActions(
+                context,
+                canArchive: canArchiveThread,
+                canReport: canReportThread,
+                onArchive: onArchiveThread,
+                onReport: onReportThread,
+              ),
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: AppColors.chaputWhite.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.14),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.more_horiz_rounded,
+                  size: 18,
+                  color: AppColors.chaputWhite,
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+void _showThreadActions(
+  BuildContext context, {
+  required bool canArchive,
+  required bool canReport,
+  required VoidCallback onArchive,
+  required VoidCallback onReport,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _ThreadActionSheet(
+      canArchive: canArchive,
+      canReport: canReport,
+      onArchive: onArchive,
+      onReport: onReport,
+    ),
+  );
+}
+
+void _showMessageActions(
+  BuildContext context, {
+  required ChaputMessage message,
+  required bool canReply,
+  required bool canShowLikes,
+  required bool canReport,
+  required VoidCallback onReply,
+  required VoidCallback onShowLikes,
+  required VoidCallback onReport,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _MessageActionSheet(
+      message: message,
+      canReply: canReply,
+      canShowLikes: canShowLikes,
+      canReport: canReport,
+      onReply: onReply,
+      onShowLikes: onShowLikes,
+      onReport: onReport,
+    ),
+  );
+}
+
+class _ThreadActionSheet extends StatelessWidget {
+  const _ThreadActionSheet({
+    required this.canArchive,
+    required this.canReport,
+    required this.onArchive,
+    required this.onReport,
+  });
+
+  final bool canArchive;
+  final bool canReport;
+  final VoidCallback onArchive;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 12),
+          decoration: BoxDecoration(
+            color: AppColors.chaputBlack.withOpacity(0.82),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SheetHandle(),
+              if (canArchive)
+                _GlassActionTile(
+                  icon: Icons.archive_outlined,
+                  title: context.t('chat.action.archive'),
+                  subtitle: context.t('chat.action.archive_sub'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onArchive();
+                  },
+                ),
+              if (canReport)
+                _GlassActionTile(
+                  icon: Icons.flag_outlined,
+                  title: context.t('chat.action.report'),
+                  subtitle: context.t('chat.action.report_sub'),
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onReport();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageActionSheet extends StatelessWidget {
+  const _MessageActionSheet({
+    required this.message,
+    required this.canReply,
+    required this.canShowLikes,
+    required this.canReport,
+    required this.onReply,
+    required this.onShowLikes,
+    required this.onReport,
+  });
+
+  final ChaputMessage message;
+  final bool canReply;
+  final bool canShowLikes;
+  final bool canReport;
+  final VoidCallback onReply;
+  final VoidCallback onShowLikes;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 12),
+          decoration: BoxDecoration(
+            color: AppColors.chaputBlack.withOpacity(0.82),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SheetHandle(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.chaputWhite.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.chaputWhite.withOpacity(0.08),
+                    ),
+                  ),
+                  child: Text(
+                    message.body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.chaputWhite,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ),
+              if (canReply)
+                _GlassActionTile(
+                  icon: Icons.reply_rounded,
+                  title: context.t('chat.action.reply'),
+                  subtitle: context.t('chat.action.reply_sub'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onReply();
+                  },
+                ),
+              if (canShowLikes)
+                _GlassActionTile(
+                  icon: Icons.favorite_border_rounded,
+                  title: context.t('chat.action.likes'),
+                  subtitle: context.t('chat.action.likes_sub'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onShowLikes();
+                  },
+                ),
+              if (canReport)
+                _GlassActionTile(
+                  icon: Icons.flag_outlined,
+                  title: context.t('chat.action.report_message'),
+                  subtitle: context.t('chat.action.report_message_sub'),
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onReport();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassActionTile extends StatelessWidget {
+  const _GlassActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive
+        ? AppColors.chaputRed200
+        : AppColors.chaputWhite;
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.chaputWhite.withOpacity(isDestructive ? 0.10 : 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.chaputWhite.withOpacity(0.08)),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(color: color, fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: AppColors.chaputWhite.withOpacity(0.58),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -682,13 +1086,7 @@ class _SuperBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      '💎',
-      style: TextStyle(
-        fontSize: 14,
-        height: 1,
-      ),
-    );
+    return const Text('💎', style: TextStyle(fontSize: 14, height: 1));
   }
 }
 
@@ -721,17 +1119,11 @@ class _AvatarStack extends StatelessWidget {
           children: [
             Positioned(
               left: 0,
-              child: _SmallAvatar(
-                user: owner,
-                forceDefault: false,
-              ),
+              child: _SmallAvatar(user: owner, forceDefault: false),
             ),
             Positioned(
               right: 0,
-              child: _SmallAvatar(
-                user: other,
-                forceDefault: hideOther,
-              ),
+              child: _SmallAvatar(user: other, forceDefault: hideOther),
             ),
           ],
         ),
@@ -741,10 +1133,7 @@ class _AvatarStack extends StatelessWidget {
 }
 
 class _SmallAvatar extends StatelessWidget {
-  const _SmallAvatar({
-    required this.user,
-    required this.forceDefault,
-  });
+  const _SmallAvatar({required this.user, required this.forceDefault});
 
   final LiteUser? user;
   final bool forceDefault;
@@ -756,7 +1145,8 @@ class _SmallAvatar extends StatelessWidget {
       return const SizedBox(width: 36, height: 36);
     }
 
-    final hasPhoto = u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty;
+    final hasPhoto =
+        u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty;
     final isDefault = forceDefault || !hasPhoto;
     final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoPath!;
 
@@ -823,6 +1213,7 @@ class _MessagesList extends StatefulWidget {
     required this.canReply,
     required this.initialMessageId,
     required this.onReply,
+    required this.onReportMessage,
     required this.onToggleLike,
     required this.onLoadMore,
   });
@@ -838,6 +1229,7 @@ class _MessagesList extends StatefulWidget {
   final bool canReply;
   final String? initialMessageId;
   final ValueChanged<ChaputMessage> onReply;
+  final ValueChanged<ChaputMessage> onReportMessage;
   final void Function(ChaputMessage message, bool like) onToggleLike;
   final VoidCallback onLoadMore;
 
@@ -870,7 +1262,9 @@ class _MessagesListState extends State<_MessagesList> {
   void didUpdateWidget(covariant _MessagesList oldWidget) {
     super.didUpdateWidget(oldWidget);
     final newId = widget.initialMessageId;
-    if (newId != null && newId.isNotEmpty && newId != oldWidget.initialMessageId) {
+    if (newId != null &&
+        newId.isNotEmpty &&
+        newId != oldWidget.initialMessageId) {
       _pendingJumpId = newId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _tryPendingJump();
@@ -888,7 +1282,8 @@ class _MessagesListState extends State<_MessagesList> {
   void _handleScroll() {
     if (!_scrollController.hasClients) return;
     if (widget.state.isLoading || widget.state.isLoadingMore) return;
-    if (widget.state.nextCursor == null || widget.state.nextCursor!.isEmpty) return;
+    if (widget.state.nextCursor == null || widget.state.nextCursor!.isEmpty)
+      return;
     final pos = _scrollController.position;
     final nearTop = pos.pixels >= pos.maxScrollExtent - 40;
     if (nearTop && !_loadTriggered) {
@@ -928,7 +1323,8 @@ class _MessagesListState extends State<_MessagesList> {
       _pendingJumpId = null;
       return;
     }
-    if (widget.state.nextCursor != null && widget.state.nextCursor!.isNotEmpty) {
+    if (widget.state.nextCursor != null &&
+        widget.state.nextCursor!.isNotEmpty) {
       _pendingJumpId = id;
       widget.onLoadMore();
     }
@@ -957,10 +1353,7 @@ class _MessagesListState extends State<_MessagesList> {
         );
       },
       transitionBuilder: (ctx, anim, sec, child) {
-        return Opacity(
-          opacity: anim.value,
-          child: child,
-        );
+        return Opacity(opacity: anim.value, child: child);
       },
     );
   }
@@ -969,13 +1362,18 @@ class _MessagesListState extends State<_MessagesList> {
   Widget build(BuildContext context) {
     final items = widget.state.items;
     if (widget.state.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.chaputWhite));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.chaputWhite),
+      );
     }
     if (items.isEmpty) {
       return Center(
         child: Text(
           context.t('chat.no_messages'),
-          style: TextStyle(color: AppColors.chaputWhite.withOpacity(0.6), fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: AppColors.chaputWhite.withOpacity(0.6),
+            fontWeight: FontWeight.w700,
+          ),
         ),
       );
     }
@@ -999,10 +1397,17 @@ class _MessagesListState extends State<_MessagesList> {
             ? senderNorm == viewerNorm
             : senderNorm == starterNorm;
         final senderUser = _resolveUser(g.senderId);
-        final forceDefault = widget.isHidden && !widget.isParticipant && senderUser == widget.otherUser;
+        final forceDefault =
+            widget.isHidden &&
+            !widget.isParticipant &&
+            senderUser == widget.otherUser;
         final label = dayLabels[i];
-        final groupKey = _keyForGroup(g.items.isNotEmpty ? g.items.first.id : g.senderId);
-        final contentKey = _keyForGroupContent(g.items.isNotEmpty ? g.items.first.id : g.senderId);
+        final groupKey = _keyForGroup(
+          g.items.isNotEmpty ? g.items.first.id : g.senderId,
+        );
+        final contentKey = _keyForGroupContent(
+          g.items.isNotEmpty ? g.items.first.id : g.senderId,
+        );
         return _MessageGroupBubble(
           key: groupKey,
           group: g,
@@ -1014,6 +1419,7 @@ class _MessagesListState extends State<_MessagesList> {
           resolveUser: _resolveUser,
           canReply: widget.canReply,
           onReply: widget.onReply,
+          onReportMessage: widget.onReportMessage,
           onToggleLike: widget.onToggleLike,
           onShowLikes: (m) => _openLikesFocus(m, isMine, widget.isParticipant),
           onReplyTap: _jumpToMessage,
@@ -1026,7 +1432,10 @@ class _MessagesListState extends State<_MessagesList> {
     );
   }
 
-  List<String?> _buildDayLabels(BuildContext context, List<_MessageGroup> groups) {
+  List<String?> _buildDayLabels(
+    BuildContext context,
+    List<_MessageGroup> groups,
+  ) {
     final labels = List<String?>.filled(groups.length, null, growable: false);
     for (int i = 0; i < groups.length; i++) {
       final g = groups[i];
@@ -1035,9 +1444,12 @@ class _MessagesListState extends State<_MessagesList> {
           : null;
       final key = _dayKey(dt);
       final nextKey = (i + 1) < groups.length
-          ? _dayKey(groups[i + 1].items.isNotEmpty
-              ? (groups[i + 1].items.last.createdAt ?? groups[i + 1].items.first.createdAt)
-              : null)
+          ? _dayKey(
+              groups[i + 1].items.isNotEmpty
+                  ? (groups[i + 1].items.last.createdAt ??
+                        groups[i + 1].items.first.createdAt)
+                  : null,
+            )
           : null;
       if (key != null && key != nextKey) {
         labels[i] = _formatDayLabel(context, dt!);
@@ -1063,16 +1475,19 @@ class _MessagesListState extends State<_MessagesList> {
 
     final monthName = context.t('month_${local.month}');
     if (local.year != now.year) {
-      return context.t('chat_date_day_month_year', params: {
-        'day': '${local.day}',
-        'month': monthName,
-        'year': '${local.year}',
-      });
+      return context.t(
+        'chat_date_day_month_year',
+        params: {
+          'day': '${local.day}',
+          'month': monthName,
+          'year': '${local.year}',
+        },
+      );
     }
-    return context.t('chat_date_day_month', params: {
-      'day': '${local.day}',
-      'month': monthName,
-    });
+    return context.t(
+      'chat_date_day_month',
+      params: {'day': '${local.day}', 'month': monthName},
+    );
   }
 
   List<_MessageGroup> _groupMessages(List<ChaputMessage> items) {
@@ -1083,9 +1498,12 @@ class _MessagesListState extends State<_MessagesList> {
     for (int i = 0; i < items.length; i++) {
       final msg = items[i];
       final prev = i > 0 ? items[i - 1] : null;
-      final sameSender = prev != null && prev.senderId.toLowerCase() == msg.senderId.toLowerCase();
+      final sameSender =
+          prev != null &&
+          prev.senderId.toLowerCase() == msg.senderId.toLowerCase();
       final gapOk = prev?.createdAt != null && msg.createdAt != null
-          ? prev!.createdAt!.difference(msg.createdAt!).abs().inMinutes <= gapMinutes
+          ? prev!.createdAt!.difference(msg.createdAt!).abs().inMinutes <=
+                gapMinutes
           : false;
 
       if (current == null || !sameSender || !gapOk) {
@@ -1100,9 +1518,15 @@ class _MessagesListState extends State<_MessagesList> {
 
   LiteUser? _resolveUser(String id) {
     final idNorm = id.toLowerCase();
-    if (widget.ownerUser != null && widget.ownerUser!.id.toLowerCase() == idNorm) return widget.ownerUser;
-    if (widget.otherUser != null && widget.otherUser!.id.toLowerCase() == idNorm) return widget.otherUser;
-    if (widget.viewerUser != null && widget.viewerUser!.id.toLowerCase() == idNorm) return widget.viewerUser;
+    if (widget.ownerUser != null &&
+        widget.ownerUser!.id.toLowerCase() == idNorm)
+      return widget.ownerUser;
+    if (widget.otherUser != null &&
+        widget.otherUser!.id.toLowerCase() == idNorm)
+      return widget.otherUser;
+    if (widget.viewerUser != null &&
+        widget.viewerUser!.id.toLowerCase() == idNorm)
+      return widget.viewerUser;
     return null;
   }
 }
@@ -1125,6 +1549,7 @@ class _MessageGroupBubble extends StatelessWidget {
     required this.resolveUser,
     required this.canReply,
     required this.onReply,
+    required this.onReportMessage,
     required this.onToggleLike,
     required this.onShowLikes,
     required this.onReplyTap,
@@ -1143,6 +1568,7 @@ class _MessageGroupBubble extends StatelessWidget {
   final LiteUser? Function(String id) resolveUser;
   final bool canReply;
   final ValueChanged<ChaputMessage> onReply;
+  final ValueChanged<ChaputMessage> onReportMessage;
   final void Function(ChaputMessage message, bool like) onToggleLike;
   final ValueChanged<ChaputMessage> onShowLikes;
   final ValueChanged<String> onReplyTap;
@@ -1157,7 +1583,9 @@ class _MessageGroupBubble extends StatelessWidget {
     final bubbleColumn = KeyedSubtree(
       key: contentKey,
       child: Column(
-        crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           for (int i = 0; i < orderedItems.length; i++)
             _MessageBubble(
@@ -1169,6 +1597,7 @@ class _MessageGroupBubble extends StatelessWidget {
               replyAuthor: _resolveReplyAuthor(orderedItems[i]),
               canReply: canReply,
               onReply: onReply,
+              onReportMessage: onReportMessage,
               onToggleLike: onToggleLike,
               onShowLikes: onShowLikes,
               onReplyTap: onReplyTap,
@@ -1189,11 +1618,16 @@ class _MessageGroupBubble extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 6),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.chaputWhite.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.chaputWhite.withOpacity(0.16)),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.16),
+                  ),
                 ),
                 child: Text(
                   dayLabel!,
@@ -1226,10 +1660,7 @@ class _MessageGroupBubble extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 36),
                       child: bubbleColumn,
                     ),
-                    Positioned(
-                      right: 0,
-                      child: stickyAvatar,
-                    ),
+                    Positioned(right: 0, child: stickyAvatar),
                   ],
                 )
               else
@@ -1255,10 +1686,7 @@ class _MessageGroupBubble extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 36),
                   child: bubbleColumn,
                 ),
-                Positioned(
-                  left: 0,
-                  child: stickyAvatar,
-                ),
+                Positioned(left: 0, child: stickyAvatar),
               ],
             ),
           ],
@@ -1291,18 +1719,22 @@ class _StickyGroupAvatar extends StatelessWidget {
     return AnimatedBuilder(
       animation: scrollController,
       builder: (ctx, child) {
-        final groupBox = groupKey.currentContext?.findRenderObject() as RenderBox?;
+        final groupBox =
+            groupKey.currentContext?.findRenderObject() as RenderBox?;
         if (groupBox == null) return child!;
 
         final viewportBox =
-            scrollController.position.context.storageContext.findRenderObject() as RenderBox?;
+            scrollController.position.context.storageContext.findRenderObject()
+                as RenderBox?;
         if (viewportBox == null) return child!;
         if (!groupBox.attached || !viewportBox.attached) return child!;
 
         double groupTop;
         try {
           // position of the group inside the viewport
-          groupTop = groupBox.localToGlobal(Offset.zero, ancestor: viewportBox).dy;
+          groupTop = groupBox
+              .localToGlobal(Offset.zero, ancestor: viewportBox)
+              .dy;
         } catch (_) {
           return child!;
         }
@@ -1320,13 +1752,13 @@ class _StickyGroupAvatar extends StatelessWidget {
         double yLocal = desiredInViewport - groupTop;
         if (yLocal < 0) yLocal = 0;
         if (yLocal > groupBox.size.height - avatarSize) {
-          yLocal = (groupBox.size.height - avatarSize).clamp(0.0, double.infinity);
+          yLocal = (groupBox.size.height - avatarSize).clamp(
+            0.0,
+            double.infinity,
+          );
         }
 
-        return Transform.translate(
-          offset: Offset(0, yLocal),
-          child: child,
-        );
+        return Transform.translate(offset: Offset(0, yLocal), child: child);
       },
       child: avatar,
     );
@@ -1345,7 +1777,8 @@ class _GroupAvatar extends StatelessWidget {
     if (u == null) {
       return const SizedBox(width: 28, height: 28);
     }
-    final hasPhoto = u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty;
+    final hasPhoto =
+        u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty;
     final isDefault = forceDefault || !hasPhoto;
     final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoPath!;
     return SizedBox(
@@ -1373,6 +1806,7 @@ class _MessageBubble extends StatelessWidget {
     required this.replyAuthor,
     required this.canReply,
     required this.onReply,
+    required this.onReportMessage,
     required this.onToggleLike,
     required this.onShowLikes,
     required this.onReplyTap,
@@ -1386,6 +1820,7 @@ class _MessageBubble extends StatelessWidget {
   final String replyAuthor;
   final bool canReply;
   final ValueChanged<ChaputMessage> onReply;
+  final ValueChanged<ChaputMessage> onReportMessage;
   final void Function(ChaputMessage message, bool like) onToggleLike;
   final ValueChanged<ChaputMessage> onShowLikes;
   final ValueChanged<String> onReplyTap;
@@ -1399,8 +1834,12 @@ class _MessageBubble extends StatelessWidget {
     final whisperFg = AppColors.chaputBlack;
     final bg = isWhisper
         ? whisperBg
-        : (isMine ? AppColors.chaputWhite : AppColors.chaputWhite.withOpacity(0.12));
-    final fg = isWhisper ? whisperFg : (isMine ? AppColors.chaputBlack : AppColors.chaputWhite);
+        : (isMine
+              ? AppColors.chaputWhite
+              : AppColors.chaputWhite.withOpacity(0.12));
+    final fg = isWhisper
+        ? whisperFg
+        : (isMine ? AppColors.chaputBlack : AppColors.chaputWhite);
 
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(14),
@@ -1409,28 +1848,40 @@ class _MessageBubble extends StatelessWidget {
       bottomRight: Radius.circular(isMine ? (isLastInGroup ? 4 : 14) : 14),
     );
 
-    final masked = '*' * (message.body.isEmpty ? 6 : message.body.length.clamp(4, 18));
-    final displayText = (!isParticipant && (isWhisper || isWhisperHidden)) ? masked : message.body;
+    final masked =
+        '*' * (message.body.isEmpty ? 6 : message.body.length.clamp(4, 18));
+    final displayText = (!isParticipant && (isWhisper || isWhisperHidden))
+        ? masked
+        : message.body;
     final timeText = _formatTime(message.createdAt);
-    final hasReply = message.replyToId != null &&
+    final hasReply =
+        message.replyToId != null &&
         message.replyToId!.isNotEmpty &&
         message.replyToBody != null &&
         message.replyToBody!.isNotEmpty;
     final hasLikes = message.likeCount > 0;
-    final replyLabel = replyAuthor.isNotEmpty ? replyAuthor : context.t('chat.reply_default');
+    final replyLabel = replyAuthor.isNotEmpty
+        ? replyAuthor
+        : context.t('chat.reply_default');
     final showTicks = isParticipant && isMine && timeText != null;
-    final tickColor = message.readByOther ? AppColors.chaputLightBlueAccent : fg.withOpacity(0.45);
+    final tickColor = message.readByOther
+        ? AppColors.chaputLightBlueAccent
+        : fg.withOpacity(0.45);
     final tickIcon = message.delivered ? Icons.done_all : Icons.check;
 
     final maxWidth = MediaQuery.of(context).size.width * 0.72;
-    final replyBg = isMine ? AppColors.chaputBlack.withOpacity(0.18) : AppColors.chaputWhite.withOpacity(0.2);
+    final replyBg = isMine
+        ? AppColors.chaputBlack.withOpacity(0.18)
+        : AppColors.chaputWhite.withOpacity(0.2);
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isWhisperHidden ? AppColors.chaputWhite.withOpacity(0.08) : bg,
         borderRadius: radius,
-        border: Border.all(color: AppColors.chaputWhite.withOpacity(isMine ? 0.0 : 0.06)),
+        border: Border.all(
+          color: AppColors.chaputWhite.withOpacity(isMine ? 0.0 : 0.06),
+        ),
       ),
       child: IntrinsicWidth(
         child: ConstrainedBox(
@@ -1447,11 +1898,16 @@ class _MessageBubble extends StatelessWidget {
                   },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: replyBg,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.chaputWhite.withOpacity(0.16)),
+                      border: Border.all(
+                        color: AppColors.chaputWhite.withOpacity(0.16),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -1499,7 +1955,9 @@ class _MessageBubble extends StatelessWidget {
               Text(
                 displayText,
                 style: TextStyle(
-                  color: isWhisperHidden ? AppColors.chaputWhite.withOpacity(0.7) : fg,
+                  color: isWhisperHidden
+                      ? AppColors.chaputWhite.withOpacity(0.7)
+                      : fg,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1518,23 +1976,22 @@ class _MessageBubble extends StatelessWidget {
                             likeCount: message.likeCount,
                             onTap: () => onShowLikes(message),
                           ),
-                        if (hasLikes && timeText != null) const SizedBox(width: 6),
+                        if (hasLikes && timeText != null)
+                          const SizedBox(width: 6),
                         if (timeText != null)
                           Text(
                             timeText,
                             style: TextStyle(
-                              color: (isWhisperHidden ? AppColors.chaputWhite.withOpacity(0.45) : fg.withOpacity(0.45)),
+                              color: (isWhisperHidden
+                                  ? AppColors.chaputWhite.withOpacity(0.45)
+                                  : fg.withOpacity(0.45)),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         if (showTicks) ...[
                           const SizedBox(width: 4),
-                          Icon(
-                            tickIcon,
-                            size: 12,
-                            color: tickColor,
-                          ),
+                          Icon(tickIcon, size: 12, color: tickColor),
                         ],
                       ],
                     ),
@@ -1565,7 +2022,16 @@ class _MessageBubble extends StatelessWidget {
     if (enableActions) {
       child = GestureDetector(
         onDoubleTap: () => onToggleLike(message, !message.likedByMe),
-        onLongPress: () => onShowLikes(message),
+        onLongPress: () => _showMessageActions(
+          context,
+          message: message,
+          canReply: canReply,
+          canShowLikes: hasLikes,
+          canReport: isParticipant && !isMine,
+          onReply: () => onReply(message),
+          onShowLikes: () => onShowLikes(message),
+          onReport: () => onReportMessage(message),
+        ),
         child: child,
       );
     }
@@ -1613,7 +2079,9 @@ class _LikeStack extends StatelessWidget {
     final size = 16.0;
     final overlap = 10.0;
 
-    final stackWidth = (top.isEmpty ? 0 : (size + (top.length - 1) * overlap)) + (overflow > 0 ? size + 6 : 0);
+    final stackWidth =
+        (top.isEmpty ? 0 : (size + (top.length - 1) * overlap)) +
+        (overflow > 0 ? size + 6 : 0);
 
     return GestureDetector(
       onTap: onTap,
@@ -1636,7 +2104,9 @@ class _LikeStack extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.chaputWhite.withOpacity(0.18),
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.chaputWhite.withOpacity(0.2)),
+                    border: Border.all(
+                      color: AppColors.chaputWhite.withOpacity(0.2),
+                    ),
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -1664,7 +2134,8 @@ class _TinyAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPhoto = user.profilePhotoPath != null && user.profilePhotoPath!.isNotEmpty;
+    final hasPhoto =
+        user.profilePhotoPath != null && user.profilePhotoPath!.isNotEmpty;
     final isDefault = !hasPhoto;
     final imageUrl = isDefault ? user.defaultAvatar : user.profilePhotoPath!;
     return SizedBox(
@@ -1690,7 +2161,11 @@ class _ReplySwipeBackground extends StatelessWidget {
     return Container(
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.only(left: 18),
-      child: Icon(Icons.reply_rounded, color: AppColors.chaputWhite.withOpacity(0.7), size: 20),
+      child: Icon(
+        Icons.reply_rounded,
+        color: AppColors.chaputWhite.withOpacity(0.7),
+        size: 20,
+      ),
     );
   }
 }
@@ -1714,8 +2189,12 @@ class _TypingIndicator extends StatelessWidget {
               height: 18,
               radius: 18,
               borderWidth: 0,
-              isDefaultAvatar: shown[i].profilePhotoKey == null || shown[i].profilePhotoKey!.isEmpty,
-              imageUrl: (shown[i].profilePhotoPath == null || shown[i].profilePhotoPath!.isEmpty)
+              isDefaultAvatar:
+                  shown[i].profilePhotoKey == null ||
+                  shown[i].profilePhotoKey!.isEmpty,
+              imageUrl:
+                  (shown[i].profilePhotoPath == null ||
+                      shown[i].profilePhotoPath!.isEmpty)
                   ? shown[i].defaultAvatar
                   : shown[i].profilePhotoPath!,
             ),
@@ -1723,7 +2202,10 @@ class _TypingIndicator extends StatelessWidget {
         Text(
           shown.length == 1
               ? context.t('chat_typing')
-              : context.t('chat.typing_multi', params: {'count': shown.length.toString()}),
+              : context.t(
+                  'chat.typing_multi',
+                  params: {'count': shown.length.toString()},
+                ),
           style: TextStyle(
             color: AppColors.chaputWhite.withOpacity(0.65),
             fontSize: 11,
@@ -1747,7 +2229,8 @@ class _MessageLikesDialog extends ConsumerStatefulWidget {
   final bool isParticipant;
 
   @override
-  ConsumerState<_MessageLikesDialog> createState() => _MessageLikesDialogState();
+  ConsumerState<_MessageLikesDialog> createState() =>
+      _MessageLikesDialogState();
 }
 
 class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
@@ -1851,12 +2334,16 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                 decoration: BoxDecoration(
                   color: AppColors.chaputBlack.withOpacity(0.82),
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: AppColors.chaputWhite.withOpacity(0.12)),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.12),
+                  ),
                 ),
                 child: Column(
                   children: [
                     Align(
-                      alignment: widget.isMine ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: widget.isMine
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: _MessageBubble(
                         message: widget.message,
                         isMine: widget.isMine,
@@ -1865,6 +2352,7 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                         replyAuthor: '',
                         canReply: false,
                         onReply: (_) {},
+                        onReportMessage: (_) {},
                         onToggleLike: (_, __) {},
                         onShowLikes: (_) {},
                         onReplyTap: (_) {},
@@ -1874,74 +2362,89 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                     const SizedBox(height: 12),
                     Expanded(
                       child: _loading
-                          ? const Center(child: CircularProgressIndicator(color: AppColors.chaputWhite))
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.chaputWhite,
+                              ),
+                            )
                           : _items.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    context.t('chat_no_likes'),
-                                    style: TextStyle(
-                                      color: AppColors.chaputWhite.withOpacity(0.7),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                )
-                              : ListView.separated(
-                                  controller: _ctrl,
-                                  itemCount: _items.length + (_loadingMore ? 1 : 0),
-                                  separatorBuilder: (_, __) => Divider(color: AppColors.chaputWhite.withOpacity(0.08)),
-                                  itemBuilder: (ctx, i) {
-                                    if (i >= _items.length) {
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(vertical: 10),
-                                        child: Center(
-                                          child: CircularProgressIndicator(color: AppColors.chaputWhite),
-                                        ),
-                                      );
-                                    }
-                                    final u = _items[i];
-                                    final hasPhoto = u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty;
-                                    final isDefault = !hasPhoto;
-                                    final imageUrl = isDefault ? u.defaultAvatar : u.profilePhotoPath!;
-                                    return Row(
-                                      children: [
-                                        ChaputCircleAvatar(
-                                          isDefaultAvatar: isDefault,
-                                          imageUrl: imageUrl,
-                                          width: 34,
-                                          height: 34,
-                                          radius: 34,
-                                          borderWidth: 0,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                u.fullName,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: AppColors.chaputWhite,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                              if (u.username != null && u.username!.isNotEmpty)
-                                                Text(
-                                                  '@${u.username}',
-                                                  style: TextStyle(
-                                                    color: AppColors.chaputWhite.withOpacity(0.6),
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
+                          ? Center(
+                              child: Text(
+                                context.t('chat_no_likes'),
+                                style: TextStyle(
+                                  color: AppColors.chaputWhite.withOpacity(0.7),
+                                  fontWeight: FontWeight.w700,
                                 ),
+                              ),
+                            )
+                          : ListView.separated(
+                              controller: _ctrl,
+                              itemCount: _items.length + (_loadingMore ? 1 : 0),
+                              separatorBuilder: (_, __) => Divider(
+                                color: AppColors.chaputWhite.withOpacity(0.08),
+                              ),
+                              itemBuilder: (ctx, i) {
+                                if (i >= _items.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 10),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.chaputWhite,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                final u = _items[i];
+                                final hasPhoto =
+                                    u.profilePhotoPath != null &&
+                                    u.profilePhotoPath!.isNotEmpty;
+                                final isDefault = !hasPhoto;
+                                final imageUrl = isDefault
+                                    ? u.defaultAvatar
+                                    : u.profilePhotoPath!;
+                                return Row(
+                                  children: [
+                                    ChaputCircleAvatar(
+                                      isDefaultAvatar: isDefault,
+                                      imageUrl: imageUrl,
+                                      width: 34,
+                                      height: 34,
+                                      radius: 34,
+                                      borderWidth: 0,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            u.fullName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: AppColors.chaputWhite,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          if (u.username != null &&
+                                              u.username!.isNotEmpty)
+                                            Text(
+                                              '@${u.username}',
+                                              style: TextStyle(
+                                                color: AppColors.chaputWhite
+                                                    .withOpacity(0.6),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),
@@ -1973,7 +2476,11 @@ class _PendingNotice extends StatelessWidget {
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.chaputWhite.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
+          style: TextStyle(
+            color: AppColors.chaputWhite.withOpacity(0.65),
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
         ),
       ),
     );
@@ -1982,9 +2489,11 @@ class _PendingNotice extends StatelessWidget {
   String _formatRemaining(BuildContext context, DateTime until) {
     final diff = until.toUtc().difference(DateTime.now().toUtc());
     final mins = diff.inMinutes;
-    if (mins <= 0) return context.t('time.minutes_short', params: {'count': '0'});
+    if (mins <= 0)
+      return context.t('time.minutes_short', params: {'count': '0'});
     final hours = diff.inHours;
-    if (hours >= 1) return context.t('time.hours_short', params: {'count': '$hours'});
+    if (hours >= 1)
+      return context.t('time.hours_short', params: {'count': '$hours'});
     return context.t('time.minutes_short', params: {'count': '$mins'});
   }
 }
@@ -1998,7 +2507,11 @@ class _PendingReplyHint extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
       child: Text(
         context.t('chat.pending_hint'),
-        style: TextStyle(color: AppColors.chaputWhite.withOpacity(0.65), fontWeight: FontWeight.w700, fontSize: 12),
+        style: TextStyle(
+          color: AppColors.chaputWhite.withOpacity(0.65),
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
       ),
     );
   }

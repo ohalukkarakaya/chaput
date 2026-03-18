@@ -58,7 +58,8 @@ class ChaputApi {
       queryParameters: {
         'limit': limit,
         if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
-        if (profileIdHex != null && profileIdHex.isNotEmpty) 'profile_id': profileIdHex,
+        if (profileIdHex != null && profileIdHex.isNotEmpty)
+          'profile_id': profileIdHex,
       },
     );
     final data = res.data;
@@ -75,9 +76,7 @@ class ChaputApi {
     throw Exception('bad_messages_response');
   }
 
-  Future<void> recordView({
-    required String threadIdHex,
-  }) async {
+  Future<void> recordView({required String threadIdHex}) async {
     final res = await _dio.post('/chaput/threads/$threadIdHex/view');
     final data = res.data;
     if (data is Map<String, dynamic> && data['ok'] == true) return;
@@ -87,9 +86,7 @@ class ChaputApi {
     throw Exception('bad_view_response');
   }
 
-  Future<void> markThreadRead({
-    required String threadIdHex,
-  }) async {
+  Future<void> markThreadRead({required String threadIdHex}) async {
     final res = await _dio.post('/chaput/threads/$threadIdHex/read');
     final data = res.data;
     if (data is Map<String, dynamic> && data['ok'] == true) return;
@@ -137,7 +134,10 @@ class ChaputApi {
     if (replyToId != null && replyToId.isNotEmpty) {
       payload['reply_to_id'] = replyToId;
     }
-    final res = await _dio.post('/chaput/threads/$threadIdHex/messages', data: payload);
+    final res = await _dio.post(
+      '/chaput/threads/$threadIdHex/messages',
+      data: payload,
+    );
     final data = res.data;
     if (data is Map<String, dynamic> && data['ok'] == true) {
       final msg = data['message'];
@@ -186,7 +186,8 @@ class ChaputApi {
     throw Exception('bad_like_response');
   }
 
-  Future<({List<ChaputMessageLiker> items, String? nextCursor})> listMessageLikes({
+  Future<({List<ChaputMessageLiker> items, String? nextCursor})>
+  listMessageLikes({
     required String messageIdHex,
     int limit = 30,
     String? cursor,
@@ -221,12 +222,7 @@ class ChaputApi {
   }) async {
     final res = await _dio.post(
       '/chaput/threads/$threadIdHex/node',
-      data: {
-        'profile_id': profileIdHex,
-        'x': x,
-        'y': y,
-        'z': z,
-      },
+      data: {'profile_id': profileIdHex, 'x': x, 'y': y, 'z': z},
     );
     final data = res.data;
     if (data is Map<String, dynamic>) {
@@ -238,9 +234,7 @@ class ChaputApi {
     throw Exception('bad_node_response');
   }
 
-  Future<void> reviveThread({
-    required String threadIdHex,
-  }) async {
+  Future<void> reviveThread({required String threadIdHex}) async {
     final res = await _dio.post('/chaput/threads/$threadIdHex/revive');
     final data = res.data;
     if (data is Map<String, dynamic> && data['ok'] == true) return;
@@ -250,9 +244,17 @@ class ChaputApi {
     throw Exception('bad_revive_response');
   }
 
-  Future<void> hideThread({
-    required String threadIdHex,
-  }) async {
+  Future<void> archiveThread({required String threadIdHex}) async {
+    final res = await _dio.post('/chaput/threads/$threadIdHex/archive');
+    final data = res.data;
+    if (data is Map<String, dynamic> && data['ok'] == true) return;
+    if (data is Map<String, dynamic>) {
+      throw Exception(data['error'] ?? 'archive_error');
+    }
+    throw Exception('bad_archive_response');
+  }
+
+  Future<void> hideThread({required String threadIdHex}) async {
     final res = await _dio.post('/chaput/threads/$threadIdHex/hide');
     final data = res.data;
     if (data is Map<String, dynamic> && data['ok'] == true) {
@@ -279,11 +281,14 @@ class ChaputApi {
     String rewardType = 'CHAPUT_BIND',
     int requiredAds = 1,
   }) async {
-    final res = await _dio.post('/chaput/ads/reward/start', data: {
-      'network': network,
-      'reward_type': rewardType,
-      'required_ads': requiredAds,
-    });
+    final res = await _dio.post(
+      '/chaput/ads/reward/start',
+      data: {
+        'network': network,
+        'reward_type': rewardType,
+        'required_ads': requiredAds,
+      },
+    );
     final data = res.data;
     if (data is Map<String, dynamic>) {
       if (data['ok'] == true) {
@@ -298,10 +303,10 @@ class ChaputApi {
     required String sessionId,
     required int watchedCount,
   }) async {
-    final res = await _dio.post('/chaput/ads/reward/claim', data: {
-      'session_id': sessionId,
-      'watched_count': watchedCount,
-    });
+    final res = await _dio.post(
+      '/chaput/ads/reward/claim',
+      data: {'session_id': sessionId, 'watched_count': watchedCount},
+    );
     final data = res.data;
     if (data is Map<String, dynamic>) {
       if (data['ok'] == true) {

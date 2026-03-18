@@ -2,31 +2,41 @@ import 'dart:developer';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/env.dart';
 import '../storage/secure_storage_provider.dart';
 
 final freshAuthDioProvider = Provider<Dio>((ref) {
   final storage = ref.read(tokenStorageProvider);
 
-  final dio = Dio(BaseOptions(
-    baseUrl: 'https://api.chaput.app',
-    // 'http://192.168.178.81:8080',
-    // 'http://127.0.0.1:8080', // sende neyse
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-  ));
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: Env.apiBaseUrl,
+      connectTimeout: Env.connectTimeout,
+      receiveTimeout: Env.receiveTimeout,
+    ),
+  );
 
   // refresh için ayrı dio (recursive olmasın)
-  final refreshDio = Dio(BaseOptions(
-    baseUrl: dio.options.baseUrl,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-  ));
+  final refreshDio = Dio(
+    BaseOptions(
+      baseUrl: dio.options.baseUrl,
+      connectTimeout: Env.connectTimeout,
+      receiveTimeout: Env.receiveTimeout,
+    ),
+  );
 
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
         final refresh = await storage.readRefreshToken();
         if (refresh == null || refresh.isEmpty) {
+          final access = await storage.readAccessToken();
+          if (access != null && access.isNotEmpty) {
+            options.headers = {
+              ...options.headers,
+              'Authorization': 'Bearer $access',
+            };
+          }
           return handler.next(options);
         }
 
@@ -61,15 +71,49 @@ final freshAuthDioProvider = Provider<Dio>((ref) {
             };
 
             // Debug: gerçekten eklenmiş mi?
-            log('[Chaput] ➡️ AUTH header set for ${options.method} ${options.path}');
-          } else {
-            log('[Chaput] ⚠️ refresh 200 but access_token empty');
+            log(
+              '[Chaput] ➡️ AUTH header set for ${options.method} ${options.path}',
+            );
+            return handler.next(options);
           }
 
-          return handler.next(options);
+          log('[Chaput] ⚠️ refresh 200 but access_token empty');
+          await storage.clear();
+          return handler.reject(
+            DioException(
+              requestOptions: options,
+              error: 'refresh_empty_access_token',
+              type: DioExceptionType.badResponse,
+              response: Response(
+                requestOptions: options,
+                statusCode: 401,
+                data: {'error': 'invalid_refresh'},
+              ),
+            ),
+          );
+        } on DioException catch (e) {
+          final code = e.response?.statusCode;
+          if (code == 400 || code == 401) {
+            await storage.clear();
+          }
+          log('[Chaput] ❌ refresh failed -> rejecting request', error: e);
+          return handler.reject(
+            DioException(
+              requestOptions: options,
+              response: e.response,
+              error: e.error ?? 'refresh_failed',
+              type: e.type,
+            ),
+          );
         } catch (e) {
-          log('[Chaput] ❌ refresh failed -> sending request without token', error: e);
-          return handler.next(options);
+          log('[Chaput] ❌ refresh failed -> rejecting request', error: e);
+          return handler.reject(
+            DioException(
+              requestOptions: options,
+              error: e,
+              type: DioExceptionType.unknown,
+            ),
+          );
         }
       },
     ),
