@@ -374,10 +374,7 @@ class _SheetPage extends StatelessWidget {
                                         onReportThread(thread),
                                     canArchiveThread:
                                         isParticipant && thread.state == 'OPEN',
-                                    canReportThread:
-                                        isParticipant &&
-                                        thread.starterId.toLowerCase() !=
-                                            viewerId.toLowerCase(),
+                                    canReportThread: isParticipant,
                                   ),
                                 ),
                               ),
@@ -503,9 +500,7 @@ class _ThreadPage extends ConsumerWidget {
         : otherUser?.username;
     final canReply = isParticipant && (!isPending || !viewerIsStarter);
     final canArchiveThread = isParticipant && thread.state == 'OPEN';
-    final canReportThread =
-        isParticipant &&
-        thread.starterId.toLowerCase() != viewerId.toLowerCase();
+    final canReportThread = isParticipant;
 
     return LayoutBuilder(
       builder: (ctx, constraints) {

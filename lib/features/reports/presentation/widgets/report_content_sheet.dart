@@ -199,6 +199,7 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                       decoration: InputDecoration(
                         labelText: context.t('reports.sheet.details_label'),
                         hintText: context.t('reports.sheet.details_hint'),
+                        alignLabelWithHint: true,
                         labelStyle: TextStyle(
                           color: AppColors.chaputWhite.withOpacity(0.72),
                         ),
