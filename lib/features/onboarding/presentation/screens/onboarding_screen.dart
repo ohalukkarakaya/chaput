@@ -34,16 +34,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _textController = PageController();
   final ValueNotifier<double> _scrollMotion = ValueNotifier<double>(0.0);
   int _currentIndex = 0;
+  bool _submitting = false;
+  String? _submitError;
+  int _shakeSignal = 0;
 
   @override
   void initState() {
     super.initState();
     _textController.addListener(_handleTextScroll);
+    _emailController.addListener(_handleEmailChanged);
   }
 
   @override
   void dispose() {
     _textController.removeListener(_handleTextScroll);
+    _emailController.removeListener(_handleEmailChanged);
     _emailController.dispose();
     _textController.dispose();
     _scrollMotion.dispose();
@@ -65,6 +70,52 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     HapticFeedback.selectionClick();
   }
 
+  void _handleEmailChanged() {
+    if (_submitError == null) return;
+    setState(() => _submitError = null);
+  }
+
+  Future<void> _showSubmitError(String message) async {
+    if (!mounted) return;
+    setState(() {
+      _submitError = message;
+      _shakeSignal += 1;
+    });
+    await HapticFeedback.mediumImpact();
+  }
+
+  String _mapOnboardingError(DioException e) {
+    final data = e.response?.data;
+    final raw = data is Map
+        ? data['error']?.toString() ?? ''
+        : data?.toString() ?? '';
+
+    if (raw.contains('email_blacklisted')) {
+      return context.t('errors.email_blacklisted');
+    }
+    if (raw.contains('full_name_blacklisted')) {
+      return context.t('errors.full_name_blacklisted');
+    }
+    if (raw.contains('username_blacklisted')) {
+      return context.t('errors.username_blacklisted');
+    }
+    if (raw.contains('invalid_email')) {
+      return context.t('errors.invalid_email');
+    }
+    if (raw.contains('user_already_exists')) {
+      return context.t('errors.email_taken');
+    }
+    if (raw.contains('db_error')) {
+      return context.t('errors.db_error');
+    }
+
+    final status = e.response?.statusCode;
+    if (status == 401) return context.t('errors.unauthorized');
+    if (status == 403) return context.t('errors.forbidden');
+    if (status == 429) return context.t('errors.too_many_attempts');
+    return context.t('errors.generic');
+  }
+
   Future<void> _startLoginFlow({
     required String email,
     required String deviceId,
@@ -75,12 +126,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     log('ONB: login flow -> request code');
     await authApi.requestLoginCode(email: email, deviceId: deviceId);
     HapticFeedback.selectionClick();
+    if (!mounted) return;
 
     final verified = await showCodeVerifySheet(
       context: context,
       email: email,
-      onResend: () => authApi.requestLoginCode(email: email, deviceId: deviceId),
-      onVerify: (code) => authApi.verifyLoginCode(email: email, deviceId: deviceId, code: code),
+      onResend: () =>
+          authApi.requestLoginCode(email: email, deviceId: deviceId),
+      onVerify: (code) =>
+          authApi.verifyLoginCode(email: email, deviceId: deviceId, code: code),
     );
 
     if (!mounted) return;
@@ -123,12 +177,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     log('ONB: signup flow -> request signup code');
     await authApi.requestSignupCode(email: email, deviceId: deviceId);
     HapticFeedback.selectionClick();
+    if (!mounted) return;
 
     // 3) signup verify (✅ /signup/verify-code)
     final verified = await showCodeVerifySheet(
       context: context,
       email: email,
-      onResend: () => authApi.requestSignupCode(email: email, deviceId: deviceId),
+      onResend: () =>
+          authApi.requestSignupCode(email: email, deviceId: deviceId),
       onVerify: (code) => authApi.verifySignupCode(
         email: email,
         deviceId: deviceId,
@@ -158,12 +214,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     // 6) profile patch
     final birthIso = draft.birthDate.toIso8601String().substring(0, 10);
-    log('ONB: update profile fullName=${draft.fullName} username=${draft.username} birth=$birthIso');
+    log(
+      'ONB: update profile fullName=${draft.fullName} username=${draft.username} birth=$birthIso',
+    );
 
     await meApi.updateFullName(fullName: draft.fullName.toLowerCase());
     await meApi.updateUsername(username: draft.username.toLowerCase());
     await meApi.updateBirthDate(birthDateIso: birthIso);
-
 
     if (!mounted) return;
     try {
@@ -182,15 +239,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _onSubmit() async {
+    if (_submitting) return;
     final email = _emailController.text.trim();
 
     final isValid = email.contains('@') && email.contains('.com');
     if (!isValid) {
-      HapticFeedback.heavyImpact();
+      await _showSubmitError(context.t('errors.invalid_email'));
       return;
     }
 
     final deviceId = await ref.read(deviceIdServiceProvider).getOrCreate();
+    if (mounted) {
+      setState(() {
+        _submitting = true;
+        _submitError = null;
+      });
+    }
 
     try {
       // 0) lookup
@@ -213,10 +277,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       }
     } on DioException catch (e, st) {
       log('ONB: Dio error', error: e, stackTrace: st);
-      HapticFeedback.heavyImpact();
+      await _showSubmitError(_mapOnboardingError(e));
     } catch (e, st) {
       log('ONB: Unknown error', error: e, stackTrace: st);
-      HapticFeedback.heavyImpact();
+      if (!mounted) return;
+      await _showSubmitError(context.t('errors.generic'));
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
     }
   }
 
@@ -265,9 +334,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         final maxWidth = w * 1.25;
                         final minWidth = w;
                         final heightDrivenWidth = h * 1.35;
-                        final imageWidth = heightDrivenWidth.clamp(minWidth, maxWidth);
+                        final imageWidth = heightDrivenWidth.clamp(
+                          minWidth,
+                          maxWidth,
+                        );
                         const sidePadding = 12.0;
-                        final dx = sidePadding + (w - imageWidth - 2 * sidePadding) * t;
+                        final dx =
+                            sidePadding +
+                            (w - imageWidth - 2 * sidePadding) * t;
 
                         return ClipRect(
                           child: Stack(
@@ -299,58 +373,66 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: AnimatedPadding(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                padding: EdgeInsets.fromLTRB(0, 8, 0, 6 + keyboard + mq.padding.bottom),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        height: cardHeight,
-                        child: PageView.builder(
-                          controller: _textController,
-                          itemCount: sliderTexts.length,
-                          onPageChanged: _onTextPageChanged,
-                          itemBuilder: (context, index) {
-                            final item = sliderTexts[index];
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item['title'] ?? '',
-                                    style: const TextStyle(
-                                      color: AppColors.chaputWhite,
-                                      fontSize: 20,
-                                      height: 1.15,
-                                      fontWeight: FontWeight.w700,
+                  padding: EdgeInsets.fromLTRB(
+                    0,
+                    8,
+                    0,
+                    6 + keyboard + mq.padding.bottom,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: cardHeight,
+                          child: PageView.builder(
+                            controller: _textController,
+                            itemCount: sliderTexts.length,
+                            onPageChanged: _onTextPageChanged,
+                            itemBuilder: (context, index) {
+                              final item = sliderTexts[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item['title'] ?? '',
+                                      style: const TextStyle(
+                                        color: AppColors.chaputWhite,
+                                        fontSize: 20,
+                                        height: 1.15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    item['subtitle'] ?? '',
-                                    style: TextStyle(
-                                      color: AppColors.chaputWhite.withOpacity(0.78),
-                                      fontSize: 13,
-                                      height: 1.3,
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      item['subtitle'] ?? '',
+                                      style: TextStyle(
+                                        color: AppColors.chaputWhite
+                                            .withOpacity(0.78),
+                                        fontSize: 13,
+                                        height: 1.3,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: List.generate(
-                            sliderTexts.length,
-                            (index) {
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: List.generate(sliderTexts.length, (
+                              index,
+                            ) {
                               final isActive = index == _currentIndex;
                               return AnimatedContainer(
                                 duration: const Duration(milliseconds: 300),
@@ -364,29 +446,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               );
-                            },
+                            }),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Divider(color: AppColors.chaputWhite.withOpacity(0.12)),
-                      ),
-                      const SizedBox(height: 6),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: EmailCtaForm(
-                          controller: _emailController,
-                          hint: context.t('common.email'),
-                          buttonText: context.t('common.continue'),
-                          onSubmit: _onSubmit,
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Divider(
+                            color: AppColors.chaputWhite.withOpacity(0.12),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: isKeyboardOpen ? 0 : 4),
-                    ],
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: EmailCtaForm(
+                            controller: _emailController,
+                            hint: context.t('common.email'),
+                            buttonText: context.t('common.continue'),
+                            isLoading: _submitting,
+                            errorText: _submitError,
+                            shakeSignal: _shakeSignal,
+                            onSubmit: _onSubmit,
+                          ),
+                        ),
+                        SizedBox(height: isKeyboardOpen ? 0 : 4),
+                      ],
+                    ),
                   ),
-                ),
                 ),
               ),
             ],
