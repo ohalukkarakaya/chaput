@@ -21,7 +21,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
@@ -35,30 +36,41 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   Future<void> _bootSocket() async {
     await ref.read(chaputSocketProvider).ensureConnected();
-    _socketSub ??= ref.read(chaputSocketProvider).events.listen(_handleSocketEvent);
+    _socketSub ??= ref
+        .read(chaputSocketProvider)
+        .events
+        .listen(_handleSocketEvent);
   }
 
   void _handleSocketEvent(ChaputSocketEvent ev) {
     if (ev.type != 'notif.created') return;
     final me = ref.read(meControllerProvider).valueOrNull;
-    final meId = me?.user?.userId ?? '';
+    final meId = me?.user.userId ?? '';
     if (meId.isEmpty) return;
     final raw = ev.data['notification'];
     var isForMe = false;
     if (raw is Map) {
-      final notif = AppNotification.fromJson(raw.map((k, v) => MapEntry(k.toString(), v)));
+      final notif = AppNotification.fromJson(
+        raw.map((k, v) => MapEntry(k.toString(), v)),
+      );
       if (notif.userId.isEmpty) return;
       if (notif.userId != meId) return;
       isForMe = true;
       ref.read(notificationsControllerProvider.notifier).addFromSocket(notif);
-      ref.read(notificationsControllerProvider.notifier).ensureActorLoaded(notif.actorId);
+      ref
+          .read(notificationsControllerProvider.notifier)
+          .ensureActorLoaded(notif.actorId);
     }
     final unread = ev.data['unread_count'];
     if (isForMe) {
       if (unread is int) {
-        ref.read(notificationCountControllerProvider.notifier).updateFromSocket(unread);
+        ref
+            .read(notificationCountControllerProvider.notifier)
+            .updateFromSocket(unread);
       } else if (unread is num) {
-        ref.read(notificationCountControllerProvider.notifier).updateFromSocket(unread.toInt());
+        ref
+            .read(notificationCountControllerProvider.notifier)
+            .updateFromSocket(unread.toInt());
       }
     }
   }
@@ -92,11 +104,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(
+                          context.t('common.back'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
-                        onPressed: () => ref.read(notificationsControllerProvider.notifier).refresh(),
+                        onPressed: () => ref
+                            .read(notificationsControllerProvider.notifier)
+                            .refresh(),
                         icon: const Icon(Icons.refresh),
                       ),
                     ],
@@ -109,7 +126,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         Expanded(
                           child: Text(
                             context.t('notifications.title'),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         if (st.isLoading)
@@ -131,65 +151,101 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text('${context.t('common.error')}: ${st.error}', style: const TextStyle(color: AppColors.chaputMaterialRed)),
+                                Text(
+                                  '${context.t('common.error')}: ${st.error}',
+                                  style: const TextStyle(
+                                    color: AppColors.chaputMaterialRed,
+                                  ),
+                                ),
                                 const SizedBox(height: 12),
                                 ElevatedButton(
-                                  onPressed: () => ref.read(notificationsControllerProvider.notifier).refresh(),
+                                  onPressed: () => ref
+                                      .read(
+                                        notificationsControllerProvider
+                                            .notifier,
+                                      )
+                                      .refresh(),
                                   child: Text(context.t('common.retry')),
                                 ),
                               ],
                             ),
                           )
                         : (st.items.isEmpty && !st.isLoading)
-                            ? Center(
-                                child: Text(
-                                  context.t('common.empty'),
-                                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.chaputBlack54),
-                                ),
-                              )
-                            : NotificationListener<ScrollNotification>(
-                                onNotification: (n) {
-                                  if (n.metrics.pixels >= n.metrics.maxScrollExtent - 220) {
-                                    ref.read(notificationsControllerProvider.notifier).loadMore();
-                                  }
-                                  return false;
-                                },
-                                child: ListView.separated(
-                                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                                  itemCount: entries.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                                  itemBuilder: (context, i) {
-                                    final entry = entries[i];
-                                    if (entry.header != null) {
-                                      return Padding(
-                                        padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
-                                        child: Text(
-                                          entry.header!,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w900,
-                                            color: AppColors.chaputBlack54,
-                                          ),
-                                        ),
-                                      );
-                                    }
-
-                                    final it = entry.item!;
-                                    final actor = it.actorId != null ? st.usersById[it.actorId!] : null;
-                                    return _NotificationRow(
-                                      item: it,
-                                      actor: actor,
-                                      onTap: () => _handleTap(context, ref, it, me?.user.userId ?? ''),
-                                      onApprove: it.type == 'follow_request'
-                                          ? () => _approveFollow(ref, it)
-                                          : null,
-                                      onReject: it.type == 'follow_request'
-                                          ? () => _rejectFollow(ref, it)
-                                          : null,
-                                    );
-                                  },
-                                ),
+                        ? Center(
+                            child: Text(
+                              context.t('common.empty'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.chaputBlack54,
                               ),
+                            ),
+                          )
+                        : NotificationListener<ScrollNotification>(
+                            onNotification: (n) {
+                              if (n.metrics.pixels >=
+                                  n.metrics.maxScrollExtent - 220) {
+                                ref
+                                    .read(
+                                      notificationsControllerProvider.notifier,
+                                    )
+                                    .loadMore();
+                              }
+                              return false;
+                            },
+                            child: ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(
+                                12,
+                                10,
+                                12,
+                                12,
+                              ),
+                              itemCount: entries.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, i) {
+                                final entry = entries[i];
+                                if (entry.header != null) {
+                                  return Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      8,
+                                      12,
+                                      8,
+                                      4,
+                                    ),
+                                    child: Text(
+                                      entry.header!,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.chaputBlack54,
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                final it = entry.item!;
+                                final actor = it.actorId != null
+                                    ? st.usersById[it.actorId!]
+                                    : null;
+                                return _NotificationRow(
+                                  item: it,
+                                  actor: actor,
+                                  onTap: () => _handleTap(
+                                    context,
+                                    ref,
+                                    it,
+                                    me?.user.userId ?? '',
+                                  ),
+                                  onApprove: it.type == 'follow_request'
+                                      ? () => _approveFollow(ref, it)
+                                      : null,
+                                  onReject: it.type == 'follow_request'
+                                      ? () => _rejectFollow(ref, it)
+                                      : null,
+                                );
+                              },
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -213,17 +269,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       // ignore
     } finally {
       if (ok) {
-        ref.read(notificationsControllerProvider.notifier).replaceWithFollowed(it);
+        ref
+            .read(notificationsControllerProvider.notifier)
+            .replaceWithFollowed(it);
       } else {
         // On failure, remove follow request notification from UI
         ref.read(notificationsControllerProvider.notifier).removeLocal(it.id);
       }
       if (wasUnread) {
-        ref.read(notificationCountControllerProvider.notifier).decrementIfUnread();
+        ref
+            .read(notificationCountControllerProvider.notifier)
+            .decrementIfUnread();
       }
       // Best effort: mark as read on server to keep counts consistent
       try {
-        await ref.read(notificationsControllerProvider.notifier).markRead(it.id);
+        await ref
+            .read(notificationsControllerProvider.notifier)
+            .markRead(it.id);
       } catch (_) {
         // ignore
       }
@@ -243,17 +305,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     } finally {
       ref.read(notificationsControllerProvider.notifier).removeLocal(it.id);
       if (wasUnread) {
-        ref.read(notificationCountControllerProvider.notifier).decrementIfUnread();
+        ref
+            .read(notificationCountControllerProvider.notifier)
+            .decrementIfUnread();
       }
       try {
-        await ref.read(notificationsControllerProvider.notifier).markRead(it.id);
+        await ref
+            .read(notificationsControllerProvider.notifier)
+            .markRead(it.id);
       } catch (_) {
         // ignore
       }
     }
   }
 
-  Future<void> _handleTap(BuildContext context, WidgetRef ref, AppNotification it, String myUserId) async {
+  Future<void> _handleTap(
+    BuildContext context,
+    WidgetRef ref,
+    AppNotification it,
+    String myUserId,
+  ) async {
     await ref.read(notificationsControllerProvider.notifier).markRead(it.id);
     ref.read(notificationCountControllerProvider.notifier).decrementIfUnread();
 
@@ -268,14 +339,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         return;
       }
       final messageId = it.payload['message_id']?.toString();
-      context.push(await Routes.profile(myUserId), extra: {
-        'threadId': threadId,
-        if (messageId != null && messageId.isNotEmpty) 'messageId': messageId,
-      });
+      context.push(
+        await Routes.profile(myUserId),
+        extra: {
+          'threadId': threadId,
+          if (messageId != null && messageId.isNotEmpty) 'messageId': messageId,
+        },
+      );
       return;
     }
 
-    if (it.type == 'followed' || it.type == 'follow_approved' || it.type == 'follow_request') {
+    if (it.type == 'followed' ||
+        it.type == 'follow_approved' ||
+        it.type == 'follow_request') {
       final actorId = it.actorId;
       if (actorId == null || actorId.isEmpty) return;
       context.push(await Routes.profile(actorId));
@@ -296,7 +372,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     final entries = <_NotifEntry>[];
     if (followReqs.isNotEmpty) {
-      entries.add(_NotifEntry.header(context.t('notifications.follow_requests')));
+      entries.add(
+        _NotifEntry.header(context.t('notifications.follow_requests')),
+      );
       for (final it in followReqs) {
         entries.add(_NotifEntry.item(it));
       }
@@ -343,16 +421,22 @@ class _NotificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = actor?.fullName ?? context.t('common.user');
-    final username = actor?.username;
+    final isAdminGift = item.type == 'admin_gift_granted';
+    final title = isAdminGift
+        ? context.t('notifications.admin_gift_title')
+        : (actor?.fullName ?? context.t('common.user'));
+    final username = isAdminGift ? null : actor?.username;
     final avatarUrl = (actor?.profilePhotoPath?.isNotEmpty == true)
         ? actor!.profilePhotoPath!
         : (actor?.defaultAvatar ?? '');
-    final isDefault = actor?.profilePhotoPath == null || actor?.profilePhotoPath == '';
+    final isDefault =
+        actor?.profilePhotoPath == null || actor?.profilePhotoPath == '';
 
     final message = _buildMessage(context, item);
 
-    final bubbleColor = item.isRead ? AppColors.chaputWhite : AppColors.chaputPaleBlue;
+    final bubbleColor = item.isRead
+        ? AppColors.chaputWhite
+        : AppColors.chaputPaleBlue;
     return Material(
       color: bubbleColor,
       borderRadius: BorderRadius.circular(18),
@@ -364,12 +448,26 @@ class _NotificationRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ChaputCircleAvatar(
-                imageUrl: avatarUrl,
-                isDefaultAvatar: isDefault,
-                width: 44,
-                height: 44,
-              ),
+              isAdminGift
+                  ? Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.chaputBlack,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Icon(
+                        Icons.card_giftcard_rounded,
+                        color: AppColors.chaputWhite,
+                        size: 22,
+                      ),
+                    )
+                  : ChaputCircleAvatar(
+                      imageUrl: avatarUrl,
+                      isDefaultAvatar: isDefault,
+                      width: 44,
+                      height: 44,
+                    ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -385,7 +483,9 @@ class _NotificationRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: item.isRead ? FontWeight.w700 : FontWeight.w900,
+                              fontWeight: item.isRead
+                                  ? FontWeight.w700
+                                  : FontWeight.w900,
                             ),
                           ),
                         ),
@@ -395,16 +495,24 @@ class _NotificationRow extends StatelessWidget {
                             maxLines: 1,
                             softWrap: false,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: AppColors.chaputBlack.withOpacity(0.45)),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.chaputBlack.withOpacity(0.45),
+                            ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      username == null || username.isEmpty ? message : '$message • @$username',
+                      username == null || username.isEmpty
+                          ? message
+                          : '$message • @$username',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: AppColors.chaputBlack.withOpacity(0.65)),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.chaputBlack.withOpacity(0.65),
+                      ),
                     ),
                   ],
                 ),
@@ -465,26 +573,97 @@ class _NotificationRow extends StatelessWidget {
         return context.t('notifications.chaput_started');
       case 'chaput_message':
         final body = n.payload['body']?.toString();
-        return body == null || body.isEmpty ? context.t('notifications.chaput_message') : body;
+        return body == null || body.isEmpty
+            ? context.t('notifications.chaput_message')
+            : body;
       case 'chaput_revive':
         return context.t('notifications.chaput_revive');
       case 'chaput_message_like':
         final body = n.payload['body']?.toString();
         return body == null || body.isEmpty
             ? context.t('notifications.message_liked')
-            : context.t('notifications.message_liked_with_body', params: {'body': body});
+            : context.t(
+                'notifications.message_liked_with_body',
+                params: {'body': body},
+              );
+      case 'admin_gift_granted':
+        return _buildAdminGiftMessage(context, n);
       default:
         return context.t('notifications.generic');
     }
   }
 
+  String _buildAdminGiftMessage(BuildContext context, AppNotification n) {
+    final giftKind = n.payload['gift_kind']?.toString() ?? '';
+    if (giftKind == 'SUBSCRIPTION') {
+      final plan = _giftItemLabel(
+        context,
+        giftKind,
+        n.payload['plan']?.toString() ?? 'PLUS',
+      );
+      return context.t(
+        'notifications.admin_gift_subscription',
+        params: {'plan': plan},
+      );
+    }
+
+    if (giftKind == 'CHAPUT_CREDIT' || giftKind == 'USER_CREDIT') {
+      final amount = n.payload['amount']?.toString() ?? '1';
+      final item = _giftItemLabel(
+        context,
+        giftKind,
+        n.payload['credit_type']?.toString() ?? '',
+      );
+      return context.t(
+        'notifications.admin_gift_credit',
+        params: {'amount': amount, 'item': item},
+      );
+    }
+
+    return context.t('notifications.admin_gift_fallback');
+  }
+
+  String _giftItemLabel(
+    BuildContext context,
+    String giftKind,
+    String rawValue,
+  ) {
+    final normalizedKind = giftKind.trim().toUpperCase();
+    final value = rawValue.trim().toLowerCase();
+    if (value.isEmpty) {
+      return context.t('notifications.admin_gift_fallback');
+    }
+    if (normalizedKind == 'USER_CREDIT') {
+      if (value == 'special') {
+        return context.t('notifications.admin_gift_item.user_special');
+      }
+      if (value == 'secret') {
+        return context.t('notifications.admin_gift_item.user_secret');
+      }
+    }
+    return context.t('notifications.admin_gift_item.$value');
+  }
+
   static String _timeAgo(BuildContext context, DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return context.t('time.seconds', params: {'count': diff.inSeconds.toString()});
-    if (diff.inMinutes < 60) return context.t('time.minutes', params: {'count': diff.inMinutes.toString()});
-    if (diff.inHours < 24) return context.t('time.hours', params: {'count': diff.inHours.toString()});
-    if (diff.inDays < 7) return context.t('time.days', params: {'count': diff.inDays.toString()});
+    if (diff.inSeconds < 60)
+      return context.t(
+        'time.seconds',
+        params: {'count': diff.inSeconds.toString()},
+      );
+    if (diff.inMinutes < 60)
+      return context.t(
+        'time.minutes',
+        params: {'count': diff.inMinutes.toString()},
+      );
+    if (diff.inHours < 24)
+      return context.t(
+        'time.hours',
+        params: {'count': diff.inHours.toString()},
+      );
+    if (diff.inDays < 7)
+      return context.t('time.days', params: {'count': diff.inDays.toString()});
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 }

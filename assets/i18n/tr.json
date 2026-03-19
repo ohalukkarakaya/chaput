@@ -373,5 +373,19 @@
   "time.minutes": "{count}dk",
   "time.minutes_short": "{count}dk",
   "time.seconds": "{count}sn",
-  "reports.toast.not_allowed": "Bu içeriği yalnızca chaputun tarafları bildirebilir."
+  "reports.toast.not_allowed": "Bu içeriği yalnızca chaputun tarafları bildirebilir.",
+  "notifications.admin_gift_credit": "Hesabınıza {amount} adet {item} tanımlandı",
+  "notifications.admin_gift_subscription": "Hesabınıza {plan} üyeliği tanımlandı",
+  "notifications.admin_gift_fallback": "Hesabınıza yeni bir hediye tanımlandı",
+  "notifications.admin_gift_item.hidden": "gizli chaput hakkı",
+  "notifications.admin_gift_item.special": "süper chaput hakkı",
+  "notifications.admin_gift_item.whisper": "fısıldama hakkı",
+  "notifications.admin_gift_item.revive": "kurtarma hakkı",
+  "notifications.admin_gift_item.normal": "chaput hakkı",
+  "notifications.admin_gift_item.secret": "gizli kredi",
+  "notifications.admin_gift_item.plus": "PLUS üyelik",
+  "notifications.admin_gift_item.pro": "PRO üyelik",
+  "notifications.admin_gift_item.user_special": "boost kredisi",
+  "notifications.admin_gift_item.user_secret": "gizli kredi",
+  "notifications.admin_gift_title": "Hediye aldınız"
 }

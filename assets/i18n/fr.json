@@ -373,5 +373,19 @@
   "time.minutes": "{count}m",
   "time.minutes_short": "{count}m",
   "time.seconds": "{count}s",
-  "reports.toast.not_allowed": "Seules les personnes impliquées dans ce chaput peuvent envoyer un signalement."
+  "reports.toast.not_allowed": "Seules les personnes impliquées dans ce chaput peuvent envoyer un signalement.",
+  "notifications.admin_gift_credit": "{amount} {item} was added to your account",
+  "notifications.admin_gift_subscription": "{plan} was added to your account",
+  "notifications.admin_gift_fallback": "A new gift was added to your account",
+  "notifications.admin_gift_item.hidden": "hidden chaput right",
+  "notifications.admin_gift_item.special": "super chaput right",
+  "notifications.admin_gift_item.whisper": "whisper right",
+  "notifications.admin_gift_item.revive": "revive right",
+  "notifications.admin_gift_item.normal": "chaput right",
+  "notifications.admin_gift_item.secret": "secret credit",
+  "notifications.admin_gift_item.plus": "PLUS membership",
+  "notifications.admin_gift_item.pro": "PRO membership",
+  "notifications.admin_gift_item.user_special": "boost credit",
+  "notifications.admin_gift_item.user_secret": "secret credit",
+  "notifications.admin_gift_title": "You received a gift"
 }
