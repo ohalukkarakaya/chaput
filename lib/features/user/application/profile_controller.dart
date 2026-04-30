@@ -41,11 +41,12 @@ final profileApiProvider = Provider<ProfileApi>((ref) {
 });
 
 final profileControllerProvider =
-AutoDisposeNotifierProviderFamily<ProfileController, ProfileState, String>(
-  ProfileController.new,
-);
+    AutoDisposeNotifierProviderFamily<ProfileController, ProfileState, String>(
+      ProfileController.new,
+    );
 
-class ProfileController extends AutoDisposeFamilyNotifier<ProfileState, String> {
+class ProfileController
+    extends AutoDisposeFamilyNotifier<ProfileState, String> {
   ProfileApi get _api => ref.read(profileApiProvider);
 
   @override
@@ -62,29 +63,34 @@ class ProfileController extends AutoDisposeFamilyNotifier<ProfileState, String> 
   Future<void> _fetch(String userId) async {
     state = state.copyWith(isLoading: true, error: null);
 
+    final profileFuture = _api.getProfile(userId);
+    final treeFuture = _api.getTree(userId);
+
     try {
-      final results = await Future.wait([
-        _api.getProfile(userId),
-        _api.getTree(userId),
-      ]);
-
-      final profile = results[0] as Map<String, dynamic>;
-      final tree = results[1] as Map<String, dynamic>;
-
+      final profile = await profileFuture;
       if (profile['ok'] != true) {
         throw Exception(profile['error'] ?? 'profile_error');
-      }
-      if (tree['ok'] != true) {
-        throw Exception(tree['error'] ?? 'tree_error');
       }
 
       state = state.copyWith(
         isLoading: false,
+        error: null,
         profileJson: profile,
-        treeId: tree['tree_id']?.toString(),
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+      return;
+    }
+
+    try {
+      final tree = await treeFuture;
+      if (tree['ok'] != true) {
+        throw Exception(tree['error'] ?? 'tree_error');
+      }
+
+      state = state.copyWith(treeId: tree['tree_id']?.toString(), error: null);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
     }
   }
 

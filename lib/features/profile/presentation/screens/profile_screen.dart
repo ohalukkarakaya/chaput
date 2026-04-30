@@ -38,6 +38,7 @@ import '../../domain/tree_catalog.dart';
 
 import '../../../social/application/follow_controller.dart';
 import '../utils/profile_tree_bounds.dart';
+import '../utils/tree_model_cache.dart';
 import '../widgets/black_glass.dart';
 import '../widgets/chaput_ad_offer_sheet.dart';
 import '../widgets/chaput_ads_watch_screen.dart';
@@ -140,13 +141,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   double _composerPitchBias = 0.0;
 
   // ================= FOCUS / ANCHOR =================
-  three.Vector3? _focusAnchor; // leaf üstündeki world-space nokta
+  three.Vector3? _focusAnchor; // leaf üstündeki world space nokta
   final ValueNotifier<Offset?> _focusScreen = ValueNotifier<Offset?>(null);
 
   bool _isInteracting = false;
   bool _showFocusMarker = false;
 
-  // snap-back animasyonu
+  // snap back animasyonu
   late double _snapFromYaw, _snapToYaw;
   late double _snapFromPitch, _snapToPitch;
 
@@ -177,6 +178,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   String? _lastTreeId;
   String? _lastProfileUserId;
+  int _threeLoadEpoch = 0;
 
   three.Group? _treeGroup;
   three.Mesh? _ground;
@@ -210,7 +212,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     0,
     0.9,
     0,
-  ); // dinamik: treeCenter <-> focusAnchor
+  ); // dinamik: treeCenter - focusAnchor
   three.Vector3 _lookAt = three.Vector3(
     0,
     0.9,
@@ -342,15 +344,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Future<void> _ensureSocket(String profileIdHex) async {
     if (profileIdHex.length != 32) return;
-    await _socketClient.ensureConnected();
-    _socketSub ??= _socketClient.events.listen(_handleSocketEvent);
-    if (_socketProfileId != profileIdHex) {
-      if (_socketProfileId != null) {
-        _socketClient.unsubscribeProfile(_socketProfileId!);
+    try {
+      await _socketClient.ensureConnected();
+      _socketSub ??= _socketClient.events.listen(
+        _handleSocketEvent,
+        onError: (_, __) {},
+      );
+      if (_socketProfileId != profileIdHex) {
+        if (_socketProfileId != null) {
+          _socketClient.unsubscribeProfile(_socketProfileId!);
+        }
+        _socketClient.subscribeProfile(profileIdHex);
+        _socketProfileId = profileIdHex;
       }
-      _socketClient.subscribeProfile(profileIdHex);
-      _socketProfileId = profileIdHex;
-    }
+    } catch (_) {}
   }
 
   void _subscribeThreadSocket(String threadId, String profileIdHex) {
@@ -650,7 +657,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _routeSubscribed = false;
     }
     _disposeThree();
-    three.loading.clear();
     _focusScreen.dispose();
     _profileCardCtrl.dispose();
     _msgCtrl.dispose();
@@ -763,7 +769,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
+  bool _isCurrentThreeRequest(three.ThreeJS threeJsRef, int epoch) {
+    return mounted &&
+        !_isDisposed &&
+        epoch == _threeLoadEpoch &&
+        identical(_threeJs, threeJsRef);
+  }
+
+  void _disposeThreeRef(three.ThreeJS threeJsRef) {
+    try {
+      threeJsRef.dispose();
+    } catch (_) {}
+  }
+
   void _disposeThree() {
+    _threeLoadEpoch++;
     try {
       _threeJs?.dispose();
     } catch (_) {}
@@ -776,7 +796,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _createThreeIfNeeded(String treeId) {
-    // aynı tree ise yeniden kurma
     if (_lastTreeId == treeId && _threeJs != null) return;
 
     _lastTreeId = treeId;
@@ -784,12 +803,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _threeReady = false;
 
     _disposeThree();
+    final epoch = _threeLoadEpoch;
 
     late final three.ThreeJS js;
     js = three.ThreeJS(
-      setup: () => _setup(threeJsRef: js, treeId: treeId),
+      setup: () => _setup(threeJsRef: js, treeId: treeId, epoch: epoch),
       onSetupComplete: () {
-        if (!mounted) return;
+        if (!_isCurrentThreeRequest(js, epoch)) {
+          _disposeThreeRef(js);
+          return;
+        }
         setState(() => _threeReady = true);
         _applyPendingThreadFocus();
       },
@@ -816,6 +839,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   Future<void> _setup({
     required three.ThreeJS threeJsRef,
     required String treeId,
+    required int epoch,
   }) async {
     try {
       final preset = TreeCatalog.resolve(treeId);
@@ -859,6 +883,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       threeJsRef.scene.add(dir);
 
       // Load GLB
+      await TreeModelCache.instance.ensureWarm(treeId);
+      if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
+        _disposeThreeRef(threeJsRef);
+        return;
+      }
+
       final loader = three.GLTFLoader(
         flipY: true,
       ).setPath('assets/tree_models/');
@@ -866,6 +896,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (gltf == null) throw Exception('GLB null (${preset.assetPath})');
 
       final tree = gltf.scene;
+      if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
+        _disposeThreeRef(threeJsRef);
+        return;
+      }
 
       // A) bounds
       tree.updateMatrixWorld(true);
@@ -907,6 +941,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           .clamp(0.1, 1000.0);
 
       _groundY = 0.0;
+
+      if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
+        _disposeThreeRef(threeJsRef);
+        return;
+      }
 
       // orbit merkez
       final targetY = (_modelHeight * 0.55).clamp(0.20, 2.0);
@@ -986,13 +1025,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _updateCamera(threeJsRef, 0.0);
 
       threeJsRef.addAnimationEvent((dt) {
+        if (!_isCurrentThreeRequest(threeJsRef, epoch)) return;
         _tickCenterShift(dt);
         _tickSnap(dt);
         _updateCamera(threeJsRef, dt);
       });
     } catch (e, st) {
       log('ThreeJS setup error: $e', stackTrace: st);
-      if (!mounted) return;
+      if (!_isCurrentThreeRequest(threeJsRef, epoch)) return;
       setState(() => _threeError = e.toString());
     }
   }
@@ -2635,8 +2675,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final preset = (tid == null) ? null : TreeCatalog.resolve(tid);
     final bg = Color(preset?.bgColor ?? AppColors.chaputBlack.value);
 
-    final showLoading =
-        st.isLoading || (tid != null && !_threeReady && _threeError == null);
+    final showPageLoading = st.profileJson == null && st.isLoading;
+    final showTreeLoading =
+        !showPageLoading && tid != null && !_threeReady && _threeError == null;
 
     final user = (st.profileJson?['user'] is Map)
         ? (st.profileJson!['user'] as Map)
@@ -2860,7 +2901,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool showEmptyChaputSheet =
         chaputAllowed &&
         chaputThreads.isEmpty &&
-        !showLoading &&
+        !showPageLoading &&
         !_composerOpen &&
         !_silhouetteMode;
 
@@ -3063,7 +3104,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
 
-                if (showLoading)
+                if (showPageLoading)
                   Positioned.fill(
                     child: AbsorbPointer(
                       child: ColoredBox(
@@ -3074,6 +3115,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               MediaQuery.of(context).size.width * 0.6,
                               240,
                             ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (showTreeLoading)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Center(
+                        child: TreeSilhouetteShimmer(
+                          size: math.min(
+                            MediaQuery.of(context).size.width * 0.5,
+                            200,
                           ),
                         ),
                       ),

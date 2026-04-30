@@ -21,45 +21,76 @@ class ChaputSocketClient {
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   final _events = StreamController<ChaputSocketEvent>.broadcast();
+  Future<void>? _connectFuture;
+  bool _disposed = false;
 
   Stream<ChaputSocketEvent> get events => _events.stream;
 
   Future<void> ensureConnected() async {
-    if (_channel != null) return;
-    final token = await _storage.readAccessToken();
-    if (token == null || token.isEmpty) {
+    if (_disposed || _channel != null) return;
+    final inFlight = _connectFuture;
+    if (inFlight != null) {
+      await inFlight;
       return;
     }
-    final api = Uri.parse(Env.apiBaseUrl);
-    final ws = api.replace(
-      scheme: api.scheme == 'https' ? 'wss' : 'ws',
-      path: '/ws/chaput',
-      queryParameters: {'token': token},
-    );
-    final channel = WebSocketChannel.connect(ws);
-    _channel = channel;
-    _sub = channel.stream.listen(
-      (event) {
-        if (event is String) {
-          final obj = jsonDecode(event);
-          if (obj is Map<String, dynamic>) {
-            final type = obj['type']?.toString() ?? '';
-            _events.add(ChaputSocketEvent(type, obj));
+
+    final completer = Completer<void>();
+    _connectFuture = completer.future;
+
+    try {
+      final token = await _storage.readAccessToken();
+      if (_disposed || token == null || token.isEmpty) {
+        _cleanup();
+        completer.complete();
+        return;
+      }
+
+      final api = Uri.parse(Env.apiBaseUrl);
+      final ws = api.replace(
+        scheme: api.scheme == 'https' ? 'wss' : 'ws',
+        path: '/ws/chaput',
+        queryParameters: {'token': token},
+      );
+
+      final channel = WebSocketChannel.connect(ws);
+      _channel = channel;
+      _sub = channel.stream.listen(
+        (event) {
+          if (event is String) {
+            final obj = jsonDecode(event);
+            if (obj is Map<String, dynamic>) {
+              final type = obj['type']?.toString() ?? '';
+              _events.add(ChaputSocketEvent(type, obj));
+            }
           }
-        }
-      },
-      onDone: _cleanup,
-      onError: (_) => _cleanup(),
-    );
+        },
+        onDone: _cleanup,
+        onError: (_, __) => _cleanup(),
+      );
+
+      await channel.ready;
+      completer.complete();
+    } catch (_) {
+      _cleanup();
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    } finally {
+      _connectFuture = null;
+    }
   }
 
   void _cleanup() {
     _sub?.cancel();
     _sub = null;
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
     _channel = null;
   }
 
   void dispose() {
+    _disposed = true;
     _cleanup();
     _events.close();
   }
@@ -73,7 +104,10 @@ class ChaputSocketClient {
   }
 
   void subscribeThread(String threadId, {String? profileId}) {
-    final payload = <String, dynamic>{'type': 'subscribe_thread', 'thread_id': threadId};
+    final payload = <String, dynamic>{
+      'type': 'subscribe_thread',
+      'thread_id': threadId,
+    };
     if (profileId != null && profileId.isNotEmpty) {
       payload['profile_id'] = profileId;
     }
@@ -91,7 +125,11 @@ class ChaputSocketClient {
   void _send(Map<String, dynamic> data) {
     final ch = _channel;
     if (ch == null) return;
-    ch.sink.add(jsonEncode(data));
+    try {
+      ch.sink.add(jsonEncode(data));
+    } catch (_) {
+      _cleanup();
+    }
   }
 }
 
