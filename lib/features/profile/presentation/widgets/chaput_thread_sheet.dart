@@ -115,7 +115,10 @@ class ChaputThreadSheet extends ConsumerWidget {
                     itemBuilder: (ctx, index) {
                       final entry = entries[index];
                       if (entry.isAd) {
-                        return const _ChaputNativeAdPage();
+                        return _ChaputNativeAdPage(
+                          key: ValueKey('native-ad-page-$index'),
+                          slotId: index,
+                        );
                       }
                       final thread = entry.thread!;
                       final isParticipant =
@@ -232,19 +235,33 @@ class _ChaputPageEntry {
   final bool isAd;
 }
 
-class _ChaputNativeAdPage extends StatelessWidget {
-  const _ChaputNativeAdPage();
+class _ChaputNativeAdPage extends StatefulWidget {
+  const _ChaputNativeAdPage({super.key, required this.slotId});
+
+  final int slotId;
+
+  @override
+  State<_ChaputNativeAdPage> createState() => _ChaputNativeAdPageState();
+}
+
+class _ChaputNativeAdPageState extends State<_ChaputNativeAdPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         if (!constraints.hasBoundedHeight || constraints.maxHeight <= 0) {
           return const SizedBox.shrink();
         }
-        return const Align(
+        return Align(
           alignment: Alignment.bottomCenter,
-          child: ChaputNativeAdCard(),
+          child: ChaputNativeAdCard(
+            key: ValueKey('native-ad-card-${widget.slotId}'),
+          ),
         );
       },
     );

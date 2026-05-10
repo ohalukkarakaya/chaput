@@ -10,8 +10,8 @@ import '../../../../core/i18n/app_localizations.dart';
 class ChaputNativeAdCard extends StatefulWidget {
   const ChaputNativeAdCard({super.key});
 
-  static const double minAdHeight = 340.0;
-  static const double minTotalHeight = 470.0;
+  static const double minAdHeight = 300.0;
+  static const double minTotalHeight = 410.0;
 
   static void preload() {
     _ChaputNativeAdCache.preload();
@@ -97,7 +97,7 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
       child: SizedBox(
         height: ChaputNativeAdCard.minTotalHeight,
         child: _loaded && _ad != null
-            ? AdWidget(ad: _ad!)
+            ? AdWidget(key: ObjectKey(_ad), ad: _ad!)
             : Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
