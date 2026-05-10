@@ -50,7 +50,7 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     let body = UILabel()
     body.font = UIFont.systemFont(ofSize: 13, weight: .regular)
     body.textColor = UIColor.white.withAlphaComponent(0.85)
-    body.numberOfLines = 2
+    body.numberOfLines = 1
 
     let mediaView = MediaView()
     mediaView.clipsToBounds = true
@@ -86,7 +86,7 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     bottom.spacing = 10
     bottom.alignment = .center
 
-    let container = UIStackView(arrangedSubviews: [top, stack, mediaView, bottom])
+    let container = UIStackView(arrangedSubviews: [top, mediaView, stack, bottom])
     container.axis = .vertical
     container.spacing = 10
     container.translatesAutoresizingMaskIntoConstraints = false
@@ -99,7 +99,7 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
       container.bottomAnchor.constraint(equalTo: adView.bottomAnchor, constant: -14),
       adChoices.widthAnchor.constraint(greaterThanOrEqualToConstant: 36),
       adChoices.heightAnchor.constraint(greaterThanOrEqualToConstant: 36),
-      mediaView.heightAnchor.constraint(equalToConstant: 200),
+      mediaView.heightAnchor.constraint(equalToConstant: 240),
       icon.widthAnchor.constraint(equalToConstant: 36),
       icon.heightAnchor.constraint(equalToConstant: 36),
       cta.heightAnchor.constraint(equalToConstant: 36),

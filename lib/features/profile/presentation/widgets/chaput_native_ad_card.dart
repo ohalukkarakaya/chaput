@@ -10,8 +10,8 @@ import '../../../../core/i18n/app_localizations.dart';
 class ChaputNativeAdCard extends StatefulWidget {
   const ChaputNativeAdCard({super.key});
 
-  static const double minAdHeight = 300.0;
-  static const double minTotalHeight = 430.0;
+  static const double minAdHeight = 340.0;
+  static const double minTotalHeight = 470.0;
 
   static void preload() {
     _ChaputNativeAdCache.preload();
@@ -28,31 +28,52 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
   @override
   void initState() {
     super.initState();
-    _ChaputNativeAdCache.addListener(_onCacheReady);
-    _ad = _ChaputNativeAdCache.take();
-    _loaded = _ad != null;
-    _ChaputNativeAdCache.preload();
-  }
-
-  void _onCacheReady() {
-    if (!mounted || _ad != null) {
-      return;
-    }
-    final ad = _ChaputNativeAdCache.take();
-    if (ad == null) {
-      return;
-    }
-    setState(() {
-      _ad = ad;
-      _loaded = true;
-    });
+    _loadAd();
   }
 
   @override
   void dispose() {
     _ad?.dispose();
-    _ChaputNativeAdCache.removeListener(_onCacheReady);
     super.dispose();
+  }
+
+  void _loadAd() {
+    final ad = NativeAd(
+      adUnitId: Env.nativeAdUnitId(isIOS: Platform.isIOS),
+      factoryId: 'chaputNative',
+      request: const AdRequest(),
+      nativeAdOptions: NativeAdOptions(
+        mediaAspectRatio: MediaAspectRatio.landscape,
+        videoOptions: VideoOptions(
+          startMuted: true,
+          customControlsRequested: false,
+          clickToExpandRequested: false,
+        ),
+      ),
+      listener: NativeAdListener(
+        onAdLoaded: (ad) {
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() {
+            _ad = ad as NativeAd;
+            _loaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, err) {
+          ad.dispose();
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _ad = null;
+            _loaded = false;
+          });
+        },
+      ),
+    );
+    ad.load();
   }
 
   @override
@@ -101,55 +122,5 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
 }
 
 class _ChaputNativeAdCache {
-  static NativeAd? _readyAd;
-  static bool _loading = false;
-  static final Set<VoidCallback> _listeners = {};
-
-  static void preload() {
-    if (_readyAd != null || _loading) {
-      return;
-    }
-    _loading = true;
-    final ad = NativeAd(
-      adUnitId: Env.nativeAdUnitId(isIOS: Platform.isIOS),
-      factoryId: 'chaputNative',
-      request: const AdRequest(),
-      listener: NativeAdListener(
-        onAdLoaded: (ad) {
-          _readyAd = ad as NativeAd;
-          _loading = false;
-          _notify();
-        },
-        onAdFailedToLoad: (ad, err) {
-          ad.dispose();
-          _loading = false;
-          _notify();
-        },
-      ),
-    );
-    ad.load();
-  }
-
-  static NativeAd? take() {
-    final ad = _readyAd;
-    _readyAd = null;
-    if (ad != null) {
-      preload();
-    }
-    return ad;
-  }
-
-  static void addListener(VoidCallback cb) {
-    _listeners.add(cb);
-  }
-
-  static void removeListener(VoidCallback cb) {
-    _listeners.remove(cb);
-  }
-
-  static void _notify() {
-    for (final cb in _listeners.toList()) {
-      cb();
-    }
-  }
+  static void preload() {}
 }
