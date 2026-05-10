@@ -239,16 +239,12 @@ class _ChaputNativeAdPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (!constraints.hasBoundedHeight ||
-            constraints.maxHeight < ChaputNativeAdCard.minTotalHeight) {
+        if (!constraints.hasBoundedHeight || constraints.maxHeight <= 0) {
           return const SizedBox.shrink();
         }
         return const Align(
           alignment: Alignment.bottomCenter,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: 16),
-            child: ChaputNativeAdCard(),
-          ),
+          child: ChaputNativeAdCard(),
         );
       },
     );
@@ -313,6 +309,10 @@ class _SheetPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final initialThreadId = this.initialThreadId;
     final initialMessageId = this.initialMessageId;
+    final mediaQuery = MediaQuery.of(context);
+    final safeBottom = mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
+        ? mediaQuery.viewPadding.bottom
+        : mediaQuery.padding.bottom;
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final compact = constraints.maxHeight < 180;
@@ -331,94 +331,101 @@ class _SheetPage extends StatelessWidget {
                 ),
               ),
               child: compact
-                  ? SizedBox(
-                      height: constraints.maxHeight,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          if (constraints.maxHeight >= 80) ...[
-                            const SizedBox(height: 6),
-                            const SheetHandle(),
-                          ],
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.topLeft,
-                                child: SizedBox(
-                                  width: constraints.maxWidth,
-                                  child: _ThreadHeader(
-                                    ownerUser: ownerUser,
-                                    otherUser: otherUser,
-                                    isHidden: thread.isHidden,
-                                    isSpecial: thread.isSpecial,
-                                    isParticipant: isParticipant,
-                                    otherName:
-                                        (thread.isHidden && !isParticipant)
-                                        ? context.t('chat.anonymous_user')
-                                        : (otherUser?.fullName ?? ''),
-                                    otherUsername:
-                                        (thread.isHidden && !isParticipant)
-                                        ? null
-                                        : otherUser?.username,
-                                    onOpenProfile: onOpenProfile,
-                                    threadId: thread.threadId,
-                                    showHideAction:
-                                        isParticipant && !thread.isHidden,
-                                    canMakeHidden: canMakeHidden,
-                                    onMakeHidden: () => onMakeHidden(thread),
-                                    onArchiveThread: () =>
-                                        onArchiveThread(thread),
-                                    onReportThread: () =>
-                                        onReportThread(thread),
-                                    canArchiveThread:
-                                        isParticipant && thread.state == 'OPEN',
-                                    canReportThread: isParticipant,
+                  ? Padding(
+                      padding: EdgeInsets.only(bottom: safeBottom),
+                      child: SizedBox(
+                        height: constraints.maxHeight,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            if (constraints.maxHeight >= 80) ...[
+                              const SizedBox(height: 6),
+                              const SheetHandle(),
+                            ],
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.topLeft,
+                                  child: SizedBox(
+                                    width: constraints.maxWidth,
+                                    child: _ThreadHeader(
+                                      ownerUser: ownerUser,
+                                      otherUser: otherUser,
+                                      isHidden: thread.isHidden,
+                                      isSpecial: thread.isSpecial,
+                                      isParticipant: isParticipant,
+                                      otherName:
+                                          (thread.isHidden && !isParticipant)
+                                          ? context.t('chat.anonymous_user')
+                                          : (otherUser?.fullName ?? ''),
+                                      otherUsername:
+                                          (thread.isHidden && !isParticipant)
+                                          ? null
+                                          : otherUser?.username,
+                                      onOpenProfile: onOpenProfile,
+                                      threadId: thread.threadId,
+                                      showHideAction:
+                                          isParticipant && !thread.isHidden,
+                                      canMakeHidden: canMakeHidden,
+                                      onMakeHidden: () => onMakeHidden(thread),
+                                      onArchiveThread: () =>
+                                          onArchiveThread(thread),
+                                      onReportThread: () =>
+                                          onReportThread(thread),
+                                      canArchiveThread:
+                                          isParticipant &&
+                                          thread.state == 'OPEN',
+                                      canReportThread: isParticipant,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : Padding(
+                      padding: EdgeInsets.only(bottom: safeBottom),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 6),
+                          const SheetHandle(),
+                          Expanded(
+                            child: _ThreadPage(
+                              thread: thread,
+                              ownerUser: ownerUser,
+                              otherUser: otherUser,
+                              viewerUser: viewerUser,
+                              viewerId: viewerId,
+                              isParticipant: isParticipant,
+                              profileId: profileId,
+                              initialMessageId:
+                                  (initialThreadId != null &&
+                                      initialMessageId != null &&
+                                      initialThreadId == thread.threadId)
+                                  ? initialMessageId
+                                  : null,
+                              onOpenProfile: onOpenProfile,
+                              onSendMessage: onSendMessage,
+                              onMakeHidden: onMakeHidden,
+                              onArchiveThread: onArchiveThread,
+                              onReportThread: onReportThread,
+                              onReportMessage: onReportMessage,
+                              canMakeHidden: canMakeHidden,
+                              onOpenWhisperPaywall: onOpenWhisperPaywall,
+                              replyOverlay: replyOverlay,
+                              whisperCredits: whisperCredits,
+                              onReplyMessage: onReplyMessage,
+                              typingUsers:
+                                  typingUsersByThread[thread.threadId] ??
+                                  const [],
+                            ),
                           ),
                         ],
                       ),
-                    )
-                  : Column(
-                      children: [
-                        const SizedBox(height: 6),
-                        const SheetHandle(),
-                        Expanded(
-                          child: _ThreadPage(
-                            thread: thread,
-                            ownerUser: ownerUser,
-                            otherUser: otherUser,
-                            viewerUser: viewerUser,
-                            viewerId: viewerId,
-                            isParticipant: isParticipant,
-                            profileId: profileId,
-                            initialMessageId:
-                                (initialThreadId != null &&
-                                    initialMessageId != null &&
-                                    initialThreadId == thread.threadId)
-                                ? initialMessageId
-                                : null,
-                            onOpenProfile: onOpenProfile,
-                            onSendMessage: onSendMessage,
-                            onMakeHidden: onMakeHidden,
-                            onArchiveThread: onArchiveThread,
-                            onReportThread: onReportThread,
-                            onReportMessage: onReportMessage,
-                            canMakeHidden: canMakeHidden,
-                            onOpenWhisperPaywall: onOpenWhisperPaywall,
-                            replyOverlay: replyOverlay,
-                            whisperCredits: whisperCredits,
-                            onReplyMessage: onReplyMessage,
-                            typingUsers:
-                                typingUsersByThread[thread.threadId] ??
-                                const [],
-                          ),
-                        ),
-                      ],
                     ),
             ),
           ),
@@ -482,6 +489,10 @@ class _ThreadPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final mediaQuery = MediaQuery.of(context);
+    final safeBottom = mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
+        ? mediaQuery.viewPadding.bottom
+        : mediaQuery.padding.bottom;
     final args = ChaputMessagesArgs(
       threadId: thread.threadId,
       profileId: profileId,
@@ -520,11 +531,13 @@ class _ThreadPage extends ConsumerWidget {
         const typingHeight = 26.0;
         const typingExtraAbove = 24.0;
         const thirdViewerListLift = 12.0;
+        final bottomSafeInset = safeBottom > 0 ? safeBottom : 0.0;
         final bottomPad =
             composerHeight +
             pendingHeight +
             (pendingWidget != null ? spacing : 0) +
-            replyOverlay;
+            replyOverlay +
+            bottomSafeInset;
         final topPad = headerHeight + spacing;
         final hasTyping = typingUsers.isNotEmpty;
         final typingBottomOffset =
@@ -608,7 +621,7 @@ class _ThreadPage extends ConsumerWidget {
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: composerHeight,
+                  bottom: composerHeight + bottomSafeInset,
                   child: pendingWidget,
                 ),
               if (showMessages && hasTyping)

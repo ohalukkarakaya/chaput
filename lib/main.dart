@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,15 +11,20 @@ import 'app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await FirebaseMessaging.instance.requestPermission();
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: false,
-    badge: false,
-    sound: false,
-  );
-  FirebaseMessaging.onMessage.listen((_) {});
-  await LocalNotificationService.instance.scheduleMissYou();
+  final enableNotifications = defaultTargetPlatform != TargetPlatform.android;
+
+  if (enableNotifications) {
+    await Firebase.initializeApp();
+    await FirebaseMessaging.instance.requestPermission();
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: false,
+      badge: false,
+      sound: false,
+    );
+    FirebaseMessaging.onMessage.listen((_) {});
+    await LocalNotificationService.instance.scheduleMissYou();
+  }
+
   await MobileAds.instance.initialize();
 
   await SystemChrome.setPreferredOrientations([
@@ -27,7 +33,6 @@ Future<void> main() async {
 
   runApp(const ProviderScope(child: ChaputApp()));
 
-  // Warm tree models after first frame to speed up profile opens.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     TreeModelCache.instance.warmUpAll();
   });

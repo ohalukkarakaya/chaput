@@ -3,16 +3,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/config/env.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
 
 class ChaputNativeAdCard extends StatefulWidget {
   const ChaputNativeAdCard({super.key});
 
-  static const double minAdHeight = 240.0;
-  static const double minTotalHeight = 340.0;
+  static const double minAdHeight = 300.0;
+  static const double minTotalHeight = 430.0;
 
   static void preload() {
     _ChaputNativeAdCache.preload();
@@ -36,9 +35,13 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
   }
 
   void _onCacheReady() {
-    if (!mounted || _ad != null) return;
+    if (!mounted || _ad != null) {
+      return;
+    }
     final ad = _ChaputNativeAdCache.take();
-    if (ad == null) return;
+    if (ad == null) {
+      return;
+    }
     setState(() {
       _ad = ad;
       _loaded = true;
@@ -57,72 +60,42 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
     if (!Platform.isIOS && !Platform.isAndroid) {
       return const SizedBox.shrink();
     }
-    final theme = Theme.of(context);
-    return LayoutBuilder(
-      builder: (ctx, constraints) {
-        final card = Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.chaputNearBlack,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.22)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                context.t('ads.sponsored'),
-                style: TextStyle(
-                  color: AppColors.chaputWhite.withOpacity(0.8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+
+    final mediaQuery = MediaQuery.of(context);
+    final safeBottom = mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
+        ? mediaQuery.viewPadding.bottom
+        : mediaQuery.padding.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        10,
+        20,
+        safeBottom > 0 ? safeBottom : 12,
+      ),
+      child: SizedBox(
+        height: ChaputNativeAdCard.minTotalHeight,
+        child: _loaded && _ad != null
+            ? AdWidget(ad: _ad!)
+            : Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.chaputNearBlack,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.22),
+                  ),
+                ),
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  context.t('ads.sponsored_content'),
+                  style: TextStyle(
+                    color: AppColors.chaputWhite.withOpacity(0.7),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
-              if (_loaded && _ad != null)
-                SizedBox(
-                  height: ChaputNativeAdCard.minAdHeight,
-                  child: AdWidget(ad: _ad!),
-                )
-              else
-                Container(
-                  height: ChaputNativeAdCard.minAdHeight,
-                  decoration: BoxDecoration(
-                    color: AppColors.chaputWhite.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    context.t('ads.sponsored_content'),
-                    style: TextStyle(
-                      color: AppColors.chaputWhite.withOpacity(0.7),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-              ),
-            ],
-          ),
-        );
-
-        final content = Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: card,
-        );
-
-        return ClipRect(
-          child: OverflowBox(
-            alignment: Alignment.bottomCenter,
-            minHeight: ChaputNativeAdCard.minTotalHeight,
-            maxHeight: ChaputNativeAdCard.minTotalHeight,
-            child: SizedBox(
-              height: ChaputNativeAdCard.minTotalHeight,
-              child: content,
-            ),
-          ),
-        );
-      },
+      ),
     );
   }
 }
@@ -133,7 +106,9 @@ class _ChaputNativeAdCache {
   static final Set<VoidCallback> _listeners = {};
 
   static void preload() {
-    if (_readyAd != null || _loading) return;
+    if (_readyAd != null || _loading) {
+      return;
+    }
     _loading = true;
     final ad = NativeAd(
       adUnitId: Env.nativeAdUnitId(isIOS: Platform.isIOS),

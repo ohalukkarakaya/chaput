@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import com.google.android.gms.ads.nativead.AdChoicesView
 import com.google.android.gms.ads.nativead.MediaView
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdView
@@ -24,12 +25,14 @@ class ChaputNativeAdFactory(private val context: Context) : NativeAdFactory {
         val icon = adView.findViewById<ImageView>(R.id.ad_app_icon)
         val cta = adView.findViewById<Button>(R.id.ad_call_to_action)
         val media = adView.findViewById<MediaView>(R.id.ad_media)
+        val adChoices = adView.findViewById<AdChoicesView>(R.id.ad_choices)
 
         adView.headlineView = headline
         adView.bodyView = body
         adView.iconView = icon
         adView.callToActionView = cta
         adView.mediaView = media
+        adView.adChoicesView = adChoices
 
         headline.text = nativeAd.headline
         if (nativeAd.body == null) {

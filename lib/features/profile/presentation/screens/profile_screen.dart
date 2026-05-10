@@ -258,7 +258,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   double _chaputSheetExtent = _chaputSheetMin;
   double _chaputSheetPrevExtent = _chaputSheetMin;
   double _sheetExtentBeforeAd = _chaputSheetMin;
+  double _adLockedExtent = _chaputSheetMid;
   bool _isAdPageActive = false;
+  bool _isProgrammaticAdSheetChange = false;
   bool _nativeAdPreloaded = false;
   final DraggableScrollableController _chaputSheetCtrl =
       DraggableScrollableController();
@@ -3816,9 +3818,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           initialExtent: _chaputSheetExtent,
                           showNativeAds: showNativeAds,
                           onExtentChanged: (v) {
-                            _chaputSheetExtent = v;
-                            if (v > _chaputSheetMin + 0.01) {
-                              _chaputSheetPrevExtent = v;
+                            if (_isAdPageActive) {
+                              _chaputSheetExtent = _adLockedExtent;
+                              if (!_isProgrammaticAdSheetChange &&
+                                  (v - _adLockedExtent).abs() > 0.01 &&
+                                  _chaputSheetCtrl.isAttached) {
+                                _isProgrammaticAdSheetChange = true;
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (!mounted ||
+                                      !_chaputSheetCtrl.isAttached) {
+                                    _isProgrammaticAdSheetChange = false;
+                                    return;
+                                  }
+                                  _chaputSheetCtrl
+                                      .animateTo(
+                                        _adLockedExtent,
+                                        duration: const Duration(
+                                          milliseconds: 160,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                      )
+                                      .whenComplete(() {
+                                        _isProgrammaticAdSheetChange = false;
+                                      });
+                                });
+                              }
+                            } else {
+                              _chaputSheetExtent = v;
+                              if (v > _chaputSheetMin + 0.01) {
+                                _chaputSheetPrevExtent = v;
+                              }
                             }
                             if (v <= _chaputSheetMid + 0.001 &&
                                 MediaQuery.of(context).viewInsets.bottom > 0) {
@@ -3834,46 +3865,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                     showAds: showNativeAds,
                                   );
                             final isAdPage = threadIndex == null;
-                            if (isAdPage) {
-                              if (!_isAdPageActive) {
-                                _isAdPageActive = true;
-                                _sheetExtentBeforeAd = _chaputSheetExtent;
-                                final screenHeight = MediaQuery.of(
-                                  context,
-                                ).size.height;
-                                final minAdExtent =
-                                    (ChaputNativeAdCard.minTotalHeight /
-                                            screenHeight)
-                                        .clamp(
-                                          _chaputSheetMin,
-                                          _chaputSheetMax,
-                                        );
-                                final target = _chaputSheetMid >= minAdExtent
-                                    ? _chaputSheetMid
-                                    : minAdExtent;
-                                _chaputSheetExtent = target;
-                                if (_chaputSheetCtrl.isAttached) {
-                                  _chaputSheetCtrl.animateTo(
-                                    target,
-                                    duration: const Duration(milliseconds: 180),
-                                    curve: Curves.easeOutCubic,
-                                  );
-                                }
-                                setState(() {});
-                              }
-                            } else if (_isAdPageActive) {
-                              _isAdPageActive = false;
-                              final target = _sheetExtentBeforeAd.clamp(
-                                _chaputSheetMin,
-                                _chaputSheetMax,
-                              );
-                              _chaputSheetExtent = target;
+                            if (isAdPage && !_isAdPageActive) {
+                              _isAdPageActive = true;
+                              _sheetExtentBeforeAd = _chaputSheetExtent;
+                              final screenHeight = MediaQuery.of(
+                                context,
+                              ).size.height;
+                              final safeBottom = MediaQuery.of(
+                                context,
+                              ).viewPadding.bottom;
+                              _adLockedExtent =
+                                  ((ChaputNativeAdCard.minTotalHeight +
+                                              safeBottom +
+                                              20) /
+                                          screenHeight)
+                                      .clamp(_chaputSheetMid, _chaputSheetMax);
+                              _chaputSheetExtent = _adLockedExtent;
                               if (_chaputSheetCtrl.isAttached) {
-                                _chaputSheetCtrl.animateTo(
-                                  target,
+                                _isProgrammaticAdSheetChange = true;
+                                await _chaputSheetCtrl.animateTo(
+                                  _adLockedExtent,
                                   duration: const Duration(milliseconds: 180),
                                   curve: Curves.easeOutCubic,
                                 );
+                                _isProgrammaticAdSheetChange = false;
+                              }
+                              if (!mounted) {
+                                return;
+                              }
+                              setState(() {});
+                            } else if (!isAdPage && _isAdPageActive) {
+                              _isAdPageActive = false;
+                              final restoreExtent = _sheetExtentBeforeAd.clamp(
+                                _chaputSheetMin,
+                                _chaputSheetMax,
+                              );
+                              _chaputSheetExtent = restoreExtent;
+                              if (_chaputSheetCtrl.isAttached) {
+                                _isProgrammaticAdSheetChange = true;
+                                await _chaputSheetCtrl.animateTo(
+                                  restoreExtent,
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOutCubic,
+                                );
+                                _isProgrammaticAdSheetChange = false;
+                              }
+                              if (!mounted) {
+                                return;
                               }
                               setState(() {});
                             }
