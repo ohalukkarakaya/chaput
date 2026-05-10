@@ -1,32 +1,29 @@
 import 'dart:async';
+
 import 'package:dio/dio.dart';
 
-import '../../storage/token_storage.dart';
 import '../../../features/auth/data/auth_api.dart';
-import '../../utils/logger.dart';
-
-import 'dart:async';
-import 'package:dio/dio.dart';
-
 import '../../storage/token_storage.dart';
-import '../../../features/auth/data/auth_api.dart';
 import '../../utils/logger.dart';
 
 class AuthInterceptor extends Interceptor {
-  final TokenStorage tokenStorage;
-  final AuthApi authApi;
-  final Future<void> Function() onForceLogout;
-
   AuthInterceptor({
     required this.tokenStorage,
     required this.authApi,
     required this.onForceLogout,
   });
 
+  final TokenStorage tokenStorage;
+  final AuthApi authApi;
+  final Future<void> Function() onForceLogout;
+
   Completer<void>? _refreshCompleter;
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     final access = await tokenStorage.readAccessToken();
     if (access != null && access.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $access';
@@ -36,13 +33,13 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    // sadece 401 ise refresh dene
     final is401 = err.response?.statusCode == 401;
     final requestOptions = err.requestOptions;
-
-    // login/refresh endpointlerinde refresh deneme (loop)
     final path = requestOptions.path;
-    if (!is401 || path.contains('/auth/login') || path.contains('/auth/refresh')) {
+
+    if (!is401 ||
+        path.contains('/auth/login') ||
+        path.contains('/auth/token/refresh')) {
       return handler.next(err);
     }
 
@@ -55,12 +52,11 @@ class AuthInterceptor extends Interceptor {
         return handler.next(err);
       }
 
-      // requesti tekrar dene
       final dio = err.requestOptions.extra['dio'] as Dio?;
-      final client = dio ?? Dio(); // fallback (normalde extra ile set edeceğiz)
+      final client = dio ?? Dio();
 
-      final cloned = await _retry(client, requestOptions, newAccess);
-      return handler.resolve(cloned);
+      final response = await _retry(client, requestOptions, newAccess);
+      return handler.resolve(response);
     } catch (e, st) {
       Log.e('Refresh failed -> force logout', error: e, st: st);
       await onForceLogout();
@@ -81,54 +77,75 @@ class AuthInterceptor extends Interceptor {
       }
 
       final res = await authApi.refresh(refreshToken: refresh);
-
       await tokenStorage.saveAccessToken(res.accessToken);
-
       _refreshCompleter!.complete();
     } catch (e, st) {
       _refreshCompleter!.completeError(e, st);
       rethrow;
     } finally {
-      // küçük gecikmeyle null’la (eş zamanlı isteklerde stabil)
       Future.microtask(() => _refreshCompleter = null);
     }
   }
 
   Future<Response<dynamic>> _retry(
-      Dio dio,
-      RequestOptions ro,
-      String accessToken,
-      ) async {
-    final base = (ro.baseUrl.isNotEmpty) ? ro.baseUrl : dio.options.baseUrl;
-
+    Dio dio,
+    RequestOptions ro,
+    String accessToken,
+  ) async {
+    final base = ro.baseUrl.isNotEmpty ? ro.baseUrl : dio.options.baseUrl;
     if (base.isEmpty) {
       throw StateError('Dio baseUrl boş. retry yapılamaz.');
     }
 
-    // ✅ ABSOLUTE URI üret (No host specified fix)
-    final uri = Uri.parse(base).resolve(ro.path);
+    final uri = Uri.parse(base)
+        .resolve(ro.path)
+        .replace(
+          queryParameters: ro.queryParameters.isEmpty
+              ? null
+              : ro.queryParameters.map(
+                  (key, value) => MapEntry(key, value?.toString()),
+                ),
+        );
+    final headers = Map<String, dynamic>.from(ro.headers)
+      ..remove('content-length')
+      ..remove('Content-Length')
+      ..['Authorization'] = 'Bearer $accessToken';
 
     final options = Options(
       method: ro.method,
-      headers: Map<String, dynamic>.from(ro.headers)
-        ..['Authorization'] = 'Bearer $accessToken',
+      headers: headers,
       responseType: ro.responseType,
       contentType: ro.contentType,
       followRedirects: ro.followRedirects,
       receiveTimeout: ro.receiveTimeout,
       sendTimeout: ro.sendTimeout,
       validateStatus: ro.validateStatus,
+      extra: Map<String, dynamic>.from(ro.extra)..['dio'] = dio,
     );
 
-    // ✅ requestUri: baseUrl/path birleşimi garanti
     return dio.requestUri<dynamic>(
       uri,
-      data: ro.data,
+      data: _cloneRequestData(ro.data),
       options: options,
       cancelToken: ro.cancelToken,
       onReceiveProgress: ro.onReceiveProgress,
       onSendProgress: ro.onSendProgress,
     );
+  }
 
+  Object? _cloneRequestData(Object? data) {
+    if (data == null) {
+      return null;
+    }
+    if (data is FormData) {
+      return data.clone();
+    }
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    if (data is List) {
+      return List<dynamic>.from(data);
+    }
+    return data;
   }
 }
