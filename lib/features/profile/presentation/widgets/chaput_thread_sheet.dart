@@ -391,6 +391,7 @@ class _SheetPage extends StatelessWidget {
                                     canArchiveThread:
                                         isParticipant && thread.state == 'OPEN',
                                     canReportThread: isParticipant,
+                                    compact: true,
                                   ),
                                 ),
                               ),
@@ -588,6 +589,7 @@ class _ThreadPage extends ConsumerWidget {
                   onReportThread: () => onReportThread(thread),
                   canArchiveThread: canArchiveThread,
                   canReportThread: canReportThread,
+                  compact: false,
                 ),
               ),
               if (showMessages)
@@ -675,6 +677,7 @@ class _ThreadHeader extends StatelessWidget {
     required this.canReportThread,
     required this.onArchiveThread,
     required this.onReportThread,
+    this.compact = false,
   });
 
   final LiteUser? ownerUser;
@@ -693,12 +696,16 @@ class _ThreadHeader extends StatelessWidget {
   final bool canReportThread;
   final VoidCallback onArchiveThread;
   final VoidCallback onReportThread;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
       child: Row(
+        crossAxisAlignment: compact
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
           _AvatarStack(
             ownerUser: ownerUser,

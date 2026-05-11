@@ -2595,6 +2595,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         curve: Curves.easeOut,
       );
     }
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _onScaleEnd(ScaleEndDetails d) {
@@ -2616,6 +2620,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
+    }
+
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -3803,238 +3811,274 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         padding: EdgeInsets.only(
                           bottom: MediaQuery.of(context).viewInsets.bottom,
                         ),
-                        child: ChaputThreadSheet(
-                          threads: chaputThreads,
-                          usersById: chaputThreadsState.usersById,
-                          typingUsersByThread: typingUsersByThread,
-                          viewerUser: viewerLite,
-                          viewerId: viewerId,
-                          ownerId: userId,
-                          profileId: profileIdHex,
-                          initialThreadId: _pendingInitialThreadId,
-                          initialMessageId: _pendingInitialMessageId,
-                          pageController: _chaputPageCtrl,
-                          sheetController: _chaputSheetCtrl,
-                          initialExtent: _chaputSheetExtent,
-                          showNativeAds: showNativeAds,
-                          onExtentChanged: (v) {
-                            if (_isAdPageActive) {
-                              _chaputSheetExtent = _adLockedExtent;
-                              if (!_isProgrammaticAdSheetChange &&
-                                  (v - _adLockedExtent).abs() > 0.01 &&
-                                  _chaputSheetCtrl.isAttached) {
-                                _isProgrammaticAdSheetChange = true;
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  if (!mounted ||
-                                      !_chaputSheetCtrl.isAttached) {
-                                    _isProgrammaticAdSheetChange = false;
-                                    return;
+                        child: IgnorePointer(
+                          ignoring: _isInteracting,
+                          child: AnimatedSlide(
+                            duration: const Duration(milliseconds: 140),
+                            curve: Curves.easeOutCubic,
+                            offset: _isInteracting
+                                ? const Offset(0, 1.08)
+                                : Offset.zero,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 100),
+                              curve: Curves.easeOut,
+                              opacity: _isInteracting ? 0 : 1,
+                              child: ChaputThreadSheet(
+                                threads: chaputThreads,
+                                usersById: chaputThreadsState.usersById,
+                                typingUsersByThread: typingUsersByThread,
+                                viewerUser: viewerLite,
+                                viewerId: viewerId,
+                                ownerId: userId,
+                                profileId: profileIdHex,
+                                initialThreadId: _pendingInitialThreadId,
+                                initialMessageId: _pendingInitialMessageId,
+                                pageController: _chaputPageCtrl,
+                                sheetController: _chaputSheetCtrl,
+                                initialExtent: _chaputSheetExtent,
+                                showNativeAds: showNativeAds,
+                                onExtentChanged: (v) {
+                                  if (_isAdPageActive) {
+                                    _chaputSheetExtent = _adLockedExtent;
+                                    if (!_isProgrammaticAdSheetChange &&
+                                        (v - _adLockedExtent).abs() > 0.01 &&
+                                        _chaputSheetCtrl.isAttached) {
+                                      _isProgrammaticAdSheetChange = true;
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (!mounted ||
+                                                !_chaputSheetCtrl.isAttached) {
+                                              _isProgrammaticAdSheetChange =
+                                                  false;
+                                              return;
+                                            }
+                                            _chaputSheetCtrl
+                                                .animateTo(
+                                                  _adLockedExtent,
+                                                  duration: const Duration(
+                                                    milliseconds: 160,
+                                                  ),
+                                                  curve: Curves.easeOutCubic,
+                                                )
+                                                .whenComplete(() {
+                                                  _isProgrammaticAdSheetChange =
+                                                      false;
+                                                });
+                                          });
+                                    }
+                                  } else {
+                                    _chaputSheetExtent = v;
+                                    if (v > _chaputSheetMin + 0.01) {
+                                      _chaputSheetPrevExtent = v;
+                                    }
                                   }
-                                  _chaputSheetCtrl
-                                      .animateTo(
+                                  if (v <= _chaputSheetMid + 0.001 &&
+                                      MediaQuery.of(context).viewInsets.bottom >
+                                          0) {
+                                    FocusScope.of(context).unfocus();
+                                  }
+                                  setState(() {});
+                                },
+                                onPageChanged: (pageIndex, thread) async {
+                                  final threadIndex = thread == null
+                                      ? null
+                                      : _threadIndexForPageIndex(
+                                          pageIndex,
+                                          showAds: showNativeAds,
+                                        );
+                                  final isAdPage = threadIndex == null;
+                                  if (isAdPage && !_isAdPageActive) {
+                                    _isAdPageActive = true;
+                                    _sheetExtentBeforeAd = _chaputSheetExtent;
+                                    final screenHeight = MediaQuery.of(
+                                      context,
+                                    ).size.height;
+                                    final safeBottom = MediaQuery.of(
+                                      context,
+                                    ).viewPadding.bottom;
+                                    _adLockedExtent =
+                                        ((ChaputNativeAdCard.minTotalHeight +
+                                                    safeBottom +
+                                                    20) /
+                                                screenHeight)
+                                            .clamp(
+                                              _chaputSheetMid,
+                                              _chaputSheetMax,
+                                            );
+                                    _chaputSheetExtent = _adLockedExtent;
+                                    if (_chaputSheetCtrl.isAttached) {
+                                      _isProgrammaticAdSheetChange = true;
+                                      await _chaputSheetCtrl.animateTo(
                                         _adLockedExtent,
                                         duration: const Duration(
-                                          milliseconds: 160,
+                                          milliseconds: 180,
                                         ),
                                         curve: Curves.easeOutCubic,
-                                      )
-                                      .whenComplete(() {
-                                        _isProgrammaticAdSheetChange = false;
-                                      });
-                                });
-                              }
-                            } else {
-                              _chaputSheetExtent = v;
-                              if (v > _chaputSheetMin + 0.01) {
-                                _chaputSheetPrevExtent = v;
-                              }
-                            }
-                            if (v <= _chaputSheetMid + 0.001 &&
-                                MediaQuery.of(context).viewInsets.bottom > 0) {
-                              FocusScope.of(context).unfocus();
-                            }
-                            setState(() {});
-                          },
-                          onPageChanged: (pageIndex, thread) async {
-                            final threadIndex = thread == null
-                                ? null
-                                : _threadIndexForPageIndex(
-                                    pageIndex,
-                                    showAds: showNativeAds,
+                                      );
+                                      _isProgrammaticAdSheetChange = false;
+                                    }
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    setState(() {});
+                                  } else if (!isAdPage && _isAdPageActive) {
+                                    _isAdPageActive = false;
+                                    final restoreExtent = _sheetExtentBeforeAd
+                                        .clamp(
+                                          _chaputSheetMin,
+                                          _chaputSheetMax,
+                                        );
+                                    _chaputSheetExtent = restoreExtent;
+                                    if (_chaputSheetCtrl.isAttached) {
+                                      _isProgrammaticAdSheetChange = true;
+                                      await _chaputSheetCtrl.animateTo(
+                                        restoreExtent,
+                                        duration: const Duration(
+                                          milliseconds: 180,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                      );
+                                      _isProgrammaticAdSheetChange = false;
+                                    }
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    setState(() {});
+                                  }
+                                  if (threadIndex != null &&
+                                      threadIndex < chaputThreads.length) {
+                                    setState(
+                                      () => _chaputActiveIndex = threadIndex,
+                                    );
+                                  } else {
+                                    setState(() {
+                                      _replyBarThreadId = '';
+                                      _replyTarget = null;
+                                      _replyTargetThreadId = null;
+                                    });
+                                  }
+                                  if (threadIndex != null &&
+                                      threadIndex < chaputThreads.length) {
+                                    final t = chaputThreads[threadIndex];
+                                    _subscribeThreadSocket(
+                                      t.threadId,
+                                      profileIdHex,
+                                    );
+                                    _focusToThreadAnchor(t, profileIdHex);
+                                    final isParticipant =
+                                        t.userAId == viewerId ||
+                                        t.userBId == viewerId;
+                                    final viewerIsStarter =
+                                        t.starterId == viewerId;
+                                    final isPending = t.state == 'PENDING';
+                                    _replyBarThreadId =
+                                        (isParticipant &&
+                                            (!isPending || !viewerIsStarter))
+                                        ? t.threadId
+                                        : null;
+                                    _replyWhisperMode = false;
+                                    _replyTarget = null;
+                                    _replyTargetThreadId = null;
+                                    FocusScope.of(context).unfocus();
+                                    final isParticipant2 =
+                                        t.userAId == viewerId ||
+                                        t.userBId == viewerId;
+                                    if (!isParticipant2) {
+                                      final api = ref.read(chaputApiProvider);
+                                      await api.recordView(
+                                        threadIdHex: t.threadId,
+                                      );
+                                    } else {
+                                      ref
+                                          .read(chaputApiProvider)
+                                          .markThreadRead(
+                                            threadIdHex: t.threadId,
+                                          )
+                                          .catchError((_) {});
+                                    }
+                                    if (threadIndex >=
+                                        chaputThreads.length - 2) {
+                                      ref
+                                          .read(
+                                            chaputThreadsControllerProvider(
+                                              chaputArgs,
+                                            ).notifier,
+                                          )
+                                          .loadMore();
+                                    }
+                                  }
+                                },
+                                onOpenProfile: (id, threadId) async {
+                                  if (id.isEmpty) return;
+                                  await _openThreadCounterpartyProfile(
+                                    userId: id,
+                                    threadId: threadId,
                                   );
-                            final isAdPage = threadIndex == null;
-                            if (isAdPage && !_isAdPageActive) {
-                              _isAdPageActive = true;
-                              _sheetExtentBeforeAd = _chaputSheetExtent;
-                              final screenHeight = MediaQuery.of(
-                                context,
-                              ).size.height;
-                              final safeBottom = MediaQuery.of(
-                                context,
-                              ).viewPadding.bottom;
-                              _adLockedExtent =
-                                  ((ChaputNativeAdCard.minTotalHeight +
-                                              safeBottom +
-                                              20) /
-                                          screenHeight)
-                                      .clamp(_chaputSheetMid, _chaputSheetMax);
-                              _chaputSheetExtent = _adLockedExtent;
-                              if (_chaputSheetCtrl.isAttached) {
-                                _isProgrammaticAdSheetChange = true;
-                                await _chaputSheetCtrl.animateTo(
-                                  _adLockedExtent,
-                                  duration: const Duration(milliseconds: 180),
-                                  curve: Curves.easeOutCubic,
-                                );
-                                _isProgrammaticAdSheetChange = false;
-                              }
-                              if (!mounted) {
-                                return;
-                              }
-                              setState(() {});
-                            } else if (!isAdPage && _isAdPageActive) {
-                              _isAdPageActive = false;
-                              final restoreExtent = _sheetExtentBeforeAd.clamp(
-                                _chaputSheetMin,
-                                _chaputSheetMax,
-                              );
-                              _chaputSheetExtent = restoreExtent;
-                              if (_chaputSheetCtrl.isAttached) {
-                                _isProgrammaticAdSheetChange = true;
-                                await _chaputSheetCtrl.animateTo(
-                                  restoreExtent,
-                                  duration: const Duration(milliseconds: 180),
-                                  curve: Curves.easeOutCubic,
-                                );
-                                _isProgrammaticAdSheetChange = false;
-                              }
-                              if (!mounted) {
-                                return;
-                              }
-                              setState(() {});
-                            }
-                            if (threadIndex != null &&
-                                threadIndex < chaputThreads.length) {
-                              setState(() => _chaputActiveIndex = threadIndex);
-                            } else {
-                              setState(() {
-                                _replyBarThreadId = '';
-                                _replyTarget = null;
-                                _replyTargetThreadId = null;
-                              });
-                            }
-                            if (threadIndex != null &&
-                                threadIndex < chaputThreads.length) {
-                              final t = chaputThreads[threadIndex];
-                              _subscribeThreadSocket(t.threadId, profileIdHex);
-                              _focusToThreadAnchor(t, profileIdHex);
-                              final isParticipant =
-                                  t.userAId == viewerId ||
-                                  t.userBId == viewerId;
-                              final viewerIsStarter = t.starterId == viewerId;
-                              final isPending = t.state == 'PENDING';
-                              _replyBarThreadId =
-                                  (isParticipant &&
-                                      (!isPending || !viewerIsStarter))
-                                  ? t.threadId
-                                  : null;
-                              _replyWhisperMode = false;
-                              _replyTarget = null;
-                              _replyTargetThreadId = null;
-                              FocusScope.of(context).unfocus();
-                              final isParticipant2 =
-                                  t.userAId == viewerId ||
-                                  t.userBId == viewerId;
-                              if (!isParticipant2) {
-                                final api = ref.read(chaputApiProvider);
-                                await api.recordView(threadIdHex: t.threadId);
-                              } else {
-                                ref
-                                    .read(chaputApiProvider)
-                                    .markThreadRead(threadIdHex: t.threadId)
-                                    .catchError((_) {});
-                              }
-                              if (threadIndex >= chaputThreads.length - 2) {
-                                ref
-                                    .read(
-                                      chaputThreadsControllerProvider(
-                                        chaputArgs,
-                                      ).notifier,
-                                    )
-                                    .loadMore();
-                              }
-                            }
-                          },
-                          onOpenProfile: (id, threadId) async {
-                            if (id.isEmpty) return;
-                            await _openThreadCounterpartyProfile(
-                              userId: id,
-                              threadId: threadId,
-                            );
-                          },
-                          onSendMessage: (thread, body, whisper) async {
-                            await _sendThreadMessage(
-                              thread: thread,
-                              body: body,
-                              whisper: whisper,
-                              profileIdHex: profileIdHex,
-                              chaputArgs: chaputArgs,
-                              viewerId: viewerId,
-                            );
-                          },
-                          onMakeHidden: (thread) async {
-                            await _makeThreadHidden(
-                              thread: thread,
-                              profileIdHex: profileIdHex,
-                              chaputArgs: chaputArgs,
-                            );
-                          },
-                          onArchiveThread: (thread) async {
-                            await _archiveThread(
-                              thread: thread,
-                              profileIdHex: profileIdHex,
-                              chaputArgs: chaputArgs,
-                            );
-                          },
-                          onReportThread: _reportThread,
-                          onReportMessage: (_, message) =>
-                              _reportMessage(message),
-                          canMakeHidden: creditsHidden > 0,
-                          onReplyMessage: _handleReplyRequested,
-                          onOpenWhisperPaywall: () async {
-                            await ref
-                                .read(
-                                  chaputDecisionControllerProvider(
-                                    profileIdHex,
-                                  ).notifier,
-                                )
-                                .fetchDecision();
+                                },
+                                onSendMessage: (thread, body, whisper) async {
+                                  await _sendThreadMessage(
+                                    thread: thread,
+                                    body: body,
+                                    whisper: whisper,
+                                    profileIdHex: profileIdHex,
+                                    chaputArgs: chaputArgs,
+                                    viewerId: viewerId,
+                                  );
+                                },
+                                onMakeHidden: (thread) async {
+                                  await _makeThreadHidden(
+                                    thread: thread,
+                                    profileIdHex: profileIdHex,
+                                    chaputArgs: chaputArgs,
+                                  );
+                                },
+                                onArchiveThread: (thread) async {
+                                  await _archiveThread(
+                                    thread: thread,
+                                    profileIdHex: profileIdHex,
+                                    chaputArgs: chaputArgs,
+                                  );
+                                },
+                                onReportThread: _reportThread,
+                                onReportMessage: (_, message) =>
+                                    _reportMessage(message),
+                                canMakeHidden: creditsHidden > 0,
+                                onReplyMessage: _handleReplyRequested,
+                                onOpenWhisperPaywall: () async {
+                                  await ref
+                                      .read(
+                                        chaputDecisionControllerProvider(
+                                          profileIdHex,
+                                        ).notifier,
+                                      )
+                                      .fetchDecision();
 
-                            final freshWhisper =
-                                ref
-                                    .read(
-                                      chaputDecisionControllerProvider(
-                                        profileIdHex,
-                                      ),
-                                    )
-                                    .decision
-                                    ?.credits
-                                    .whisper ??
-                                0;
+                                  final freshWhisper =
+                                      ref
+                                          .read(
+                                            chaputDecisionControllerProvider(
+                                              profileIdHex,
+                                            ),
+                                          )
+                                          .decision
+                                          ?.credits
+                                          .whisper ??
+                                      0;
 
-                            if (freshWhisper > 0)
-                              return; // ✅ kredi varsa paywall yok
+                                  if (freshWhisper > 0)
+                                    return; // ✅ kredi varsa paywall yok
 
-                            final purchase = await _openPaywall(
-                              feature: PaywallFeature.whisper,
-                            );
-                            if (purchase == null) return;
-                            await _verifyPurchaseAndApply(purchase);
-                          },
-                          replyOverlay: showReplyBar ? 88.0 : 0.0,
-                          whisperCredits: creditsWhisper,
+                                  final purchase = await _openPaywall(
+                                    feature: PaywallFeature.whisper,
+                                  );
+                                  if (purchase == null) return;
+                                  await _verifyPurchaseAndApply(purchase);
+                                },
+                                replyOverlay: showReplyBar ? 88.0 : 0.0,
+                                whisperCredits: creditsWhisper,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
