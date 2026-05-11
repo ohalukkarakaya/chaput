@@ -349,7 +349,7 @@ class _SheetPage extends StatelessWidget {
               ),
               child: compact
                   ? Padding(
-                      padding: EdgeInsets.only(bottom: safeBottom),
+                      padding: const EdgeInsets.only(bottom: 0),
                       child: SizedBox(
                         height: constraints.maxHeight,
                         child: Column(
@@ -362,40 +362,35 @@ class _SheetPage extends StatelessWidget {
                             Expanded(
                               child: Align(
                                 alignment: Alignment.topCenter,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.topLeft,
-                                  child: SizedBox(
-                                    width: constraints.maxWidth,
-                                    child: _ThreadHeader(
-                                      ownerUser: ownerUser,
-                                      otherUser: otherUser,
-                                      isHidden: thread.isHidden,
-                                      isSpecial: thread.isSpecial,
-                                      isParticipant: isParticipant,
-                                      otherName:
-                                          (thread.isHidden && !isParticipant)
-                                          ? context.t('chat.anonymous_user')
-                                          : (otherUser?.fullName ?? ''),
-                                      otherUsername:
-                                          (thread.isHidden && !isParticipant)
-                                          ? null
-                                          : otherUser?.username,
-                                      onOpenProfile: onOpenProfile,
-                                      threadId: thread.threadId,
-                                      showHideAction:
-                                          isParticipant && !thread.isHidden,
-                                      canMakeHidden: canMakeHidden,
-                                      onMakeHidden: () => onMakeHidden(thread),
-                                      onArchiveThread: () =>
-                                          onArchiveThread(thread),
-                                      onReportThread: () =>
-                                          onReportThread(thread),
-                                      canArchiveThread:
-                                          isParticipant &&
-                                          thread.state == 'OPEN',
-                                      canReportThread: isParticipant,
-                                    ),
+                                child: SizedBox(
+                                  width: constraints.maxWidth,
+                                  child: _ThreadHeader(
+                                    ownerUser: ownerUser,
+                                    otherUser: otherUser,
+                                    isHidden: thread.isHidden,
+                                    isSpecial: thread.isSpecial,
+                                    isParticipant: isParticipant,
+                                    otherName:
+                                        (thread.isHidden && !isParticipant)
+                                        ? context.t('chat.anonymous_user')
+                                        : (otherUser?.fullName ?? ''),
+                                    otherUsername:
+                                        (thread.isHidden && !isParticipant)
+                                        ? null
+                                        : otherUser?.username,
+                                    onOpenProfile: onOpenProfile,
+                                    threadId: thread.threadId,
+                                    showHideAction:
+                                        isParticipant && !thread.isHidden,
+                                    canMakeHidden: canMakeHidden,
+                                    onMakeHidden: () => onMakeHidden(thread),
+                                    onArchiveThread: () =>
+                                        onArchiveThread(thread),
+                                    onReportThread: () =>
+                                        onReportThread(thread),
+                                    canArchiveThread:
+                                        isParticipant && thread.state == 'OPEN',
+                                    canReportThread: isParticipant,
                                   ),
                                 ),
                               ),
