@@ -4348,6 +4348,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           });
                         },
                         onFocus: () {
+                          _emitTyping(true);
                           if (_chaputSheetExtent >= _chaputSheetMax - 0.01)
                             return;
                           _sheetAutoExpanded = true;
@@ -4362,6 +4363,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           });
                         },
                         onBlur: () {
+                          _emitTyping(false);
                           if (!_sheetAutoExpanded) return;
                           _sheetAutoExpanded = false;
                           final target = _sheetExtentBeforeKeyboard;
