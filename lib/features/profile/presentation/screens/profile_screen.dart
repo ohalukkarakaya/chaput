@@ -131,6 +131,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _activeThreadIsParticipant = false;
   String? _activeThreadId;
   ChaputThreadsArgs? _lastChaputArgs;
+  Timer? _typingIdleTimer;
+  String? _typingSentThreadId;
+  bool _typingSent = false;
 
   bool _composerOpen = false; // input bar açık mı?
   three.Vector3? _draftAnchor; // mesaj varken hatırlanan anchor
@@ -342,16 +345,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _onComposerFocus();
       }
     });
+    _msgCtrl.addListener(_onComposerTextChanged);
   }
 
   Future<void> _ensureSocket(String profileIdHex) async {
     if (profileIdHex.length != 32) return;
     try {
-      await _socketClient.ensureConnected();
       _socketSub ??= _socketClient.events.listen(
         _handleSocketEvent,
         onError: (_, __) {},
       );
+      await _socketClient.ensureConnected();
       if (_socketProfileId != profileIdHex) {
         if (_socketProfileId != null) {
           _socketClient.unsubscribeProfile(_socketProfileId!);
@@ -372,12 +376,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _clearSocketSubscriptions() {
+    _resetTypingForThreadChange(null);
     if (_socketProfileId != null)
       _socketClient.unsubscribeProfile(_socketProfileId!);
     if (_socketThreadId != null)
       _socketClient.unsubscribeThread(_socketThreadId!);
     _socketProfileId = null;
     _socketThreadId = null;
+    _typingIdleTimer?.cancel();
+    _typingSent = false;
+    _typingSentThreadId = null;
     _typingUsersByThread.clear();
   }
 
@@ -661,9 +669,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _disposeThree();
     _focusScreen.dispose();
     _profileCardCtrl.dispose();
+    _msgCtrl.removeListener(_onComposerTextChanged);
     _msgCtrl.dispose();
     _msgFocus.dispose();
     _chaputPageCtrl.dispose();
+    _typingIdleTimer?.cancel();
     _socketSub?.cancel();
     _socketSub = null;
     _clearSocketSubscriptions();
@@ -2192,7 +2202,55 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (!_activeThreadIsParticipant) return;
     final threadId = _activeThreadId;
     if (threadId == null || threadId.isEmpty) return;
+    _sendTyping(threadId, isTyping);
+  }
+
+  void _onComposerTextChanged() {
+    final threadId = _activeThreadId;
+    if (!_composerOpen ||
+        !_activeThreadIsParticipant ||
+        !_msgFocus.hasFocus ||
+        threadId == null ||
+        threadId.isEmpty) {
+      return;
+    }
+
+    if (_msgCtrl.text.trim().isEmpty) {
+      _typingIdleTimer?.cancel();
+      _sendTyping(threadId, false);
+      return;
+    }
+
+    _sendTyping(threadId, true);
+    _typingIdleTimer?.cancel();
+    _typingIdleTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (!mounted) return;
+      final activeThreadId = _activeThreadId;
+      if (activeThreadId == null || activeThreadId.isEmpty) return;
+      _sendTyping(activeThreadId, false);
+    });
+  }
+
+  void _sendTyping(String threadId, bool isTyping) {
+    if (threadId.isEmpty) return;
+    if (isTyping) {
+      if (_typingSent && _typingSentThreadId == threadId) return;
+      _typingSent = true;
+      _typingSentThreadId = threadId;
+    } else {
+      if (!_typingSent || _typingSentThreadId != threadId) return;
+      _typingSent = false;
+      _typingSentThreadId = null;
+    }
     ref.read(chaputSocketProvider).sendTyping(threadId, isTyping);
+  }
+
+  void _resetTypingForThreadChange(String? nextThreadId) {
+    final prevThreadId = _typingSentThreadId;
+    if (prevThreadId == null) return;
+    if (nextThreadId == prevThreadId) return;
+    _typingIdleTimer?.cancel();
+    _sendTyping(prevThreadId, false);
   }
 
   void _startSnapToNewAnchor() {
@@ -2986,6 +3044,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         activeThread != null && activeThread.state == 'PENDING';
     final bool canReplyOnActive =
         activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
+    _resetTypingForThreadChange(activeThread?.threadId);
     _activeThreadId = activeThread?.threadId;
     _activeThreadIsParticipant = activeIsParticipant;
 
