@@ -1159,6 +1159,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return _msgCtrl.text.trim().isEmpty;
   }
 
+  double _overlaySystemInset(BuildContext context, double keyboardInset) {
+    if (keyboardInset > 0) return 0.0;
+    final mediaQuery = MediaQuery.of(context);
+    return math.max(mediaQuery.viewPadding.bottom, mediaQuery.padding.bottom);
+  }
+
   void _openComposer() {
     if (_composerOpen) return;
     setState(() => _composerOpen = true);
@@ -1178,7 +1184,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _openComposerOptionsSheet() {
     // Klavye açıkken sheet görünür alanı aşmasın diye kb’yi alıyoruz
-    final kb = MediaQuery.of(context).viewInsets.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    final kb = mediaQuery.viewInsets.bottom;
     if (kb > 0 &&
         !_composerOpen &&
         _chaputSheetExtent < _chaputSheetMax - 0.01) {
@@ -2477,7 +2484,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
     if (_focusAnchor == null) return;
 
-    final kb = MediaQuery.of(context).viewInsets.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    final kb = mediaQuery.viewInsets.bottom;
     if (kb <= 0) {
       _composerPitchBias = 0.0;
       return;
@@ -4169,7 +4177,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 0,
+                    bottom: _overlaySystemInset(context, kb),
                     child: AnimatedPadding(
                       duration: const Duration(milliseconds: 160),
                       curve: Curves.easeOut,
@@ -4499,84 +4507,81 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 Positioned(
                   left: 12,
                   right: 12,
-                  bottom: 10 + kb,
-                  child: SafeArea(
-                    top: false,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      child: (!_composerOpen || _silhouetteMode)
-                          ? const SizedBox.shrink()
-                          : meAsync.when(
-                              loading: () => ChatComposerBar(
-                                controller: _msgCtrl,
-                                focusNode: _msgFocus,
-                                avatarUrl: null,
-                                isDefaultAvatar: true,
-                                onAvatarTap: _toggleProfileCard,
-                                onSend: () => _sendChaputMessage(
-                                  profileId: profileIdHex,
-                                  viewerId: viewerId,
-                                  targetUserId: userId,
-                                  viewerLite: viewerLite,
-                                  chaputArgs: chaputArgs,
-                                ),
-                                anonEnabled: _anonMode,
-                                highlightEnabled: _highlightMode,
-                                onOptionsTap: _openComposerOptionsSheet,
-                                onOptionsEmptyTap: _onOptionsEmptyTap,
+                  bottom: 10 + kb + _overlaySystemInset(context, kb),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    child: (!_composerOpen || _silhouetteMode)
+                        ? const SizedBox.shrink()
+                        : meAsync.when(
+                            loading: () => ChatComposerBar(
+                              controller: _msgCtrl,
+                              focusNode: _msgFocus,
+                              avatarUrl: null,
+                              isDefaultAvatar: true,
+                              onAvatarTap: _toggleProfileCard,
+                              onSend: () => _sendChaputMessage(
+                                profileId: profileIdHex,
+                                viewerId: viewerId,
+                                targetUserId: userId,
+                                viewerLite: viewerLite,
+                                chaputArgs: chaputArgs,
                               ),
-                              error: (_, __) => ChatComposerBar(
-                                controller: _msgCtrl,
-                                focusNode: _msgFocus,
-                                avatarUrl: null,
-                                isDefaultAvatar: true,
-                                onAvatarTap: _toggleProfileCard,
-                                onSend: () => _sendChaputMessage(
-                                  profileId: profileIdHex,
-                                  viewerId: viewerId,
-                                  targetUserId: userId,
-                                  viewerLite: viewerLite,
-                                  chaputArgs: chaputArgs,
-                                ),
-                                anonEnabled: _anonMode,
-                                highlightEnabled: _highlightMode,
-                                onOptionsTap: _openComposerOptionsSheet,
-                                onOptionsEmptyTap: _onOptionsEmptyTap,
-                              ),
-                              data: (me) {
-                                final meUser = me?.user;
-
-                                final meAvatarUrl =
-                                    (meUser?.profilePhotoUrl != null &&
-                                        meUser!.profilePhotoUrl!.isNotEmpty)
-                                    ? meUser.profilePhotoUrl
-                                    : meUser?.defaultAvatar;
-
-                                final meIsDefault =
-                                    (meUser?.profilePhotoUrl == null ||
-                                    (meUser!.profilePhotoUrl?.isEmpty ?? true));
-
-                                return ChatComposerBar(
-                                  controller: _msgCtrl,
-                                  focusNode: _msgFocus,
-                                  avatarUrl: meAvatarUrl,
-                                  isDefaultAvatar: meIsDefault,
-                                  onAvatarTap: _toggleProfileCard,
-                                  onSend: () => _sendChaputMessage(
-                                    profileId: profileIdHex,
-                                    viewerId: viewerId,
-                                    targetUserId: userId,
-                                    viewerLite: viewerLite,
-                                    chaputArgs: chaputArgs,
-                                  ),
-                                  anonEnabled: _anonMode,
-                                  highlightEnabled: _highlightMode,
-                                  onOptionsTap: _openComposerOptionsSheet,
-                                  onOptionsEmptyTap: _onOptionsEmptyTap,
-                                );
-                              },
+                              anonEnabled: _anonMode,
+                              highlightEnabled: _highlightMode,
+                              onOptionsTap: _openComposerOptionsSheet,
+                              onOptionsEmptyTap: _onOptionsEmptyTap,
                             ),
-                    ),
+                            error: (_, __) => ChatComposerBar(
+                              controller: _msgCtrl,
+                              focusNode: _msgFocus,
+                              avatarUrl: null,
+                              isDefaultAvatar: true,
+                              onAvatarTap: _toggleProfileCard,
+                              onSend: () => _sendChaputMessage(
+                                profileId: profileIdHex,
+                                viewerId: viewerId,
+                                targetUserId: userId,
+                                viewerLite: viewerLite,
+                                chaputArgs: chaputArgs,
+                              ),
+                              anonEnabled: _anonMode,
+                              highlightEnabled: _highlightMode,
+                              onOptionsTap: _openComposerOptionsSheet,
+                              onOptionsEmptyTap: _onOptionsEmptyTap,
+                            ),
+                            data: (me) {
+                              final meUser = me?.user;
+
+                              final meAvatarUrl =
+                                  (meUser?.profilePhotoUrl != null &&
+                                      meUser!.profilePhotoUrl!.isNotEmpty)
+                                  ? meUser.profilePhotoUrl
+                                  : meUser?.defaultAvatar;
+
+                              final meIsDefault =
+                                  (meUser?.profilePhotoUrl == null ||
+                                  (meUser!.profilePhotoUrl?.isEmpty ?? true));
+
+                              return ChatComposerBar(
+                                controller: _msgCtrl,
+                                focusNode: _msgFocus,
+                                avatarUrl: meAvatarUrl,
+                                isDefaultAvatar: meIsDefault,
+                                onAvatarTap: _toggleProfileCard,
+                                onSend: () => _sendChaputMessage(
+                                  profileId: profileIdHex,
+                                  viewerId: viewerId,
+                                  targetUserId: userId,
+                                  viewerLite: viewerLite,
+                                  chaputArgs: chaputArgs,
+                                ),
+                                anonEnabled: _anonMode,
+                                highlightEnabled: _highlightMode,
+                                onOptionsTap: _openComposerOptionsSheet,
+                                onOptionsEmptyTap: _onOptionsEmptyTap,
+                              );
+                            },
+                          ),
                   ),
                 ),
               ],

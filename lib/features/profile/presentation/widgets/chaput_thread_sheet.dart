@@ -326,10 +326,6 @@ class _SheetPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final initialThreadId = this.initialThreadId;
     final initialMessageId = this.initialMessageId;
-    final mediaQuery = MediaQuery.of(context);
-    final safeBottom = mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
-        ? mediaQuery.viewPadding.bottom
-        : mediaQuery.padding.bottom;
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final compact = constraints.maxHeight < 180;
@@ -401,7 +397,7 @@ class _SheetPage extends StatelessWidget {
                       ),
                     )
                   : Padding(
-                      padding: EdgeInsets.only(bottom: safeBottom),
+                      padding: EdgeInsets.zero,
                       child: Column(
                         children: [
                           const SizedBox(height: 6),
