@@ -10,8 +10,8 @@ import '../../../../core/i18n/app_localizations.dart';
 class ChaputNativeAdCard extends StatefulWidget {
   const ChaputNativeAdCard({super.key});
 
-  static const double minAdHeight = 300.0;
-  static const double minTotalHeight = 410.0;
+  static const double minAdHeight = 260.0;
+  static const double minTotalHeight = 440.0;
 
   static void preload() {
     _ChaputNativeAdCache.preload();
@@ -57,7 +57,7 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
       factoryId: 'chaputNative',
       request: const AdRequest(),
       nativeAdOptions: NativeAdOptions(
-        mediaAspectRatio: MediaAspectRatio.landscape,
+        mediaAspectRatio: MediaAspectRatio.square,
         videoOptions: VideoOptions(
           startMuted: true,
           customControlsRequested: false,
@@ -161,7 +161,7 @@ class _ChaputNativeAdCache {
       factoryId: 'chaputNative',
       request: const AdRequest(),
       nativeAdOptions: NativeAdOptions(
-        mediaAspectRatio: MediaAspectRatio.landscape,
+        mediaAspectRatio: MediaAspectRatio.square,
         videoOptions: VideoOptions(
           startMuted: true,
           customControlsRequested: false,

@@ -122,18 +122,6 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
 
     adView.addSubview(container)
 
-    let mediaMinHeight = mediaContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: 180)
-    let mediaMaxHeight = mediaContainer.heightAnchor.constraint(lessThanOrEqualToConstant: 240)
-    var mediaAspect: NSLayoutConstraint?
-    let aspectRatio = CGFloat(nativeAd.mediaContent.aspectRatio)
-    if aspectRatio > 0 {
-      mediaAspect = mediaContainer.heightAnchor.constraint(equalTo: mediaContainer.widthAnchor, multiplier: 1 / aspectRatio)
-      mediaAspect?.priority = UILayoutPriority(999)
-    } else {
-      mediaAspect = mediaContainer.heightAnchor.constraint(equalToConstant: 220)
-      mediaAspect?.priority = .required
-    }
-
     NSLayoutConstraint.activate([
       container.leadingAnchor.constraint(equalTo: adView.leadingAnchor, constant: 14),
       container.trailingAnchor.constraint(equalTo: adView.trailingAnchor, constant: -14),
@@ -153,12 +141,8 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
       icon.widthAnchor.constraint(equalToConstant: 36),
       icon.heightAnchor.constraint(equalToConstant: 36),
       cta.heightAnchor.constraint(equalToConstant: 36),
-      mediaMinHeight,
-      mediaMaxHeight,
+      mediaContainer.heightAnchor.constraint(equalToConstant: 260),
     ])
-    if let mediaAspect {
-      mediaAspect.isActive = true
-    }
 
     adView.headlineView = headline
     adView.advertiserView = advertiser
