@@ -69,13 +69,11 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     cta.contentEdgeInsets = UIEdgeInsets(top: 6, left: 14, bottom: 6, right: 14)
     cta.isUserInteractionEnabled = false
 
-    let topSpacer = UIView()
-    topSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-    let top = UIStackView(arrangedSubviews: [sponsored, topSpacer, adChoices])
-    top.axis = .horizontal
-    top.spacing = 10
-    top.alignment = .center
+    let top = UIView()
+    top.translatesAutoresizingMaskIntoConstraints = false
+    sponsored.translatesAutoresizingMaskIntoConstraints = false
+    top.addSubview(sponsored)
+    top.addSubview(adChoices)
 
     let stack = UIStackView(arrangedSubviews: [headline, body])
     stack.axis = .vertical
@@ -97,6 +95,12 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
       container.trailingAnchor.constraint(equalTo: adView.trailingAnchor, constant: -14),
       container.topAnchor.constraint(equalTo: adView.topAnchor, constant: 14),
       container.bottomAnchor.constraint(equalTo: adView.bottomAnchor, constant: -14),
+      sponsored.leadingAnchor.constraint(equalTo: top.leadingAnchor),
+      sponsored.topAnchor.constraint(equalTo: top.topAnchor),
+      sponsored.bottomAnchor.constraint(equalTo: top.bottomAnchor),
+      sponsored.trailingAnchor.constraint(lessThanOrEqualTo: adChoices.leadingAnchor, constant: -10),
+      adChoices.trailingAnchor.constraint(equalTo: top.trailingAnchor),
+      adChoices.centerYAnchor.constraint(equalTo: sponsored.centerYAnchor),
       adChoices.widthAnchor.constraint(greaterThanOrEqualToConstant: 36),
       adChoices.heightAnchor.constraint(greaterThanOrEqualToConstant: 36),
       mediaView.heightAnchor.constraint(equalToConstant: 240),

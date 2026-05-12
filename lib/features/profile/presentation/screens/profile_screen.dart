@@ -128,6 +128,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _socketProfileId;
   String? _socketThreadId;
   final Map<String, Set<String>> _typingUsersByThread = {};
+  final ValueNotifier<int> _typingRevision = ValueNotifier(0);
   bool _activeThreadIsParticipant = false;
   String? _activeThreadId;
   ChaputThreadsArgs? _lastChaputArgs;
@@ -259,6 +260,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   static const double _chaputSheetMax = 0.95;
 
   double _chaputSheetExtent = _chaputSheetMin;
+  final ValueNotifier<double> _chaputSheetExtentListenable = ValueNotifier(
+    _chaputSheetMin,
+  );
   double _chaputSheetPrevExtent = _chaputSheetMin;
   double _sheetExtentBeforeAd = _chaputSheetMin;
   double _adLockedExtent = _chaputSheetMid;
@@ -273,7 +277,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _focusedThreadId;
   String? _decisionProfileId;
   DateTime? _lastDecisionFetchAt;
-  String? _replyBarThreadId;
   ChaputMessage? _replyTarget;
   String? _replyTargetThreadId;
 
@@ -387,6 +390,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _typingSent = false;
     _typingSentThreadId = null;
     _typingUsersByThread.clear();
+    _markTypingUsersChanged();
   }
 
   DateTime? _parseSocketTime(dynamic v) {
@@ -596,12 +600,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         }
       }
       final set = _typingUsersByThread.putIfAbsent(threadId, () => <String>{});
+      bool changed = false;
       if (isTyping) {
-        set.add(userIdNorm);
+        changed = set.add(userIdNorm);
       } else {
-        set.remove(userIdNorm);
+        changed = set.remove(userIdNorm);
+        if (set.isEmpty) {
+          _typingUsersByThread.remove(threadId);
+        }
       }
-      if (mounted) setState(() {});
+      if (changed) {
+        _markTypingUsersChanged();
+      }
     }
   }
 
@@ -677,6 +687,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _socketSub?.cancel();
     _socketSub = null;
     _clearSocketSubscriptions();
+    _chaputSheetExtentListenable.dispose();
+    _typingRevision.dispose();
     super.dispose();
   }
 
@@ -1165,6 +1177,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return math.max(mediaQuery.viewPadding.bottom, mediaQuery.padding.bottom);
   }
 
+  void _setChaputSheetExtent(double value) {
+    if ((_chaputSheetExtent - value).abs() < 0.0001) return;
+    _chaputSheetExtent = value;
+    if ((_chaputSheetExtentListenable.value - value).abs() >= 0.0001) {
+      _chaputSheetExtentListenable.value = value;
+    }
+  }
+
+  void _markTypingUsersChanged() {
+    _typingRevision.value = _typingRevision.value + 1;
+  }
+
+  Map<String, List<LiteUser>> _resolveTypingUsersByThread(
+    Map<String, LiteUser> usersById,
+    String viewerId,
+  ) {
+    final typingUsersByThread = <String, List<LiteUser>>{};
+    _typingUsersByThread.forEach((threadId, ids) {
+      final list = <LiteUser>[];
+      for (final id in ids) {
+        if (id == viewerId) continue;
+        LiteUser? u = usersById[id];
+        u ??= usersById[id.toUpperCase()];
+        u ??= usersById[id.toLowerCase()];
+        if (u != null) list.add(u);
+      }
+      if (list.isNotEmpty) {
+        typingUsersByThread[threadId] = list;
+      }
+    });
+    return typingUsersByThread;
+  }
+
+  bool _shouldShowReplyBar({
+    required double extent,
+    required bool canReplyOnActive,
+    required String? activeThreadId,
+  }) {
+    final replyScopedToAnotherThread =
+        _replyTargetThreadId != null && _replyTargetThreadId != activeThreadId;
+    return canReplyOnActive &&
+        !replyScopedToAnotherThread &&
+        extent >= _chaputSheetMid - 0.01 &&
+        !_composerOpen &&
+        !_silhouetteMode;
+  }
+
   void _openComposer() {
     if (_composerOpen) return;
     setState(() => _composerOpen = true);
@@ -1534,7 +1593,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     setState(() {
       _replyTarget = message;
       _replyTargetThreadId = thread.threadId;
-      _replyBarThreadId = thread.threadId;
     });
     if (_chaputSheetCtrl.isAttached && _chaputSheetExtent < _chaputSheetMid) {
       _chaputSheetCtrl.animateTo(
@@ -1750,7 +1808,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       setState(() {
         _chaputActiveIndex = 0;
-        _replyBarThreadId = null;
         _replyWhisperMode = false;
         _replyTarget = null;
         _replyTargetThreadId = null;
@@ -2997,18 +3054,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     } else if (chaputThreads.isNotEmpty) {
       _clearEmptyChaputState();
     }
-    final typingUsersByThread = <String, List<LiteUser>>{};
-    _typingUsersByThread.forEach((threadId, ids) {
-      final list = <LiteUser>[];
-      for (final id in ids) {
-        if (id == viewerId) continue;
-        LiteUser? u = chaputThreadsState.usersById[id];
-        u ??= chaputThreadsState.usersById[id.toUpperCase()];
-        u ??= chaputThreadsState.usersById[id.toLowerCase()];
-        if (u != null) list.add(u);
-      }
-      if (list.isNotEmpty) typingUsersByThread[threadId] = list;
-    });
     if (!_initialThreadApplied &&
         _pendingInitialThreadId != null &&
         chaputThreads.isNotEmpty) {
@@ -3078,13 +3123,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               : (chaputThreadsState.usersById[replyTarget.senderId]?.fullName ??
                     ''));
     final String? replyBody = replyTarget?.body;
-    final bool showReplyBar =
-        canReplyOnActive &&
-        (_replyBarThreadId == null ||
-            _replyBarThreadId == activeThread?.threadId) &&
-        _chaputSheetExtent >= _chaputSheetMid - 0.01 &&
-        !_composerOpen &&
-        !_silhouetteMode;
     if (_chaputProfileId != profileIdHex) {
       _chaputProfileId = profileIdHex;
       _clearSocketSubscriptions();
@@ -3093,11 +3131,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
       _chaputActiveIndex = 0;
       _focusedThreadId = null;
-      _chaputSheetExtent = _chaputSheetMin;
+      _setChaputSheetExtent(_chaputSheetMin);
       _chaputSheetPrevExtent = _chaputSheetMin;
       _pendingThreadFocus = null;
       _pendingThreadProfileId = null;
-      _replyBarThreadId = null;
       _replyWhisperMode = false;
       _replyTarget = null;
       _replyTargetThreadId = null;
@@ -3145,6 +3182,249 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           }
         }
 
+        final Widget? threadSheetChild =
+            chaputThreads.isNotEmpty && !_composerOpen && !_silhouetteMode
+            ? RepaintBoundary(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _typingRevision,
+                  builder: (_, __, ___) {
+                    final typingUsersByThread = _resolveTypingUsersByThread(
+                      chaputThreadsState.usersById,
+                      viewerId,
+                    );
+                    return ChaputThreadSheet(
+                      threads: chaputThreads,
+                      usersById: chaputThreadsState.usersById,
+                      typingUsersByThread: typingUsersByThread,
+                      viewerUser: viewerLite,
+                      viewerId: viewerId,
+                      ownerId: userId,
+                      profileId: profileIdHex,
+                      initialThreadId: _pendingInitialThreadId,
+                      initialMessageId: _pendingInitialMessageId,
+                      pageController: _chaputPageCtrl,
+                      sheetController: _chaputSheetCtrl,
+                      initialExtent: _chaputSheetExtent,
+                      showNativeAds: showNativeAds,
+                      onExtentChanged: (v) {
+                        final previousExtent = _chaputSheetExtent;
+                        final wasReplyBarVisible = _shouldShowReplyBar(
+                          extent: previousExtent,
+                          canReplyOnActive: canReplyOnActive,
+                          activeThreadId: activeThread?.threadId,
+                        );
+                        final wasCollapsed =
+                            previousExtent <= _chaputSheetMin + 0.01;
+                        if (_isAdPageActive) {
+                          _setChaputSheetExtent(_adLockedExtent);
+                          if (!_isProgrammaticAdSheetChange &&
+                              (v - _adLockedExtent).abs() > 0.01 &&
+                              _chaputSheetCtrl.isAttached) {
+                            _isProgrammaticAdSheetChange = true;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (!mounted || !_chaputSheetCtrl.isAttached) {
+                                _isProgrammaticAdSheetChange = false;
+                                return;
+                              }
+                              _chaputSheetCtrl
+                                  .animateTo(
+                                    _adLockedExtent,
+                                    duration: const Duration(milliseconds: 160),
+                                    curve: Curves.easeOutCubic,
+                                  )
+                                  .whenComplete(() {
+                                    _isProgrammaticAdSheetChange = false;
+                                  });
+                            });
+                          }
+                        } else {
+                          _setChaputSheetExtent(v);
+                          if (v > _chaputSheetMin + 0.01) {
+                            _chaputSheetPrevExtent = v;
+                          }
+                        }
+                        if (v <= _chaputSheetMid + 0.001 &&
+                            MediaQuery.of(context).viewInsets.bottom > 0) {
+                          FocusScope.of(context).unfocus();
+                        }
+                        final isReplyBarVisible = _shouldShowReplyBar(
+                          extent: _chaputSheetExtent,
+                          canReplyOnActive: canReplyOnActive,
+                          activeThreadId: activeThread?.threadId,
+                        );
+                        final isCollapsed =
+                            _chaputSheetExtent <= _chaputSheetMin + 0.01;
+                        if ((wasReplyBarVisible != isReplyBarVisible ||
+                                wasCollapsed != isCollapsed) &&
+                            mounted) {
+                          setState(() {});
+                        }
+                      },
+                      onPageChanged: (pageIndex, thread) async {
+                        final threadIndex = thread == null
+                            ? null
+                            : _threadIndexForPageIndex(
+                                pageIndex,
+                                showAds: showNativeAds,
+                              );
+                        final isAdPage = threadIndex == null;
+                        if (isAdPage && !_isAdPageActive) {
+                          _isAdPageActive = true;
+                          _sheetExtentBeforeAd = _chaputSheetExtent;
+                          final screenHeight = MediaQuery.of(
+                            context,
+                          ).size.height;
+                          final safeBottom = MediaQuery.of(
+                            context,
+                          ).viewPadding.bottom;
+                          _adLockedExtent =
+                              ((ChaputNativeAdCard.minTotalHeight +
+                                          safeBottom +
+                                          20) /
+                                      screenHeight)
+                                  .clamp(_chaputSheetMid, _chaputSheetMax);
+                          _setChaputSheetExtent(_adLockedExtent);
+                          if (_chaputSheetCtrl.isAttached) {
+                            _isProgrammaticAdSheetChange = true;
+                            await _chaputSheetCtrl.animateTo(
+                              _adLockedExtent,
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                            );
+                            _isProgrammaticAdSheetChange = false;
+                          }
+                          if (!mounted) {
+                            return;
+                          }
+                          setState(() {});
+                        } else if (!isAdPage && _isAdPageActive) {
+                          _isAdPageActive = false;
+                          final restoreExtent = _sheetExtentBeforeAd.clamp(
+                            _chaputSheetMin,
+                            _chaputSheetMax,
+                          );
+                          _setChaputSheetExtent(restoreExtent);
+                          if (_chaputSheetCtrl.isAttached) {
+                            _isProgrammaticAdSheetChange = true;
+                            await _chaputSheetCtrl.animateTo(
+                              restoreExtent,
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                            );
+                            _isProgrammaticAdSheetChange = false;
+                          }
+                          if (!mounted) {
+                            return;
+                          }
+                          setState(() {});
+                        }
+                        if (threadIndex != null &&
+                            threadIndex < chaputThreads.length) {
+                          setState(() => _chaputActiveIndex = threadIndex);
+                        } else {
+                          setState(() {
+                            _replyTarget = null;
+                            _replyTargetThreadId = null;
+                          });
+                        }
+                        if (threadIndex != null &&
+                            threadIndex < chaputThreads.length) {
+                          final t = chaputThreads[threadIndex];
+                          _subscribeThreadSocket(t.threadId, profileIdHex);
+                          _focusToThreadAnchor(t, profileIdHex);
+                          final isParticipant =
+                              t.userAId == viewerId || t.userBId == viewerId;
+                          _activeThreadId = t.threadId;
+                          _activeThreadIsParticipant = isParticipant;
+                          if (isParticipant) {
+                            ref
+                                .read(chaputApiProvider)
+                                .markThreadRead(threadIdHex: t.threadId)
+                                .catchError((_) {});
+                          }
+                        } else {
+                          _activeThreadId = null;
+                          _activeThreadIsParticipant = false;
+                        }
+                      },
+                      onOpenProfile: (uid, tid) {
+                        _openThreadCounterpartyProfile(
+                          userId: uid,
+                          threadId: tid,
+                        );
+                      },
+                      onSendMessage: (thread, body, whisper) async {
+                        await _sendThreadMessage(
+                          thread: thread,
+                          body: body,
+                          whisper: whisper,
+                          profileIdHex: profileIdHex,
+                          chaputArgs: chaputArgs,
+                          viewerId: viewerId,
+                        );
+                      },
+                      onMakeHidden: (thread) async {
+                        await _makeThreadHidden(
+                          thread: thread,
+                          profileIdHex: profileIdHex,
+                          chaputArgs: chaputArgs,
+                        );
+                      },
+                      onArchiveThread: (thread) async {
+                        await _archiveThread(
+                          thread: thread,
+                          profileIdHex: profileIdHex,
+                          chaputArgs: chaputArgs,
+                        );
+                      },
+                      onReportThread: _reportThread,
+                      onReportMessage: (_, message) => _reportMessage(message),
+                      canMakeHidden: creditsHidden > 0,
+                      onOpenWhisperPaywall: () async {
+                        await ref
+                            .read(
+                              chaputDecisionControllerProvider(
+                                profileIdHex,
+                              ).notifier,
+                            )
+                            .fetchDecision();
+
+                        final freshWhisper =
+                            ref
+                                .read(
+                                  chaputDecisionControllerProvider(
+                                    profileIdHex,
+                                  ),
+                                )
+                                .decision
+                                ?.credits
+                                .whisper ??
+                            0;
+
+                        if (freshWhisper > 0) return;
+
+                        final purchase = await _openPaywall(
+                          feature: PaywallFeature.whisper,
+                        );
+                        if (purchase == null) return;
+                        await _verifyPurchaseAndApply(purchase);
+                      },
+                      replyOverlay:
+                          _shouldShowReplyBar(
+                            extent: _chaputSheetExtent,
+                            canReplyOnActive: canReplyOnActive,
+                            activeThreadId: activeThread?.threadId,
+                          )
+                          ? 88.0
+                          : 0.0,
+                      whisperCredits: creditsWhisper,
+                      onReplyMessage: _handleReplyRequested,
+                    );
+                  },
+                ),
+              )
+            : null;
+
         return Scaffold(
           resizeToAvoidBottomInset: false,
           backgroundColor: bg,
@@ -3160,7 +3440,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 Positioned.fill(
                   child: (_threeJs == null || _navToOtherProfile)
                       ? const SizedBox.shrink()
-                      : SizedBox.expand(child: _threeJs!.build()),
+                      : RepaintBoundary(
+                          child: SizedBox.expand(child: _threeJs!.build()),
+                        ),
                 ),
 
                 // Gesture ALANI (top bar ALTINDAN başlar)
@@ -3868,9 +4150,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
 
-                if (chaputThreads.isNotEmpty &&
-                    !_composerOpen &&
-                    !_silhouetteMode)
+                if (threadSheetChild != null)
                   Positioned.fill(
                     child: Align(
                       alignment: Alignment.bottomCenter,
@@ -3890,260 +4170,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               duration: const Duration(milliseconds: 100),
                               curve: Curves.easeOut,
                               opacity: _isInteracting ? 0 : 1,
-                              child: ChaputThreadSheet(
-                                threads: chaputThreads,
-                                usersById: chaputThreadsState.usersById,
-                                typingUsersByThread: typingUsersByThread,
-                                viewerUser: viewerLite,
-                                viewerId: viewerId,
-                                ownerId: userId,
-                                profileId: profileIdHex,
-                                initialThreadId: _pendingInitialThreadId,
-                                initialMessageId: _pendingInitialMessageId,
-                                pageController: _chaputPageCtrl,
-                                sheetController: _chaputSheetCtrl,
-                                initialExtent: _chaputSheetExtent,
-                                showNativeAds: showNativeAds,
-                                onExtentChanged: (v) {
-                                  if (_isAdPageActive) {
-                                    _chaputSheetExtent = _adLockedExtent;
-                                    if (!_isProgrammaticAdSheetChange &&
-                                        (v - _adLockedExtent).abs() > 0.01 &&
-                                        _chaputSheetCtrl.isAttached) {
-                                      _isProgrammaticAdSheetChange = true;
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                            if (!mounted ||
-                                                !_chaputSheetCtrl.isAttached) {
-                                              _isProgrammaticAdSheetChange =
-                                                  false;
-                                              return;
-                                            }
-                                            _chaputSheetCtrl
-                                                .animateTo(
-                                                  _adLockedExtent,
-                                                  duration: const Duration(
-                                                    milliseconds: 160,
-                                                  ),
-                                                  curve: Curves.easeOutCubic,
-                                                )
-                                                .whenComplete(() {
-                                                  _isProgrammaticAdSheetChange =
-                                                      false;
-                                                });
-                                          });
-                                    }
-                                  } else {
-                                    _chaputSheetExtent = v;
-                                    if (v > _chaputSheetMin + 0.01) {
-                                      _chaputSheetPrevExtent = v;
-                                    }
-                                  }
-                                  if (v <= _chaputSheetMid + 0.001 &&
-                                      MediaQuery.of(context).viewInsets.bottom >
-                                          0) {
-                                    FocusScope.of(context).unfocus();
-                                  }
-                                  setState(() {});
-                                },
-                                onPageChanged: (pageIndex, thread) async {
-                                  final threadIndex = thread == null
-                                      ? null
-                                      : _threadIndexForPageIndex(
-                                          pageIndex,
-                                          showAds: showNativeAds,
-                                        );
-                                  final isAdPage = threadIndex == null;
-                                  if (isAdPage && !_isAdPageActive) {
-                                    _isAdPageActive = true;
-                                    _sheetExtentBeforeAd = _chaputSheetExtent;
-                                    final screenHeight = MediaQuery.of(
-                                      context,
-                                    ).size.height;
-                                    final safeBottom = MediaQuery.of(
-                                      context,
-                                    ).viewPadding.bottom;
-                                    _adLockedExtent =
-                                        ((ChaputNativeAdCard.minTotalHeight +
-                                                    safeBottom +
-                                                    20) /
-                                                screenHeight)
-                                            .clamp(
-                                              _chaputSheetMid,
-                                              _chaputSheetMax,
-                                            );
-                                    _chaputSheetExtent = _adLockedExtent;
-                                    if (_chaputSheetCtrl.isAttached) {
-                                      _isProgrammaticAdSheetChange = true;
-                                      await _chaputSheetCtrl.animateTo(
-                                        _adLockedExtent,
-                                        duration: const Duration(
-                                          milliseconds: 180,
-                                        ),
-                                        curve: Curves.easeOutCubic,
-                                      );
-                                      _isProgrammaticAdSheetChange = false;
-                                    }
-                                    if (!mounted) {
-                                      return;
-                                    }
-                                    setState(() {});
-                                  } else if (!isAdPage && _isAdPageActive) {
-                                    _isAdPageActive = false;
-                                    final restoreExtent = _sheetExtentBeforeAd
-                                        .clamp(
-                                          _chaputSheetMin,
-                                          _chaputSheetMax,
-                                        );
-                                    _chaputSheetExtent = restoreExtent;
-                                    if (_chaputSheetCtrl.isAttached) {
-                                      _isProgrammaticAdSheetChange = true;
-                                      await _chaputSheetCtrl.animateTo(
-                                        restoreExtent,
-                                        duration: const Duration(
-                                          milliseconds: 180,
-                                        ),
-                                        curve: Curves.easeOutCubic,
-                                      );
-                                      _isProgrammaticAdSheetChange = false;
-                                    }
-                                    if (!mounted) {
-                                      return;
-                                    }
-                                    setState(() {});
-                                  }
-                                  if (threadIndex != null &&
-                                      threadIndex < chaputThreads.length) {
-                                    setState(
-                                      () => _chaputActiveIndex = threadIndex,
-                                    );
-                                  } else {
-                                    setState(() {
-                                      _replyBarThreadId = '';
-                                      _replyTarget = null;
-                                      _replyTargetThreadId = null;
-                                    });
-                                  }
-                                  if (threadIndex != null &&
-                                      threadIndex < chaputThreads.length) {
-                                    final t = chaputThreads[threadIndex];
-                                    _subscribeThreadSocket(
-                                      t.threadId,
-                                      profileIdHex,
-                                    );
-                                    _focusToThreadAnchor(t, profileIdHex);
-                                    final isParticipant =
-                                        t.userAId == viewerId ||
-                                        t.userBId == viewerId;
-                                    final viewerIsStarter =
-                                        t.starterId == viewerId;
-                                    final isPending = t.state == 'PENDING';
-                                    _replyBarThreadId =
-                                        (isParticipant &&
-                                            (!isPending || !viewerIsStarter))
-                                        ? t.threadId
-                                        : null;
-                                    _replyWhisperMode = false;
-                                    _replyTarget = null;
-                                    _replyTargetThreadId = null;
-                                    FocusScope.of(context).unfocus();
-                                    final isParticipant2 =
-                                        t.userAId == viewerId ||
-                                        t.userBId == viewerId;
-                                    if (!isParticipant2) {
-                                      final api = ref.read(chaputApiProvider);
-                                      await api.recordView(
-                                        threadIdHex: t.threadId,
-                                      );
-                                    } else {
-                                      ref
-                                          .read(chaputApiProvider)
-                                          .markThreadRead(
-                                            threadIdHex: t.threadId,
-                                          )
-                                          .catchError((_) {});
-                                    }
-                                    if (threadIndex >=
-                                        chaputThreads.length - 2) {
-                                      ref
-                                          .read(
-                                            chaputThreadsControllerProvider(
-                                              chaputArgs,
-                                            ).notifier,
-                                          )
-                                          .loadMore();
-                                    }
-                                  }
-                                },
-                                onOpenProfile: (id, threadId) async {
-                                  if (id.isEmpty) return;
-                                  await _openThreadCounterpartyProfile(
-                                    userId: id,
-                                    threadId: threadId,
-                                  );
-                                },
-                                onSendMessage: (thread, body, whisper) async {
-                                  await _sendThreadMessage(
-                                    thread: thread,
-                                    body: body,
-                                    whisper: whisper,
-                                    profileIdHex: profileIdHex,
-                                    chaputArgs: chaputArgs,
-                                    viewerId: viewerId,
-                                  );
-                                },
-                                onMakeHidden: (thread) async {
-                                  await _makeThreadHidden(
-                                    thread: thread,
-                                    profileIdHex: profileIdHex,
-                                    chaputArgs: chaputArgs,
-                                  );
-                                },
-                                onArchiveThread: (thread) async {
-                                  await _archiveThread(
-                                    thread: thread,
-                                    profileIdHex: profileIdHex,
-                                    chaputArgs: chaputArgs,
-                                  );
-                                },
-                                onReportThread: _reportThread,
-                                onReportMessage: (_, message) =>
-                                    _reportMessage(message),
-                                canMakeHidden: creditsHidden > 0,
-                                onReplyMessage: _handleReplyRequested,
-                                onOpenWhisperPaywall: () async {
-                                  await ref
-                                      .read(
-                                        chaputDecisionControllerProvider(
-                                          profileIdHex,
-                                        ).notifier,
-                                      )
-                                      .fetchDecision();
-
-                                  final freshWhisper =
-                                      ref
-                                          .read(
-                                            chaputDecisionControllerProvider(
-                                              profileIdHex,
-                                            ),
-                                          )
-                                          .decision
-                                          ?.credits
-                                          .whisper ??
-                                      0;
-
-                                  if (freshWhisper > 0)
-                                    return; // ✅ kredi varsa paywall yok
-
-                                  final purchase = await _openPaywall(
-                                    feature: PaywallFeature.whisper,
-                                  );
-                                  if (purchase == null) return;
-                                  await _verifyPurchaseAndApply(purchase);
-                                },
-                                replyOverlay: showReplyBar ? 88.0 : 0.0,
-                                whisperCredits: creditsWhisper,
-                              ),
+                              child: threadSheetChild,
                             ),
                           ),
                         ),
@@ -4173,214 +4200,229 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     ),
                   ),
 
-                if (showReplyBar)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: _overlaySystemInset(context, kb),
-                    child: AnimatedPadding(
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOut,
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: ChaputReplyBar(
-                        key: ValueKey(activeThread?.threadId ?? 'none'),
-                        canWhisper: creditsWhisper > 0,
-                        whisperMode: _replyWhisperMode,
-                        replyAuthor: replyAuthor,
-                        replyBody: replyBody,
-                        onClearReply: () {
-                          setState(() {
-                            _replyTarget = null;
-                            _replyTargetThreadId = null;
-                          });
-                        },
+                ValueListenableBuilder<double>(
+                  valueListenable: _chaputSheetExtentListenable,
+                  builder: (context, chaputSheetExtent, _) {
+                    final showReplyBar = _shouldShowReplyBar(
+                      extent: chaputSheetExtent,
+                      canReplyOnActive: canReplyOnActive,
+                      activeThreadId: activeThread?.threadId,
+                    );
+                    if (!showReplyBar) {
+                      return const SizedBox.shrink();
+                    }
+                    return Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: _overlaySystemInset(context, kb),
+                      child: AnimatedPadding(
+                        duration: const Duration(milliseconds: 160),
+                        curve: Curves.easeOut,
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom,
+                        ),
+                        child: ChaputReplyBar(
+                          key: ValueKey(activeThread?.threadId ?? 'none'),
+                          canWhisper: creditsWhisper > 0,
+                          whisperMode: _replyWhisperMode,
+                          replyAuthor: replyAuthor,
+                          replyBody: replyBody,
+                          onClearReply: () {
+                            setState(() {
+                              _replyTarget = null;
+                              _replyTargetThreadId = null;
+                            });
+                          },
 
-                        onToggleWhisper: () async {
-                          // kapatmak serbest
-                          if (_replyWhisperMode) {
+                          onToggleWhisper: () async {
+                            if (_replyWhisperMode) {
+                              setState(() => _replyWhisperMode = false);
+                              return;
+                            }
+
+                            final notifier = ref.read(
+                              chaputDecisionControllerProvider(
+                                profileIdHex,
+                              ).notifier,
+                            );
+                            ChaputDecision? freshDecision;
+                            final api = ref.read(chaputApiProvider);
+                            try {
+                              freshDecision = await api.getDecision(
+                                profileIdHex,
+                              );
+                              notifier.setCredits(
+                                normal: freshDecision.credits.normal,
+                                hidden: freshDecision.credits.hidden,
+                                special: freshDecision.credits.special,
+                                revive: freshDecision.credits.revive,
+                                whisper: freshDecision.credits.whisper,
+                              );
+                              notifier.applyPlanType(freshDecision.plan.type);
+                              if (freshDecision.plan.period != null &&
+                                  freshDecision.plan.period!.isNotEmpty) {
+                                notifier.applyPlanPeriod(
+                                  freshDecision.plan.period!,
+                                );
+                              }
+                            } catch (_) {
+                              freshDecision = await notifier
+                                  .fetchDecisionAndReturn();
+                            }
+                            final freshWhisper =
+                                freshDecision?.credits.whisper ?? 0;
+
+                            if (freshWhisper > 0) {
+                              setState(() => _replyWhisperMode = true);
+                              return;
+                            }
+
+                            final purchase = await _openPaywall(
+                              feature: PaywallFeature.whisper,
+                            );
+                            if (purchase == null) return;
+
+                            final ok = await _verifyPurchaseAndApply(purchase);
+                            if (!ok) return;
+
+                            ChaputDecision? after;
+                            try {
+                              after = await api.getDecision(profileIdHex);
+                              notifier.setCredits(
+                                normal: after.credits.normal,
+                                hidden: after.credits.hidden,
+                                special: after.credits.special,
+                                revive: after.credits.revive,
+                                whisper: after.credits.whisper,
+                              );
+                              notifier.applyPlanType(after.plan.type);
+                              if (after.plan.period != null &&
+                                  after.plan.period!.isNotEmpty) {
+                                notifier.applyPlanPeriod(after.plan.period!);
+                              }
+                            } catch (_) {
+                              after = await notifier.fetchDecisionAndReturn();
+                            }
+                            final afterWhisper = after?.credits.whisper ?? 0;
+
+                            if (afterWhisper > 0) {
+                              setState(() => _replyWhisperMode = true);
+                            } else {
+                              _showGlassToast(
+                                context.t('profile.toast.whisper_unavailable'),
+                                icon: Icons.error_outline,
+                              );
+                            }
+                          },
+
+                          onWhisperPaywall: () async {
+                            final notifier = ref.read(
+                              chaputDecisionControllerProvider(
+                                profileIdHex,
+                              ).notifier,
+                            );
+                            ChaputDecision? freshDecision;
+                            final api = ref.read(chaputApiProvider);
+                            try {
+                              freshDecision = await api.getDecision(
+                                profileIdHex,
+                              );
+                              notifier.setCredits(
+                                normal: freshDecision.credits.normal,
+                                hidden: freshDecision.credits.hidden,
+                                special: freshDecision.credits.special,
+                                revive: freshDecision.credits.revive,
+                                whisper: freshDecision.credits.whisper,
+                              );
+                              notifier.applyPlanType(freshDecision.plan.type);
+                              if (freshDecision.plan.period != null &&
+                                  freshDecision.plan.period!.isNotEmpty) {
+                                notifier.applyPlanPeriod(
+                                  freshDecision.plan.period!,
+                                );
+                              }
+                            } catch (_) {
+                              freshDecision = await notifier
+                                  .fetchDecisionAndReturn();
+                            }
+                            final freshWhisper =
+                                freshDecision?.credits.whisper ?? 0;
+
+                            if (freshWhisper > 0) {
+                              setState(() => _replyWhisperMode = true);
+                              return;
+                            }
+
+                            final purchase = await _openPaywall(
+                              feature: PaywallFeature.whisper,
+                            );
+                            if (purchase == null) return;
+
+                            final ok = await _verifyPurchaseAndApply(purchase);
+                            if (!ok) return;
+
+                            setState(() => _replyWhisperMode = true);
+                          },
+
+                          onSend: (text, _ignored) async {
+                            final t = activeThread;
+                            if (t == null) return;
+
+                            await _sendThreadMessage(
+                              thread: t,
+                              body: text,
+                              whisper: _replyWhisperMode,
+                              profileIdHex: profileIdHex,
+                              chaputArgs: chaputArgs,
+                              viewerId: viewerId,
+                            );
+
                             setState(() => _replyWhisperMode = false);
-                            return;
-                          }
-
-                          // açarken: fresh decision çek
-                          final notifier = ref.read(
-                            chaputDecisionControllerProvider(
-                              profileIdHex,
-                            ).notifier,
-                          );
-                          ChaputDecision? freshDecision;
-                          final api = ref.read(chaputApiProvider);
-                          try {
-                            freshDecision = await api.getDecision(profileIdHex);
-                            notifier.setCredits(
-                              normal: freshDecision.credits.normal,
-                              hidden: freshDecision.credits.hidden,
-                              special: freshDecision.credits.special,
-                              revive: freshDecision.credits.revive,
-                              whisper: freshDecision.credits.whisper,
-                            );
-                            notifier.applyPlanType(freshDecision.plan.type);
-                            if (freshDecision.plan.period != null &&
-                                freshDecision.plan.period!.isNotEmpty) {
-                              notifier.applyPlanPeriod(
-                                freshDecision.plan.period!,
-                              );
+                            setState(() {
+                              _replyTarget = null;
+                              _replyTargetThreadId = null;
+                            });
+                          },
+                          onFocus: () {
+                            _emitTyping(true);
+                            if (_chaputSheetExtent >= _chaputSheetMax - 0.01) {
+                              return;
                             }
-                          } catch (_) {
-                            freshDecision = await notifier
-                                .fetchDecisionAndReturn();
-                          }
-                          final freshWhisper =
-                              freshDecision?.credits.whisper ?? 0;
-
-                          if (freshWhisper > 0) {
-                            setState(() => _replyWhisperMode = true);
-                            return;
-                          }
-
-                          // kredi yok -> paywall
-                          final purchase = await _openPaywall(
-                            feature: PaywallFeature.whisper,
-                          );
-                          if (purchase == null) return;
-
-                          final ok = await _verifyPurchaseAndApply(purchase);
-                          if (!ok) return;
-
-                          // satın alma sonrası tekrar çek
-                          ChaputDecision? after;
-                          try {
-                            after = await api.getDecision(profileIdHex);
-                            notifier.setCredits(
-                              normal: after.credits.normal,
-                              hidden: after.credits.hidden,
-                              special: after.credits.special,
-                              revive: after.credits.revive,
-                              whisper: after.credits.whisper,
-                            );
-                            notifier.applyPlanType(after.plan.type);
-                            if (after.plan.period != null &&
-                                after.plan.period!.isNotEmpty) {
-                              notifier.applyPlanPeriod(after.plan.period!);
-                            }
-                          } catch (_) {
-                            after = await notifier.fetchDecisionAndReturn();
-                          }
-                          final afterWhisper = after?.credits.whisper ?? 0;
-
-                          if (afterWhisper > 0) {
-                            setState(() => _replyWhisperMode = true);
-                          } else {
-                            _showGlassToast(
-                              context.t('profile.toast.whisper_unavailable'),
-                              icon: Icons.error_outline,
-                            );
-                          }
-                        },
-
-                        onWhisperPaywall: () async {
-                          // artık send tetiklemeyecek ama yine de bırakıyoruz
-                          final notifier = ref.read(
-                            chaputDecisionControllerProvider(
-                              profileIdHex,
-                            ).notifier,
-                          );
-                          ChaputDecision? freshDecision;
-                          final api = ref.read(chaputApiProvider);
-                          try {
-                            freshDecision = await api.getDecision(profileIdHex);
-                            notifier.setCredits(
-                              normal: freshDecision.credits.normal,
-                              hidden: freshDecision.credits.hidden,
-                              special: freshDecision.credits.special,
-                              revive: freshDecision.credits.revive,
-                              whisper: freshDecision.credits.whisper,
-                            );
-                            notifier.applyPlanType(freshDecision.plan.type);
-                            if (freshDecision.plan.period != null &&
-                                freshDecision.plan.period!.isNotEmpty) {
-                              notifier.applyPlanPeriod(
-                                freshDecision.plan.period!,
-                              );
-                            }
-                          } catch (_) {
-                            freshDecision = await notifier
-                                .fetchDecisionAndReturn();
-                          }
-                          final freshWhisper =
-                              freshDecision?.credits.whisper ?? 0;
-
-                          if (freshWhisper > 0) {
-                            setState(() => _replyWhisperMode = true);
-                            return;
-                          }
-
-                          final purchase = await _openPaywall(
-                            feature: PaywallFeature.whisper,
-                          );
-                          if (purchase == null) return;
-
-                          final ok = await _verifyPurchaseAndApply(purchase);
-                          if (!ok) return;
-
-                          setState(() => _replyWhisperMode = true);
-                        },
-
-                        onSend: (text, _ignored) async {
-                          final t = activeThread;
-                          if (t == null) return;
-
-                          await _sendThreadMessage(
-                            thread: t,
-                            body: text,
-                            whisper: _replyWhisperMode,
-                            profileIdHex: profileIdHex,
-                            chaputArgs: chaputArgs,
-                            viewerId: viewerId,
-                          );
-
-                          setState(() => _replyWhisperMode = false);
-                          setState(() {
-                            _replyTarget = null;
-                            _replyTargetThreadId = null;
-                          });
-                        },
-                        onFocus: () {
-                          _emitTyping(true);
-                          if (_chaputSheetExtent >= _chaputSheetMax - 0.01)
-                            return;
-                          _sheetAutoExpanded = true;
-                          _sheetExtentBeforeKeyboard = _chaputSheetExtent;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!_chaputSheetCtrl.isAttached) return;
-                            _chaputSheetCtrl.animateTo(
-                              _chaputSheetMax,
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOut,
-                            );
-                          });
-                        },
-                        onBlur: () {
-                          _emitTyping(false);
-                          if (!_sheetAutoExpanded) return;
-                          _sheetAutoExpanded = false;
-                          final target = _sheetExtentBeforeKeyboard;
-                          if (target < _chaputSheetMax - 0.01) {
+                            _sheetAutoExpanded = true;
+                            _sheetExtentBeforeKeyboard = _chaputSheetExtent;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!_chaputSheetCtrl.isAttached) return;
                               _chaputSheetCtrl.animateTo(
-                                target.clamp(_chaputSheetMin, _chaputSheetMax),
+                                _chaputSheetMax,
                                 duration: const Duration(milliseconds: 180),
                                 curve: Curves.easeOut,
                               );
                             });
-                          }
-                        },
+                          },
+                          onBlur: () {
+                            _emitTyping(false);
+                            if (!_sheetAutoExpanded) return;
+                            _sheetAutoExpanded = false;
+                            final target = _sheetExtentBeforeKeyboard;
+                            if (target < _chaputSheetMax - 0.01) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!_chaputSheetCtrl.isAttached) return;
+                                _chaputSheetCtrl.animateTo(
+                                  target.clamp(
+                                    _chaputSheetMin,
+                                    _chaputSheetMax,
+                                  ),
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOut,
+                                );
+                              });
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
+                ),
 
                 // BUTON
                 Positioned(

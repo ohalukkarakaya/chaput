@@ -30,6 +30,7 @@ class _VideoBackgroundState extends State<VideoBackground>
   late final List<_Blob> _blobs;
   Size _lastSize = Size.zero;
   List<Offset> _grain = const [];
+  bool _isAnimating = false;
 
   @override
   void initState() {
@@ -37,7 +38,8 @@ class _VideoBackgroundState extends State<VideoBackground>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 22),
-    )..repeat();
+    );
+    _syncAnimation(true);
 
     _blobs = [
       _Blob(
@@ -79,6 +81,8 @@ class _VideoBackgroundState extends State<VideoBackground>
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
+    final shouldAnimate = TickerMode.of(context) && mq.viewInsets.bottom <= 0.0;
+    _syncAnimation(shouldAnimate);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -99,7 +103,10 @@ class _VideoBackgroundState extends State<VideoBackground>
                 child: AnimatedBuilder(
                   animation: _controller,
                   builder: (context, _) {
-                    final motion = (widget.motion?.value ?? 0.0).clamp(0.0, 1.0);
+                    final motion = (widget.motion?.value ?? 0.0).clamp(
+                      0.0,
+                      1.0,
+                    );
                     return CustomPaint(
                       painter: _BlobPainter(
                         t: _controller.value,
@@ -122,7 +129,9 @@ class _VideoBackgroundState extends State<VideoBackground>
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: Container(
-                      color: AppColors.chaputBlack.withOpacity(widget.overlayOpacity),
+                      color: AppColors.chaputBlack.withOpacity(
+                        widget.overlayOpacity,
+                      ),
                     ),
                   ),
                 ),
@@ -142,11 +151,25 @@ class _VideoBackgroundState extends State<VideoBackground>
             ),
 
             // ✅ Üst içerik normal MediaQuery ile kalsın (klavye vs. burada yönetilir)
-            widget.child,
+            RepaintBoundary(child: widget.child),
           ],
         );
       },
     );
+  }
+
+  void _syncAnimation(bool shouldAnimate) {
+    if (_isAnimating == shouldAnimate) return;
+    _isAnimating = shouldAnimate;
+    if (shouldAnimate) {
+      if (!_controller.isAnimating) {
+        _controller.repeat();
+      }
+      return;
+    }
+    if (_controller.isAnimating) {
+      _controller.stop(canceled: false);
+    }
   }
 
   void _ensureGrain(Size size) {
@@ -203,8 +226,14 @@ class _BlobPainter extends CustomPainter {
     final time = t * 2 * pi * speedBoost;
 
     for (final blob in blobs) {
-      final dx = (blob.center.dx + blob.amplitude.dx * sin(time * blob.speed + blob.phase)) * size.width;
-      final dy = (blob.center.dy + blob.amplitude.dy * cos(time * blob.speed + blob.phase)) * size.height;
+      final dx =
+          (blob.center.dx +
+              blob.amplitude.dx * sin(time * blob.speed + blob.phase)) *
+          size.width;
+      final dy =
+          (blob.center.dy +
+              blob.amplitude.dy * cos(time * blob.speed + blob.phase)) *
+          size.height;
       final radius = blob.radius * shortest;
       final blurSigma = radius * 0.35;
       final mix = (motion * 0.85).clamp(0.0, 1.0);

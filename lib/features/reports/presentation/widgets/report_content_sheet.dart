@@ -63,7 +63,6 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
     final targetKey = widget.targetType == ReportTargetType.message
         ? 'message'
         : 'chaput';
-    final detailsLength = _detailsController.text.trim().length;
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 160),
@@ -188,8 +187,6 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                       onChanged: (_) {
                         if (_errorText != null) {
                           setState(() => _errorText = null);
-                        } else {
-                          setState(() {});
                         }
                       },
                       style: const TextStyle(
@@ -299,21 +296,29 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  if (detailsLength > 0)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '$detailsLength/500',
-                          style: TextStyle(
-                            color: AppColors.chaputWhite.withOpacity(0.45),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _detailsController,
+                    builder: (context, value, _) {
+                      final detailsLength = value.text.trim().length;
+                      if (detailsLength == 0) {
+                        return const SizedBox(height: 0);
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '$detailsLength/500',
+                            style: TextStyle(
+                              color: AppColors.chaputWhite.withOpacity(0.45),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),

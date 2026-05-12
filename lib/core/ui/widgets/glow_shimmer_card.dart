@@ -65,22 +65,25 @@ class GlowShimmerCard extends StatefulWidget {
 class _GlowShimmerCardState extends State<GlowShimmerCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
+  bool _isAnimating = false;
 
   Duration get _cycleDuration => widget.duration + widget.gap;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: _cycleDuration)..repeat();
+    _c = AnimationController(vsync: this, duration: _cycleDuration);
+    _syncAnimation(true);
   }
 
   @override
   void didUpdateWidget(covariant GlowShimmerCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.duration != widget.duration || oldWidget.gap != widget.gap) {
-      _c
-        ..duration = _cycleDuration
-        ..repeat();
+      _c..duration = _cycleDuration;
+      if (_isAnimating) {
+        _c.repeat();
+      }
     }
   }
 
@@ -92,6 +95,7 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
 
   @override
   Widget build(BuildContext context) {
+    _syncAnimation(TickerMode.of(context));
     final r = BorderRadius.circular(widget.radius);
 
     const shimmerColors = [
@@ -106,8 +110,14 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
     return AnimatedBuilder(
       animation: _c,
       builder: (_, __) {
-        final totalMs = _cycleDuration.inMilliseconds.toDouble().clamp(1, double.infinity);
-        final activeMs = widget.duration.inMilliseconds.toDouble().clamp(1, totalMs);
+        final totalMs = _cycleDuration.inMilliseconds.toDouble().clamp(
+          1,
+          double.infinity,
+        );
+        final activeMs = widget.duration.inMilliseconds.toDouble().clamp(
+          1,
+          totalMs,
+        );
 
         // 0..totalMs
         final elapsedMs = _c.value * totalMs;
@@ -135,10 +145,7 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
           ),
           child: Stack(
             children: [
-              Padding(
-                padding: widget.padding,
-                child: widget.child,
-              ),
+              Padding(padding: widget.padding, child: widget.child),
 
               // ✅ INNER SHIMMER
               if (widget.enableInnerShimmer)
@@ -193,12 +200,12 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
               borderRadius: r,
               child: widget.enableBlur
                   ? BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: widget.blurSigma,
-                  sigmaY: widget.blurSigma,
-                ),
-                child: body,
-              )
+                      filter: ImageFilter.blur(
+                        sigmaX: widget.blurSigma,
+                        sigmaY: widget.blurSigma,
+                      ),
+                      child: body,
+                    )
                   : body,
             ),
 
@@ -221,6 +228,20 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
         );
       },
     );
+  }
+
+  void _syncAnimation(bool shouldAnimate) {
+    if (_isAnimating == shouldAnimate) return;
+    _isAnimating = shouldAnimate;
+    if (shouldAnimate) {
+      if (!_c.isAnimating) {
+        _c.repeat();
+      }
+      return;
+    }
+    if (_c.isAnimating) {
+      _c.stop(canceled: false);
+    }
   }
 }
 

@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
-import '../../i18n/app_localizations.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
 import 'app_text_context_menu.dart';
 
@@ -76,12 +75,13 @@ class _EmailOtpSheet extends StatefulWidget {
   State<_EmailOtpSheet> createState() => _EmailOtpSheetState();
 }
 
-class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProviderStateMixin {
+class _EmailOtpSheetState extends State<_EmailOtpSheet>
+    with SingleTickerProviderStateMixin {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
 
-  String _code = '';
   String? _errorText;
+  int _lastCodeLength = 0;
 
   bool _verifying = false;
 
@@ -98,14 +98,19 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
   void initState() {
     super.initState();
 
-    _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 380));
-    _shakeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 10, end: -8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _shakeAnimation = TweenSequence<double>(
+      [
+        TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
+        TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+        TweenSequenceItem(tween: Tween(begin: 10, end: -8), weight: 2),
+        TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
+        TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
+      ],
+    ).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
@@ -116,7 +121,9 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
     _controller.addListener(() {
       final raw = _controller.text;
       final onlyDigits = raw.replaceAll(RegExp(r'[^0-9]'), '');
-      final clipped = onlyDigits.length > 6 ? onlyDigits.substring(0, 6) : onlyDigits;
+      final clipped = onlyDigits.length > 6
+          ? onlyDigits.substring(0, 6)
+          : onlyDigits;
 
       if (clipped != raw) {
         _controller.value = TextEditingValue(
@@ -125,12 +132,14 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
         );
       }
 
-      setState(() {
-        _code = clipped;
-        if (_errorText != null) _errorText = null;
-      });
+      if (_errorText != null) {
+        setState(() => _errorText = null);
+      }
 
-      if (_code.length == 6) HapticFeedback.selectionClick();
+      if (clipped.length == 6 && _lastCodeLength != 6) {
+        HapticFeedback.selectionClick();
+      }
+      _lastCodeLength = clipped.length;
     });
   }
 
@@ -193,7 +202,7 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
   Future<void> _verify() async {
     if (_verifying) return;
     if (_lockSeconds > 0) return;
-    if (_code.length != 6) return;
+    if (_controller.text.length != 6) return;
 
     setState(() {
       _verifying = true;
@@ -201,7 +210,7 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
     });
 
     try {
-      final res = await widget.onVerify(_code);
+      final res = await widget.onVerify(_controller.text);
 
       if (res.ok) {
         if (!mounted) return;
@@ -210,7 +219,10 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
       }
 
       _shakeController.forward(from: 0);
-      setState(() => _errorText = res.errorText ?? context.t('errors.code_verify_failed'));
+      setState(
+        () => _errorText =
+            res.errorText ?? context.t('errors.code_verify_failed'),
+      );
 
       if (res.lockSeconds != null && res.lockSeconds! > 0) {
         _startLockCountdown(res.lockSeconds!);
@@ -243,8 +255,12 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
               decoration: BoxDecoration(
                 color: AppColors.chaputWhite.withOpacity(0.88),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.6)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(22),
+                ),
+                border: Border.all(
+                  color: AppColors.chaputWhite.withOpacity(0.6),
+                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -263,12 +279,20 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                   const SizedBox(height: 14),
                   Text(
                     context.t('code.title'),
-                    style: const TextStyle(color: AppColors.chaputBlack, fontSize: 18, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      color: AppColors.chaputBlack,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     context.t('code.subtitle', params: {'email': widget.email}),
-                    style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.65), fontSize: 13, height: 1.3),
+                    style: TextStyle(
+                      color: AppColors.chaputBlack.withOpacity(0.65),
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
                   ),
                   const SizedBox(height: 14),
 
@@ -280,7 +304,12 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                     ),
                     child: Opacity(
                       opacity: isLocked ? 0.6 : 1.0,
-                      child: _StarPinRow(valueLength: _code.length),
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _controller,
+                        builder: (context, value, _) {
+                          return _StarPinRow(valueLength: value.text.length);
+                        },
+                      ),
                     ),
                   ),
 
@@ -293,8 +322,12 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.done,
                       contextMenuBuilder: appTextContextMenuBuilder,
-                      decoration: const InputDecoration(border: InputBorder.none),
-                      style: const TextStyle(color: AppColors.chaputTransparent),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                      ),
+                      style: const TextStyle(
+                        color: AppColors.chaputTransparent,
+                      ),
                       cursorColor: AppColors.chaputTransparent,
                       enableInteractiveSelection: false,
                       showCursor: false,
@@ -304,39 +337,72 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                   const SizedBox(height: 10),
 
                   if (_errorText != null) ...[
-                    Text(_errorText!, style: const TextStyle(color: AppColors.chaputMaterialRed, fontSize: 13, fontWeight: FontWeight.w700)),
+                    Text(
+                      _errorText!,
+                      style: const TextStyle(
+                        color: AppColors.chaputMaterialRed,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                   ] else
                     const SizedBox(height: 4),
 
                   if (isLocked) ...[
                     Text(
-                      context.t('code.lock_wait', params: {'seconds': _lockSeconds.toString()}),
-                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.65), fontSize: 13),
+                      context.t(
+                        'code.lock_wait',
+                        params: {'seconds': _lockSeconds.toString()},
+                      ),
+                      style: TextStyle(
+                        color: AppColors.chaputBlack.withOpacity(0.65),
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 10),
                   ],
 
                   SizedBox(
                     height: 52,
-                    child: ElevatedButton(
-                      onPressed: (!isLocked && _code.length == 6 && !_verifying) ? _verify : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.chaputBlack,
-                        disabledBackgroundColor: AppColors.chaputBlack.withOpacity(0.25),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: _verifying
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite),
-                      )
-                          : Text(
-                              context.t('code.verify'),
-                              style: const TextStyle(color: AppColors.chaputWhite, fontSize: 16, fontWeight: FontWeight.w800),
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _controller,
+                      builder: (context, value, _) {
+                        return ElevatedButton(
+                          onPressed:
+                              (!isLocked &&
+                                  value.text.length == 6 &&
+                                  !_verifying)
+                              ? _verify
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.chaputBlack,
+                            disabledBackgroundColor: AppColors.chaputBlack
+                                .withOpacity(0.25),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
+                          ),
+                          child: _verifying
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.chaputWhite,
+                                  ),
+                                )
+                              : Text(
+                                  context.t('code.verify'),
+                                  style: const TextStyle(
+                                    color: AppColors.chaputWhite,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                        );
+                      },
                     ),
                   ),
 
@@ -347,9 +413,14 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet> with SingleTickerProvide
                     child: Text(
                       canResend
                           ? context.t('code.resend')
-                          : context.t('code.resend_in', params: {'seconds': _resendSeconds.toString()}),
+                          : context.t(
+                              'code.resend_in',
+                              params: {'seconds': _resendSeconds.toString()},
+                            ),
                       style: TextStyle(
-                        color: AppColors.chaputBlack.withOpacity(canResend ? 0.9 : 0.35),
+                        color: AppColors.chaputBlack.withOpacity(
+                          canResend ? 0.9 : 0.35,
+                        ),
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -382,7 +453,9 @@ class _StarPinRow extends StatelessWidget {
               color: AppColors.chaputWhite.withOpacity(0.95),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: filled ? AppColors.chaputBlack.withOpacity(0.35) : AppColors.chaputBlack.withOpacity(0.12),
+                color: filled
+                    ? AppColors.chaputBlack.withOpacity(0.35)
+                    : AppColors.chaputBlack.withOpacity(0.12),
               ),
             ),
             child: Center(
@@ -391,7 +464,9 @@ class _StarPinRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: filled ? AppColors.chaputBlack : AppColors.chaputBlack.withOpacity(0.25),
+                  color: filled
+                      ? AppColors.chaputBlack
+                      : AppColors.chaputBlack.withOpacity(0.25),
                 ),
               ),
             ),

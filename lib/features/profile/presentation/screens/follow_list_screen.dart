@@ -48,16 +48,6 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
   Widget build(BuildContext context) {
     final st = ref.watch(followListControllerProvider(_args));
 
-    final query = _searchCtrl.text.trim().toLowerCase();
-    final items = query.isEmpty
-        ? st.items
-        : st.items.where((e) {
-      final u = st.usersById[e.userId];
-      final name = (u?.fullName ?? e.fullName).toLowerCase();
-      final username = (u?.username ?? e.username).toLowerCase();
-      return name.contains(query) || username.contains(query);
-    }).toList(growable: false);
-
     return Scaffold(
       backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
@@ -74,11 +64,16 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(
+                          context.t('common.back'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
-                        onPressed: () => ref.read(followListControllerProvider(_args).notifier).refresh(),
+                        onPressed: () => ref
+                            .read(followListControllerProvider(_args).notifier)
+                            .refresh(),
                         icon: const Icon(Icons.refresh),
                       ),
                     ],
@@ -92,7 +87,10 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                         Expanded(
                           child: Text(
                             widget.title,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         if (st.isLoading)
@@ -110,7 +108,6 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                       child: TextField(
                         controller: _searchCtrl,
-                        onChanged: (_) => setState(() {}),
                         contextMenuBuilder: appTextContextMenuBuilder,
                         decoration: InputDecoration(
                           hintText: context.t('common.search'),
@@ -119,21 +116,46 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                           prefixIcon: const Icon(Icons.search),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: AppColors.chaputBlack.withOpacity(0.08)),
+                            borderSide: BorderSide(
+                              color: AppColors.chaputBlack.withOpacity(0.08),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: AppColors.chaputBlack.withOpacity(0.08)),
+                            borderSide: BorderSide(
+                              color: AppColors.chaputBlack.withOpacity(0.08),
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                         ),
                       ),
                     ),
                   ],
 
                   Expanded(
-                    child: st.isForbidden
-                        ? Center(
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchCtrl,
+                      builder: (context, value, _) {
+                        final query = value.text.trim().toLowerCase();
+                        final items = query.isEmpty
+                            ? st.items
+                            : st.items
+                                  .where((e) {
+                                    final u = st.usersById[e.userId];
+                                    final name = (u?.fullName ?? e.fullName)
+                                        .toLowerCase();
+                                    final username = (u?.username ?? e.username)
+                                        .toLowerCase();
+                                    return name.contains(query) ||
+                                        username.contains(query);
+                                  })
+                                  .toList(growable: false);
+
+                        if (st.isForbidden) {
+                          return Center(
                             child: Text(
                               context.t('follow_list.forbidden'),
                               style: TextStyle(
@@ -141,107 +163,175 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                          )
-                        : (st.isLoading && items.isEmpty)
-                        ? const _FollowListShimmer()
-                        : st.error != null
-                        ? Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text('${context.t('common.error')}: ${st.error}', style: const TextStyle(color: AppColors.chaputMaterialRed)),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                          onPressed: () => ref.read(followListControllerProvider(_args).notifier).refresh(),
-                            child: Text(context.t('common.retry')),
-                          ),
-                        ],
-                      ),
-                    )
-                        : (items.isEmpty && !st.isLoading)
-                            ? Center(
-                                child: Text(
-                                  context.t('common.empty'),
-                                  style: TextStyle(
-                                    color: AppColors.chaputBlack.withOpacity(0.55),
-                                    fontWeight: FontWeight.w700,
+                          );
+                        }
+
+                        if (st.isLoading && items.isEmpty) {
+                          return const _FollowListShimmer();
+                        }
+
+                        if (st.error != null) {
+                          return Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  '${context.t('common.error')}: ${st.error}',
+                                  style: const TextStyle(
+                                    color: AppColors.chaputMaterialRed,
                                   ),
                                 ),
-                              )
-                            : RefreshIndicator(
-                            onRefresh: () => ref.read(followListControllerProvider(_args).notifier).refresh(),
-                            child: NotificationListener<ScrollNotification>(
-                              onNotification: (n) {
-                                if (st.isLoading || !st.hasMore) return false;
-                                if (n.metrics.maxScrollExtent <= 0) return false;
-                                if (n.metrics.pixels >= n.metrics.maxScrollExtent - 220) {
-                                  ref.read(followListControllerProvider(_args).notifier).loadMore();
-                                }
-                                return false;
-                              },
-                              child: ListView.separated(
-                                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                                itemCount: items.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                                itemBuilder: (context, i) {
-                                  final it = items[i];
-                                  final u = st.usersById[it.userId];
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  onPressed: () => ref
+                                      .read(
+                                        followListControllerProvider(
+                                          _args,
+                                        ).notifier,
+                                      )
+                                      .refresh(),
+                                  child: Text(context.t('common.retry')),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
 
-                                  final title = u?.fullName.isNotEmpty == true
-                                      ? u!.fullName
-                                      : (it.fullName.isNotEmpty ? it.fullName : context.t('common.na'));
-                                  final uname = (u?.username?.isNotEmpty == true)
-                                      ? u!.username
-                                      : it.username;
-
-                                  final avatarUrl = (u?.profilePhotoPath?.isNotEmpty == true)
-                                      ? u!.profilePhotoPath!
-                                      : (u?.defaultAvatar ?? '');
-                                  final isDefaultAvatar = u?.profilePhotoPath == null || u?.profilePhotoPath == '';
-
-                                  return _FollowRow(
-                                    title: title,
-                                    subtitle: (uname?.isEmpty ?? true) ? it.userId : '@$uname',
-                                    avatarUrl: avatarUrl.toString(),
-                                    isDefaultAvatar: isDefaultAvatar,
-                                    canOpen: it.canOpenProfile,
-                                    onTap: () async {
-                                      if (!it.canOpenProfile) return;
-                                      final route = await Routes.profile(it.userId);
-                                      if (!context.mounted) return;
-                                      final router = GoRouter.of(context);
-                                      if (router.canPop()) router.pop();
-                                      if (router.canPop()) router.pop();
-                                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        if (!context.mounted) return;
-                                        Future.delayed(const Duration(milliseconds: 160), () {
-                                          if (!context.mounted) return;
-                                          router.push(route);
-                                        });
-                                      });
-                                    },
-                                    showRemove: widget.isMe && widget.kind == FollowListKind.followers,
-                                    onRemove: () async {
-                                      if (!widget.isMe || (uname?.isEmpty ?? true)) return;
-                                      try {
-                                        await ref.read(followListControllerProvider(_args).notifier).removeFollower(
-                                          ownerUsername: widget.username,
-                                          followerUsername: uname ?? '',
-                                          followerId: it.userId,
-                                        );
-                                      } catch (e) {
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('${context.t('common.remove_failed')}: $e')),
-                                        );
-                                      }
-                                    },
-                                  );
-                                },
+                        if (items.isEmpty && !st.isLoading) {
+                          return Center(
+                            child: Text(
+                              context.t('common.empty'),
+                              style: TextStyle(
+                                color: AppColors.chaputBlack.withOpacity(0.55),
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
+                          );
+                        }
+
+                        return RefreshIndicator(
+                          onRefresh: () => ref
+                              .read(
+                                followListControllerProvider(_args).notifier,
+                              )
+                              .refresh(),
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification: (n) {
+                              if (st.isLoading || !st.hasMore) return false;
+                              if (n.metrics.maxScrollExtent <= 0) return false;
+                              if (n.metrics.pixels >=
+                                  n.metrics.maxScrollExtent - 220) {
+                                ref
+                                    .read(
+                                      followListControllerProvider(
+                                        _args,
+                                      ).notifier,
+                                    )
+                                    .loadMore();
+                              }
+                              return false;
+                            },
+                            child: ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(
+                                12,
+                                12,
+                                12,
+                                12,
+                              ),
+                              itemCount: items.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, i) {
+                                final it = items[i];
+                                final u = st.usersById[it.userId];
+
+                                final title = u?.fullName.isNotEmpty == true
+                                    ? u!.fullName
+                                    : (it.fullName.isNotEmpty
+                                          ? it.fullName
+                                          : context.t('common.na'));
+                                final uname = (u?.username?.isNotEmpty == true)
+                                    ? u!.username
+                                    : it.username;
+
+                                final avatarUrl =
+                                    (u?.profilePhotoPath?.isNotEmpty == true)
+                                    ? u!.profilePhotoPath!
+                                    : (u?.defaultAvatar ?? '');
+                                final isDefaultAvatar =
+                                    u?.profilePhotoPath == null ||
+                                    u?.profilePhotoPath == '';
+
+                                return _FollowRow(
+                                  title: title,
+                                  subtitle: (uname?.isEmpty ?? true)
+                                      ? it.userId
+                                      : '@$uname',
+                                  avatarUrl: avatarUrl.toString(),
+                                  isDefaultAvatar: isDefaultAvatar,
+                                  canOpen: it.canOpenProfile,
+                                  onTap: () async {
+                                    if (!it.canOpenProfile) return;
+                                    final route = await Routes.profile(
+                                      it.userId,
+                                    );
+                                    if (!context.mounted) return;
+                                    final router = GoRouter.of(context);
+                                    if (router.canPop()) router.pop();
+                                    if (router.canPop()) router.pop();
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (!context.mounted) return;
+                                          Future.delayed(
+                                            const Duration(milliseconds: 160),
+                                            () {
+                                              if (!context.mounted) return;
+                                              router.push(route);
+                                            },
+                                          );
+                                        });
+                                  },
+                                  showRemove:
+                                      widget.isMe &&
+                                      widget.kind == FollowListKind.followers,
+                                  onRemove: () async {
+                                    if (!widget.isMe ||
+                                        (uname?.isEmpty ?? true)) {
+                                      return;
+                                    }
+                                    try {
+                                      await ref
+                                          .read(
+                                            followListControllerProvider(
+                                              _args,
+                                            ).notifier,
+                                          )
+                                          .removeFollower(
+                                            ownerUsername: widget.username,
+                                            followerUsername: uname ?? '',
+                                            followerId: it.userId,
+                                          );
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '${context.t('common.remove_failed')}: $e',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                );
+                              },
+                            ),
                           ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -316,11 +406,22 @@ class _FollowRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w900)),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55), fontWeight: FontWeight.w600)),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.chaputBlack.withOpacity(0.55),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -25,11 +25,7 @@ Future<LoginVerifyResponse?> showCodeVerifySheet({
     barrierColor: AppColors.chaputTransparent,
     builder: (_) {
       return _BlurBarrier(
-        child: _CodeSheet(
-          email: email,
-          onResend: onResend,
-          onVerify: onVerify,
-        ),
+        child: _CodeSheet(email: email, onResend: onResend, onVerify: onVerify),
       );
     },
   );
@@ -74,12 +70,13 @@ class _CodeSheet extends StatefulWidget {
   State<_CodeSheet> createState() => _CodeSheetState();
 }
 
-class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMixin {
+class _CodeSheetState extends State<_CodeSheet>
+    with SingleTickerProviderStateMixin {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
 
-  String _code = '';
   String? _errorText;
+  int _lastCodeLength = 0;
 
   bool _verifying = false;
 
@@ -102,13 +99,15 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
       vsync: this,
       duration: const Duration(milliseconds: 380),
     );
-    _shakeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 10, end: -8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
+    _shakeAnimation = TweenSequence<double>(
+      [
+        TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
+        TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+        TweenSequenceItem(tween: Tween(begin: 10, end: -8), weight: 2),
+        TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
+        TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
+      ],
+    ).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
@@ -119,7 +118,9 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
     _controller.addListener(() {
       final raw = _controller.text;
       final onlyDigits = raw.replaceAll(RegExp(r'[^0-9]'), '');
-      final clipped = onlyDigits.length > 6 ? onlyDigits.substring(0, 6) : onlyDigits;
+      final clipped = onlyDigits.length > 6
+          ? onlyDigits.substring(0, 6)
+          : onlyDigits;
 
       if (clipped != raw) {
         _controller.value = TextEditingValue(
@@ -128,14 +129,14 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
         );
       }
 
-      setState(() {
-        _code = clipped;
-        if (_errorText != null) _errorText = null; // typing => error temizle
-      });
+      if (_errorText != null) {
+        setState(() => _errorText = null);
+      }
 
-      if (_code.length == 6) {
+      if (clipped.length == 6 && _lastCodeLength != 6) {
         HapticFeedback.selectionClick();
       }
+      _lastCodeLength = clipped.length;
     });
   }
 
@@ -201,7 +202,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
   Future<void> _verify() async {
     if (_verifying) return;
     if (_lockSeconds > 0) return;
-    if (_code.length != 6) return;
+    if (_controller.text.length != 6) return;
 
     setState(() {
       _verifying = true;
@@ -209,7 +210,7 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
     });
 
     try {
-      final res = await widget.onVerify(_code);
+      final res = await widget.onVerify(_controller.text);
 
       if (res.accessToken.isEmpty || res.refreshToken.isEmpty) {
         throw StateError('empty tokens');
@@ -255,11 +256,15 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
     if (s.contains('invalid_code')) return context.t('errors.code_invalid');
     if (s.contains('code_expired')) return context.t('errors.code_expired');
     if (s.contains('code_required')) return context.t('errors.code_required');
-    if (s.contains('too_many_attempts')) return context.t('errors.too_many_attempts');
+    if (s.contains('too_many_attempts'))
+      return context.t('errors.too_many_attempts');
     if (s.contains('db_error')) return context.t('errors.db_error');
 
     final status = e.response?.statusCode;
-    return context.t('errors.http_status', params: {'status': status?.toString() ?? '-'});
+    return context.t(
+      'errors.http_status',
+      params: {'status': status?.toString() ?? '-'},
+    );
   }
 
   int? _extractRetryAfterSeconds(dynamic data) {
@@ -293,8 +298,12 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
               decoration: BoxDecoration(
                 color: AppColors.chaputWhite.withOpacity(0.88),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.6)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(22),
+                ),
+                border: Border.all(
+                  color: AppColors.chaputWhite.withOpacity(0.6),
+                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -341,7 +350,12 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                     },
                     child: Opacity(
                       opacity: isLocked ? 0.6 : 1.0,
-                      child: _StarPinRow(valueLength: _code.length),
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _controller,
+                        builder: (context, value, _) {
+                          return _StarPinRow(valueLength: value.text.length);
+                        },
+                      ),
                     ),
                   ),
 
@@ -355,8 +369,12 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.done,
                       contextMenuBuilder: appTextContextMenuBuilder,
-                      decoration: const InputDecoration(border: InputBorder.none),
-                      style: const TextStyle(color: AppColors.chaputTransparent),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                      ),
+                      style: const TextStyle(
+                        color: AppColors.chaputTransparent,
+                      ),
                       cursorColor: AppColors.chaputTransparent,
                       enableInteractiveSelection: false,
                       showCursor: false,
@@ -380,7 +398,10 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
 
                   if (isLocked) ...[
                     Text(
-                      context.t('code.resend_in', params: {'seconds': _lockSeconds.toString()}),
+                      context.t(
+                        'code.resend_in',
+                        params: {'seconds': _lockSeconds.toString()},
+                      ),
                       style: TextStyle(
                         color: AppColors.chaputBlack.withOpacity(0.65),
                         fontSize: 13,
@@ -391,30 +412,44 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
 
                   SizedBox(
                     height: 52,
-                    child: ElevatedButton(
-                      onPressed: (!isLocked && _code.length == 6 && !_verifying) ? _verify : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.chaputBlack,
-                        disabledBackgroundColor: AppColors.chaputBlack.withOpacity(0.25),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: _verifying
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite),
-                      )
-                          : Text(
-                            context.t('code.verify'),
-                            style: TextStyle(
-                              color: AppColors.chaputWhite,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _controller,
+                      builder: (context, value, _) {
+                        return ElevatedButton(
+                          onPressed:
+                              (!isLocked &&
+                                  value.text.length == 6 &&
+                                  !_verifying)
+                              ? _verify
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.chaputBlack,
+                            disabledBackgroundColor: AppColors.chaputBlack
+                                .withOpacity(0.25),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
+                          child: _verifying
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.chaputWhite,
+                                  ),
+                                )
+                              : Text(
+                                  context.t('code.verify'),
+                                  style: TextStyle(
+                                    color: AppColors.chaputWhite,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                        );
+                      },
                     ),
                   ),
 
@@ -423,9 +458,16 @@ class _CodeSheetState extends State<_CodeSheet> with SingleTickerProviderStateMi
                   TextButton(
                     onPressed: canResend ? _resend : null,
                     child: Text(
-                      canResend ? context.t('code.resend') : context.t('code.resend_in', params: {'seconds': _resendSeconds.toString()}),
+                      canResend
+                          ? context.t('code.resend')
+                          : context.t(
+                              'code.resend_in',
+                              params: {'seconds': _resendSeconds.toString()},
+                            ),
                       style: TextStyle(
-                        color: AppColors.chaputBlack.withOpacity(canResend ? 0.9 : 0.35),
+                        color: AppColors.chaputBlack.withOpacity(
+                          canResend ? 0.9 : 0.35,
+                        ),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -458,7 +500,9 @@ class _StarPinRow extends StatelessWidget {
               color: AppColors.chaputWhite.withOpacity(0.95),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: filled ? AppColors.chaputBlack.withOpacity(0.35) : AppColors.chaputBlack.withOpacity(0.12),
+                color: filled
+                    ? AppColors.chaputBlack.withOpacity(0.35)
+                    : AppColors.chaputBlack.withOpacity(0.12),
               ),
             ),
             child: Center(
@@ -467,7 +511,9 @@ class _StarPinRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: filled ? AppColors.chaputBlack : AppColors.chaputBlack.withOpacity(0.25),
+                  color: filled
+                      ? AppColors.chaputBlack
+                      : AppColors.chaputBlack.withOpacity(0.25),
                 ),
               ),
             ),
