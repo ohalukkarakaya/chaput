@@ -57,7 +57,6 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
       factoryId: 'chaputNative',
       request: const AdRequest(),
       nativeAdOptions: NativeAdOptions(
-        adChoicesPlacement: AdChoicesPlacement.topRightCorner,
         mediaAspectRatio: MediaAspectRatio.landscape,
         videoOptions: VideoOptions(
           startMuted: true,
@@ -162,7 +161,6 @@ class _ChaputNativeAdCache {
       factoryId: 'chaputNative',
       request: const AdRequest(),
       nativeAdOptions: NativeAdOptions(
-        adChoicesPlacement: AdChoicesPlacement.topRightCorner,
         mediaAspectRatio: MediaAspectRatio.landscape,
         videoOptions: VideoOptions(
           startMuted: true,

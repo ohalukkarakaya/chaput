@@ -28,7 +28,7 @@ import google_mobile_ads
 class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
   func createNativeAd(_ nativeAd: NativeAd, customOptions: [AnyHashable : Any]? = nil) -> NativeAdView {
     let adView = NativeAdView()
-    adView.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+    adView.backgroundColor = .black
     adView.layer.cornerRadius = 18
     adView.layer.masksToBounds = true
     adView.layer.borderWidth = 1
@@ -44,17 +44,33 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     headline.textColor = .white
     headline.numberOfLines = 2
 
-    let advertiser = UILabel()
-    advertiser.font = UIFont.systemFont(ofSize: 12, weight: .medium)
-    advertiser.textColor = UIColor.white.withAlphaComponent(0.72)
-    advertiser.numberOfLines = 1
-
     let body = UILabel()
     body.font = UIFont.systemFont(ofSize: 13, weight: .regular)
     body.textColor = UIColor.white.withAlphaComponent(0.85)
     body.numberOfLines = 1
 
+    let advertiser = UILabel()
+    advertiser.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+    advertiser.textColor = UIColor.white.withAlphaComponent(0.72)
+    advertiser.numberOfLines = 1
+
+    let store = UILabel()
+    store.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+    store.textColor = UIColor.white.withAlphaComponent(0.72)
+    store.numberOfLines = 1
+
+    let price = UILabel()
+    price.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+    price.textColor = UIColor.white.withAlphaComponent(0.72)
+    price.numberOfLines = 1
+
+    let rating = UILabel()
+    rating.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+    rating.textColor = UIColor.white.withAlphaComponent(0.72)
+    rating.numberOfLines = 1
+
     let mediaView = MediaView()
+    mediaView.backgroundColor = .black
     mediaView.clipsToBounds = true
     mediaView.layer.cornerRadius = 10
 
@@ -71,54 +87,89 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     cta.contentEdgeInsets = UIEdgeInsets(top: 6, left: 14, bottom: 6, right: 14)
     cta.isUserInteractionEnabled = false
 
-    let top = UIView()
-    top.translatesAutoresizingMaskIntoConstraints = false
-    sponsored.translatesAutoresizingMaskIntoConstraints = false
-    let adChoicesSpacer = UIView()
-    adChoicesSpacer.translatesAutoresizingMaskIntoConstraints = false
-    top.addSubview(sponsored)
-    top.addSubview(adChoicesSpacer)
+    let adChoices = AdChoicesView()
+    adChoices.translatesAutoresizingMaskIntoConstraints = false
 
-    let stack = UIStackView(arrangedSubviews: [headline, advertiser, body])
-    stack.axis = .vertical
-    stack.spacing = 4
+    let mediaContainer = UIView()
+    mediaContainer.translatesAutoresizingMaskIntoConstraints = false
+    mediaContainer.clipsToBounds = true
+    mediaContainer.layer.cornerRadius = 10
+
+    mediaView.translatesAutoresizingMaskIntoConstraints = false
+    sponsored.translatesAutoresizingMaskIntoConstraints = false
+    mediaContainer.addSubview(mediaView)
+    mediaContainer.addSubview(sponsored)
+    mediaContainer.addSubview(adChoices)
+
+    let metaRow = UIStackView(arrangedSubviews: [advertiser, store, price, rating])
+    metaRow.spacing = 8
+    metaRow.alignment = .center
+    metaRow.distribution = .fillProportionally
+
+    let details = UIStackView(arrangedSubviews: [headline, metaRow, body])
+    details.axis = .vertical
+    details.spacing = 4
 
     let bottom = UIStackView(arrangedSubviews: [icon, cta])
     bottom.axis = .horizontal
     bottom.spacing = 10
     bottom.alignment = .center
 
-    let container = UIStackView(arrangedSubviews: [top, mediaView, stack, bottom])
+    let container = UIStackView(arrangedSubviews: [mediaContainer, details, bottom])
     container.axis = .vertical
     container.spacing = 10
     container.translatesAutoresizingMaskIntoConstraints = false
 
     adView.addSubview(container)
+
+    let mediaMinHeight = mediaContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: 180)
+    let mediaMaxHeight = mediaContainer.heightAnchor.constraint(lessThanOrEqualToConstant: 240)
+    var mediaAspect: NSLayoutConstraint?
+    let aspectRatio = CGFloat(nativeAd.mediaContent.aspectRatio)
+    if aspectRatio > 0 {
+      mediaAspect = mediaContainer.heightAnchor.constraint(equalTo: mediaContainer.widthAnchor, multiplier: 1 / aspectRatio)
+      mediaAspect?.priority = UILayoutPriority(999)
+    } else {
+      mediaAspect = mediaContainer.heightAnchor.constraint(equalToConstant: 220)
+      mediaAspect?.priority = .required
+    }
+
     NSLayoutConstraint.activate([
       container.leadingAnchor.constraint(equalTo: adView.leadingAnchor, constant: 14),
       container.trailingAnchor.constraint(equalTo: adView.trailingAnchor, constant: -14),
       container.topAnchor.constraint(equalTo: adView.topAnchor, constant: 14),
       container.bottomAnchor.constraint(equalTo: adView.bottomAnchor, constant: -14),
-      sponsored.leadingAnchor.constraint(equalTo: top.leadingAnchor),
-      sponsored.topAnchor.constraint(equalTo: top.topAnchor),
-      sponsored.bottomAnchor.constraint(equalTo: top.bottomAnchor),
-      sponsored.trailingAnchor.constraint(lessThanOrEqualTo: adChoicesSpacer.leadingAnchor, constant: -10),
-      adChoicesSpacer.trailingAnchor.constraint(equalTo: top.trailingAnchor),
-      adChoicesSpacer.centerYAnchor.constraint(equalTo: sponsored.centerYAnchor),
-      adChoicesSpacer.widthAnchor.constraint(equalToConstant: 36),
-      adChoicesSpacer.heightAnchor.constraint(equalToConstant: 36),
-      mediaView.heightAnchor.constraint(equalToConstant: 240),
+      mediaView.leadingAnchor.constraint(equalTo: mediaContainer.leadingAnchor),
+      mediaView.trailingAnchor.constraint(equalTo: mediaContainer.trailingAnchor),
+      mediaView.topAnchor.constraint(equalTo: mediaContainer.topAnchor),
+      mediaView.bottomAnchor.constraint(equalTo: mediaContainer.bottomAnchor),
+      sponsored.leadingAnchor.constraint(equalTo: mediaContainer.leadingAnchor, constant: 12),
+      sponsored.topAnchor.constraint(equalTo: mediaContainer.topAnchor, constant: 12),
+      sponsored.trailingAnchor.constraint(lessThanOrEqualTo: adChoices.leadingAnchor, constant: -10),
+      adChoices.trailingAnchor.constraint(equalTo: mediaContainer.trailingAnchor, constant: -8),
+      adChoices.topAnchor.constraint(equalTo: mediaContainer.topAnchor, constant: 8),
+      adChoices.widthAnchor.constraint(greaterThanOrEqualToConstant: 24),
+      adChoices.heightAnchor.constraint(greaterThanOrEqualToConstant: 24),
       icon.widthAnchor.constraint(equalToConstant: 36),
       icon.heightAnchor.constraint(equalToConstant: 36),
       cta.heightAnchor.constraint(equalToConstant: 36),
+      mediaMinHeight,
+      mediaMaxHeight,
     ])
+    if let mediaAspect {
+      mediaAspect.isActive = true
+    }
 
     adView.headlineView = headline
     adView.advertiserView = advertiser
+    adView.storeView = store
+    adView.priceView = price
+    adView.starRatingView = rating
     adView.bodyView = body
     adView.iconView = icon
     adView.callToActionView = cta
     adView.mediaView = mediaView
+    adView.adChoicesView = adChoices
 
     headline.text = nativeAd.headline
     if let advertiserText = nativeAd.advertiser {
@@ -133,6 +184,29 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     } else {
       body.isHidden = true
     }
+
+    if let storeText = nativeAd.store {
+      store.text = storeText
+      store.isHidden = false
+    } else {
+      store.isHidden = true
+    }
+
+    if let priceText = nativeAd.price {
+      price.text = priceText
+      price.isHidden = false
+    } else {
+      price.isHidden = true
+    }
+
+    if let starRating = nativeAd.starRating {
+      rating.text = "\(starRating)★"
+      rating.isHidden = false
+    } else {
+      rating.isHidden = true
+    }
+
+    metaRow.isHidden = advertiser.isHidden && store.isHidden && price.isHidden && rating.isHidden
 
     if let iconImage = nativeAd.icon?.image {
       icon.image = iconImage
