@@ -39,13 +39,15 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     sponsored.textColor = UIColor.white.withAlphaComponent(0.8)
     sponsored.text = "Sponsorlu"
 
-    let adChoices = AdChoicesView()
-    adChoices.translatesAutoresizingMaskIntoConstraints = false
-
     let headline = UILabel()
     headline.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
     headline.textColor = .white
     headline.numberOfLines = 2
+
+    let advertiser = UILabel()
+    advertiser.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+    advertiser.textColor = UIColor.white.withAlphaComponent(0.72)
+    advertiser.numberOfLines = 1
 
     let body = UILabel()
     body.font = UIFont.systemFont(ofSize: 13, weight: .regular)
@@ -72,12 +74,14 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     let top = UIView()
     top.translatesAutoresizingMaskIntoConstraints = false
     sponsored.translatesAutoresizingMaskIntoConstraints = false
+    let adChoicesSpacer = UIView()
+    adChoicesSpacer.translatesAutoresizingMaskIntoConstraints = false
     top.addSubview(sponsored)
-    top.addSubview(adChoices)
+    top.addSubview(adChoicesSpacer)
 
-    let stack = UIStackView(arrangedSubviews: [headline, body])
+    let stack = UIStackView(arrangedSubviews: [headline, advertiser, body])
     stack.axis = .vertical
-    stack.spacing = 6
+    stack.spacing = 4
 
     let bottom = UIStackView(arrangedSubviews: [icon, cta])
     bottom.axis = .horizontal
@@ -98,11 +102,11 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
       sponsored.leadingAnchor.constraint(equalTo: top.leadingAnchor),
       sponsored.topAnchor.constraint(equalTo: top.topAnchor),
       sponsored.bottomAnchor.constraint(equalTo: top.bottomAnchor),
-      sponsored.trailingAnchor.constraint(lessThanOrEqualTo: adChoices.leadingAnchor, constant: -10),
-      adChoices.trailingAnchor.constraint(equalTo: top.trailingAnchor),
-      adChoices.centerYAnchor.constraint(equalTo: sponsored.centerYAnchor),
-      adChoices.widthAnchor.constraint(greaterThanOrEqualToConstant: 36),
-      adChoices.heightAnchor.constraint(greaterThanOrEqualToConstant: 36),
+      sponsored.trailingAnchor.constraint(lessThanOrEqualTo: adChoicesSpacer.leadingAnchor, constant: -10),
+      adChoicesSpacer.trailingAnchor.constraint(equalTo: top.trailingAnchor),
+      adChoicesSpacer.centerYAnchor.constraint(equalTo: sponsored.centerYAnchor),
+      adChoicesSpacer.widthAnchor.constraint(equalToConstant: 36),
+      adChoicesSpacer.heightAnchor.constraint(equalToConstant: 36),
       mediaView.heightAnchor.constraint(equalToConstant: 240),
       icon.widthAnchor.constraint(equalToConstant: 36),
       icon.heightAnchor.constraint(equalToConstant: 36),
@@ -110,13 +114,19 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     ])
 
     adView.headlineView = headline
+    adView.advertiserView = advertiser
     adView.bodyView = body
     adView.iconView = icon
     adView.callToActionView = cta
     adView.mediaView = mediaView
-    adView.adChoicesView = adChoices
 
     headline.text = nativeAd.headline
+    if let advertiserText = nativeAd.advertiser {
+      advertiser.text = advertiserText
+      advertiser.isHidden = false
+    } else {
+      advertiser.isHidden = true
+    }
     if let bodyText = nativeAd.body {
       body.text = bodyText
       body.isHidden = false

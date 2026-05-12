@@ -38,11 +38,26 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
   }
 
   void _loadAd() {
+    final cached = _ChaputNativeAdCache.takeReady();
+    if (cached != null) {
+      if (!mounted) {
+        cached.dispose();
+        return;
+      }
+      setState(() {
+        _ad = cached;
+        _loaded = true;
+      });
+      _ChaputNativeAdCache.preload();
+      return;
+    }
+
     final ad = NativeAd(
       adUnitId: Env.nativeAdUnitId(isIOS: Platform.isIOS),
       factoryId: 'chaputNative',
       request: const AdRequest(),
       nativeAdOptions: NativeAdOptions(
+        adChoicesPlacement: AdChoicesPlacement.topRightCorner,
         mediaAspectRatio: MediaAspectRatio.landscape,
         videoOptions: VideoOptions(
           startMuted: true,
@@ -60,6 +75,7 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
             _ad = ad as NativeAd;
             _loaded = true;
           });
+          _ChaputNativeAdCache.preload();
         },
         onAdFailedToLoad: (ad, err) {
           ad.dispose();
@@ -83,9 +99,10 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
     }
 
     final mediaQuery = MediaQuery.of(context);
-    final safeBottom = mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
-        ? mediaQuery.viewPadding.bottom
-        : mediaQuery.padding.bottom;
+    final safeBottom =
+        mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
+            ? mediaQuery.viewPadding.bottom
+            : mediaQuery.padding.bottom;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -96,31 +113,75 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
       ),
       child: SizedBox(
         height: ChaputNativeAdCard.minTotalHeight,
-        child: _loaded && _ad != null
-            ? AdWidget(key: ObjectKey(_ad), ad: _ad!)
-            : Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.chaputNearBlack,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: AppColors.chaputWhite.withOpacity(0.22),
+        child:
+            _loaded && _ad != null
+                ? AdWidget(key: ObjectKey(_ad), ad: _ad!)
+                : Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.chaputNearBlack,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.chaputWhite.withOpacity(0.22),
+                    ),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    context.t('ads.sponsored_content'),
+                    style: TextStyle(
+                      color: AppColors.chaputWhite.withOpacity(0.7),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  context.t('ads.sponsored_content'),
-                  style: TextStyle(
-                    color: AppColors.chaputWhite.withOpacity(0.7),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
       ),
     );
   }
 }
 
 class _ChaputNativeAdCache {
-  static void preload() {}
+  static NativeAd? _readyAd;
+  static bool _loading = false;
+
+  static NativeAd? takeReady() {
+    final ad = _readyAd;
+    _readyAd = null;
+    return ad;
+  }
+
+  static void preload() {
+    if (!Platform.isIOS && !Platform.isAndroid) {
+      return;
+    }
+    if (_readyAd != null || _loading) {
+      return;
+    }
+    _loading = true;
+    final ad = NativeAd(
+      adUnitId: Env.nativeAdUnitId(isIOS: Platform.isIOS),
+      factoryId: 'chaputNative',
+      request: const AdRequest(),
+      nativeAdOptions: NativeAdOptions(
+        adChoicesPlacement: AdChoicesPlacement.topRightCorner,
+        mediaAspectRatio: MediaAspectRatio.landscape,
+        videoOptions: VideoOptions(
+          startMuted: true,
+          customControlsRequested: false,
+          clickToExpandRequested: false,
+        ),
+      ),
+      listener: NativeAdListener(
+        onAdLoaded: (ad) {
+          _loading = false;
+          _readyAd?.dispose();
+          _readyAd = ad as NativeAd;
+        },
+        onAdFailedToLoad: (ad, err) {
+          _loading = false;
+          ad.dispose();
+        },
+      ),
+    );
+    ad.load();
+  }
 }

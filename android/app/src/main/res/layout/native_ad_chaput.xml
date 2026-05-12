@@ -27,8 +27,8 @@
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
-            <com.google.android.gms.ads.nativead.AdChoicesView
-                android:id="@+id/ad_choices"
+            <Space
+                android:id="@+id/ad_choices_spacer"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:layout_marginStart="10dp" />
@@ -50,6 +50,16 @@
             android:textColor="#FFFFFFFF"
             android:textSize="15sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/ad_advertiser"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:maxLines="1"
+            android:textColor="#B8FFFFFF"
+            android:textSize="12sp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/ad_body"
