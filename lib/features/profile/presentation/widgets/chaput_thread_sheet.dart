@@ -191,11 +191,17 @@ class ChaputThreadSheet extends ConsumerWidget {
                           }
                           final delta = (page - index).abs().clamp(0.0, 1.0);
                           final scale = 1.0 - (delta * 0.08);
-                          final opacity = 1.0 - (delta * 0.25);
+                          final animatedChild =
+                              entry.isAd
+                                  ? Opacity(
+                                    opacity: 1.0 - (delta * 0.25),
+                                    child: child,
+                                  )
+                                  : child;
                           return Transform.scale(
                             scale: scale,
                             alignment: Alignment.bottomCenter,
-                            child: Opacity(opacity: opacity, child: child),
+                            child: animatedChild,
                           );
                         },
                       );
