@@ -96,9 +96,7 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     mediaContainer.layer.cornerRadius = 10
 
     mediaView.translatesAutoresizingMaskIntoConstraints = false
-    sponsored.translatesAutoresizingMaskIntoConstraints = false
     mediaContainer.addSubview(mediaView)
-    mediaContainer.addSubview(sponsored)
     mediaContainer.addSubview(adChoices)
 
     let metaRow = UIStackView(arrangedSubviews: [advertiser, store, price, rating])
@@ -106,18 +104,14 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     metaRow.alignment = .center
     metaRow.distribution = .fillProportionally
 
-    let details = UIStackView(arrangedSubviews: [headline, metaRow, body])
-    details.axis = .vertical
-    details.spacing = 4
-
     let bottom = UIStackView(arrangedSubviews: [icon, cta])
     bottom.axis = .horizontal
     bottom.spacing = 10
     bottom.alignment = .center
 
-    let container = UIStackView(arrangedSubviews: [mediaContainer, details, bottom])
+    let container = UIStackView(arrangedSubviews: [mediaContainer, sponsored, headline, metaRow, body, bottom])
     container.axis = .vertical
-    container.spacing = 10
+    container.spacing = 8
     container.translatesAutoresizingMaskIntoConstraints = false
 
     adView.addSubview(container)
@@ -131,9 +125,6 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
       mediaView.trailingAnchor.constraint(equalTo: mediaContainer.trailingAnchor),
       mediaView.topAnchor.constraint(equalTo: mediaContainer.topAnchor),
       mediaView.bottomAnchor.constraint(equalTo: mediaContainer.bottomAnchor),
-      sponsored.leadingAnchor.constraint(equalTo: mediaContainer.leadingAnchor, constant: 12),
-      sponsored.topAnchor.constraint(equalTo: mediaContainer.topAnchor, constant: 12),
-      sponsored.trailingAnchor.constraint(lessThanOrEqualTo: adChoices.leadingAnchor, constant: -10),
       adChoices.trailingAnchor.constraint(equalTo: mediaContainer.trailingAnchor, constant: -8),
       adChoices.topAnchor.constraint(equalTo: mediaContainer.topAnchor, constant: 8),
       adChoices.widthAnchor.constraint(greaterThanOrEqualToConstant: 24),
