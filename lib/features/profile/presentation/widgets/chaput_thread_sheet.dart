@@ -30,6 +30,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.pageController,
     required this.sheetController,
     required this.initialExtent,
+    required this.isAdPageActive,
     required this.onExtentChanged,
     required this.onPageChanged,
     required this.showNativeAds,
@@ -58,6 +59,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   final PageController pageController;
   final DraggableScrollableController sheetController;
   final double initialExtent;
+  final bool isAdPageActive;
   final ValueChanged<double> onExtentChanged;
   final void Function(int pageIndex, ChaputThreadItem? thread) onPageChanged;
   final bool showNativeAds;
@@ -118,6 +120,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                         return _ChaputNativeAdPage(
                           key: ValueKey('native-ad-page-$index'),
                           slotId: index,
+                          isActive: isAdPageActive,
                         );
                       }
                       final thread = entry.thread!;
@@ -244,9 +247,14 @@ class _ChaputPageEntry {
 }
 
 class _ChaputNativeAdPage extends StatefulWidget {
-  const _ChaputNativeAdPage({super.key, required this.slotId});
+  const _ChaputNativeAdPage({
+    super.key,
+    required this.slotId,
+    required this.isActive,
+  });
 
   final int slotId;
+  final bool isActive;
 
   @override
   State<_ChaputNativeAdPage> createState() => _ChaputNativeAdPageState();
@@ -264,6 +272,9 @@ class _ChaputNativeAdPageState extends State<_ChaputNativeAdPage>
       builder: (context, constraints) {
         if (!constraints.hasBoundedHeight || constraints.maxHeight <= 0) {
           return const SizedBox.shrink();
+        }
+        if (!widget.isActive) {
+          return const SizedBox.expand();
         }
         return Align(
           alignment: Alignment.bottomCenter,

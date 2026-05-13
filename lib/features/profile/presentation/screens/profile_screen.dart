@@ -3205,6 +3205,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       pageController: _chaputPageCtrl,
                       sheetController: _chaputSheetCtrl,
                       initialExtent: _chaputSheetExtent,
+                      isAdPageActive: _isAdPageActive,
                       showNativeAds: showNativeAds,
                       onExtentChanged: (v) {
                         final previousExtent = _chaputSheetExtent;
@@ -3226,15 +3227,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 _isProgrammaticAdSheetChange = false;
                                 return;
                               }
-                              _chaputSheetCtrl
-                                  .animateTo(
-                                    _adLockedExtent,
-                                    duration: const Duration(milliseconds: 160),
-                                    curve: Curves.easeOutCubic,
-                                  )
-                                  .whenComplete(() {
-                                    _isProgrammaticAdSheetChange = false;
-                                  });
+                              _chaputSheetCtrl.jumpTo(_adLockedExtent);
+                              _isProgrammaticAdSheetChange = false;
                             });
                           }
                         } else {
@@ -3286,11 +3280,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           _setChaputSheetExtent(_adLockedExtent);
                           if (_chaputSheetCtrl.isAttached) {
                             _isProgrammaticAdSheetChange = true;
-                            await _chaputSheetCtrl.animateTo(
-                              _adLockedExtent,
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                            );
+                            _chaputSheetCtrl.jumpTo(_adLockedExtent);
                             _isProgrammaticAdSheetChange = false;
                           }
                           if (!mounted) {
@@ -3306,11 +3296,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           _setChaputSheetExtent(restoreExtent);
                           if (_chaputSheetCtrl.isAttached) {
                             _isProgrammaticAdSheetChange = true;
-                            await _chaputSheetCtrl.animateTo(
-                              restoreExtent,
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                            );
+                            _chaputSheetCtrl.jumpTo(restoreExtent);
                             _isProgrammaticAdSheetChange = false;
                           }
                           if (!mounted) {
