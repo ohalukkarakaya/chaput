@@ -25,9 +25,34 @@ import google_mobile_ads
   }
 }
 
+class ChaputNativeAdView: NativeAdView {
+  private var pendingNativeAd: NativeAd?
+  private var didBindNativeAd = false
+
+  func bindWhenReady(_ nativeAd: NativeAd) {
+    pendingNativeAd = nativeAd
+    setNeedsLayout()
+    DispatchQueue.main.async { [weak self] in
+      self?.setNeedsLayout()
+      self?.layoutIfNeeded()
+    }
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    guard !didBindNativeAd, bounds.width > 0, bounds.height > 0, let pendingNativeAd else {
+      return
+    }
+    layoutIfNeeded()
+    nativeAd = pendingNativeAd
+    self.pendingNativeAd = nil
+    didBindNativeAd = true
+  }
+}
+
 class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
   func createNativeAd(_ nativeAd: NativeAd, customOptions: [AnyHashable : Any]? = nil) -> NativeAdView {
-    let adView = NativeAdView()
+    let adView = ChaputNativeAdView()
     adView.backgroundColor = .black
     adView.layer.cornerRadius = 18
     adView.layer.masksToBounds = true
@@ -43,31 +68,37 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     headline.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
     headline.textColor = .white
     headline.numberOfLines = 2
+    headline.lineBreakMode = .byTruncatingTail
 
     let body = UILabel()
     body.font = UIFont.systemFont(ofSize: 13, weight: .regular)
     body.textColor = UIColor.white.withAlphaComponent(0.85)
     body.numberOfLines = 1
+    body.lineBreakMode = .byTruncatingTail
 
     let advertiser = UILabel()
     advertiser.font = UIFont.systemFont(ofSize: 12, weight: .medium)
     advertiser.textColor = UIColor.white.withAlphaComponent(0.72)
     advertiser.numberOfLines = 1
+    advertiser.lineBreakMode = .byTruncatingTail
 
     let store = UILabel()
     store.font = UIFont.systemFont(ofSize: 12, weight: .medium)
     store.textColor = UIColor.white.withAlphaComponent(0.72)
     store.numberOfLines = 1
+    store.lineBreakMode = .byTruncatingTail
 
     let price = UILabel()
     price.font = UIFont.systemFont(ofSize: 12, weight: .medium)
     price.textColor = UIColor.white.withAlphaComponent(0.72)
     price.numberOfLines = 1
+    price.lineBreakMode = .byTruncatingTail
 
     let rating = UILabel()
     rating.font = UIFont.systemFont(ofSize: 12, weight: .medium)
     rating.textColor = UIColor.white.withAlphaComponent(0.72)
     rating.numberOfLines = 1
+    rating.lineBreakMode = .byTruncatingTail
 
     let mediaView = MediaView()
     mediaView.backgroundColor = .black
@@ -97,12 +128,17 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
 
     mediaView.translatesAutoresizingMaskIntoConstraints = false
     mediaContainer.addSubview(mediaView)
-    mediaContainer.addSubview(adChoices)
+    adView.addSubview(adChoices)
 
     let metaRow = UIStackView(arrangedSubviews: [advertiser, store, price, rating])
     metaRow.spacing = 8
     metaRow.alignment = .center
-    metaRow.distribution = .fillProportionally
+    metaRow.distribution = .fill
+
+    [headline, body, advertiser, store, price, rating].forEach {
+      $0.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+      $0.setContentHuggingPriority(.defaultLow, for: .horizontal)
+    }
 
     let bottom = UIStackView(arrangedSubviews: [icon, cta])
     bottom.axis = .horizontal
@@ -125,8 +161,8 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
       mediaView.trailingAnchor.constraint(equalTo: mediaContainer.trailingAnchor),
       mediaView.topAnchor.constraint(equalTo: mediaContainer.topAnchor),
       mediaView.bottomAnchor.constraint(equalTo: mediaContainer.bottomAnchor),
-      adChoices.trailingAnchor.constraint(equalTo: mediaContainer.trailingAnchor, constant: -8),
-      adChoices.topAnchor.constraint(equalTo: mediaContainer.topAnchor, constant: 8),
+      adChoices.trailingAnchor.constraint(equalTo: adView.trailingAnchor, constant: -22),
+      adChoices.topAnchor.constraint(equalTo: adView.topAnchor, constant: 22),
       adChoices.widthAnchor.constraint(greaterThanOrEqualToConstant: 24),
       adChoices.heightAnchor.constraint(greaterThanOrEqualToConstant: 24),
       icon.widthAnchor.constraint(equalToConstant: 36),
@@ -136,49 +172,52 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     ])
 
     adView.headlineView = headline
-    adView.advertiserView = advertiser
-    adView.storeView = store
-    adView.priceView = price
-    adView.starRatingView = rating
-    adView.bodyView = body
-    adView.iconView = icon
-    adView.callToActionView = cta
     adView.mediaView = mediaView
     adView.adChoicesView = adChoices
 
     headline.text = nativeAd.headline
-    if let advertiserText = nativeAd.advertiser {
+    if let advertiserText = nativeAd.advertiser?.trimmingCharacters(in: .whitespacesAndNewlines), !advertiserText.isEmpty {
       advertiser.text = advertiserText
       advertiser.isHidden = false
+      adView.advertiserView = advertiser
     } else {
       advertiser.isHidden = true
+      adView.advertiserView = nil
     }
-    if let bodyText = nativeAd.body {
+    if let bodyText = nativeAd.body?.trimmingCharacters(in: .whitespacesAndNewlines), !bodyText.isEmpty {
       body.text = bodyText
       body.isHidden = false
+      adView.bodyView = body
     } else {
       body.isHidden = true
+      adView.bodyView = nil
     }
 
-    if let storeText = nativeAd.store {
+    if let storeText = nativeAd.store?.trimmingCharacters(in: .whitespacesAndNewlines), !storeText.isEmpty {
       store.text = storeText
       store.isHidden = false
+      adView.storeView = store
     } else {
       store.isHidden = true
+      adView.storeView = nil
     }
 
-    if let priceText = nativeAd.price {
+    if let priceText = nativeAd.price?.trimmingCharacters(in: .whitespacesAndNewlines), !priceText.isEmpty {
       price.text = priceText
       price.isHidden = false
+      adView.priceView = price
     } else {
       price.isHidden = true
+      adView.priceView = nil
     }
 
     if let starRating = nativeAd.starRating {
       rating.text = "\(starRating)★"
       rating.isHidden = false
+      adView.starRatingView = rating
     } else {
       rating.isHidden = true
+      adView.starRatingView = nil
     }
 
     metaRow.isHidden = advertiser.isHidden && store.isHidden && price.isHidden && rating.isHidden
@@ -186,21 +225,25 @@ class ChaputNativeAdFactory: NSObject, FLTNativeAdFactory {
     if let iconImage = nativeAd.icon?.image {
       icon.image = iconImage
       icon.isHidden = false
+      adView.iconView = icon
     } else {
       icon.isHidden = true
+      adView.iconView = nil
     }
 
-    if let ctaText = nativeAd.callToAction {
+    if let ctaText = nativeAd.callToAction?.trimmingCharacters(in: .whitespacesAndNewlines), !ctaText.isEmpty {
       cta.setTitle(ctaText, for: .normal)
       cta.isHidden = false
+      adView.callToActionView = cta
     } else {
       cta.isHidden = true
+      adView.callToActionView = nil
     }
 
     mediaView.mediaContent = nativeAd.mediaContent
     mediaView.isHidden = false
 
-    adView.nativeAd = nativeAd
+    adView.bindWhenReady(nativeAd)
     return adView
   }
 }
