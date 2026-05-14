@@ -27,6 +27,7 @@ class FakePaywallSheet extends StatefulWidget {
     this.planPeriod,
     this.reviveTarget,
     this.onRestorePurchases,
+    this.onPurchaseProduct,
   });
 
   final PaywallFeature feature;
@@ -34,6 +35,7 @@ class FakePaywallSheet extends StatefulWidget {
   final String? planPeriod;
   final PaywallReviveTarget? reviveTarget;
   final Future<bool> Function()? onRestorePurchases;
+  final Future<PaywallPurchase?> Function(String productId)? onPurchaseProduct;
 
   @override
   State<FakePaywallSheet> createState() => _FakePaywallSheetState();
@@ -42,6 +44,29 @@ class FakePaywallSheet extends StatefulWidget {
 class _FakePaywallSheetState extends State<FakePaywallSheet> {
   int _selectedIndex = 0;
   bool _restoreBusy = false;
+  String? _purchaseBusyProductId;
+
+  Future<void> _handlePurchase(String productId, PaywallPurchase fallbackPurchase) async {
+    if (_purchaseBusyProductId != null) return;
+    if (widget.onPurchaseProduct == null) {
+      Navigator.pop(context, fallbackPurchase);
+      return;
+    }
+
+    setState(() => _purchaseBusyProductId = productId);
+    try {
+      final purchase = await widget.onPurchaseProduct!(productId);
+      if (!mounted || purchase == null) return;
+      Navigator.pop(context, purchase);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.t('paywall.purchase_failed'))),
+      );
+    } finally {
+      if (mounted) setState(() => _purchaseBusyProductId = null);
+    }
+  }
 
   Future<void> _handleRestore() async {
     if (_restoreBusy || widget.onRestorePurchases == null) return;
@@ -388,19 +413,25 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context, _planPurchase());
-                            },
+                            onPressed: _purchaseBusyProductId != null
+                                ? null
+                                : () => _handlePurchase(plans[selectedIndex].productId, _planPurchase()),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.chaputBlack,
                               foregroundColor: AppColors.chaputWhite,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               elevation: 0,
                             ),
-                            child: Text(
-                              t('paywall.action_unlock_with', params: {'plan': plans[selectedIndex].title}),
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-                            ),
+                            child: _purchaseBusyProductId == plans[selectedIndex].productId
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite),
+                                  )
+                                : Text(
+                                    t('paywall.action_unlock_with', params: {'plan': plans[selectedIndex].title}),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                                  ),
                           ),
                         ),
                       ),
@@ -428,10 +459,11 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                         target: widget.reviveTarget!,
                         onTap: () {
                           if (singles.isNotEmpty) {
-                            Navigator.pop(context, _singlePurchase(singles.first));
+                            _handlePurchase(singles.first.productId, _singlePurchase(singles.first));
                           }
                         },
                         priceLabel: singles.isNotEmpty ? singles.first.price : '€0.99',
+                        busy: singles.isNotEmpty && _purchaseBusyProductId == singles.first.productId,
                       ),
                     ] else ...[
                       Padding(
@@ -467,9 +499,10 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                           physics: const BouncingScrollPhysics(),
                           itemBuilder: (_, i) => SingleCard(
                             item: singles[i],
-                            onTap: () {
-                              Navigator.pop(context, _singlePurchase(singles[i]));
-                            },
+                            busy: _purchaseBusyProductId == singles[i].productId,
+                            onTap: _purchaseBusyProductId != null
+                                ? null
+                                : () => _handlePurchase(singles[i].productId, _singlePurchase(singles[i])),
                           ),
                           separatorBuilder: (_, __) => const SizedBox(width: 10),
                           itemCount: singles.length,
@@ -578,18 +611,20 @@ class _ReviveTargetCard extends StatelessWidget {
     required this.target,
     required this.onTap,
     required this.priceLabel,
+    required this.busy,
   });
 
   final PaywallReviveTarget target;
   final VoidCallback onTap;
   final String priceLabel;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
       child: InkWell(
-        onTap: onTap,
+        onTap: busy ? null : onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(12),
@@ -632,10 +667,16 @@ class _ReviveTargetCard extends StatelessWidget {
                   color: AppColors.chaputBlack,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Text(
-                  'Kurtar',
-                  style: TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w800, fontSize: 12),
-                ),
+                child: busy
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite),
+                      )
+                    : const Text(
+                        'Kurtar',
+                        style: TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w800, fontSize: 12),
+                      ),
               ),
               const SizedBox(width: 8),
               Text(
@@ -826,9 +867,10 @@ class PlanBullets extends StatelessWidget {
 }
 
 class SingleCard extends StatelessWidget {
-  const SingleCard({super.key, required this.item, required this.onTap});
+  const SingleCard({super.key, required this.item, required this.onTap, required this.busy});
   final PaywallSingle item;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -910,7 +952,12 @@ class SingleCard extends StatelessWidget {
                     color: AppColors.chaputBlack,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.add, size: 15, color: AppColors.chaputWhite),
+                  child: busy
+                      ? const Padding(
+                          padding: EdgeInsets.all(7),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite),
+                        )
+                      : const Icon(Icons.add, size: 15, color: AppColors.chaputWhite),
                 ),
               ],
             ),

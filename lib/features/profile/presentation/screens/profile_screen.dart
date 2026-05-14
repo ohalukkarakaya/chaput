@@ -28,6 +28,7 @@ import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../reports/data/reports_api.dart';
 import '../../../reports/presentation/widgets/report_content_sheet.dart';
+import '../../../revenuecat/data/revenue_cat_service.dart';
 import '../../../settings/data/account_api.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../social/application/follow_state.dart';
@@ -1407,6 +1408,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
+  Future<PaywallPurchase?> _purchaseWithRevenueCat(String productId) async {
+    final result = await RevenueCatService.instance.purchaseProductId(
+      productId,
+    );
+    if (result.isCancelled) return null;
+    if (!result.isSuccess || result.data == null) {
+      if (!mounted) return null;
+      _showGlassToast(
+        context.t('paywall.purchase_failed'),
+        icon: Icons.error_outline,
+      );
+      return null;
+    }
+
+    final transaction = result.data!.storeTransaction;
+    final transactionId = transaction.transactionIdentifier.isNotEmpty
+        ? transaction.transactionIdentifier
+        : 'revenuecat_${DateTime.now().millisecondsSinceEpoch}_$productId';
+
+    return PaywallPurchase(
+      productId: result.data!.productId,
+      // TODO: Replace this DEV bridge with backend RevenueCat webhook/confirmation before production.
+      provider: 'DEV',
+      transactionId: transactionId,
+    );
+  }
+
   Future<bool> _confirmReplaceSubscriptionIfNeeded(
     PaywallPurchase purchase,
   ) async {
@@ -2178,6 +2206,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         planType: effectivePlanType,
         planPeriod: effectivePlanPeriod,
         reviveTarget: reviveTarget,
+        onPurchaseProduct: _purchaseWithRevenueCat,
         onRestorePurchases: () async {
           final restored = await ref
               .read(accountApiProvider)

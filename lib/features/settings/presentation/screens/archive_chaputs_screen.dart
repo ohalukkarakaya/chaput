@@ -4,6 +4,7 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/features/billing/data/billing_api_provider.dart';
 import 'package:chaput/features/me/application/me_controller.dart';
 import 'package:chaput/features/profile/presentation/widgets/chaput_paywall_sheet.dart';
+import 'package:chaput/features/revenuecat/data/revenue_cat_service.dart';
 import 'package:chaput/features/settings/data/account_api.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -37,6 +38,31 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     }
   }
 
+  Future<PaywallPurchase?> _purchaseWithRevenueCat(BuildContext context, String productId) async {
+    final result = await RevenueCatService.instance.purchaseProductId(productId);
+    if (result.isCancelled) return null;
+    if (!result.isSuccess || result.data == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.t('paywall.purchase_failed'))),
+        );
+      }
+      return null;
+    }
+
+    final transaction = result.data!.storeTransaction;
+    final transactionId = transaction.transactionIdentifier.isNotEmpty
+        ? transaction.transactionIdentifier
+        : 'revenuecat_${DateTime.now().millisecondsSinceEpoch}_$productId';
+
+    return PaywallPurchase(
+      productId: result.data!.productId,
+      // TODO: Replace this DEV bridge with backend RevenueCat webhook/confirmation before production.
+      provider: 'DEV',
+      transactionId: transactionId,
+    );
+  }
+
   Future<PaywallPurchase?> _openPaywall(
     BuildContext context,
     WidgetRef ref, {
@@ -53,6 +79,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
         feature: PaywallFeature.revive,
         planType: planType,
         reviveTarget: reviveTarget,
+        onPurchaseProduct: (productId) => _purchaseWithRevenueCat(context, productId),
         onRestorePurchases: () async {
           final restored = await ref.read(accountApiProvider).restorePurchases();
           if (restored) {

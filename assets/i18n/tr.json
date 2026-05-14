@@ -387,5 +387,6 @@
   "notifications.admin_gift_item.pro": "PRO üyelik",
   "notifications.admin_gift_item.user_special": "boost kredisi",
   "notifications.admin_gift_item.user_secret": "gizli kredi",
-  "notifications.admin_gift_title": "Hediye aldınız"
+  "notifications.admin_gift_title": "Hediye aldınız",
+  "paywall.purchase_failed": "Satın alma tamamlanamadı."
 }

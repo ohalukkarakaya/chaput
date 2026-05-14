@@ -387,5 +387,6 @@
   "notifications.admin_gift_item.pro": "PRO membership",
   "notifications.admin_gift_item.user_special": "boost credit",
   "notifications.admin_gift_item.user_secret": "secret credit",
-  "notifications.admin_gift_title": "You received a gift"
+  "notifications.admin_gift_title": "You received a gift",
+  "paywall.purchase_failed": "Kjøpet kunne ikke fullføres."
 }
