@@ -95,6 +95,7 @@ flutter:
     - assets/i18n/da.json
     - assets/i18n/fi.json
     - assets/i18n/es.json
+    - shorebird.yaml
 
   fonts:
     - family: Qanelas
