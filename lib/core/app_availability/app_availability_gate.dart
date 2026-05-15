@@ -3,26 +3,66 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/app_colors.dart';
 import '../i18n/app_localizations.dart';
+import '../router/app_router.dart';
+import '../router/routes.dart';
 import 'app_availability_controller.dart';
 
-class AppAvailabilityGate extends ConsumerWidget {
+class AppAvailabilityGate extends ConsumerStatefulWidget {
   const AppAvailabilityGate({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppAvailabilityGate> createState() =>
+      _AppAvailabilityGateState();
+}
+
+class _AppAvailabilityGateState extends ConsumerState<AppAvailabilityGate> {
+  bool _retrying = false;
+
+  Future<void> _retryAndGoHomeIfRecovered() async {
+    if (_retrying) return;
+    _retrying = true;
+    try {
+      final next = await ref.read(appAvailabilityProvider.notifier).checkNow();
+      if (!mounted || next.blocksApp) return;
+      _forceHomeRoute();
+    } finally {
+      _retrying = false;
+    }
+  }
+
+  void _forceHomeRoute() {
+    final router = ref.read(appRouterProvider);
+    router.go(Routes.home);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigator = Navigator.maybeOf(context, rootNavigator: true);
+      if (navigator != null && navigator.canPop()) {
+        navigator.popUntil((route) => route.isFirst);
+      }
+      router.go(Routes.home);
+    });
+
+    Future<void>.delayed(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      router.go(Routes.home);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(appAvailabilityProvider);
     return Stack(
       children: [
-        child,
+        widget.child,
         if (state.blocksApp)
           Positioned.fill(
             child: _AvailabilityBlocker(
               mode: state.mode,
               message: state.message,
-              onRetry: () =>
-                  ref.read(appAvailabilityProvider.notifier).checkNow(),
+              onRetry: _retryAndGoHomeIfRecovered,
             ),
           ),
       ],
@@ -39,7 +79,7 @@ class _AvailabilityBlocker extends StatelessWidget {
 
   final AppAvailabilityMode mode;
   final String? message;
-  final VoidCallback onRetry;
+  final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +179,9 @@ class _AvailabilityBlocker extends StatelessWidget {
                           width: double.infinity,
                           height: 52,
                           child: ElevatedButton(
-                            onPressed: onRetry,
+                            onPressed: () {
+                              onRetry();
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.chaputBlack,
                               foregroundColor: AppColors.chaputWhite,

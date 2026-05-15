@@ -57,8 +57,8 @@ class AppAvailabilityController extends Notifier<AppAvailabilityState> {
     return const AppAvailabilityState.available(checking: true);
   }
 
-  Future<void> checkNow() async {
-    if (_checking) return;
+  Future<AppAvailabilityState> checkNow() async {
+    if (_checking) return state;
     _checking = true;
     if (!state.blocksApp) {
       state = const AppAvailabilityState.available(checking: true);
@@ -68,7 +68,7 @@ class AppAvailabilityController extends Notifier<AppAvailabilityState> {
       final connectivity = await Connectivity().checkConnectivity();
       if (await _isConfirmedOffline(connectivity)) {
         state = const AppAvailabilityState.offline();
-        return;
+        return state;
       }
 
       final status = await ref.read(appStatusApiProvider).fetchStatus();
@@ -77,8 +77,10 @@ class AppAvailabilityController extends Notifier<AppAvailabilityState> {
       } else {
         state = const AppAvailabilityState.available();
       }
+      return state;
     } catch (_) {
       state = const AppAvailabilityState.maintenance();
+      return state;
     } finally {
       _checking = false;
     }
