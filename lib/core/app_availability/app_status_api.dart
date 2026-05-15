@@ -22,6 +22,11 @@ class AppStatusApi {
       ),
     );
 
+    final statusCode = response.statusCode ?? 0;
+    if (statusCode == 503 || statusCode >= 500) {
+      return const AppStatusSnapshot(maintenance: true);
+    }
+
     final data = response.data;
     if (data is Map) {
       final maintenance =
@@ -30,10 +35,6 @@ class AppStatusApi {
         maintenance: maintenance,
         message: data['message']?.toString(),
       );
-    }
-
-    if (response.statusCode == 503) {
-      return const AppStatusSnapshot(maintenance: true);
     }
 
     return const AppStatusSnapshot(maintenance: false);

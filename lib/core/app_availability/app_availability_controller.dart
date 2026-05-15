@@ -66,7 +66,7 @@ class AppAvailabilityController extends Notifier<AppAvailabilityState> {
 
     try {
       final connectivity = await Connectivity().checkConnectivity();
-      if (_isOffline(connectivity)) {
+      if (await _isConfirmedOffline(connectivity)) {
         state = const AppAvailabilityState.offline();
         return;
       }
@@ -78,10 +78,17 @@ class AppAvailabilityController extends Notifier<AppAvailabilityState> {
         state = const AppAvailabilityState.available();
       }
     } catch (_) {
-      state = const AppAvailabilityState.offline();
+      state = const AppAvailabilityState.maintenance();
     } finally {
       _checking = false;
     }
+  }
+
+  Future<bool> _isConfirmedOffline(List<ConnectivityResult> first) async {
+    if (!_isOffline(first)) return false;
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    final second = await Connectivity().checkConnectivity();
+    return _isOffline(second);
   }
 
   bool _isOffline(List<ConnectivityResult> results) {
