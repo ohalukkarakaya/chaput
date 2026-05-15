@@ -35,7 +35,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   final GlobalKey _recoShowcaseKey = GlobalKey();
   bool _homeShowcaseScheduled = false;
 
-  Future<void> _scheduleHomeShowcase(BuildContext context, String userId) async {
+  Future<void> _scheduleHomeShowcase(
+    BuildContext context,
+    String userId,
+  ) async {
     final storage = ref.read(tutorialStorageProvider);
     final shouldShow = await storage.shouldShow(userId, 'home_recommended');
     if (!shouldShow || !mounted) return;
@@ -54,15 +57,27 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 
   Future<void> _bootNotifications() async {
+    await Future<void>.delayed(Duration.zero);
+    if (ref.read(meControllerProvider).valueOrNull == null) return;
     await ref.read(chaputSocketProvider).ensureConnected();
-    _socketSub ??= ref.read(chaputSocketProvider).events.listen(_handleSocketEvent);
+    _socketSub ??= ref
+        .read(chaputSocketProvider)
+        .events
+        .listen(_handleSocketEvent);
     await ref.read(pushTokenRegistrarProvider).registerOnce();
+  }
+
+  void _restartBootIfUnauthenticated() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.go(Routes.boot);
+    });
   }
 
   void _handleSocketEvent(ChaputSocketEvent ev) {
     if (ev.type != 'notif.created') return;
     final me = ref.read(meControllerProvider).valueOrNull;
-    final meId = me?.user?.userId ?? '';
+    final meId = me?.user.userId ?? '';
     if (meId.isEmpty) return;
     final raw = ev.data['notification'];
     var isForMe = false;
@@ -75,9 +90,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final unread = ev.data['unread_count'];
     if (isForMe) {
       if (unread is int) {
-        ref.read(notificationCountControllerProvider.notifier).updateFromSocket(unread);
+        ref
+            .read(notificationCountControllerProvider.notifier)
+            .updateFromSocket(unread);
       } else if (unread is num) {
-        ref.read(notificationCountControllerProvider.notifier).updateFromSocket(unread.toInt());
+        ref
+            .read(notificationCountControllerProvider.notifier)
+            .updateFromSocket(unread.toInt());
       }
     }
   }
@@ -93,336 +112,414 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   Widget build(BuildContext context) {
     return ShowCaseWidget(
       builder: (showcaseContext) {
-        final me = ref.watch(meControllerProvider).valueOrNull;
-        final meId = me?.user?.userId ?? '';
+        final meState = ref.watch(meControllerProvider);
+        final me = meState.valueOrNull;
+        if (me == null) {
+          if (!meState.isLoading) {
+            _restartBootIfUnauthenticated();
+          }
+          return const Scaffold(
+            backgroundColor: AppColors.chaputCloudBlue,
+            body: SizedBox.expand(),
+          );
+        }
+        final meId = me.user.userId;
         if (!_homeShowcaseScheduled && meId.isNotEmpty) {
           _homeShowcaseScheduled = true;
           _scheduleHomeShowcase(showcaseContext, meId);
         }
 
         return Scaffold(
-            backgroundColor: AppColors.chaputCloudBlue,
-            resizeToAvoidBottomInset: false,
-            body: Stack(
-              fit: StackFit.expand,
-              children: [
-                const RepaintBoundary(
-                  child: AnimatedMeshBackground(
-                    baseColor: AppColors.chaputCloudBlue,
-                  ),
+          backgroundColor: AppColors.chaputCloudBlue,
+          resizeToAvoidBottomInset: false,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              const RepaintBoundary(
+                child: AnimatedMeshBackground(
+                  baseColor: AppColors.chaputCloudBlue,
                 ),
+              ),
 
-                // 🌳 ALT DEKOR (SafeArea DIŞINDA) → tam en alta, tam sağ/sola oturur
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.95,
-                      child: Image.asset(
-                        'assets/images/tree_bg.png',
-                        fit: BoxFit.contain,
-                        alignment: Alignment.bottomCenter,
-                      ),
+              // 🌳 ALT DEKOR (SafeArea DIŞINDA) → tam en alta, tam sağ/sola oturur
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.95,
+                    child: Image.asset(
+                      'assets/images/tree_bg.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.bottomCenter,
                     ),
                   ),
                 ),
+              ),
 
-                // ✅ UI katmanı (SafeArea içinde) → görselin üstünde kalır
-                SafeArea(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // ✅ Header + Search (üst)
-                      Positioned(
-                        top: 12,
-                        left: 16,
-                        right: 16,
-                        child: SafeArea(
-                          bottom: false,
-                          child: Center(
-                            child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 520),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+              // ✅ UI katmanı (SafeArea içinde) → görselin üstünde kalır
+              SafeArea(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // ✅ Header + Search (üst)
+                    Positioned(
+                      top: 12,
+                      left: 16,
+                      right: 16,
+                      child: SafeArea(
+                        bottom: false,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 520),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Expanded(
-                                  child: Consumer(
-                                    builder: (context, ref, _) {
-                                      final meAsync =
-                                      ref.watch(meControllerProvider);
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: Consumer(
+                                        builder: (context, ref, _) {
+                                          final meAsync = ref.watch(
+                                            meControllerProvider,
+                                          );
 
-                                      return meAsync.when(
-                                        loading: () => const _HomeHeaderShimmer(),
-                                        error: (_, __) => const SizedBox(height: 44),
-                                        data: (me) {
-                                          final rawName =
-                                              me?.user.fullName ?? '';
-                                          final fullName =
-                                          formatFullName(rawName);
-                                          final unread = ref.watch(notificationCountControllerProvider);
-                                          return Column(
-                                            crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Row(
+                                          return meAsync.when(
+                                            loading: () =>
+                                                const _HomeHeaderShimmer(),
+                                            error: (_, __) =>
+                                                const SizedBox(height: 44),
+                                            data: (me) {
+                                              final rawName =
+                                                  me?.user.fullName ?? '';
+                                              final fullName = formatFullName(
+                                                rawName,
+                                              );
+                                              final unread = ref.watch(
+                                                notificationCountControllerProvider,
+                                              );
+                                              return Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Text(
-                                                    context.t('home.welcome'),
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w300,
-                                                      color: AppColors.chaputBlack
-                                                          .withOpacity(0.55),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  InkWell(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    onTap: () => context.push(Routes.notifications),
-                                                    child: Stack(
-                                                      clipBehavior: Clip.none,
-                                                      children: [
-                                                        Icon(
-                                                          Icons.keyboard_arrow_down,
-                                                          size: 18,
-                                                          color: AppColors.chaputBlack.withOpacity(0.6),
+                                                  Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        context.t(
+                                                          'home.welcome',
                                                         ),
-                                                        if (unread > 0)
-                                                          Positioned(
-                                                            right: -6,
-                                                            top: -6,
-                                                            child: Container(
-                                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                              decoration: BoxDecoration(
-                                                                color: AppColors.chaputBlack,
-                                                                borderRadius: BorderRadius.circular(10),
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.w300,
+                                                          color: AppColors
+                                                              .chaputBlack
+                                                              .withOpacity(
+                                                                0.55,
                                                               ),
-                                                              child: Text(
-                                                                unread > 99 ? '99+' : unread.toString(),
-                                                                style: const TextStyle(
-                                                                  fontSize: 10,
-                                                                  fontWeight: FontWeight.w800,
-                                                                  color: AppColors.chaputWhite,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      InkWell(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        onTap: () =>
+                                                            context.push(
+                                                              Routes
+                                                                  .notifications,
+                                                            ),
+                                                        child: Stack(
+                                                          clipBehavior:
+                                                              Clip.none,
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .keyboard_arrow_down,
+                                                              size: 18,
+                                                              color: AppColors
+                                                                  .chaputBlack
+                                                                  .withOpacity(
+                                                                    0.6,
+                                                                  ),
+                                                            ),
+                                                            if (unread > 0)
+                                                              Positioned(
+                                                                right: -6,
+                                                                top: -6,
+                                                                child: Container(
+                                                                  padding:
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            5,
+                                                                        vertical:
+                                                                            2,
+                                                                      ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: AppColors
+                                                                        .chaputBlack,
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          10,
+                                                                        ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    unread > 99
+                                                                        ? '99+'
+                                                                        : unread
+                                                                              .toString(),
+                                                                    style: const TextStyle(
+                                                                      fontSize:
+                                                                          10,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w800,
+                                                                      color: AppColors
+                                                                          .chaputWhite,
+                                                                    ),
+                                                                  ),
                                                                 ),
                                                               ),
-                                                            ),
-                                                          ),
-                                                      ],
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  Text(
+                                                    fullName.isEmpty
+                                                        ? context.t('common.na')
+                                                        : fullName,
+                                                    maxLines: 1,
+                                                    softWrap: false,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontSize: 18,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color:
+                                                          AppColors.chaputBlack,
                                                     ),
                                                   ),
                                                 ],
-                                              ),
-                                              Text(
-                                                fullName.isEmpty
-                                                    ? context.t('common.na')
-                                                    : fullName,
-                                                maxLines: 1,
-                                                softWrap: false,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: AppColors.chaputBlack,
-                                                ),
-                                              ),
-                                            ],
+                                              );
+                                            },
                                           );
                                         },
-                                      );
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
 
-                                // Sağ: avatar
-                                Consumer(
-                                  builder: (context, ref, _) {
-                                    final meAsync =
-                                    ref.watch(meControllerProvider);
+                                    // Sağ: avatar
+                                    Consumer(
+                                      builder: (context, ref, _) {
+                                        final meAsync = ref.watch(
+                                          meControllerProvider,
+                                        );
 
-                                    return meAsync.when(
-                                      loading: () => const _HomeAvatarShimmer(),
-                                      error: (_, __) => const SizedBox(width: 40, height: 40),
-                                      data: (me) {
-                                        if (me == null) {
-                                          return const SizedBox(
-                                              width: 40, height: 40);
-                                        }
-                                        final user = me.user;
-
-                                        return GestureDetector(
-                                          onTap: () async => context.push(
-                                            await Routes.profile(user.userId),
+                                        return meAsync.when(
+                                          loading: () =>
+                                              const _HomeAvatarShimmer(),
+                                          error: (_, __) => const SizedBox(
+                                            width: 40,
+                                            height: 40,
                                           ),
-                                          child: ChaputCircleAvatar(
-                                            width: 42,
-                                            height: 42,
-                                            radius: 999,
-                                            borderWidth: 2,
-                                            bgColor: AppColors.chaputBlack,
-                                            isDefaultAvatar:
-                                            user.profilePhotoUrl == null,
-                                            imageUrl: user.profilePhotoUrl ??
-                                                user.defaultAvatar!,
-                                          ),
+                                          data: (me) {
+                                            if (me == null) {
+                                              return const SizedBox(
+                                                width: 40,
+                                                height: 40,
+                                              );
+                                            }
+                                            final user = me.user;
+
+                                            return GestureDetector(
+                                              onTap: () async => context.push(
+                                                await Routes.profile(
+                                                  user.userId,
+                                                ),
+                                              ),
+                                              child: ChaputCircleAvatar(
+                                                width: 42,
+                                                height: 42,
+                                                radius: 999,
+                                                borderWidth: 2,
+                                                bgColor: AppColors.chaputBlack,
+                                                isDefaultAvatar:
+                                                    user.profilePhotoUrl ==
+                                                    null,
+                                                imageUrl:
+                                                    user.profilePhotoUrl ??
+                                                    user.defaultAvatar!,
+                                              ),
+                                            );
+                                          },
                                         );
                                       },
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // ✅ Search bar
-                            Hero(
-                              tag: SearchOverlay.heroTag,
-                              child: Material(
-                                color: AppColors.chaputTransparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () => Navigator.of(context)
-                                      .push(_SearchOverlayRoute()),
-                                  child: Container(
-                                    height: 46,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.chaputWhite.withOpacity(0.92),
-                                      borderRadius: BorderRadius.circular(16),
                                     ),
-                                    child: Row(
+                                  ],
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // ✅ Search bar
+                                Hero(
+                                  tag: SearchOverlay.heroTag,
+                                  child: Material(
+                                    color: AppColors.chaputTransparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: () => Navigator.of(
+                                        context,
+                                      ).push(_SearchOverlayRoute()),
+                                      child: Container(
+                                        height: 46,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.chaputWhite
+                                              .withOpacity(0.92),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.search, size: 20),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              context.t('search.hint'),
+                                              style: TextStyle(
+                                                color: AppColors.chaputBlack
+                                                    .withOpacity(0.55),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 14),
+                                Showcase.withWidget(
+                                  key: _recoShowcaseKey,
+                                  targetPadding: EdgeInsets.zero,
+                                  targetBorderRadius: BorderRadius.circular(22),
+                                  targetShapeBorder: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(22),
+                                  ),
+                                  tooltipPosition: TooltipPosition.bottom,
+                                  toolTipMargin: 8,
+                                  targetTooltipGap: 8,
+                                  container: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.chaputBlack.withOpacity(
+                                        0.9,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.chaputBlack
+                                              .withOpacity(0.25),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        const Icon(Icons.search, size: 20),
-                                        const SizedBox(width: 8),
                                         Text(
-                                          context.t('search.hint'),
+                                          context.t('showcase.home_reco_title'),
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.chaputWhite,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          context.t('showcase.home_reco_body'),
                                           style: TextStyle(
-                                            color: AppColors.chaputBlack
-                                                .withOpacity(0.55),
+                                            fontSize: 12.5,
+                                            height: 1.3,
+                                            color: AppColors.chaputWhite
+                                                .withOpacity(0.9),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                  child: _RecommendedUserCard(),
                                 ),
-                              ),
+                              ],
                             ),
-
-                            const SizedBox(height: 14),
-                            Showcase.withWidget(
-                              key: _recoShowcaseKey,
-                              targetPadding: EdgeInsets.zero,
-                              targetBorderRadius: BorderRadius.circular(22),
-                              targetShapeBorder: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(22),
-                              ),
-                              tooltipPosition: TooltipPosition.bottom,
-                              toolTipMargin: 8,
-                              targetTooltipGap: 8,
-                              container: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.chaputBlack.withOpacity(0.9),
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.chaputBlack.withOpacity(0.25),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      context.t('showcase.home_reco_title'),
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppColors.chaputWhite,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      context.t('showcase.home_reco_body'),
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        height: 1.3,
-                                        color: AppColors.chaputWhite.withOpacity(0.9),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              child: _RecommendedUserCard(),
-                            ),
-                          ],
+                          ),
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ✅ EN ALT: Share bar sabit (foreground)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: SafeArea(
+                  top: false,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final meAsync = ref.watch(meControllerProvider);
+
+                          return meAsync.when(
+                            loading: () => const _ShareBarShimmer(),
+                            error: (_, __) => const SizedBox(),
+                            data: (me) {
+                              if (me == null) return const SizedBox();
+
+                              final username = me.user.username;
+                              if (username == null || username.isEmpty) {
+                                return const SizedBox();
+                              }
+
+                              final link = 'https://chaput.app/me/$username';
+
+                              return ShareBar(
+                                link: link,
+                                title: context.t('home.share_title'),
+                                subtitle: context.t('home.share_subtitle'),
+                                showShareButton: false,
+                              );
+                            },
+                          );
+                        },
                       ),
                     ),
                   ),
                 ),
-                    ],
-                  ),
-                ),
-
-                // ✅ EN ALT: Share bar sabit (foreground)
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 16,
-                  child: SafeArea(
-                    top: false,
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 520),
-                        child: Consumer(
-                          builder: (context, ref, _) {
-                            final meAsync = ref.watch(meControllerProvider);
-
-                            return meAsync.when(
-                              loading: () => const _ShareBarShimmer(),
-                              error: (_, __) => const SizedBox(),
-                              data: (me) {
-                                if (me == null) return const SizedBox();
-
-                                final username = me.user.username;
-                                if (username == null || username.isEmpty) {
-                                  return const SizedBox();
-                                }
-
-                                final link =
-                                    'https://chaput.app/me/$username';
-
-                                return ShareBar(
-                                  link: link,
-                                  title: context.t('home.share_title'),
-                                  subtitle: context.t('home.share_subtitle'),
-                                  showShareButton: false,
-                                );
-
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
+              ),
+            ],
+          ),
+        );
       },
     );
   }
@@ -468,7 +565,10 @@ class _RecommendedUserCard extends ConsumerWidget {
           return wrap(
             Row(
               children: [
-                const Icon(Icons.people_outline, color: AppColors.chaputWhite70),
+                const Icon(
+                  Icons.people_outline,
+                  color: AppColors.chaputWhite70,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -507,8 +607,12 @@ class _RecommendedUserCard extends ConsumerWidget {
                           radius: 999,
                           borderWidth: 2,
                           bgColor: AppColors.chaputBlack,
-                          isDefaultAvatar: u.profilePhotoPath == null || u.profilePhotoPath!.isEmpty,
-                          imageUrl: (u.profilePhotoPath != null && u.profilePhotoPath!.isNotEmpty)
+                          isDefaultAvatar:
+                              u.profilePhotoPath == null ||
+                              u.profilePhotoPath!.isEmpty,
+                          imageUrl:
+                              (u.profilePhotoPath != null &&
+                                  u.profilePhotoPath!.isNotEmpty)
                               ? u.profilePhotoPath!
                               : u.defaultAvatar,
                         ),
@@ -524,10 +628,13 @@ class _RecommendedUserCard extends ConsumerWidget {
                                 softWrap: false,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               Text(
-                                u.username == null ? context.t('common.na') : '@${u.username}',
+                                u.username == null
+                                    ? context.t('common.na')
+                                    : '@${u.username}',
                                 maxLines: 1,
                                 softWrap: false,
                                 overflow: TextOverflow.ellipsis,
@@ -546,15 +653,21 @@ class _RecommendedUserCard extends ConsumerWidget {
                 onPressed: isLoading
                     ? null
                     : () => ref
-                    .read(recommendedUserControllerProvider.notifier)
-                    .refresh(),
+                          .read(recommendedUserControllerProvider.notifier)
+                          .refresh(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.chaputBlack,
                   foregroundColor: AppColors.chaputWhite,
-                  disabledBackgroundColor: AppColors.chaputBlack.withOpacity(0.6),
-                  disabledForegroundColor: AppColors.chaputWhite.withOpacity(0.7),
+                  disabledBackgroundColor: AppColors.chaputBlack.withOpacity(
+                    0.6,
+                  ),
+                  disabledForegroundColor: AppColors.chaputWhite.withOpacity(
+                    0.7,
+                  ),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -562,17 +675,20 @@ class _RecommendedUserCard extends ConsumerWidget {
                 ),
                 icon: isLoading
                     ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor:
-                    AlwaysStoppedAnimation<Color>(AppColors.chaputWhite),
-                  ),
-                )
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.chaputWhite,
+                          ),
+                        ),
+                      )
                     : const Icon(Icons.refresh_rounded, size: 18),
                 label: Text(
-                  isLoading ? context.t('common.loading') : context.t('common.refresh'),
+                  isLoading
+                      ? context.t('common.loading')
+                      : context.t('common.refresh'),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -610,9 +726,7 @@ class _HomeAvatarShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ShimmerLoading(
-      child: ShimmerCircle(size: 42),
-    );
+    return const ShimmerLoading(child: ShimmerCircle(size: 42));
   }
 }
 
@@ -621,12 +735,7 @@ class _ShareBarShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ShimmerLoading(
-      child: ShimmerBlock(
-        height: 52,
-        radius: 18,
-      ),
-    );
+    return const ShimmerLoading(child: ShimmerBlock(height: 52, radius: 18));
   }
 }
 
@@ -660,24 +769,26 @@ class _RecommendedUserShimmer extends StatelessWidget {
 
 class _SearchOverlayRoute extends PageRouteBuilder<void> {
   _SearchOverlayRoute()
-      : super(
-    opaque: false,
-    barrierDismissible: true,
-    barrierColor: AppColors.chaputTransparent,
-    transitionDuration: const Duration(milliseconds: 220),
-    reverseTransitionDuration: const Duration(milliseconds: 180),
-    pageBuilder: (context, animation, secondaryAnimation) =>
-    const SearchOverlay(),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved =
-      CurvedAnimation(parent: animation, curve: Curves.easeOut);
-      return FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.985, end: 1.0).animate(curved),
-          child: child,
-        ),
+    : super(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: AppColors.chaputTransparent,
+        transitionDuration: const Duration(milliseconds: 220),
+        reverseTransitionDuration: const Duration(milliseconds: 180),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const SearchOverlay(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOut,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.985, end: 1.0).animate(curved),
+              child: child,
+            ),
+          );
+        },
       );
-    },
-  );
 }

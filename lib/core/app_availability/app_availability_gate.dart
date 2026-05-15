@@ -26,15 +26,17 @@ class _AppAvailabilityGateState extends ConsumerState<AppAvailabilityGate> {
     try {
       final next = await ref.read(appAvailabilityProvider.notifier).checkNow();
       if (!mounted || next.blocksApp) return;
-      _forceHomeRoute();
+      _restartBootFlow();
     } finally {
       _retrying = false;
     }
   }
 
-  void _forceHomeRoute() {
+  void _restartBootFlow() {
     final router = ref.read(appRouterProvider);
-    router.go(Routes.home);
+    final bootRoute =
+        '${Routes.boot}?availability_retry=${DateTime.now().millisecondsSinceEpoch}';
+    router.go(bootRoute);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -42,12 +44,12 @@ class _AppAvailabilityGateState extends ConsumerState<AppAvailabilityGate> {
       if (navigator != null && navigator.canPop()) {
         navigator.popUntil((route) => route.isFirst);
       }
-      router.go(Routes.home);
+      router.go(bootRoute);
     });
 
     Future<void>.delayed(const Duration(milliseconds: 120), () {
       if (!mounted) return;
-      router.go(Routes.home);
+      router.go(bootRoute);
     });
   }
 

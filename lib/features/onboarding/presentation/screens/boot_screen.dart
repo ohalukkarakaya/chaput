@@ -48,7 +48,9 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       return;
     }
 
-    debugPrint('BOOT: refresh token var -> /auth/token/refresh isteği atılıyor');
+    debugPrint(
+      'BOOT: refresh token var -> /auth/token/refresh isteği atılıyor',
+    );
 
     // küçük bir süre boot görünsün
     await Future.delayed(const Duration(milliseconds: 600));
@@ -59,7 +61,9 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       final res = await authApi.refresh(refreshToken: refresh);
 
       if (res.accessToken.isEmpty) {
-        debugPrint('BOOT: refresh 200 geldi ama access_token boş -> onboarding');
+        debugPrint(
+          'BOOT: refresh 200 geldi ama access_token boş -> onboarding',
+        );
         await storage.clear();
         _navigated = true;
         context.pushReplacement(Routes.onboarding);
@@ -79,24 +83,26 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       } on DioException catch (e) {
         final code = e.response?.statusCode;
 
-        // 401/404: hard logout zaten controller içinde clear'ledi
-        debugPrint('BOOT: /me failed status=$code -> onboarding, error= $e');
+        if (code == 401 || code == 404) {
+          debugPrint('BOOT: /me failed status=$code -> onboarding, error= $e');
+          _navigated = true;
+          if (mounted) context.pushReplacement(Routes.onboarding);
+          return;
+        }
 
-        _navigated = true;
-        if (mounted) context.pushReplacement(Routes.onboarding);
+        debugPrint(
+          'BOOT: /me transient fail status=$code -> stay boot, error= $e',
+        );
+        return;
       } catch (e) {
-        debugPrint('BOOT: /me unknown fail -> onboarding, error= $e');
-        _navigated = true;
-        if (mounted) context.pushReplacement(Routes.onboarding);
+        debugPrint('BOOT: /me unknown fail -> stay boot, error= $e');
+        return;
       }
-
-    } on DioException catch (e, st) {
+    } on DioException catch (e) {
       final code = e.response?.statusCode;
       final data = e.response?.data;
 
-      debugPrint(
-        'BOOT: refresh ERROR status=$code data=$data error= $e'
-      );
+      debugPrint('BOOT: refresh ERROR status=$code data=$data error= $e');
 
       // 400/401 => invalid_refresh_token / refresh_expired gibi durumlar
       if (code == 400 || code == 401) {
@@ -108,16 +114,13 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       }
 
       // diğer hatalar (500, network vs.)
-      debugPrint('BOOT: refresh beklenmeyen hata -> onboarding');
-      _navigated = true;
-      if (mounted) context.pushReplacement(Routes.onboarding);
-    } catch (e, st) {
-      debugPrint('BOOT: refresh unknown ERROR error= $e');
-      _navigated = true;
-      if (mounted) context.pushReplacement(Routes.onboarding);
+      debugPrint('BOOT: refresh transient error -> stay boot');
+      return;
+    } catch (e) {
+      debugPrint('BOOT: refresh unknown ERROR -> stay boot, error= $e');
+      return;
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -126,10 +129,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
         assetPath: 'assets/videos/chaput_bg.M4V',
         overlayOpacity: 0.55,
         child: Center(
-          child: Hero(
-            tag: 'chaput_logo',
-            child: _BootLogo(),
-          ),
+          child: Hero(tag: 'chaput_logo', child: _BootLogo()),
         ),
       ),
     );
@@ -146,9 +146,9 @@ class _BootLogo extends StatelessWidget {
       height: 64,
       child: Center(
         child: Image.asset(
-        'assets/images/chaput_logo_256px_h.png',
-        fit: BoxFit.contain,
-      ),
+          'assets/images/chaput_logo_256px_h.png',
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }

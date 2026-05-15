@@ -11,9 +11,6 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_username_redirect_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
-
-
-import '../network/dio_provider.dart';
 import 'routes.dart';
 import 'route_observer.dart';
 
@@ -26,22 +23,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.boot,
         pageBuilder: (context, state) => _fadePage(
           state: state,
-          child: const BootScreen(),
+          child: BootScreen(key: ValueKey(state.uri.toString())),
         ),
       ),
       GoRoute(
         path: Routes.onboarding,
-        pageBuilder: (context, state) => _fadePage(
-          state: state,
-          child: const OnboardingScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(state: state, child: const OnboardingScreen()),
       ),
       GoRoute(
         path: Routes.home,
-        pageBuilder: (context, state) => _fadePage(
-          state: state,
-          child: const HomeShell(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(state: state, child: const HomeShell()),
       ),
       GoRoute(
         path: '/me/:username',
@@ -80,31 +73,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.login,
-        pageBuilder: (context, state) => _fadePage(
-          state: state,
-          child: const LoginScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(state: state, child: const LoginScreen()),
       ),
       GoRoute(
         path: Routes.register,
-        pageBuilder: (context, state) => _fadePage(
-          state: state,
-          child: const RegisterScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(state: state, child: const RegisterScreen()),
       ),
       GoRoute(
         path: Routes.settings,
-        pageBuilder: (context, state) => _fadePage(
-          state: state,
-          child: const SettingsScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(state: state, child: const SettingsScreen()),
       ),
       GoRoute(
         path: Routes.notifications,
-        pageBuilder: (context, state) => _fadePage(
-          state: state,
-          child: const NotificationsScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(state: state, child: const NotificationsScreen()),
       ),
     ],
   );
@@ -120,11 +105,11 @@ CustomTransitionPage _fadePage({
     reverseTransitionDuration: const Duration(milliseconds: 220),
     child: child,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
-      return FadeTransition(
-        opacity: curved,
-        child: child,
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
       );
+      return FadeTransition(opacity: curved, child: child);
     },
   );
 }
