@@ -6,8 +6,9 @@ import '../../me/data/me_api.dart';
 import '../../me/domain/me_models.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 
-final meControllerProvider =
-AsyncNotifierProvider<MeController, MeResponse?>(MeController.new);
+final meControllerProvider = AsyncNotifierProvider<MeController, MeResponse?>(
+  MeController.new,
+);
 
 class MeController extends AsyncNotifier<MeResponse?> {
   @override
@@ -17,6 +18,7 @@ class MeController extends AsyncNotifier<MeResponse?> {
   /// 400 -> silent retry 1 kez
   /// 401/404 -> hard logout (storage clear)
   Future<MeResponse?> fetchAndStoreMe() async {
+    final previous = state.valueOrNull;
     state = const AsyncLoading();
 
     final api = ref.read(meApiProvider);
@@ -31,7 +33,11 @@ class MeController extends AsyncNotifier<MeResponse?> {
     } on DioException catch (e, st) {
       final code = e.response?.statusCode;
 
-      log('ME: /me error status=$code data=${e.response?.data}', error: e, stackTrace: st);
+      log(
+        'ME: /me error status=$code data=${e.response?.data}',
+        error: e,
+        stackTrace: st,
+      );
 
       // 400 -> silent retry 1 kez
       if (code == 400) {
@@ -51,12 +57,12 @@ class MeController extends AsyncNotifier<MeResponse?> {
         rethrow; // caller decide navigation
       }
 
-      // 500+ vs -> keep null
-      state = const AsyncData(null);
+      // 500+, network, temporary backend errors -> keep last known /me.
+      state = AsyncData(previous);
       rethrow;
     } catch (e, st) {
       log('ME: unknown error', error: e, stackTrace: st);
-      state = const AsyncData(null);
+      state = AsyncData(previous);
       rethrow;
     }
   }

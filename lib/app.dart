@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/app_availability/app_availability_gate.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
@@ -17,7 +18,7 @@ class ChaputApp extends ConsumerWidget {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.light,
-        theme: ThemeData(
+      theme: ThemeData(
         brightness: Brightness.light, // ✅ her zaman light
         fontFamily: 'Qanelas',
         useMaterial3: true,
@@ -32,10 +33,12 @@ class ChaputApp extends ConsumerWidget {
           onBackground: AppColors.chaputBlack,
           onSurface: AppColors.chaputBlack,
           onPrimary: AppColors.chaputWhite,
-        )
+        ),
       ),
       darkTheme: AppTheme.light(),
       routerConfig: router,
+      builder: (context, child) =>
+          AppAvailabilityGate(child: child ?? const SizedBox.shrink()),
       localizationsDelegates: const [
         AppLocalizationsDelegate(),
         GlobalMaterialLocalizations.delegate,

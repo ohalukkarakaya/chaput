@@ -388,5 +388,10 @@
   "notifications.admin_gift_item.user_special": "boost credit",
   "notifications.admin_gift_item.user_secret": "secret credit",
   "notifications.admin_gift_title": "You received a gift",
-  "paywall.purchase_failed": "Der Kauf konnte nicht abgeschlossen werden."
+  "paywall.purchase_failed": "Der Kauf konnte nicht abgeschlossen werden.",
+  "availability.maintenance_title": "Chaput wird gewartet",
+  "availability.maintenance_body": "Wir nehmen gerade Verbesserungen vor. Bitte versuche es später erneut.",
+  "availability.offline_title": "Keine Verbindung",
+  "availability.offline_body": "Bitte prüfe deine Internetverbindung und versuche es erneut.",
+  "availability.retry": "Erneut versuchen"
 }

@@ -388,5 +388,10 @@
   "notifications.admin_gift_item.user_special": "boost credit",
   "notifications.admin_gift_item.user_secret": "secret credit",
   "notifications.admin_gift_title": "You received a gift",
-  "paywall.purchase_failed": "Köpet kunde inte slutföras."
+  "paywall.purchase_failed": "Köpet kunde inte slutföras.",
+  "availability.maintenance_title": "Chaput underhålls",
+  "availability.maintenance_body": "Vi gör några förbättringar. Försök igen lite senare.",
+  "availability.offline_title": "Ingen anslutning",
+  "availability.offline_body": "Kontrollera internetanslutningen och försök igen.",
+  "availability.retry": "Försök igen"
 }

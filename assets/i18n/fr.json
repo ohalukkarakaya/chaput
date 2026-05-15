@@ -388,5 +388,10 @@
   "notifications.admin_gift_item.user_special": "boost credit",
   "notifications.admin_gift_item.user_secret": "secret credit",
   "notifications.admin_gift_title": "You received a gift",
-  "paywall.purchase_failed": "L’achat n’a pas pu être finalisé."
+  "paywall.purchase_failed": "L’achat n’a pas pu être finalisé.",
+  "availability.maintenance_title": "Chaput est en maintenance",
+  "availability.maintenance_body": "Nous effectuons quelques améliorations. Réessaie un peu plus tard.",
+  "availability.offline_title": "Connexion perdue",
+  "availability.offline_body": "Vérifie ta connexion internet puis réessaie.",
+  "availability.retry": "Réessayer"
 }

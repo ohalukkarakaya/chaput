@@ -254,6 +254,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   // ===== CHAPUT DECISION / ENTITLEMENTS =====
   bool _chaputThreadCreated = false;
   bool _chaputSendLoading = false;
+  bool _reviveFlowBusy = false;
+  String? _reviveArchiveOverrideProfileId;
+  String? _reviveArchiveOverrideThreadId;
   final PageController _chaputPageCtrl = PageController();
   int _chaputActiveIndex = 0;
   static const double _chaputSheetMin = 0.12;
@@ -1383,7 +1386,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       whisper: result.credits.whisper,
     );
     // Refresh /me so subscription state is up to date for future warnings.
-    ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+    unawaited(
+      ref.read(meControllerProvider.notifier).fetchAndStoreMe().catchError((_) {
+        return ref.read(meControllerProvider).valueOrNull;
+      }),
+    );
   }
 
   Future<bool> _verifyPurchaseAndApply(PaywallPurchase purchase) async {
@@ -1391,12 +1398,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final confirmed = await _confirmReplaceSubscriptionIfNeeded(purchase);
       if (!confirmed) return false;
       final api = ref.read(billingApiProvider);
-      final res = await api.verifyPurchase(
-        provider: purchase.provider,
-        productId: purchase.productId,
-        transactionId: purchase.transactionId,
-        devToken: Env.devBillingToken,
-      );
+      BillingVerifyResult? res;
+      Object? lastError;
+      final attempts = purchase.provider == 'REVENUECAT' ? 6 : 1;
+      for (int i = 0; i < attempts; i++) {
+        try {
+          res = await api.verifyPurchase(
+            provider: purchase.provider,
+            productId: purchase.productId,
+            transactionId: purchase.transactionId,
+            devToken: Env.devBillingToken,
+          );
+          break;
+        } catch (e) {
+          lastError = e;
+          if (purchase.provider != 'REVENUECAT' ||
+              !e.toString().contains('pending_webhook') ||
+              i == attempts - 1) {
+            rethrow;
+          }
+          await Future.delayed(Duration(milliseconds: 850 + (i * 450)));
+        }
+      }
+      if (res == null) throw lastError ?? Exception('verify_failed');
       _applyBillingResult(res);
       return true;
     } catch (_) {
@@ -1409,6 +1433,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<PaywallPurchase?> _purchaseWithRevenueCat(String productId) async {
+    final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    if (userId != null && userId.isNotEmpty) {
+      await RevenueCatService.instance.logInWithBackendUserId(userId);
+    }
+
     final result = await RevenueCatService.instance.purchaseProductId(
       productId,
     );
@@ -1429,8 +1458,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     return PaywallPurchase(
       productId: result.data!.productId,
-      // TODO: Replace this DEV bridge with backend RevenueCat webhook/confirmation before production.
-      provider: 'DEV',
+      provider: 'REVENUECAT',
       transactionId: transactionId,
     );
   }
@@ -2047,6 +2075,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required ChaputThreadsArgs chaputArgs,
     required LiteUser? targetUser,
   }) async {
+    if (_reviveFlowBusy) return;
     if (threadIdHex.length != 32) {
       _showGlassToast(
         context.t('profile.toast.chaput_not_found'),
@@ -2057,33 +2086,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final api = ref.read(chaputApiProvider);
     final isPro = _planType == 'PRO';
     final hasRevive = _creditRevive > 0;
+    var revived = false;
 
-    if (!isPro && !hasRevive) {
-      final reviveTarget = targetUser == null
-          ? null
-          : PaywallReviveTarget(
-              avatarUrl:
-                  (targetUser.profilePhotoKey != null &&
-                      targetUser.profilePhotoKey!.isNotEmpty)
-                  ? targetUser.profilePhotoKey!
-                  : targetUser.defaultAvatar,
-              isDefaultAvatar:
-                  targetUser.profilePhotoKey == null ||
-                  targetUser.profilePhotoKey!.isEmpty,
-              fullName: targetUser.fullName,
-              username: targetUser.username ?? '',
-            );
-      final purchase = await _openPaywall(
-        feature: PaywallFeature.revive,
-        reviveTarget: reviveTarget,
-      );
-      if (purchase == null) return;
-      final ok = await _verifyPurchaseAndApply(purchase);
-      if (!ok) return;
-    }
+    setState(() {
+      _reviveFlowBusy = true;
+      _reviveArchiveOverrideProfileId = profileIdHex;
+      _reviveArchiveOverrideThreadId = threadIdHex;
+    });
 
     try {
+      if (!isPro && !hasRevive) {
+        final reviveTarget = targetUser == null
+            ? null
+            : PaywallReviveTarget(
+                avatarUrl:
+                    (targetUser.profilePhotoKey != null &&
+                        targetUser.profilePhotoKey!.isNotEmpty)
+                    ? targetUser.profilePhotoKey!
+                    : targetUser.defaultAvatar,
+                isDefaultAvatar:
+                    targetUser.profilePhotoKey == null ||
+                    targetUser.profilePhotoKey!.isEmpty,
+                fullName: targetUser.fullName,
+                username: targetUser.username ?? '',
+              );
+        final purchase = await _openPaywall(
+          feature: PaywallFeature.revive,
+          reviveTarget: reviveTarget,
+        );
+        if (purchase == null) return;
+        final ok = await _verifyPurchaseAndApply(purchase);
+        if (!ok) return;
+      }
+
       await api.reviveThread(threadIdHex: threadIdHex);
+      revived = true;
       ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).refresh();
       if (_decisionProfileId != null) {
         ref
@@ -2099,6 +2136,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         context.t('profile.toast.chaput_revive_failed'),
         icon: Icons.error_outline,
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reviveFlowBusy = false;
+          if (revived) {
+            _reviveArchiveOverrideProfileId = null;
+            _reviveArchiveOverrideThreadId = null;
+          }
+        });
+      }
     }
   }
 
@@ -3033,8 +3080,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool hasNormalCredit = _creditNormal > 0;
     final bool adsAvailable = _adsCanWatch && _adsNextRewardIn > 0;
     final bool canStartNow = decisionPath == 'CAN_START';
-    final bool decisionHasArchived =
+    final bool rawDecisionHasArchived =
         decisionHasThread && decisionThreadState == 'ARCHIVED';
+    final bool reviveArchiveOverrideActive =
+        _reviveArchiveOverrideProfileId == profileIdHex &&
+        (_reviveArchiveOverrideThreadId?.length == 32);
+    final String reviveThreadId = rawDecisionHasArchived
+        ? decisionThreadId
+        : (reviveArchiveOverrideActive
+              ? _reviveArchiveOverrideThreadId!
+              : decisionThreadId);
+    final bool decisionHasArchived =
+        rawDecisionHasArchived || reviveArchiveOverrideActive;
     final bool showBindExhausted =
         decisionLoaded &&
         !decisionHasThread &&
@@ -4467,7 +4524,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                   _chaputSheetExtent > _chaputSheetMin + 0.01))
                           ? const SizedBox.shrink()
                           : IgnorePointer(
-                              ignoring: !_threeReady,
+                              ignoring: !_threeReady || _reviveFlowBusy,
                               child: BlackGlass(
                                 radius: 16,
                                 blur: 10,
@@ -4480,9 +4537,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                         ? null
                                         : () async {
                                             if (decisionHasArchived &&
-                                                decisionThreadId.length == 32) {
+                                                reviveThreadId.length == 32) {
                                               await _handleRevivePressed(
-                                                threadIdHex: decisionThreadId,
+                                                threadIdHex: reviveThreadId,
                                                 profileIdHex: profileIdHex,
                                                 chaputArgs: chaputArgs,
                                                 targetUser: targetLiteUser,

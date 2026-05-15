@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:chaput/core/config/env.dart';
 import 'package:chaput/core/router/routes.dart';
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/features/billing/data/billing_api_provider.dart';
+import 'package:chaput/features/billing/domain/billing_verify_result.dart';
 import 'package:chaput/features/me/application/me_controller.dart';
 import 'package:chaput/features/profile/presentation/widgets/chaput_paywall_sheet.dart';
 import 'package:chaput/features/revenuecat/data/revenue_cat_service.dart';
@@ -18,16 +21,43 @@ import 'package:chaput/core/i18n/app_localizations.dart';
 class ArchiveChaputsScreen extends ConsumerWidget {
   const ArchiveChaputsScreen({super.key});
 
-  Future<bool> _verifyPurchase(BuildContext context, WidgetRef ref, PaywallPurchase purchase) async {
+  Future<bool> _verifyPurchase(
+    BuildContext context,
+    WidgetRef ref,
+    PaywallPurchase purchase,
+  ) async {
     try {
       final api = ref.read(billingApiProvider);
-      await api.verifyPurchase(
-        provider: purchase.provider,
-        productId: purchase.productId,
-        transactionId: purchase.transactionId,
-        devToken: Env.devBillingToken,
+      BillingVerifyResult? result;
+      Object? lastError;
+      final attempts = purchase.provider == 'REVENUECAT' ? 6 : 1;
+      for (int i = 0; i < attempts; i++) {
+        try {
+          result = await api.verifyPurchase(
+            provider: purchase.provider,
+            productId: purchase.productId,
+            transactionId: purchase.transactionId,
+            devToken: Env.devBillingToken,
+          );
+          break;
+        } catch (e) {
+          lastError = e;
+          if (purchase.provider != 'REVENUECAT' ||
+              !e.toString().contains('pending_webhook') ||
+              i == attempts - 1) {
+            rethrow;
+          }
+          await Future.delayed(Duration(milliseconds: 850 + (i * 450)));
+        }
+      }
+      if (result == null) throw lastError ?? Exception('verify_failed');
+      unawaited(
+        ref.read(meControllerProvider.notifier).fetchAndStoreMe().catchError((
+          _,
+        ) {
+          return ref.read(meControllerProvider).valueOrNull;
+        }),
       );
-      ref.read(meControllerProvider.notifier).fetchAndStoreMe();
       return true;
     } catch (_) {
       if (!context.mounted) return false;
@@ -38,8 +68,19 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     }
   }
 
-  Future<PaywallPurchase?> _purchaseWithRevenueCat(BuildContext context, String productId) async {
-    final result = await RevenueCatService.instance.purchaseProductId(productId);
+  Future<PaywallPurchase?> _purchaseWithRevenueCat(
+    BuildContext context,
+    WidgetRef ref,
+    String productId,
+  ) async {
+    final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    if (userId != null && userId.isNotEmpty) {
+      await RevenueCatService.instance.logInWithBackendUserId(userId);
+    }
+
+    final result = await RevenueCatService.instance.purchaseProductId(
+      productId,
+    );
     if (result.isCancelled) return null;
     if (!result.isSuccess || result.data == null) {
       if (context.mounted) {
@@ -57,8 +98,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
 
     return PaywallPurchase(
       productId: result.data!.productId,
-      // TODO: Replace this DEV bridge with backend RevenueCat webhook/confirmation before production.
-      provider: 'DEV',
+      provider: 'REVENUECAT',
       transactionId: transactionId,
     );
   }
@@ -79,9 +119,12 @@ class ArchiveChaputsScreen extends ConsumerWidget {
         feature: PaywallFeature.revive,
         planType: planType,
         reviveTarget: reviveTarget,
-        onPurchaseProduct: (productId) => _purchaseWithRevenueCat(context, productId),
+        onPurchaseProduct: (productId) =>
+            _purchaseWithRevenueCat(context, ref, productId),
         onRestorePurchases: () async {
-          final restored = await ref.read(accountApiProvider).restorePurchases();
+          final restored = await ref
+              .read(accountApiProvider)
+              .restorePurchases();
           if (restored) {
             await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
           }
@@ -114,11 +157,16 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(
+                          context.t('common.back'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
-                        onPressed: () => ref.read(archiveControllerProvider.notifier).refresh(),
+                        onPressed: () => ref
+                            .read(archiveControllerProvider.notifier)
+                            .refresh(),
                         icon: const Icon(Icons.refresh),
                       ),
                     ],
@@ -132,7 +180,10 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             context.t('archive.title'),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         if (st.isLoading)
@@ -155,105 +206,156 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text(context.t(st.error!), style: const TextStyle(color: AppColors.chaputMaterialRed, fontWeight: FontWeight.w700)),
+                                Text(
+                                  context.t(st.error!),
+                                  style: const TextStyle(
+                                    color: AppColors.chaputMaterialRed,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                                 const SizedBox(height: 12),
                                 ElevatedButton(
-                                  onPressed: () => ref.read(archiveControllerProvider.notifier).refresh(),
+                                  onPressed: () => ref
+                                      .read(archiveControllerProvider.notifier)
+                                      .refresh(),
                                   child: Text(context.t('common.retry')),
                                 ),
                               ],
                             ),
                           )
                         : (st.items.isEmpty && !st.isLoading)
-                            ? Center(
-                                child: Text(
-                                  context.t('common.empty'),
-                                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.chaputBlack54),
-                                ),
-                              )
-                            : NotificationListener<ScrollNotification>(
-                                onNotification: (n) {
-                                  if (st.hasMore && n.metrics.pixels >= n.metrics.maxScrollExtent - 220) {
-                                    ref.read(archiveControllerProvider.notifier).loadMore();
-                                  }
-                                  return false;
-                                },
-                                child: ListView.separated(
-                                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                                  itemCount: st.items.length + 1,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                                  itemBuilder: (context, i) {
-                                    if (i == st.items.length) {
-                                      if (st.isLoadingMore) {
-                                        return const Padding(
-                                          padding: EdgeInsets.all(12),
-                                          child: Center(
-                                            child: SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(strokeWidth: 2),
-                                            ),
+                        ? Center(
+                            child: Text(
+                              context.t('common.empty'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.chaputBlack54,
+                              ),
+                            ),
+                          )
+                        : NotificationListener<ScrollNotification>(
+                            onNotification: (n) {
+                              if (st.hasMore &&
+                                  n.metrics.pixels >=
+                                      n.metrics.maxScrollExtent - 220) {
+                                ref
+                                    .read(archiveControllerProvider.notifier)
+                                    .loadMore();
+                              }
+                              return false;
+                            },
+                            child: ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(
+                                12,
+                                12,
+                                12,
+                                12,
+                              ),
+                              itemCount: st.items.length + 1,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, i) {
+                                if (i == st.items.length) {
+                                  if (st.isLoadingMore) {
+                                    return const Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
                                           ),
-                                        );
-                                      }
-                                      return const SizedBox(height: 6);
-                                    }
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return const SizedBox(height: 6);
+                                }
 
-                                    final it = st.items[i];
-                                    final u = st.usersById[it.otherUserId];
+                                final it = st.items[i];
+                                final u = st.usersById[it.otherUserId];
 
-                                      final fullName = u?.fullName ?? context.t('common.na');
-                                      final rawUsername = u?.username;
-                                      final username = (rawUsername == null || rawUsername.isEmpty) ? it.otherUserId : rawUsername;
-                                      final defaultAvatar = u?.defaultAvatar ?? '';
-                                      final imgUrl = (u?.profilePhotoPath != null && u!.profilePhotoPath!.isNotEmpty)
-                                          ? u.profilePhotoPath
-                                          : defaultAvatar;
+                                final fullName =
+                                    u?.fullName ?? context.t('common.na');
+                                final rawUsername = u?.username;
+                                final username =
+                                    (rawUsername == null || rawUsername.isEmpty)
+                                    ? it.otherUserId
+                                    : rawUsername;
+                                final defaultAvatar = u?.defaultAvatar ?? '';
+                                final imgUrl =
+                                    (u?.profilePhotoPath != null &&
+                                        u!.profilePhotoPath!.isNotEmpty)
+                                    ? u.profilePhotoPath
+                                    : defaultAvatar;
 
-                                      final isDefault = u?.profilePhotoPath == null || u?.profilePhotoPath == '';
-                                      final isBusy = st.revivingChaputId == it.threadId;
+                                final isDefault =
+                                    u?.profilePhotoPath == null ||
+                                    u?.profilePhotoPath == '';
+                                final isBusy =
+                                    st.revivingChaputId == it.threadId;
 
-                                      final reviveTarget = PaywallReviveTarget(
-                                        avatarUrl: imgUrl.toString(),
-                                        isDefaultAvatar: isDefault,
-                                        fullName: fullName,
-                                        username: username,
-                                      );
+                                final reviveTarget = PaywallReviveTarget(
+                                  avatarUrl: imgUrl.toString(),
+                                  isDefaultAvatar: isDefault,
+                                  fullName: fullName,
+                                  username: username,
+                                );
 
-                                    return _ArchivedRow(
-                                      fullName: fullName,
-                                      subtitle: '@$username',
-                                      avatarUrl: imgUrl.toString(),
-                                      isDefaultAvatar: isDefault,
-                                        onTap: () async {
-                                          await context.push(await Routes.profile(it.otherUserId));
-                                        },
-                                        onRevive: isBusy
-                                            ? null
-                                            : () async {
-                                                if (!isPro) {
-                                                  final purchase = await _openPaywall(
-                                                    context,
-                                                    ref,
-                                                    reviveTarget: reviveTarget,
-                                                  );
-                                                  if (purchase == null) return;
-                                                  final ok = await _verifyPurchase(context, ref, purchase);
-                                                  if (!ok) return;
-                                                }
-                                                final ok = await ref.read(archiveControllerProvider.notifier).revive(it.threadId);
-                                                if (!context.mounted) return;
-                                                if (ok) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(content: Text(context.t('archive.revived_ok'))),
-                                                  );
-                                                }
-                                              },
-                                        busy: isBusy,
+                                return _ArchivedRow(
+                                  fullName: fullName,
+                                  subtitle: '@$username',
+                                  avatarUrl: imgUrl.toString(),
+                                  isDefaultAvatar: isDefault,
+                                  onTap: () async {
+                                    await context.push(
+                                      await Routes.profile(it.otherUserId),
                                     );
                                   },
-                                ),
-                              ),
+                                  onRevive: isBusy
+                                      ? null
+                                      : () async {
+                                          if (!isPro) {
+                                            final purchase = await _openPaywall(
+                                              context,
+                                              ref,
+                                              reviveTarget: reviveTarget,
+                                            );
+                                            if (purchase == null) return;
+                                            final ok = await _verifyPurchase(
+                                              context,
+                                              ref,
+                                              purchase,
+                                            );
+                                            if (!ok) return;
+                                          }
+                                          final ok = await ref
+                                              .read(
+                                                archiveControllerProvider
+                                                    .notifier,
+                                              )
+                                              .revive(it.threadId);
+                                          if (!context.mounted) return;
+                                          if (ok) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  context.t(
+                                                    'archive.revived_ok',
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                  busy: isBusy,
+                                );
+                              },
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -314,11 +416,22 @@ class _ArchivedRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(fullName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w900)),
+                  Text(
+                    fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55), fontWeight: FontWeight.w600)),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.chaputBlack.withOpacity(0.55),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -333,11 +446,23 @@ class _ArchivedRow extends StatelessWidget {
                   backgroundColor: AppColors.chaputBlack,
                   foregroundColor: AppColors.chaputWhite,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: busy
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite))
-                    : Text(context.t('archive.revive'), style: const TextStyle(fontWeight: FontWeight.w900)),
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.chaputWhite,
+                        ),
+                      )
+                    : Text(
+                        context.t('archive.revive'),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
               ),
             ),
           ],

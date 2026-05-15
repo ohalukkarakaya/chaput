@@ -388,5 +388,10 @@
   "notifications.admin_gift_item.user_special": "boost credit",
   "notifications.admin_gift_item.user_secret": "secret credit",
   "notifications.admin_gift_title": "You received a gift",
-  "paywall.purchase_failed": "Ostoa ei voitu viimeistellä."
+  "paywall.purchase_failed": "Ostoa ei voitu viimeistellä.",
+  "availability.maintenance_title": "Chaput on huollossa",
+  "availability.maintenance_body": "Teemme pieniä parannuksia. Yritä myöhemmin uudelleen.",
+  "availability.offline_title": "Yhteys katkesi",
+  "availability.offline_body": "Tarkista internet-yhteytesi ja yritä uudelleen.",
+  "availability.retry": "Yritä uudelleen"
 }

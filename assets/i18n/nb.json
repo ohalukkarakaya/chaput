@@ -388,5 +388,10 @@
   "notifications.admin_gift_item.user_special": "boost credit",
   "notifications.admin_gift_item.user_secret": "secret credit",
   "notifications.admin_gift_title": "You received a gift",
-  "paywall.purchase_failed": "Kjøpet kunne ikke fullføres."
+  "paywall.purchase_failed": "Kjøpet kunne ikke fullføres.",
+  "availability.maintenance_title": "Chaput er under vedlikehold",
+  "availability.maintenance_body": "Vi gjør noen forbedringer. Prøv igjen litt senere.",
+  "availability.offline_title": "Ingen forbindelse",
+  "availability.offline_body": "Sjekk internettforbindelsen og prøv igjen.",
+  "availability.retry": "Prøv igjen"
 }

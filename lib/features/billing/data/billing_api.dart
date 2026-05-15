@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:dio/dio.dart';
 
 import '../domain/billing_verify_result.dart';
@@ -30,7 +32,22 @@ class BillingApi {
       payload['dev_token'] = devToken;
     }
 
-    final res = await _dio.post('/billing/purchase/verify', data: payload);
+    Response<dynamic> res;
+    try {
+      res = await _dio.post('/billing/purchase/verify', data: payload);
+    } on DioException catch (e, st) {
+      final data = e.response?.data;
+      final safeError = data is Map
+          ? data['error']?.toString()
+          : data?.toString();
+      developer.log(
+        'billing verify failed status=${e.response?.statusCode} provider=$provider product=$productId error=$safeError',
+        name: 'ChaputBilling',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
     final data = res.data;
     if (data is Map<String, dynamic>) {
       if (data['ok'] == true) {
