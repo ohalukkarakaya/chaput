@@ -230,10 +230,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 return _NotificationRow(
                                   item: it,
                                   actor: actor,
+                                  unreadMessageCount: entry.unreadMessageCount,
                                   onTap: () => _handleTap(
                                     context,
                                     ref,
-                                    it,
+                                    entry,
                                     me?.user.userId ?? '',
                                   ),
                                   onApprove: it.type == 'follow_request'
@@ -322,11 +323,28 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Future<void> _handleTap(
     BuildContext context,
     WidgetRef ref,
-    AppNotification it,
+    _NotifEntry entry,
     String myUserId,
   ) async {
-    await ref.read(notificationsControllerProvider.notifier).markRead(it.id);
-    ref.read(notificationCountControllerProvider.notifier).decrementIfUnread();
+    final it = entry.item;
+    if (it == null) return;
+
+    var markedUnreadCount = 0;
+    for (final notif in entry.notificationsToMark) {
+      if (notif.isRead) continue;
+      try {
+        await ref
+            .read(notificationsControllerProvider.notifier)
+            .markRead(notif.id);
+        markedUnreadCount++;
+      } catch (_) {
+        // ignore
+      }
+    }
+    ref
+        .read(notificationCountControllerProvider.notifier)
+        .decrementBy(markedUnreadCount);
+    if (!context.mounted) return;
 
     if (it.type == 'chaput_started' ||
         it.type == 'chaput_message' ||
@@ -370,6 +388,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       }
     }
 
+    final groupedRest = _groupUnreadMessageNotifications(rest);
     final entries = <_NotifEntry>[];
     if (followReqs.isNotEmpty) {
       entries.add(
@@ -381,15 +400,55 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
 
     String? lastLabel;
-    for (final it in rest) {
-      final label = _dateLabel(it.createdAt);
+    for (final entry in groupedRest) {
+      final item = entry.item;
+      if (item == null) continue;
+      final label = _dateLabel(item.createdAt);
       if (label != null && label != lastLabel) {
         entries.add(_NotifEntry.header(label));
         lastLabel = label;
       }
-      entries.add(_NotifEntry.item(it));
+      entries.add(entry);
     }
     return entries;
+  }
+
+  List<_NotifEntry> _groupUnreadMessageNotifications(
+    List<AppNotification> items,
+  ) {
+    final groupsByActor = <String, List<AppNotification>>{};
+    for (final item in items) {
+      if (!_canGroupMessage(item)) continue;
+      groupsByActor.putIfAbsent(item.actorId!, () => []).add(item);
+    }
+
+    final emittedActors = <String>{};
+    final entries = <_NotifEntry>[];
+    for (final item in items) {
+      if (!_canGroupMessage(item)) {
+        entries.add(_NotifEntry.item(item));
+        continue;
+      }
+
+      final actorId = item.actorId!;
+      if (!emittedActors.add(actorId)) continue;
+      final group = List<AppNotification>.from(groupsByActor[actorId] ?? [item])
+        ..sort((a, b) {
+          final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bd.compareTo(ad);
+        });
+      entries.add(_NotifEntry.item(group.first, notifications: group));
+    }
+    return entries;
+  }
+
+  bool _canGroupMessage(AppNotification item) {
+    final actorId = item.actorId;
+    return item.type == 'chaput_message' &&
+        !item.isRead &&
+        actorId != null &&
+        actorId.isNotEmpty;
   }
 
   String? _dateLabel(DateTime? dt) {
@@ -408,6 +467,7 @@ class _NotificationRow extends StatelessWidget {
   const _NotificationRow({
     required this.item,
     required this.actor,
+    required this.unreadMessageCount,
     required this.onTap,
     required this.onApprove,
     required this.onReject,
@@ -415,6 +475,7 @@ class _NotificationRow extends StatelessWidget {
 
   final AppNotification item;
   final LiteUser? actor;
+  final int unreadMessageCount;
   final VoidCallback onTap;
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
@@ -476,17 +537,27 @@ class _NotificationRow extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: item.isRead
-                                  ? FontWeight.w700
-                                  : FontWeight.w900,
-                            ),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  title,
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: item.isRead
+                                        ? FontWeight.w700
+                                        : FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              if (unreadMessageCount > 1) ...[
+                                const SizedBox(width: 7),
+                                _UnreadMessageBadge(count: unreadMessageCount),
+                              ],
+                            ],
                           ),
                         ),
                         if (item.createdAt != null)
@@ -497,7 +568,9 @@ class _NotificationRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.chaputBlack.withOpacity(0.45),
+                              color: AppColors.chaputBlack.withValues(
+                                alpha: 0.45,
+                              ),
                             ),
                           ),
                       ],
@@ -511,7 +584,7 @@ class _NotificationRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.chaputBlack.withOpacity(0.65),
+                        color: AppColors.chaputBlack.withValues(alpha: 0.65),
                       ),
                     ),
                   ],
@@ -647,23 +720,27 @@ class _NotificationRow extends StatelessWidget {
   static String _timeAgo(BuildContext context, DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inSeconds < 60)
+    if (diff.inSeconds < 60) {
       return context.t(
         'time.seconds',
         params: {'count': diff.inSeconds.toString()},
       );
-    if (diff.inMinutes < 60)
+    }
+    if (diff.inMinutes < 60) {
       return context.t(
         'time.minutes',
         params: {'count': diff.inMinutes.toString()},
       );
-    if (diff.inHours < 24)
+    }
+    if (diff.inHours < 24) {
       return context.t(
         'time.hours',
         params: {'count': diff.inHours.toString()},
       );
-    if (diff.inDays < 7)
+    }
+    if (diff.inDays < 7) {
       return context.t('time.days', params: {'count': diff.inDays.toString()});
+    }
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 }
@@ -689,12 +766,56 @@ class _NotificationsShimmerList extends StatelessWidget {
 }
 
 class _NotifEntry {
-  const _NotifEntry._(this.header, this.item);
-  const _NotifEntry.header(this.header) : item = null;
-  const _NotifEntry.item(this.item) : header = null;
+  const _NotifEntry.header(this.header) : item = null, notifications = const [];
+  const _NotifEntry.item(this.item, {List<AppNotification>? notifications})
+    : header = null,
+      notifications = notifications ?? const [];
 
   final String? header;
   final AppNotification? item;
+  final List<AppNotification> notifications;
+
+  int get unreadMessageCount {
+    if (item?.type != 'chaput_message') return 0;
+    var count = 0;
+    for (final notification in notifications) {
+      if (!notification.isRead) count++;
+    }
+    return count;
+  }
+
+  List<AppNotification> get notificationsToMark {
+    if (notifications.isNotEmpty) return notifications;
+    final single = item;
+    return single == null ? const [] : [single];
+  }
+}
+
+class _UnreadMessageBadge extends StatelessWidget {
+  const _UnreadMessageBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : count.toString();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.chaputRoyalBlue,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.chaputWhite,
+          fontSize: 11,
+          height: 1,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
 }
 
 class _ActionIconButton extends StatelessWidget {

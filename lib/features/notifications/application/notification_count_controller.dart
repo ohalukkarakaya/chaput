@@ -6,8 +6,8 @@ import '../data/notification_api_provider.dart';
 
 final notificationCountControllerProvider =
     AutoDisposeNotifierProvider<NotificationCountController, int>(
-  NotificationCountController.new,
-);
+      NotificationCountController.new,
+    );
 
 class NotificationCountController extends AutoDisposeNotifier<int> {
   @override
@@ -34,5 +34,11 @@ class NotificationCountController extends AutoDisposeNotifier<int> {
 
   void decrementIfUnread() {
     if (state > 0) state = state - 1;
+  }
+
+  void decrementBy(int count) {
+    if (count <= 0 || state <= 0) return;
+    final next = state - count;
+    state = next < 0 ? 0 : next;
   }
 }
