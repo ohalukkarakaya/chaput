@@ -34,9 +34,11 @@ class OnboardingTreeScene extends StatefulWidget {
 class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   final ValueNotifier<Offset?> _focusScreen = ValueNotifier<Offset?>(null);
   final math.Random _random = math.Random();
+  final Map<int, three.Vector3> _pageAnchors = {};
 
   three.ThreeJS? _threeJs;
   three.Group? _treeGroup;
+  Timer? _initTimer;
   String? _loadedPresetId;
   int _threeEpoch = 0;
   bool _ready = false;
@@ -104,7 +106,7 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     _startTiltListener();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _createThree(widget.preset);
+      _scheduleThreeCreation(widget.preset);
     });
   }
 
@@ -112,7 +114,7 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   void didUpdateWidget(covariant OnboardingTreeScene oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.preset.id != widget.preset.id) {
-      _createThree(widget.preset);
+      _scheduleThreeCreation(widget.preset);
       return;
     }
     if (oldWidget.paused != widget.paused) {
@@ -126,6 +128,7 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   @override
   void dispose() {
     _disposed = true;
+    _initTimer?.cancel();
     _tiltSub?.cancel();
     _focusScreen.dispose();
     _disposeThree();
@@ -173,9 +176,18 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     } catch (_) {}
     _threeJs = null;
     _treeGroup = null;
+    _pageAnchors.clear();
     _ready = false;
     _focusAnchor = null;
     _focusScreen.value = null;
+  }
+
+  void _scheduleThreeCreation(TreePreset preset) {
+    _initTimer?.cancel();
+    _initTimer = Timer(const Duration(milliseconds: 320), () {
+      if (!mounted || _disposed) return;
+      _createThree(preset);
+    });
   }
 
   void _applyRenderPause() {
@@ -206,6 +218,13 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
 
     late final three.ThreeJS js;
     js = three.ThreeJS(
+      settings: three.Settings(
+        enableShadowMap: false,
+        antialias: false,
+        stencil: false,
+        screenResolution: 1.0,
+      ),
+      renderNumber: 3,
       setup: () => _setup(js, preset, epoch),
       onSetupComplete: () {
         if (!_isCurrentThree(js, epoch)) {
@@ -295,16 +314,6 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       });
       js.scene.add(_treeGroup!);
 
-      final groundSize = (_modelMaxDim * 20).clamp(10.0, 200.0);
-      final geo = three.PlaneGeometry(groundSize, groundSize);
-      final mat = three.MeshBasicMaterial()
-        ..color = three_math.Color.fromHex32(preset.bgColor);
-      final ground = three.Mesh(geo, mat);
-      ground.rotation.x = -math.pi / 2;
-      ground.position.setValues(0, 0.001, 0);
-      ground.receiveShadow = false;
-      js.scene.add(ground);
-
       _updateCamera(js, 0.0);
       js.addAnimationEvent((dt) {
         if (!_isCurrentThree(js, epoch)) return;
@@ -357,8 +366,10 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     final group = _treeGroup;
     if (group == null) return;
     group.updateMatrixWorld(true);
-    final anchor = _pickRandomAnchor(group);
+    final cached = _pageAnchors[widget.activePage];
+    final anchor = cached ?? _pickRandomAnchor(group);
     if (anchor == null) return;
+    _pageAnchors[widget.activePage] = anchor.clone();
     _centerShiftActive = false;
     _pendingTreeModeShift = false;
     _treeModeShiftDoneThisGesture = false;
@@ -592,6 +603,11 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
         children: [
           if (js != null)
             RepaintBoundary(child: SizedBox.expand(child: js.build())),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _OnboardingSceneAtmosphere(background: bg),
+            ),
+          ),
           if (!_ready && _error == null)
             IgnorePointer(
               child: Center(
@@ -648,6 +664,60 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OnboardingSceneAtmosphere extends StatelessWidget {
+  const _OnboardingSceneAtmosphere({required this.background});
+
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        return Stack(
+          children: [
+            Positioned(
+              left: w * 0.17,
+              right: w * 0.17,
+              top: h * 0.63,
+              child: Container(
+                height: h * 0.10,
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.chaputBlack.withOpacity(0.18),
+                      AppColors.chaputBlack.withOpacity(0.0),
+                    ],
+                    stops: const [0.0, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      background.withOpacity(0.0),
+                      background.withOpacity(0.0),
+                      background.withOpacity(0.72),
+                      background,
+                    ],
+                    stops: const [0.0, 0.54, 0.78, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
