@@ -230,7 +230,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 return _NotificationRow(
                                   item: it,
                                   actor: actor,
-                                  unreadMessageCount: entry.unreadMessageCount,
+                                  isUnread: entry.isUnread,
+                                  messageBadgeCount: entry.messageBadgeCount,
+                                  showMessageBadge: entry.messageBadgeCount > 0,
                                   onTap: () => _handleTap(
                                     context,
                                     ref,
@@ -388,7 +390,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       }
     }
 
-    final groupedRest = _groupUnreadMessageNotifications(rest);
+    final groupedRest = _groupContiguousMessageNotifications(rest);
     final entries = <_NotifEntry>[];
     if (followReqs.isNotEmpty) {
       entries.add(
@@ -413,26 +415,37 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return entries;
   }
 
-  List<_NotifEntry> _groupUnreadMessageNotifications(
+  List<_NotifEntry> _groupContiguousMessageNotifications(
     List<AppNotification> items,
   ) {
-    final groupsByActor = <String, List<AppNotification>>{};
-    for (final item in items) {
-      if (!_canGroupMessage(item)) continue;
-      groupsByActor.putIfAbsent(item.actorId!, () => []).add(item);
-    }
-
-    final emittedActors = <String>{};
     final entries = <_NotifEntry>[];
-    for (final item in items) {
-      if (!_canGroupMessage(item)) {
-        entries.add(_NotifEntry.item(item));
+    var index = 0;
+    while (index < items.length) {
+      final current = items[index];
+      if (!_canGroupMessage(current)) {
+        entries.add(_NotifEntry.item(current));
+        index++;
         continue;
       }
 
-      final actorId = item.actorId!;
-      if (!emittedActors.add(actorId)) continue;
-      final group = List<AppNotification>.from(groupsByActor[actorId] ?? [item])
+      final actorId = current.actorId!;
+      final isRead = current.isRead;
+      final run = <AppNotification>[current];
+      index++;
+      while (index < items.length &&
+          _canGroupMessage(items[index]) &&
+          items[index].actorId == actorId &&
+          items[index].isRead == isRead) {
+        run.add(items[index]);
+        index++;
+      }
+
+      if (run.length == 1) {
+        entries.add(_NotifEntry.item(run.first));
+        continue;
+      }
+
+      final group = List<AppNotification>.from(run)
         ..sort((a, b) {
           final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
           final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -446,7 +459,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   bool _canGroupMessage(AppNotification item) {
     final actorId = item.actorId;
     return item.type == 'chaput_message' &&
-        !item.isRead &&
         actorId != null &&
         actorId.isNotEmpty;
   }
@@ -467,7 +479,9 @@ class _NotificationRow extends StatelessWidget {
   const _NotificationRow({
     required this.item,
     required this.actor,
-    required this.unreadMessageCount,
+    required this.isUnread,
+    required this.messageBadgeCount,
+    required this.showMessageBadge,
     required this.onTap,
     required this.onApprove,
     required this.onReject,
@@ -475,7 +489,9 @@ class _NotificationRow extends StatelessWidget {
 
   final AppNotification item;
   final LiteUser? actor;
-  final int unreadMessageCount;
+  final bool isUnread;
+  final int messageBadgeCount;
+  final bool showMessageBadge;
   final VoidCallback onTap;
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
@@ -495,9 +511,9 @@ class _NotificationRow extends StatelessWidget {
 
     final message = _buildMessage(context, item);
 
-    final bubbleColor = item.isRead
-        ? AppColors.chaputWhite
-        : AppColors.chaputPaleBlue;
+    final bubbleColor = isUnread
+        ? AppColors.chaputPaleBlue
+        : AppColors.chaputWhite;
     return Material(
       color: bubbleColor,
       borderRadius: BorderRadius.circular(18),
@@ -547,15 +563,18 @@ class _NotificationRow extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 15,
-                                    fontWeight: item.isRead
-                                        ? FontWeight.w700
-                                        : FontWeight.w900,
+                                    fontWeight: isUnread
+                                        ? FontWeight.w900
+                                        : FontWeight.w700,
                                   ),
                                 ),
                               ),
-                              if (unreadMessageCount > 1) ...[
+                              if (showMessageBadge) ...[
                                 const SizedBox(width: 7),
-                                _UnreadMessageBadge(count: unreadMessageCount),
+                                _MessageBadge(
+                                  count: messageBadgeCount,
+                                  isUnread: isUnread,
+                                ),
                               ],
                             ],
                           ),
@@ -591,7 +610,7 @@ class _NotificationRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (!item.isRead)
+              if (isUnread)
                 Container(
                   width: 8,
                   height: 8,
@@ -775,13 +794,20 @@ class _NotifEntry {
   final AppNotification? item;
   final List<AppNotification> notifications;
 
-  int get unreadMessageCount {
-    if (item?.type != 'chaput_message') return 0;
-    var count = 0;
-    for (final notification in notifications) {
-      if (!notification.isRead) count++;
+  int get messageBadgeCount {
+    if (!isMessageGroup) return 0;
+    return notifications.length;
+  }
+
+  bool get isMessageGroup {
+    return item?.type == 'chaput_message' && notifications.length > 1;
+  }
+
+  bool get isUnread {
+    for (final notification in notificationsToMark) {
+      if (!notification.isRead) return true;
     }
-    return count;
+    return false;
   }
 
   List<AppNotification> get notificationsToMark {
@@ -791,10 +817,11 @@ class _NotifEntry {
   }
 }
 
-class _UnreadMessageBadge extends StatelessWidget {
-  const _UnreadMessageBadge({required this.count});
+class _MessageBadge extends StatelessWidget {
+  const _MessageBadge({required this.count, required this.isUnread});
 
   final int count;
+  final bool isUnread;
 
   @override
   Widget build(BuildContext context) {
@@ -802,7 +829,7 @@ class _UnreadMessageBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.chaputRoyalBlue,
+        color: isUnread ? AppColors.chaputRoyalBlue : AppColors.chaputBlack54,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
