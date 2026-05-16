@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 
@@ -30,34 +29,33 @@ class GlassCtaButton extends StatelessWidget {
         color: AppColors.chaputTransparent,
         child: InkWell(
           onTap: canTap ? () async => onTap() : null,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-            child: Container(
-              height: height,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.chaputBlack.withOpacity(canTap ? 0.50 : 0.32),
-                borderRadius: BorderRadius.circular(radius),
-                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.16)),
-              ),
-              child: isLoading
-                  ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.chaputWhite,
-                ),
-              )
-                  : Text(
-                text,
-                style: const TextStyle(
-                  color: AppColors.chaputWhite,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+          child: Container(
+            height: height,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.chaputBlack.withOpacity(canTap ? 0.78 : 0.48),
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(
+                color: AppColors.chaputWhite.withOpacity(0.16),
               ),
             ),
+            child: isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.chaputWhite,
+                    ),
+                  )
+                : Text(
+                    text,
+                    style: const TextStyle(
+                      color: AppColors.chaputWhite,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ),
       ),

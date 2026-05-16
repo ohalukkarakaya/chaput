@@ -59,6 +59,8 @@ dependencies:
   purchases_flutter: ^10.1.0
   purchases_ui_flutter: ^10.1.0
   connectivity_plus: ^7.1.1
+  sensors_plus: ^7.0.0
+  three_js_math: ^0.2.6
 
 dev_dependencies:
   flutter_test:

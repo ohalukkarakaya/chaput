@@ -9,6 +9,7 @@ import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/video/video_background.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../me/application/me_controller.dart';
+import '../../application/onboarding_tree_preload.dart';
 
 class BootScreen extends ConsumerStatefulWidget {
   const BootScreen({super.key});
@@ -19,6 +20,14 @@ class BootScreen extends ConsumerStatefulWidget {
 
 class _BootScreenState extends ConsumerState<BootScreen> {
   bool _navigated = false;
+
+  Future<void> _prepareOnboardingTree() async {
+    try {
+      await ref
+          .read(onboardingTreePreloadProvider)
+          .prepareRandom(forceNew: true);
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -40,7 +49,10 @@ class _BootScreenState extends ConsumerState<BootScreen> {
     if (refresh == null || refresh.isEmpty) {
       debugPrint('BOOT: refresh token yok -> onboarding');
 
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.wait([
+        Future.delayed(const Duration(milliseconds: 600)),
+        _prepareOnboardingTree(),
+      ]);
       if (!mounted) return;
 
       _navigated = true;
@@ -65,6 +77,8 @@ class _BootScreenState extends ConsumerState<BootScreen> {
           'BOOT: refresh 200 geldi ama access_token boş -> onboarding',
         );
         await storage.clear();
+        await _prepareOnboardingTree();
+        if (!mounted) return;
         _navigated = true;
         context.pushReplacement(Routes.onboarding);
         return;
@@ -85,6 +99,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
 
         if (code == 401 || code == 404) {
           debugPrint('BOOT: /me failed status=$code -> onboarding, error= $e');
+          await _prepareOnboardingTree();
           _navigated = true;
           if (mounted) context.pushReplacement(Routes.onboarding);
           return;
@@ -108,6 +123,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       if (code == 400 || code == 401) {
         await storage.clear();
         debugPrint('BOOT: refresh invalid/expired -> onboarding');
+        await _prepareOnboardingTree();
         _navigated = true;
         if (mounted) context.pushReplacement(Routes.onboarding);
         return;
