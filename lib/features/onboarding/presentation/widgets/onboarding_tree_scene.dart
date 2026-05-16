@@ -218,13 +218,6 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
 
     late final three.ThreeJS js;
     js = three.ThreeJS(
-      settings: three.Settings(
-        enableShadowMap: false,
-        antialias: false,
-        stencil: false,
-        screenResolution: 1.0,
-      ),
-      renderNumber: 3,
       setup: () => _setup(js, preset, epoch),
       onSetupComplete: () {
         if (!_isCurrentThree(js, epoch)) {
@@ -253,13 +246,23 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       final renderer = js.renderer;
       if (renderer != null) {
         renderer.setClearColor(three_math.Color.fromHex32(preset.bgColor), 1);
-        renderer.shadowMap.enabled = false;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = three.PCFSoftShadowMap;
       }
 
       js.scene.add(three.AmbientLight(AppColors.chaputWhiteHex, 0.75));
 
       final dir = three.DirectionalLight(AppColors.chaputWhiteHex, 0.95);
       dir.position.setValues(2.5, 6.0, 3.5);
+      dir.castShadow = true;
+      dir.shadow!.mapSize.width = 2048;
+      dir.shadow!.mapSize.height = 2048;
+      dir.shadow!.camera?.near = 0.2;
+      dir.shadow!.camera?.far = 80;
+      dir.shadow!.camera?.left = -10;
+      dir.shadow!.camera?.right = 10;
+      dir.shadow!.camera?.top = 10;
+      dir.shadow!.camera?.bottom = -10;
       js.scene.add(dir);
 
       await TreeModelCache.instance.ensureWarm(preset.id);
@@ -308,11 +311,35 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       _treeGroup = three.Group()..add(tree);
       _treeGroup!.traverse((obj) {
         if (obj is three.Mesh) {
-          obj.castShadow = false;
+          obj.castShadow = true;
           obj.receiveShadow = false;
         }
       });
       js.scene.add(_treeGroup!);
+
+      final groundSize = (_modelMaxDim * 20).clamp(10.0, 200.0);
+      final groundGeometry = three.PlaneGeometry(groundSize, groundSize);
+      final groundMaterial = three.MeshStandardMaterial();
+      groundMaterial.color = three_math.Color.fromHex32(preset.bgColor);
+      groundMaterial.roughness = 1.0;
+      groundMaterial.metalness = 0.0;
+
+      final ground = three.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -math.pi / 2;
+      ground.position.setValues(0, 0.001, 0);
+      ground.receiveShadow = true;
+      ground.castShadow = false;
+      js.scene.add(ground);
+
+      final half = (_modelMaxDim * 3.5).clamp(3.0, 40.0);
+      dir.shadow!.camera?.left = -half;
+      dir.shadow!.camera?.right = half;
+      dir.shadow!.camera?.top = half;
+      dir.shadow!.camera?.bottom = -half;
+      dir.shadow!.camera?.near = 0.2;
+      dir.shadow!.camera?.far = (half * 7).clamp(40.0, 260.0);
+
+      js.scene.fog = three.Fog(preset.bgColor, _radius * 0.9, _radius * 1.8);
 
       _updateCamera(js, 0.0);
       js.addAnimationEvent((dt) {
@@ -603,11 +630,6 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
         children: [
           if (js != null)
             RepaintBoundary(child: SizedBox.expand(child: js.build())),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: _OnboardingSceneAtmosphere(background: bg),
-            ),
-          ),
           if (!_ready && _error == null)
             IgnorePointer(
               child: Center(
@@ -650,7 +672,9 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
                               BoxShadow(
                                 blurRadius: 8,
                                 spreadRadius: 1,
-                                color: AppColors.chaputWhite.withOpacity(0.6),
+                                color: AppColors.chaputWhite.withValues(
+                                  alpha: 0.6,
+                                ),
                               ),
                             ],
                           ),
@@ -664,60 +688,6 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _OnboardingSceneAtmosphere extends StatelessWidget {
-  const _OnboardingSceneAtmosphere({required this.background});
-
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = constraints.maxHeight;
-        return Stack(
-          children: [
-            Positioned(
-              left: w * 0.17,
-              right: w * 0.17,
-              top: h * 0.63,
-              child: Container(
-                height: h * 0.10,
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.chaputBlack.withOpacity(0.18),
-                      AppColors.chaputBlack.withOpacity(0.0),
-                    ],
-                    stops: const [0.0, 1.0],
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      background.withOpacity(0.0),
-                      background.withOpacity(0.0),
-                      background.withOpacity(0.72),
-                      background,
-                    ],
-                    stops: const [0.0, 0.54, 0.78, 1.0],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }
