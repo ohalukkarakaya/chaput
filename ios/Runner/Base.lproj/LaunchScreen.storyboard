@@ -21,7 +21,7 @@
                         <constraints>
                             <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="1a2-6s-vTC"/>
                             <constraint firstAttribute="bottom" secondItem="YRO-k0-Ey4" secondAttribute="bottom" id="BXr-L4-8lT"/>
-                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="width" secondItem="Ze5-6b-2t3" secondAttribute="width" id="Nim-LU-j4z"/>
+                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="width" secondItem="Ze5-6b-2t3" secondAttribute="width" multiplier="0.846" id="Nim-LU-j4z"/>
                             <constraint firstItem="YRO-k0-Ey4" firstAttribute="height" secondItem="YRO-k0-Ey4" secondAttribute="width" multiplier="2743:1463" id="jZB-bw-vwu"/>
                         </constraints>
                     </view>
@@ -32,6 +32,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="SplashScreen" width="390" height="731"/>
+        <image name="SplashScreen" width="330" height="619"/>
     </resources>
 </document>

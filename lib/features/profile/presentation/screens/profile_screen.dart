@@ -332,6 +332,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void initState() {
     super.initState();
     _socketClient = ref.read(chaputSocketProvider);
+    _lastProfileUserId = widget.userId;
     _pendingInitialThreadId = widget.initialThreadId;
     _pendingInitialMessageId = widget.initialMessageId;
     _navToOtherProfile = false;
@@ -661,6 +662,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _lastTreeId = null;
       _threeError = null;
       _threeReady = false;
+      _lastProfileUserId = widget.userId;
       _navToOtherProfile = false;
       _chaputThreadCreated = false;
       _decisionProfileId = null;
@@ -910,20 +912,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       threeJsRef.scene.add(dir);
 
-      // Load GLB
-      await TreeModelCache.instance.ensureWarm(treeId);
-      if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
-        _disposeThreeRef(threeJsRef);
-        return;
-      }
-
-      final loader = three.GLTFLoader(
-        flipY: true,
-      ).setPath('assets/tree_models/');
-      final gltf = await loader.fromAsset(preset.assetPath);
-      if (gltf == null) throw Exception('GLB null (${preset.assetPath})');
-
-      final tree = gltf.scene;
+      // Load GLB from the parsed scene cache and clone it for this renderer.
+      final tree = await TreeModelCache.instance.loadSceneClone(treeId);
       if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
         _disposeThreeRef(threeJsRef);
         return;
@@ -2894,10 +2884,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final userId = user?['id']?.toString() ?? '';
     if (userId.isNotEmpty && userId != _lastProfileUserId) {
+      final previousProfileUserId = _lastProfileUserId;
       _lastProfileUserId = userId;
-      _lastTreeId = null;
-      _disposeThree();
-      _clearEmptyChaputState();
+      if (previousProfileUserId != null &&
+          previousProfileUserId != widget.userId) {
+        _lastTreeId = null;
+        _disposeThree();
+        _clearEmptyChaputState();
+      }
     }
     final fullName = user?['full_name']?.toString() ?? '';
     final username = user?['username']?.toString() ?? '';

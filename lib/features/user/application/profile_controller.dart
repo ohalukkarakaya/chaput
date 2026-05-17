@@ -63,11 +63,10 @@ class ProfileController
   Future<void> _fetch(String userId) async {
     state = state.copyWith(isLoading: true, error: null);
 
-    final profileFuture = _api.getProfile(userId);
-    final treeFuture = _api.getTree(userId);
+    _fetchTree(userId);
 
     try {
-      final profile = await profileFuture;
+      final profile = await _api.getProfile(userId);
       if (profile['ok'] != true) {
         throw Exception(profile['error'] ?? 'profile_error');
       }
@@ -81,9 +80,11 @@ class ProfileController
       state = state.copyWith(isLoading: false, error: e.toString());
       return;
     }
+  }
 
+  Future<void> _fetchTree(String userId) async {
     try {
-      final tree = await treeFuture;
+      final tree = await _api.getTree(userId);
       if (tree['ok'] != true) {
         throw Exception(tree['error'] ?? 'tree_error');
       }
