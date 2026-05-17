@@ -912,8 +912,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       threeJsRef.scene.add(dir);
 
-      // Load GLB from the parsed scene cache and clone it for this renderer.
-      final tree = await TreeModelCache.instance.loadSceneClone(treeId);
+      final tree = await TreeModelCache.instance.loadFreshScene(treeId);
       if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
         _disposeThreeRef(threeJsRef);
         return;
