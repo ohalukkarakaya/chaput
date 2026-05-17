@@ -15,19 +15,14 @@
                     <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" image="LaunchBackground" translatesAutoresizingMaskIntoConstraints="NO" id="sBG-dE-1t1"/>
-                            <imageView opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchLogo" translatesAutoresizingMaskIntoConstraints="NO" id="YRO-k0-Ey4"/>
+                            <imageView opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="SplashScreen" translatesAutoresizingMaskIntoConstraints="NO" id="YRO-k0-Ey4"/>
                         </subviews>
-                        <color key="backgroundColor" red="0.04705882353" green="0.07843137255" blue="0.1882352941" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" red="0.9176470588" green="0.8588235294" blue="0.7843137255" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="sBG-dE-1t1" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="0b1-0L-hpw"/>
-                            <constraint firstItem="sBG-dE-1t1" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="1Jt-U6-Q11"/>
-                            <constraint firstAttribute="trailing" secondItem="sBG-dE-1t1" secondAttribute="trailing" id="1eL-vv-Rm1"/>
                             <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="1a2-6s-vTC"/>
-                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="4X2-HB-R7a"/>
-                            <constraint firstAttribute="bottom" secondItem="sBG-dE-1t1" secondAttribute="bottom" id="BXr-L4-8lT"/>
-                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="width" constant="64" id="Nim-LU-j4z"/>
-                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="height" constant="64" id="jZB-bw-vwu"/>
+                            <constraint firstAttribute="bottom" secondItem="YRO-k0-Ey4" secondAttribute="bottom" id="BXr-L4-8lT"/>
+                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="width" secondItem="Ze5-6b-2t3" secondAttribute="width" id="Nim-LU-j4z"/>
+                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="height" secondItem="YRO-k0-Ey4" secondAttribute="width" multiplier="2743:1463" id="jZB-bw-vwu"/>
                         </constraints>
                     </view>
                 </viewController>
@@ -37,7 +32,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchBackground" width="1440" height="3120"/>
-        <image name="LaunchLogo" width="252" height="202"/>
+        <image name="SplashScreen" width="390" height="731"/>
     </resources>
 </document>
