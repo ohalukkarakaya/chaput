@@ -397,5 +397,20 @@
   "availability.maintenance_body": "Vi gjør noen forbedringer. Prøv igjen litt senere.",
   "availability.offline_title": "Ingen forbindelse",
   "availability.offline_body": "Sjekk internettforbindelsen og prøv igjen.",
-  "availability.retry": "Prøv igjen"
+  "availability.retry": "Prøv igjen",
+  "legal.terms_title": "Brukervilkår",
+  "legal.privacy_title": "Personvernerklæring",
+  "legal.data_protection_title": "Personverninformasjon",
+  "legal.explicit_consent_title": "Tekst om uttrykkelig samtykke",
+  "legal.webview_error_title": "Dokumentet kunne ikke lastes",
+  "legal.webview_error_body": "Sjekk tilkoblingen din og prøv igjen.",
+  "legal.webview_loading": "Laster dokument...",
+  "signup.birthdate_required": "Fødselsdato er påkrevd",
+  "signup.age_restriction_error": "Du må være minst 13 år for å opprette en konto.",
+  "signup.legal_required": "Godta de nødvendige juridiske dokumentene for å fortsette.",
+  "signup.legal_text_before_terms": "Jeg har lest, forstått og godtar ",
+  "signup.legal_text_after_terms": ", ",
+  "signup.legal_text_after_privacy": " og ",
+  "signup.legal_text_after_data_protection": " og ",
+  "signup.legal_text_after_explicit_consent": "."
 }

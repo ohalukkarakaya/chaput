@@ -397,5 +397,20 @@
   "availability.maintenance_body": "Nous effectuons quelques améliorations. Réessaie un peu plus tard.",
   "availability.offline_title": "Connexion perdue",
   "availability.offline_body": "Vérifie ta connexion internet puis réessaie.",
-  "availability.retry": "Réessayer"
+  "availability.retry": "Réessayer",
+  "legal.terms_title": "Conditions d’utilisation",
+  "legal.privacy_title": "Politique de confidentialité",
+  "legal.data_protection_title": "Notice de protection des données",
+  "legal.explicit_consent_title": "Texte de consentement explicite",
+  "legal.webview_error_title": "Impossible de charger le document",
+  "legal.webview_error_body": "Vérifie ta connexion, puis réessaie.",
+  "legal.webview_loading": "Chargement du document...",
+  "signup.birthdate_required": "La date de naissance est requise",
+  "signup.age_restriction_error": "Tu dois avoir au moins 13 ans pour créer un compte.",
+  "signup.legal_required": "Tu dois accepter les documents juridiques requis pour continuer.",
+  "signup.legal_text_before_terms": "J’ai lu, compris et j’accepte les ",
+  "signup.legal_text_after_terms": ", la ",
+  "signup.legal_text_after_privacy": " et la ",
+  "signup.legal_text_after_data_protection": " et le ",
+  "signup.legal_text_after_explicit_consent": "."
 }

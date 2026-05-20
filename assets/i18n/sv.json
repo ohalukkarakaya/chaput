@@ -397,5 +397,20 @@
   "availability.maintenance_body": "Vi gör några förbättringar. Försök igen lite senare.",
   "availability.offline_title": "Ingen anslutning",
   "availability.offline_body": "Kontrollera internetanslutningen och försök igen.",
-  "availability.retry": "Försök igen"
+  "availability.retry": "Försök igen",
+  "legal.terms_title": "Användarvillkor",
+  "legal.privacy_title": "Integritetspolicy",
+  "legal.data_protection_title": "Dataskyddsinformation",
+  "legal.explicit_consent_title": "Text för uttryckligt samtycke",
+  "legal.webview_error_title": "Dokumentet kunde inte laddas",
+  "legal.webview_error_body": "Kontrollera din anslutning och försök igen.",
+  "legal.webview_loading": "Dokument laddas...",
+  "signup.birthdate_required": "Födelsedatum krävs",
+  "signup.age_restriction_error": "Du måste vara minst 13 år för att skapa ett konto.",
+  "signup.legal_required": "Godkänn de nödvändiga juridiska dokumenten för att fortsätta.",
+  "signup.legal_text_before_terms": "Jag har läst, förstått och godkänner ",
+  "signup.legal_text_after_terms": ", ",
+  "signup.legal_text_after_privacy": " och ",
+  "signup.legal_text_after_data_protection": " och ",
+  "signup.legal_text_after_explicit_consent": "."
 }

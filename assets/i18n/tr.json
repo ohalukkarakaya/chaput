@@ -397,5 +397,20 @@
   "availability.maintenance_body": "Kısa bir bakım yapıyoruz. Lütfen biraz sonra tekrar dene.",
   "availability.offline_title": "Bağlantı yok",
   "availability.offline_body": "Lütfen internet bağlantını kontrol edip tekrar dene.",
-  "availability.retry": "Tekrar dene"
+  "availability.retry": "Tekrar dene",
+  "legal.terms_title": "Kullanıcı Sözleşmesi",
+  "legal.privacy_title": "Gizlilik Politikası",
+  "legal.data_protection_title": "KVKK Aydınlatma Metni",
+  "legal.explicit_consent_title": "Açık Rıza Metni",
+  "legal.webview_error_title": "Belge yüklenemedi",
+  "legal.webview_error_body": "Lütfen bağlantını kontrol edip tekrar dene.",
+  "legal.webview_loading": "Belge yükleniyor...",
+  "signup.birthdate_required": "Doğum tarihi gerekli",
+  "signup.age_restriction_error": "Hesap oluşturmak için en az 13 yaşında olmalısın.",
+  "signup.legal_required": "Devam etmek için gerekli hukuki belgeleri kabul etmelisin.",
+  "signup.legal_text_before_terms": "",
+  "signup.legal_text_after_terms": "'ni, ",
+  "signup.legal_text_after_privacy": "'nı ve ",
+  "signup.legal_text_after_data_protection": "'ni ve ",
+  "signup.legal_text_after_explicit_consent": "'ni okudum, anladım ve kabul ediyorum."
 }

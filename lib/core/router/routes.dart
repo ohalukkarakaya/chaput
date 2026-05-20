@@ -9,6 +9,7 @@ class Routes {
   static const profileByUsername = '/me/:username';
   static const profileBase = '/profile';
   static const settings = '/settings';
+  static const legal = '/legal';
 
   static Future<String> profile(String userId) async => '$profileBase/$userId';
 }

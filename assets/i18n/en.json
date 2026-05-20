@@ -397,5 +397,20 @@
   "availability.maintenance_body": "We are making a few improvements. Please try again later.",
   "availability.offline_title": "Connection lost",
   "availability.offline_body": "Please check your internet connection and try again.",
-  "availability.retry": "Try again"
+  "availability.retry": "Try again",
+  "legal.terms_title": "Terms of Use",
+  "legal.privacy_title": "Privacy Policy",
+  "legal.data_protection_title": "Data Protection Notice",
+  "legal.explicit_consent_title": "Explicit Consent Text",
+  "legal.webview_error_title": "Document could not be loaded",
+  "legal.webview_error_body": "Please check your connection and try again.",
+  "legal.webview_loading": "Loading document...",
+  "signup.birthdate_required": "Birthdate is required",
+  "signup.age_restriction_error": "You must be at least 13 years old to create an account.",
+  "signup.legal_required": "Please accept the required legal documents to continue.",
+  "signup.legal_text_before_terms": "I have read, understood, and agree to the ",
+  "signup.legal_text_after_terms": ", ",
+  "signup.legal_text_after_privacy": ", and ",
+  "signup.legal_text_after_data_protection": ", and ",
+  "signup.legal_text_after_explicit_consent": "."
 }

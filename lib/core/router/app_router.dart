@@ -11,6 +11,8 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_username_redirect_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
+import '../legal/legal_documents.dart';
+import '../legal/legal_webview_screen.dart';
 import 'routes.dart';
 import 'route_observer.dart';
 
@@ -90,6 +92,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.notifications,
         pageBuilder: (context, state) =>
             _fadePage(state: state, child: const NotificationsScreen()),
+      ),
+      GoRoute(
+        path: Routes.legal,
+        pageBuilder: (context, state) {
+          final extra = state.extra;
+          var title = '';
+          var url = '';
+          if (extra is Map) {
+            title = extra['title']?.toString() ?? '';
+            url = extra['url']?.toString() ?? '';
+          }
+          if (url.isEmpty) url = kChaputLegalEnUrl;
+          return _fadePage(
+            state: state,
+            child: LegalWebViewScreen(title: title, url: url),
+          );
+        },
       ),
     ],
   );

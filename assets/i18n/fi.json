@@ -397,5 +397,20 @@
   "availability.maintenance_body": "Teemme pieniä parannuksia. Yritä myöhemmin uudelleen.",
   "availability.offline_title": "Yhteys katkesi",
   "availability.offline_body": "Tarkista internet-yhteytesi ja yritä uudelleen.",
-  "availability.retry": "Yritä uudelleen"
+  "availability.retry": "Yritä uudelleen",
+  "legal.terms_title": "Käyttöehdot",
+  "legal.privacy_title": "Tietosuojakäytäntö",
+  "legal.data_protection_title": "Tietosuojailmoitus",
+  "legal.explicit_consent_title": "Nimenomaisen suostumuksen teksti",
+  "legal.webview_error_title": "Asiakirjaa ei voitu ladata",
+  "legal.webview_error_body": "Tarkista yhteys ja yritä uudelleen.",
+  "legal.webview_loading": "Ladataan asiakirjaa...",
+  "signup.birthdate_required": "Syntymäpäivä vaaditaan",
+  "signup.age_restriction_error": "Tilin luominen edellyttää vähintään 13 vuoden ikää.",
+  "signup.legal_required": "Hyväksy vaaditut oikeudelliset asiakirjat jatkaaksesi.",
+  "signup.legal_text_before_terms": "Olen lukenut ja ymmärtänyt seuraavat asiakirjat ja hyväksyn ne: ",
+  "signup.legal_text_after_terms": ", ",
+  "signup.legal_text_after_privacy": " ja ",
+  "signup.legal_text_after_data_protection": " ja ",
+  "signup.legal_text_after_explicit_consent": "."
 }
