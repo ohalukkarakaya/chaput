@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:math' as math;
 
 import 'package:chaput/core/i18n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -293,26 +294,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final isKeyboardOpen = keyboard > 0;
     final pauseTree = _emailFocused || isKeyboardOpen || _submitting;
     final screenHeight = mq.size.height;
-    final cardHeight = (screenHeight * 0.085).clamp(64.0, 92.0);
+    final cardHeight = (screenHeight * 0.125).clamp(104.0, 146.0);
 
-    final sliderTexts = [
-      {
-        'title': context.t('onboarding.slide1_title'),
-        'subtitle': context.t('onboarding.slide1_subtitle'),
-      },
-      {
-        'title': context.t('onboarding.slide2_title'),
-        'subtitle': context.t('onboarding.slide2_subtitle'),
-      },
-      {
-        'title': context.t('onboarding.slide3_title'),
-        'subtitle': context.t('onboarding.slide3_subtitle'),
-      },
-      {
-        'title': context.t('onboarding.slide4_title'),
-        'subtitle': context.t('onboarding.slide4_subtitle'),
-      },
-    ];
+    final sliderTexts = List.generate(8, (index) {
+      final slide = index + 1;
+      return {
+        'title': context.t('onboarding.slide${slide}_title'),
+        'subtitle': context.t('onboarding.slide${slide}_subtitle'),
+      };
+    });
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -343,7 +333,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     opacity: _treeInteracting ? 0 : 1,
                     child: Container(
                       width: double.infinity,
-                      color: AppColors.chaputBlack.withOpacity(0.78),
+                      color: AppColors.chaputBlack.withValues(alpha: 0.78),
                       child: AnimatedPadding(
                         duration: const Duration(milliseconds: 180),
                         curve: Curves.easeOut,
@@ -374,30 +364,51 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 16,
                                         ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              item['title'] ?? '',
-                                              style: const TextStyle(
-                                                color: AppColors.chaputWhite,
-                                                fontSize: 20,
-                                                height: 1.15,
-                                                fontWeight: FontWeight.w700,
+                                        child: FittedBox(
+                                          alignment: Alignment.centerLeft,
+                                          fit: BoxFit.scaleDown,
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              maxWidth: math.max(
+                                                1,
+                                                mq.size.width - 32,
                                               ),
                                             ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              item['subtitle'] ?? '',
-                                              style: TextStyle(
-                                                color: AppColors.chaputWhite
-                                                    .withOpacity(0.78),
-                                                fontSize: 13,
-                                                height: 1.3,
-                                              ),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  item['title'] ?? '',
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color:
+                                                        AppColors.chaputWhite,
+                                                    fontSize: 20,
+                                                    height: 1.15,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  item['subtitle'] ?? '',
+                                                  maxLines: 4,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: AppColors.chaputWhite.withValues(
+                                                      alpha: 0.82,
+                                                    ),
+                                                    fontSize: 13,
+                                                    height: 1.35,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ],
+                                          ),
                                         ),
                                       );
                                     },
@@ -427,7 +438,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                             color: isActive
                                                 ? AppColors.chaputWhite
                                                 : AppColors.chaputWhite
-                                                      .withOpacity(0.35),
+                                                      .withValues(alpha: 0.35),
                                             borderRadius: BorderRadius.circular(
                                               999,
                                             ),
@@ -443,8 +454,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     horizontal: 16,
                                   ),
                                   child: Divider(
-                                    color: AppColors.chaputWhite.withOpacity(
-                                      0.12,
+                                    color: AppColors.chaputWhite.withValues(
+                                      alpha: 0.12,
                                     ),
                                   ),
                                 ),
