@@ -402,6 +402,7 @@
   "legal.privacy_title": "Integritetspolicy",
   "legal.data_protection_title": "Dataskyddsinformation",
   "legal.explicit_consent_title": "Text för uttryckligt samtycke",
+  "legal.community_title": "Communityregler",
   "legal.webview_error_title": "Dokumentet kunde inte laddas",
   "legal.webview_error_body": "Kontrollera din anslutning och försök igen.",
   "legal.webview_loading": "Dokument laddas...",
@@ -410,7 +411,8 @@
   "signup.legal_required": "Godkänn de nödvändiga juridiska dokumenten för att fortsätta.",
   "signup.legal_text_before_terms": "Jag har läst, förstått och godkänner ",
   "signup.legal_text_after_terms": ", ",
-  "signup.legal_text_after_privacy": " och ",
-  "signup.legal_text_after_data_protection": " och ",
-  "signup.legal_text_after_explicit_consent": "."
+  "signup.legal_text_after_privacy": ", ",
+  "signup.legal_text_after_data_protection": ", ",
+  "signup.legal_text_after_explicit_consent": " och ",
+  "signup.legal_text_after_community": "."
 }

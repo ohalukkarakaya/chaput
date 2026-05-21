@@ -402,6 +402,7 @@
   "legal.privacy_title": "Política de privacidad",
   "legal.data_protection_title": "Aviso de protección de datos",
   "legal.explicit_consent_title": "Texto de consentimiento explícito",
+  "legal.community_title": "Normas de la comunidad",
   "legal.webview_error_title": "No se pudo cargar el documento",
   "legal.webview_error_body": "Comprueba tu conexión e inténtalo de nuevo.",
   "legal.webview_loading": "Cargando documento...",
@@ -410,7 +411,8 @@
   "signup.legal_required": "Acepta los documentos legales requeridos para continuar.",
   "signup.legal_text_before_terms": "He leído, entendido y acepto los ",
   "signup.legal_text_after_terms": ", la ",
-  "signup.legal_text_after_privacy": " y el ",
-  "signup.legal_text_after_data_protection": " y el ",
-  "signup.legal_text_after_explicit_consent": "."
+  "signup.legal_text_after_privacy": ", el ",
+  "signup.legal_text_after_data_protection": ", el ",
+  "signup.legal_text_after_explicit_consent": " y las ",
+  "signup.legal_text_after_community": "."
 }

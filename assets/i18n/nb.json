@@ -402,6 +402,7 @@
   "legal.privacy_title": "Personvernerklæring",
   "legal.data_protection_title": "Personverninformasjon",
   "legal.explicit_consent_title": "Tekst om uttrykkelig samtykke",
+  "legal.community_title": "Fellesskapsregler",
   "legal.webview_error_title": "Dokumentet kunne ikke lastes",
   "legal.webview_error_body": "Sjekk tilkoblingen din og prøv igjen.",
   "legal.webview_loading": "Laster dokument...",
@@ -410,7 +411,8 @@
   "signup.legal_required": "Godta de nødvendige juridiske dokumentene for å fortsette.",
   "signup.legal_text_before_terms": "Jeg har lest, forstått og godtar ",
   "signup.legal_text_after_terms": ", ",
-  "signup.legal_text_after_privacy": " og ",
-  "signup.legal_text_after_data_protection": " og ",
-  "signup.legal_text_after_explicit_consent": "."
+  "signup.legal_text_after_privacy": ", ",
+  "signup.legal_text_after_data_protection": ", ",
+  "signup.legal_text_after_explicit_consent": " og ",
+  "signup.legal_text_after_community": "."
 }

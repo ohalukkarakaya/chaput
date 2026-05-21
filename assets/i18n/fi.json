@@ -402,6 +402,7 @@
   "legal.privacy_title": "Tietosuojakäytäntö",
   "legal.data_protection_title": "Tietosuojailmoitus",
   "legal.explicit_consent_title": "Nimenomaisen suostumuksen teksti",
+  "legal.community_title": "Yhteisön säännöt",
   "legal.webview_error_title": "Asiakirjaa ei voitu ladata",
   "legal.webview_error_body": "Tarkista yhteys ja yritä uudelleen.",
   "legal.webview_loading": "Ladataan asiakirjaa...",
@@ -410,7 +411,8 @@
   "signup.legal_required": "Hyväksy vaaditut oikeudelliset asiakirjat jatkaaksesi.",
   "signup.legal_text_before_terms": "Olen lukenut ja ymmärtänyt seuraavat asiakirjat ja hyväksyn ne: ",
   "signup.legal_text_after_terms": ", ",
-  "signup.legal_text_after_privacy": " ja ",
-  "signup.legal_text_after_data_protection": " ja ",
-  "signup.legal_text_after_explicit_consent": "."
+  "signup.legal_text_after_privacy": ", ",
+  "signup.legal_text_after_data_protection": ", ",
+  "signup.legal_text_after_explicit_consent": " ja ",
+  "signup.legal_text_after_community": "."
 }

@@ -402,6 +402,7 @@
   "legal.privacy_title": "Gizlilik Politikası",
   "legal.data_protection_title": "KVKK Aydınlatma Metni",
   "legal.explicit_consent_title": "Açık Rıza Metni",
+  "legal.community_title": "Topluluk Kuralları",
   "legal.webview_error_title": "Belge yüklenemedi",
   "legal.webview_error_body": "Lütfen bağlantını kontrol edip tekrar dene.",
   "legal.webview_loading": "Belge yükleniyor...",
@@ -410,7 +411,8 @@
   "signup.legal_required": "Devam etmek için gerekli hukuki belgeleri kabul etmelisin.",
   "signup.legal_text_before_terms": "",
   "signup.legal_text_after_terms": "'ni, ",
-  "signup.legal_text_after_privacy": "'nı ve ",
-  "signup.legal_text_after_data_protection": "'ni ve ",
-  "signup.legal_text_after_explicit_consent": "'ni okudum, anladım ve kabul ediyorum."
+  "signup.legal_text_after_privacy": "'nı, ",
+  "signup.legal_text_after_data_protection": "'ni, ",
+  "signup.legal_text_after_explicit_consent": "'ni ve ",
+  "signup.legal_text_after_community": "'nı okudum, anladım ve kabul ediyorum."
 }

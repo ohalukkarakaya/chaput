@@ -524,6 +524,7 @@ class _LegalConsentTextState extends State<_LegalConsentText> {
   late final TapGestureRecognizer _privacyTap;
   late final TapGestureRecognizer _dataProtectionTap;
   late final TapGestureRecognizer _explicitConsentTap;
+  late final TapGestureRecognizer _communityTap;
 
   @override
   void initState() {
@@ -536,6 +537,8 @@ class _LegalConsentTextState extends State<_LegalConsentText> {
       ..onTap = () => widget.onOpenDocument(LegalDocument.dataProtection);
     _explicitConsentTap = TapGestureRecognizer()
       ..onTap = () => widget.onOpenDocument(LegalDocument.explicitConsent);
+    _communityTap = TapGestureRecognizer()
+      ..onTap = () => widget.onOpenDocument(LegalDocument.community);
   }
 
   @override
@@ -544,6 +547,7 @@ class _LegalConsentTextState extends State<_LegalConsentText> {
     _privacyTap.dispose();
     _dataProtectionTap.dispose();
     _explicitConsentTap.dispose();
+    _communityTap.dispose();
     super.dispose();
   }
 
@@ -591,6 +595,12 @@ class _LegalConsentTextState extends State<_LegalConsentText> {
             recognizer: _explicitConsentTap,
           ),
           TextSpan(text: context.t('signup.legal_text_after_explicit_consent')),
+          TextSpan(
+            text: context.t('legal.community_title'),
+            style: linkStyle,
+            recognizer: _communityTap,
+          ),
+          TextSpan(text: context.t('signup.legal_text_after_community')),
         ],
       ),
     );
