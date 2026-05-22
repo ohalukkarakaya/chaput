@@ -399,7 +399,7 @@
   "legal.webview_error_body": "Kontrollera din anslutning och försök igen.",
   "legal.webview_loading": "Dokument laddas...",
   "signup.birthdate_required": "Födelsedatum krävs",
-  "signup.age_restriction_error": "Du måste vara minst 13 år för att skapa ett konto.",
+  "signup.age_restriction_error": "Du måste vara minst 15 år för att skapa ett konto.",
   "signup.legal_required": "Godkänn de nödvändiga juridiska dokumenten för att fortsätta.",
   "signup.legal_text_before_terms": "Jag har läst, förstått och godkänner ",
   "signup.legal_text_after_terms": ", ",

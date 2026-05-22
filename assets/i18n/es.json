@@ -399,7 +399,7 @@
   "legal.webview_error_body": "Comprueba tu conexión e inténtalo de nuevo.",
   "legal.webview_loading": "Cargando documento...",
   "signup.birthdate_required": "La fecha de nacimiento es obligatoria",
-  "signup.age_restriction_error": "Debes tener al menos 13 años para crear una cuenta.",
+  "signup.age_restriction_error": "Debes tener al menos 15 años para crear una cuenta.",
   "signup.legal_required": "Acepta los documentos legales requeridos para continuar.",
   "signup.legal_text_before_terms": "He leído, entendido y acepto los ",
   "signup.legal_text_after_terms": ", la ",

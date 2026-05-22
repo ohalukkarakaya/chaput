@@ -399,7 +399,7 @@
   "legal.webview_error_body": "Please check your connection and try again.",
   "legal.webview_loading": "Loading document...",
   "signup.birthdate_required": "Birthdate is required",
-  "signup.age_restriction_error": "You must be at least 13 years old to create an account.",
+  "signup.age_restriction_error": "You must be at least 15 years old to create an account.",
   "signup.legal_required": "Please accept the required legal documents to continue.",
   "signup.legal_text_before_terms": "I have read, understood, and agree to the ",
   "signup.legal_text_after_terms": ", ",

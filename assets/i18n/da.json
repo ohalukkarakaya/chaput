@@ -399,7 +399,7 @@
   "legal.webview_error_body": "Tjek din forbindelse, og prøv igen.",
   "legal.webview_loading": "Indlæser dokument...",
   "signup.birthdate_required": "Fødselsdato er påkrævet",
-  "signup.age_restriction_error": "Du skal være mindst 13 år for at oprette en konto.",
+  "signup.age_restriction_error": "Du skal være mindst 15 år for at oprette en konto.",
   "signup.legal_required": "Accepter de nødvendige juridiske dokumenter for at fortsætte.",
   "signup.legal_text_before_terms": "Jeg har læst, forstået og accepterer ",
   "signup.legal_text_after_terms": ", ",

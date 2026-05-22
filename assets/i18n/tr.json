@@ -399,7 +399,7 @@
   "legal.webview_error_body": "Lütfen bağlantını kontrol edip tekrar dene.",
   "legal.webview_loading": "Belge yükleniyor...",
   "signup.birthdate_required": "Doğum tarihi gerekli",
-  "signup.age_restriction_error": "Hesap oluşturmak için en az 13 yaşında olmalısın.",
+  "signup.age_restriction_error": "Hesap oluşturmak için en az 15 yaşında olmalısın.",
   "signup.legal_required": "Devam etmek için gerekli hukuki belgeleri kabul etmelisin.",
   "signup.legal_text_before_terms": "",
   "signup.legal_text_after_terms": "'ni, ",

@@ -90,10 +90,10 @@ class _SignupSheetState extends State<_SignupSheet> {
   }
 
   DateTime _latestAllowedBirthDate() {
-    return _subtractYearsClamped(_dateOnly(DateTime.now()), 13);
+    return _subtractYearsClamped(_dateOnly(DateTime.now()), 15);
   }
 
-  bool _isAtLeast13(DateTime birthDate) {
+  bool _isAtLeast15(DateTime birthDate) {
     return !_dateOnly(birthDate).isAfter(_latestAllowedBirthDate());
   }
 
@@ -152,7 +152,7 @@ class _SignupSheetState extends State<_SignupSheet> {
       HapticFeedback.heavyImpact();
       return;
     }
-    if (!_isAtLeast13(_birthDate!)) {
+    if (!_isAtLeast15(_birthDate!)) {
       setState(
         () => _birthDateError = context.t('signup.age_restriction_error'),
       );
