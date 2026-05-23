@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/account_api.dart';
 
 final accountControllerProvider =
-AutoDisposeNotifierProvider<AccountController, AsyncValue<void>>(
-  AccountController.new,
-);
+    AutoDisposeNotifierProvider<AccountController, AsyncValue<void>>(
+      AccountController.new,
+    );
 
 class AccountController extends AutoDisposeNotifier<AsyncValue<void>> {
   @override
@@ -25,11 +25,11 @@ class AccountController extends AutoDisposeNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<void> deleteMeHard() async {
+  Future<void> deleteMeHard({required String reason}) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final api = ref.read(accountApiProvider);
-      await api.deleteMeHard();
+      await api.deleteMeHard(reason: reason);
     });
 
     if (state.hasError) {

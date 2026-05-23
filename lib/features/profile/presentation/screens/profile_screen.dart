@@ -129,6 +129,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _socketProfileId;
   String? _socketThreadId;
   final Map<String, Set<String>> _typingUsersByThread = {};
+  final Map<String, Timer> _typingExpiryTimers = {};
   final ValueNotifier<int> _typingRevision = ValueNotifier(0);
   bool _activeThreadIsParticipant = false;
   String? _activeThreadId;
@@ -377,7 +378,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void _subscribeThreadSocket(String threadId, String profileIdHex) {
     if (threadId.isEmpty) return;
     if (_socketThreadId != null && _socketThreadId != threadId) {
+      _clearTypingForThread(_socketThreadId!);
       _socketClient.unsubscribeThread(_socketThreadId!);
+    }
+    if (_socketThreadId != threadId) {
+      _clearTypingForThread(threadId);
     }
     _socketClient.subscribeThread(threadId, profileId: profileIdHex);
     _socketThreadId = threadId;
@@ -395,6 +400,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _typingSent = false;
     _typingSentThreadId = null;
     _typingUsersByThread.clear();
+    _clearTypingExpiryTimers();
     _markTypingUsersChanged();
   }
 
@@ -587,15 +593,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final userId = data['user_id']?.toString() ?? '';
       final isTyping = data['is_typing'] == true;
       if (threadId.isEmpty || userId.isEmpty) return;
-      final userIdNorm = userId.toUpperCase();
+      final userIdNorm = userId.toLowerCase();
+      final viewerNorm =
+          (_lastChaputArgs?.viewerId ??
+                  ref.read(meControllerProvider).valueOrNull?.user.userId ??
+                  '')
+              .toLowerCase();
+      if (viewerNorm.isEmpty) return;
+      if (viewerNorm.isNotEmpty && userIdNorm == viewerNorm) {
+        _removeTypingUser(threadId, userIdNorm);
+        return;
+      }
       final argsThreads = _lastChaputArgs;
       if (argsThreads != null) {
         final state = ref.read(chaputThreadsControllerProvider(argsThreads));
         if (!state.usersById.containsKey(userId) &&
+            !state.usersById.containsKey(userId.toUpperCase()) &&
             !state.usersById.containsKey(userIdNorm)) {
           try {
             final api = ref.read(userApiProvider);
-            final res = await api.batchLite(userIds: [userIdNorm]);
+            final res = await api.batchLite(userIds: [userId.toUpperCase()]);
             if (res.items.isNotEmpty) {
               ref
                   .read(chaputThreadsControllerProvider(argsThreads).notifier)
@@ -604,18 +621,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           } catch (_) {}
         }
       }
-      final set = _typingUsersByThread.putIfAbsent(threadId, () => <String>{});
-      bool changed = false;
       if (isTyping) {
-        changed = set.add(userIdNorm);
+        _setTypingUser(threadId, userIdNorm);
       } else {
-        changed = set.remove(userIdNorm);
-        if (set.isEmpty) {
-          _typingUsersByThread.remove(threadId);
-        }
-      }
-      if (changed) {
-        _markTypingUsersChanged();
+        _removeTypingUser(threadId, userIdNorm);
       }
     }
   }
@@ -1182,15 +1191,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _typingRevision.value = _typingRevision.value + 1;
   }
 
+  String _typingKey(String threadId, String userId) =>
+      '$threadId:${userId.toLowerCase()}';
+
+  void _clearTypingExpiryTimers() {
+    for (final timer in _typingExpiryTimers.values) {
+      timer.cancel();
+    }
+    _typingExpiryTimers.clear();
+  }
+
+  void _clearTypingForThread(String threadId) {
+    final ids = _typingUsersByThread.remove(threadId);
+    if (ids == null || ids.isEmpty) return;
+    for (final id in ids) {
+      _typingExpiryTimers.remove(_typingKey(threadId, id))?.cancel();
+    }
+    _markTypingUsersChanged();
+  }
+
+  void _setTypingUser(String threadId, String userId) {
+    final normalized = userId.toLowerCase();
+    final set = _typingUsersByThread.putIfAbsent(threadId, () => <String>{});
+    final changed = set.add(normalized);
+    final key = _typingKey(threadId, normalized);
+    _typingExpiryTimers.remove(key)?.cancel();
+    _typingExpiryTimers[key] = Timer(const Duration(seconds: 4), () {
+      _removeTypingUser(threadId, normalized);
+    });
+    if (changed) {
+      _markTypingUsersChanged();
+    }
+  }
+
+  void _removeTypingUser(String threadId, String userId) {
+    final normalized = userId.toLowerCase();
+    _typingExpiryTimers.remove(_typingKey(threadId, normalized))?.cancel();
+    final set = _typingUsersByThread[threadId];
+    if (set == null) return;
+    final changed = set.remove(normalized);
+    if (set.isEmpty) {
+      _typingUsersByThread.remove(threadId);
+    }
+    if (changed) {
+      _markTypingUsersChanged();
+    }
+  }
+
   Map<String, List<LiteUser>> _resolveTypingUsersByThread(
     Map<String, LiteUser> usersById,
     String viewerId,
   ) {
     final typingUsersByThread = <String, List<LiteUser>>{};
+    final viewerNorm = viewerId.toLowerCase();
     _typingUsersByThread.forEach((threadId, ids) {
       final list = <LiteUser>[];
       for (final id in ids) {
-        if (id == viewerId) continue;
+        if (id.toLowerCase() == viewerNorm) continue;
         LiteUser? u = usersById[id];
         u ??= usersById[id.toUpperCase()];
         u ??= usersById[id.toLowerCase()];
@@ -2277,7 +2334,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _onComposerFocus() {
-    _emitTyping(true);
+    if (!_isBlankDraft()) {
+      _emitTyping(true);
+    }
     // Eğer mesaj var ve daha önce anchor hatırlanmışsa, aynı anchor’a geri focus ol
     if (_draftAnchor != null) {
       _focusAnchor = _draftAnchor!.clone();
@@ -2367,9 +2426,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _typingSent = true;
       _typingSentThreadId = threadId;
     } else {
-      if (!_typingSent || _typingSentThreadId != threadId) return;
-      _typingSent = false;
-      _typingSentThreadId = null;
+      if (_typingSentThreadId == threadId) {
+        _typingSent = false;
+        _typingSentThreadId = null;
+      }
     }
     ref.read(chaputSocketProvider).sendTyping(threadId, isTyping);
   }
@@ -4297,6 +4357,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               _replyTarget = null;
                               _replyTargetThreadId = null;
                             });
+                          },
+                          onTypingChanged: (isTyping) {
+                            if (!mounted) return;
+                            final threadId = activeThread?.threadId;
+                            if (threadId == null || threadId.isEmpty) return;
+                            _sendTyping(threadId, isTyping);
                           },
 
                           onToggleWhisper: () async {

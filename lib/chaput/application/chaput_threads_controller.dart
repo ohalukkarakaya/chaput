@@ -206,13 +206,12 @@ class ChaputThreadsController
       return ourThread;
     }
 
-    final specials = items
-        .where((t) => t.isSpecial && !ourThread.contains(t))
-        .toList();
-    final rest = items
-        .where((t) => !ourThread.contains(t) && !specials.contains(t))
-        .toList();
-    int byCreatedDesc(ChaputThreadItem a, ChaputThreadItem b) {
+    int byPriorityAndActivity(ChaputThreadItem a, ChaputThreadItem b) {
+      final priorityA = a.isSpecial ? 0 : 1;
+      final priorityB = b.isSpecial ? 0 : 1;
+      final byPriority = priorityA.compareTo(priorityB);
+      if (byPriority != 0) return byPriority;
+
       final ta =
           a.lastMessageAt ??
           a.createdAt ??
@@ -221,16 +220,14 @@ class ChaputThreadsController
           b.lastMessageAt ??
           b.createdAt ??
           DateTime.fromMillisecondsSinceEpoch(0);
-      return tb.compareTo(ta);
+      final byActivity = tb.compareTo(ta);
+      if (byActivity != 0) return byActivity;
+
+      return b.threadId.compareTo(a.threadId);
     }
 
-    specials.sort(byCreatedDesc);
-    rest.sort(byCreatedDesc);
-
-    final ordered = <ChaputThreadItem>[];
-    ordered.addAll(ourThread);
-    ordered.addAll(specials);
-    ordered.addAll(rest);
+    final ordered = [...items];
+    ordered.sort(byPriorityAndActivity);
     return ordered;
   }
 
@@ -267,8 +264,15 @@ class ChaputThreadsController
     state = state.copyWith(items: reordered);
   }
 
-  void upsertThreadFromSocket(ChaputThreadItem item, ChaputThreadsArgs arg) {
+  void upsertThreadFromSocket(ChaputThreadItem item, ChaputThreadsArgs _) {
     if (item.threadId.isEmpty) return;
+
+    final exists = state.items.any((t) => t.threadId == item.threadId);
+    if (!exists) {
+      state = state.copyWith(items: [...state.items, item]);
+      return;
+    }
+
     final next = state.items
         .map((t) {
           if (t.threadId != item.threadId) return t;
@@ -277,14 +281,10 @@ class ChaputThreadsController
             state: item.state,
             lastMessageAt: item.lastMessageAt ?? t.lastMessageAt,
             pendingExpiresAt: item.pendingExpiresAt ?? t.pendingExpiresAt,
+            createdAt: item.createdAt ?? t.createdAt,
           );
         })
         .toList(growable: false);
-
-    final exists = state.items.any((t) => t.threadId == item.threadId);
-    final merged = exists ? next : [item, ...next];
-    final deduped = _dedupe(merged);
-    final reordered = _reorder(deduped, arg);
-    state = state.copyWith(items: reordered);
+    state = state.copyWith(items: next);
   }
 }

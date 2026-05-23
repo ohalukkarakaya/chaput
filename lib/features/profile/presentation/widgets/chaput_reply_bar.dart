@@ -1,8 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
-import 'black_glass.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
 import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 
 class ChaputReplyBar extends StatefulWidget {
@@ -15,6 +15,7 @@ class ChaputReplyBar extends StatefulWidget {
     this.onBlur,
     required this.whisperMode,
     required this.onToggleWhisper,
+    this.onTypingChanged,
     this.replyAuthor,
     this.replyBody,
     this.onClearReply,
@@ -29,6 +30,7 @@ class ChaputReplyBar extends StatefulWidget {
   final bool canWhisper;
   final bool whisperMode;
   final Future<void> Function() onToggleWhisper;
+  final ValueChanged<bool>? onTypingChanged;
   final String? replyAuthor;
   final String? replyBody;
   final VoidCallback? onClearReply;
@@ -40,16 +42,24 @@ class ChaputReplyBar extends StatefulWidget {
 class _ChaputReplyBarState extends State<ChaputReplyBar> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  Timer? _typingIdleTimer;
+  bool _typingSent = false;
 
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(_handleFocus);
+    _controller.addListener(_handleTextChanged);
   }
 
   @override
   void dispose() {
+    _typingIdleTimer?.cancel();
+    if (_typingSent) {
+      widget.onTypingChanged?.call(false);
+    }
     _focusNode.removeListener(_handleFocus);
+    _controller.removeListener(_handleTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -59,8 +69,31 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
     if (_focusNode.hasFocus) {
       widget.onFocus?.call();
     } else {
+      _setTyping(false);
       widget.onBlur?.call();
     }
+  }
+
+  void _handleTextChanged() {
+    if (!_focusNode.hasFocus) return;
+    final hasText = _controller.text.trim().isNotEmpty;
+    if (!hasText) {
+      _typingIdleTimer?.cancel();
+      _setTyping(false);
+      return;
+    }
+
+    _setTyping(true);
+    _typingIdleTimer?.cancel();
+    _typingIdleTimer = Timer(const Duration(milliseconds: 1800), () {
+      _setTyping(false);
+    });
+  }
+
+  void _setTyping(bool isTyping) {
+    if (isTyping == _typingSent) return;
+    _typingSent = isTyping;
+    widget.onTypingChanged?.call(isTyping);
   }
 
   Future<void> _send() async {
@@ -70,6 +103,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
     final whisper = widget.whisperMode;
 
     _controller.clear();
+    _setTyping(false);
     await widget.onSend(text, whisper);
   }
 
@@ -80,10 +114,12 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-      child: BlackGlass(
-        radius: 18,
-        opacity: 0.65,
-        borderOpacity: 0.15,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.chaputBlack.withOpacity(0.65),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.chaputWhite.withOpacity(0.15)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -91,11 +127,16 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 10, 0),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.chaputWhite.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.chaputWhite.withOpacity(0.12)),
+                    border: Border.all(
+                      color: AppColors.chaputWhite.withOpacity(0.12),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -140,17 +181,21 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                       GestureDetector(
                         onTap: widget.onClearReply,
                         child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: AppColors.chaputWhite.withOpacity(0.14),
-                          shape: BoxShape.circle,
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: AppColors.chaputWhite.withOpacity(0.14),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            size: 14,
+                            color: AppColors.chaputWhite.withOpacity(0.8),
+                          ),
                         ),
-                        child: Icon(Icons.close, size: 14, color: AppColors.chaputWhite.withOpacity(0.8)),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 ),
               ),
             Row(
@@ -163,16 +208,25 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                     widget.onToggleWhisper();
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: isWhisper ? AppColors.chaputWhite : AppColors.chaputWhite.withOpacity(0.12),
+                      color: isWhisper
+                          ? AppColors.chaputWhite
+                          : AppColors.chaputWhite.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: AppColors.chaputWhite.withOpacity(0.18)),
+                      border: Border.all(
+                        color: AppColors.chaputWhite.withOpacity(0.18),
+                      ),
                     ),
                     child: Text(
                       context.t('chat.whisper_label'),
                       style: TextStyle(
-                        color: isWhisper ? AppColors.chaputBlack : AppColors.chaputWhite,
+                        color: isWhisper
+                            ? AppColors.chaputBlack
+                            : AppColors.chaputWhite,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -193,8 +247,12 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                       fontWeight: FontWeight.w600,
                     ),
                     decoration: InputDecoration(
-                      hintText: isWhisper ? context.t('chat.whisper_hint') : context.t('chat.message_input_hint'),
-                      hintStyle: TextStyle(color: AppColors.chaputWhite.withOpacity(0.4)),
+                      hintText: isWhisper
+                          ? context.t('chat.whisper_hint')
+                          : context.t('chat.message_input_hint'),
+                      hintStyle: TextStyle(
+                        color: AppColors.chaputWhite.withOpacity(0.4),
+                      ),
                       border: InputBorder.none,
                     ),
                     minLines: 1,

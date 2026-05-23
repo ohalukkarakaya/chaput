@@ -34,8 +34,8 @@ class AccountApi {
     );
   }
 
-  Future<void> deleteMeHard() async {
-    final r = await _dio.delete('/me/account');
+  Future<void> deleteMeHard({required String reason}) async {
+    final r = await _dio.delete('/me/account', data: {'reason': reason});
     final data = r.data;
     if (data is Map && data['ok'] == true) return;
     throw DioException(

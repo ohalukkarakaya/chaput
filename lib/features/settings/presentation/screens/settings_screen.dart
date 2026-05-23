@@ -26,9 +26,10 @@ import 'package:dio/dio.dart';
 import 'package:chaput/core/router/routes.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
 
-
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
+
+  static const int _closeReasonMinLength = 12;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,57 +52,77 @@ class SettingsScreen extends ConsumerWidget {
                   data: (me) {
                     final user = me?.user;
                     final username = user?.username ?? '';
-                    final usernameLabel = username.isEmpty ? context.t('common.na') : '@$username';
+                    final usernameLabel = username.isEmpty
+                        ? context.t('common.na')
+                        : '@$username';
                     final fullName = user?.fullName ?? context.t('common.na');
-                
+
                     final defaultAvatar = user?.defaultAvatar;
                     final profilePhotoUrl = user?.profilePhotoUrl;
 
                     final privacySt = ref.watch(privacyControllerProvider);
 
                     // backend: isPublic? -> private = !isPublic
-                    final bool privateAccountValue = (privacySt.isPublic == null)
+                    final bool privateAccountValue =
+                        (privacySt.isPublic == null)
                         ? false // yüklenene kadar kapalı göster (istersen skeleton da yaparız)
                         : !(privacySt.isPublic!);
 
                     // switch disabled: yüklenmemişken veya request sırasında istersen disable edebilirsin
-                    final bool privateSwitchEnabled = privacySt.isPublic != null && !privacySt.isLoading;
-
+                    final bool privateSwitchEnabled =
+                        privacySt.isPublic != null && !privacySt.isLoading;
 
                     return _SettingsShell(
                       child: _SettingsContent(
                         title: formatFullName(fullName),
                         subtitle: usernameLabel,
-                        avatarUrl: (profilePhotoUrl != null && profilePhotoUrl.isNotEmpty)
+                        avatarUrl:
+                            (profilePhotoUrl != null &&
+                                profilePhotoUrl.isNotEmpty)
                             ? profilePhotoUrl
                             : (defaultAvatar ?? ''),
-                        isDefaultAvatar: profilePhotoUrl == null || profilePhotoUrl.isEmpty,
+                        isDefaultAvatar:
+                            profilePhotoUrl == null || profilePhotoUrl.isEmpty,
                         onBack: () => Navigator.of(context).pop(),
                         onOpenPhoto: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const PhotoSettingsScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const PhotoSettingsScreen(),
+                            ),
                           );
                         },
                         onOpenEmail: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const EmailChangeScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const EmailChangeScreen(),
+                            ),
                           );
                         },
                         onOpenPrivacy: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const BlockedRestrictedScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const BlockedRestrictedScreen(),
+                            ),
                           );
                         },
                         onOpenArchive: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ArchiveChaputsScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const ArchiveChaputsScreen(),
+                            ),
                           );
                         },
                         onPauseAccount: () async {
                           if (username.isEmpty) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.t('settings.username_not_available'))),
+                                SnackBar(
+                                  content: Text(
+                                    context.t(
+                                      'settings.username_not_available',
+                                    ),
+                                  ),
+                                ),
                               );
                             }
                             return;
@@ -118,11 +139,17 @@ class SettingsScreen extends ConsumerWidget {
                           if (!ok) return;
 
                           try {
-                            await ref.read(accountControllerProvider.notifier).freezeMe();
+                            await ref
+                                .read(accountControllerProvider.notifier)
+                                .freezeMe();
 
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.t('settings.pause_success'))),
+                                SnackBar(
+                                  content: Text(
+                                    context.t('settings.pause_success'),
+                                  ),
+                                ),
                               );
                             }
 
@@ -130,7 +157,11 @@ class SettingsScreen extends ConsumerWidget {
                           } catch (_) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.t('settings.pause_failed'))),
+                                SnackBar(
+                                  content: Text(
+                                    context.t('settings.pause_failed'),
+                                  ),
+                                ),
                               );
                             }
                           }
@@ -140,28 +171,40 @@ class SettingsScreen extends ConsumerWidget {
                           if (username.isEmpty) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.t('settings.username_not_available'))),
+                                SnackBar(
+                                  content: Text(
+                                    context.t(
+                                      'settings.username_not_available',
+                                    ),
+                                  ),
+                                ),
                               );
                             }
                             return;
                           }
 
-                          final ok = await _confirmUsernameDialog(
+                          final reason = await _confirmCloseAccountDialog(
                             context,
                             expectedUsername: username,
                             title: context.t('settings.close_title'),
                             description: context.t('settings.close_desc'),
                             confirmLabel: context.t('settings.close_confirm'),
-                            isDestructive: true,
+                            minReasonLength: _closeReasonMinLength,
                           );
-                          if (!ok) return;
+                          if (reason == null) return;
 
                           try {
-                            await ref.read(accountControllerProvider.notifier).deleteMeHard();
+                            await ref
+                                .read(accountControllerProvider.notifier)
+                                .deleteMeHard(reason: reason);
 
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.t('settings.close_success'))),
+                                SnackBar(
+                                  content: Text(
+                                    context.t('settings.close_success'),
+                                  ),
+                                ),
                               );
                             }
 
@@ -169,7 +212,11 @@ class SettingsScreen extends ConsumerWidget {
                           } catch (_) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.t('settings.close_failed'))),
+                                SnackBar(
+                                  content: Text(
+                                    context.t('settings.close_failed'),
+                                  ),
+                                ),
                               );
                             }
                           }
@@ -202,17 +249,27 @@ class SettingsScreen extends ConsumerWidget {
                         privateSwitchEnabled: privateSwitchEnabled,
                         onPrivateAccountChanged: privateSwitchEnabled
                             ? (v) {
-                          unawaited(
-                            ref.read(privacyControllerProvider.notifier).setPrivate(v)
-                                .catchError((_) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(context.t('settings.privacy_update_failed'))),
+                                unawaited(
+                                  ref
+                                      .read(privacyControllerProvider.notifier)
+                                      .setPrivate(v)
+                                      .catchError((_) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                context.t(
+                                                  'settings.privacy_update_failed',
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }),
                                 );
                               }
-                            }),
-                          );
-                        }
                             : null,
                       ),
                     );
@@ -227,13 +284,13 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<bool> _confirmUsernameDialog(
-      BuildContext context, {
-        required String expectedUsername,
-        required String title,
-        required String description,
-        required String confirmLabel,
-        bool isDestructive = false,
-      }) async {
+    BuildContext context, {
+    required String expectedUsername,
+    required String title,
+    required String description,
+    required String confirmLabel,
+    bool isDestructive = false,
+  }) async {
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -249,6 +306,29 @@ class SettingsScreen extends ConsumerWidget {
     );
 
     return ok == true;
+  }
+
+  Future<String?> _confirmCloseAccountDialog(
+    BuildContext context, {
+    required String expectedUsername,
+    required String title,
+    required String description,
+    required String confirmLabel,
+    required int minReasonLength,
+  }) {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return _CloseAccountConfirmDialog(
+          expectedUsername: expectedUsername,
+          title: title,
+          description: description,
+          confirmLabel: confirmLabel,
+          minReasonLength: minReasonLength,
+        );
+      },
+    );
   }
 
   Future<void> _logoutNow(BuildContext context, WidgetRef ref) async {
@@ -336,7 +416,9 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.isDestructive ? AppColors.chaputRed : AppColors.chaputBlack;
+    final accent = widget.isDestructive
+        ? AppColors.chaputRed
+        : AppColors.chaputBlack;
     final badgeBg = widget.isDestructive
         ? AppColors.chaputLightRed
         : AppColors.chaputBlack.withOpacity(0.06);
@@ -362,7 +444,9 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(
-                      widget.isDestructive ? Icons.warning_rounded : Icons.lock_outline,
+                      widget.isDestructive
+                          ? Icons.warning_rounded
+                          : Icons.lock_outline,
                       color: accent,
                       size: 20,
                     ),
@@ -411,7 +495,9 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
                       onPressed: () => Navigator.of(context).pop(false),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.chaputBlack,
-                        side: BorderSide(color: AppColors.chaputBlack.withOpacity(0.12)),
+                        side: BorderSide(
+                          color: AppColors.chaputBlack.withOpacity(0.12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -429,7 +515,11 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
                       onPressed: () {
                         final input = c.text.trim();
                         if (input != widget.expectedUsername) {
-                          setState(() => errorText = context.t('settings.username_mismatch'));
+                          setState(
+                            () => errorText = context.t(
+                              'settings.username_mismatch',
+                            ),
+                          );
                           return;
                         }
                         Navigator.of(context).pop(true);
@@ -459,6 +549,214 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
   }
 }
 
+class _CloseAccountConfirmDialog extends StatefulWidget {
+  const _CloseAccountConfirmDialog({
+    required this.expectedUsername,
+    required this.title,
+    required this.description,
+    required this.confirmLabel,
+    required this.minReasonLength,
+  });
+
+  final String expectedUsername;
+  final String title;
+  final String description;
+  final String confirmLabel;
+  final int minReasonLength;
+
+  @override
+  State<_CloseAccountConfirmDialog> createState() =>
+      _CloseAccountConfirmDialogState();
+}
+
+class _CloseAccountConfirmDialogState
+    extends State<_CloseAccountConfirmDialog> {
+  late final TextEditingController usernameCtrl;
+  late final TextEditingController reasonCtrl;
+  String? usernameErrorText;
+  String? reasonErrorText;
+
+  @override
+  void initState() {
+    super.initState();
+    usernameCtrl = TextEditingController();
+    reasonCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    usernameCtrl.dispose();
+    reasonCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.chaputRed;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      backgroundColor: AppColors.chaputWhite.withOpacity(0.98),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.chaputLightRed,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(Icons.warning_rounded, color: accent, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.description,
+                style: TextStyle(
+                  color: AppColors.chaputBlack.withOpacity(0.65),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: usernameCtrl,
+                contextMenuBuilder: appTextContextMenuBuilder,
+                decoration: InputDecoration(
+                  labelText: context.t('settings.username_label'),
+                  hintText: context.t('settings.username_hint'),
+                  errorText: usernameErrorText,
+                  filled: true,
+                  fillColor: AppColors.chaputBlack.withOpacity(0.04),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonCtrl,
+                contextMenuBuilder: appTextContextMenuBuilder,
+                minLines: 3,
+                maxLines: 5,
+                maxLength: 500,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  labelText: context.t('settings.close_reason_label'),
+                  hintText: context.t('settings.close_reason_hint'),
+                  helperText: context.t(
+                    'settings.close_reason_helper',
+                    params: {'count': widget.minReasonLength.toString()},
+                  ),
+                  errorText: reasonErrorText,
+                  filled: true,
+                  fillColor: AppColors.chaputBlack.withOpacity(0.04),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.chaputBlack,
+                        side: BorderSide(
+                          color: AppColors.chaputBlack.withOpacity(0.12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        context.t('common.cancel'),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final username = usernameCtrl.text.trim();
+                        final reason = reasonCtrl.text.trim();
+                        var hasError = false;
+
+                        if (username != widget.expectedUsername) {
+                          usernameErrorText = context.t(
+                            'settings.username_mismatch',
+                          );
+                          hasError = true;
+                        } else {
+                          usernameErrorText = null;
+                        }
+
+                        if (reason.length < widget.minReasonLength) {
+                          reasonErrorText = context.t(
+                            'settings.close_reason_min',
+                            params: {
+                              'count': widget.minReasonLength.toString(),
+                            },
+                          );
+                          hasError = true;
+                        } else {
+                          reasonErrorText = null;
+                        }
+
+                        if (hasError) {
+                          setState(() {});
+                          return;
+                        }
+                        Navigator.of(context).pop(reason);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accent,
+                        foregroundColor: AppColors.chaputWhite,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        widget.confirmLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _SoftBlob extends StatelessWidget {
   final double width;
@@ -538,224 +836,225 @@ class _SettingsContent extends StatelessWidget {
 
         // main white card
         Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // LEFT — 2/3
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // name + verified
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // LEFT — 2/3
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // name + verified
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          // username
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppColors.chaputBlack.withOpacity(0.55),
-                              fontWeight: FontWeight.w600,
                             ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        // username
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.chaputBlack.withOpacity(0.55),
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
 
-                          const SizedBox(height: 8),
+                        const SizedBox(height: 8),
 
-                          Text(
-                            context.t('settings.manage_desc'),
-                            style: TextStyle(
-                              color: AppColors.chaputBlack.withOpacity(0.60),
-                              fontWeight: FontWeight.w500,
-                              height: 1.35,
-                            ),
+                        Text(
+                          context.t('settings.manage_desc'),
+                          style: TextStyle(
+                            color: AppColors.chaputBlack.withOpacity(0.60),
+                            fontWeight: FontWeight.w500,
+                            height: 1.35,
                           ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    // RIGHT — 1/3
-                    Expanded(
-                      flex: 1,
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: LayoutBuilder(
-                          builder: (context, c) {
-                            final size = c.maxWidth.clamp(72.0, 110.0);
-                            return _AvatarWithRing(
-                              avatarUrl: avatarUrl,
-                              isDefaultAvatar: isDefaultAvatar,
-                              onTap: onOpenPhoto,
-                              size: size,
-                            );
-                          },
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 18),
-
-                Text(
-                  context.t('settings.section_living_setup'),
-                  style: TextStyle(
-                    color: AppColors.chaputBlack.withOpacity(0.60),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                _SettingsRow(
-                  icon: Icons.photo_camera_outlined,
-                  title: context.t('settings.row_profile_photo'),
-                  subtitle: context.t('settings.row_profile_photo_sub'),
-                  onTap: onOpenPhoto,
-                ),
-                const SizedBox(height: 8),
-                _SettingsRow(
-                  icon: Icons.alternate_email,
-                  title: context.t('settings.row_email'),
-                  subtitle: context.t('settings.row_email_sub'),
-                  onTap: onOpenEmail,
-                ),
-                const SizedBox(height: 8),
-                _SettingsRow(
-                  icon: Icons.block_outlined,
-                  title: context.t('settings.row_blocks'),
-                  subtitle: context.t('settings.row_blocks_sub'),
-                  onTap: onOpenPrivacy,
-                ),
-                const SizedBox(height: 8),
-                _SettingsRow(
-                  icon: Icons.archive_outlined,
-                  title: context.t('settings.row_archived'),
-                  subtitle: context.t('settings.row_archived_sub'),
-                  onTap: onOpenArchive,
-                ),
-
-                const SizedBox(height: 18),
-
-                Text(
-                  context.t('settings.section_account_control'),
-                  style: TextStyle(
-                    color: AppColors.chaputBlack.withOpacity(0.60),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                _PrivateAccountRow(
-                  value: privateAccountValue,
-                  enabled: privateSwitchEnabled,
-                  onChanged: onPrivateAccountChanged,
-                ),
-                const SizedBox(height: 12),
-
-                Wrap(
-                  children: [
-                    Text(
-                      context.t('settings.pause_prefix'),
-                      style: TextStyle(
-                        color: AppColors.chaputBlack.withOpacity(0.60),
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                        fontSize: 13,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: onPauseAccount,
-                      child: Text(
-                        context.t('settings.pause_link'),
-                        style: TextStyle(
-                          decoration: TextDecoration.underline,
-                          color: AppColors.chaputGolden,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          height: 1.25,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      context.t('settings.close_prefix'),
-                      style: TextStyle(
-                        color: AppColors.chaputBlack.withOpacity(0.60),
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                        fontSize: 13,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: onCloseAccount,
-                      child: Text(
-                        context.t('settings.close_link'),
-                        style: TextStyle(
-                          decoration: TextDecoration.underline,
-                          color: AppColors.chaputErrorRed,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          height: 1.25,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      context.t('settings.close_suffix'),
-                      style: TextStyle(
-                        color: AppColors.chaputBlack.withOpacity(0.60),
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                SizedBox(
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: onLogout,
-                    icon: const Icon(Icons.logout, size: 18),
-                    label: Text(
-                      context.t('settings.logout_button'),
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.chaputBlack,
-                      foregroundColor: AppColors.chaputWhite,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ],
                     ),
                   ),
-                ),
 
-              ],
-            ),
+                  const SizedBox(width: 12),
+
+                  // RIGHT — 1/3
+                  Expanded(
+                    flex: 1,
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          final size = c.maxWidth.clamp(72.0, 110.0);
+                          return _AvatarWithRing(
+                            avatarUrl: avatarUrl,
+                            isDefaultAvatar: isDefaultAvatar,
+                            onTap: onOpenPhoto,
+                            size: size,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              Text(
+                context.t('settings.section_living_setup'),
+                style: TextStyle(
+                  color: AppColors.chaputBlack.withOpacity(0.60),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              _SettingsRow(
+                icon: Icons.photo_camera_outlined,
+                title: context.t('settings.row_profile_photo'),
+                subtitle: context.t('settings.row_profile_photo_sub'),
+                onTap: onOpenPhoto,
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                icon: Icons.alternate_email,
+                title: context.t('settings.row_email'),
+                subtitle: context.t('settings.row_email_sub'),
+                onTap: onOpenEmail,
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                icon: Icons.block_outlined,
+                title: context.t('settings.row_blocks'),
+                subtitle: context.t('settings.row_blocks_sub'),
+                onTap: onOpenPrivacy,
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                icon: Icons.archive_outlined,
+                title: context.t('settings.row_archived'),
+                subtitle: context.t('settings.row_archived_sub'),
+                onTap: onOpenArchive,
+              ),
+
+              const SizedBox(height: 18),
+
+              Text(
+                context.t('settings.section_account_control'),
+                style: TextStyle(
+                  color: AppColors.chaputBlack.withOpacity(0.60),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              _PrivateAccountRow(
+                value: privateAccountValue,
+                enabled: privateSwitchEnabled,
+                onChanged: onPrivateAccountChanged,
+              ),
+              const SizedBox(height: 12),
+
+              Wrap(
+                children: [
+                  Text(
+                    context.t('settings.pause_prefix'),
+                    style: TextStyle(
+                      color: AppColors.chaputBlack.withOpacity(0.60),
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      fontSize: 13,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: onPauseAccount,
+                    child: Text(
+                      context.t('settings.pause_link'),
+                      style: TextStyle(
+                        decoration: TextDecoration.underline,
+                        color: AppColors.chaputGolden,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    context.t('settings.close_prefix'),
+                    style: TextStyle(
+                      color: AppColors.chaputBlack.withOpacity(0.60),
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      fontSize: 13,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: onCloseAccount,
+                    child: Text(
+                      context.t('settings.close_link'),
+                      style: TextStyle(
+                        decoration: TextDecoration.underline,
+                        color: AppColors.chaputErrorRed,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    context.t('settings.close_suffix'),
+                    style: TextStyle(
+                      color: AppColors.chaputBlack.withOpacity(0.60),
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              SizedBox(
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: onLogout,
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: Text(
+                    context.t('settings.logout_button'),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.chaputBlack,
+                    foregroundColor: AppColors.chaputWhite,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
+        ),
       ],
     );
   }
@@ -786,7 +1085,9 @@ class _Dot extends StatelessWidget {
       width: 6,
       height: 6,
       decoration: BoxDecoration(
-        color: active ? AppColors.chaputWhite : AppColors.chaputWhite.withOpacity(0.45),
+        color: active
+            ? AppColors.chaputWhite
+            : AppColors.chaputWhite.withOpacity(0.45),
         borderRadius: BorderRadius.circular(999),
       ),
     );
@@ -859,7 +1160,11 @@ class _AvatarWithRing extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.settings, size: 18, color: AppColors.chaputBlack),
+                child: const Icon(
+                  Icons.settings,
+                  size: 18,
+                  color: AppColors.chaputBlack,
+                ),
               ),
             ),
           ),
@@ -913,7 +1218,10 @@ class _SettingsRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
@@ -926,7 +1234,10 @@ class _SettingsRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: AppColors.chaputBlack.withOpacity(0.35)),
+              Icon(
+                Icons.chevron_right,
+                color: AppColors.chaputBlack.withOpacity(0.35),
+              ),
             ],
           ),
         ),
@@ -953,12 +1264,7 @@ class _LoadingCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            ShimmerBlock(
-              width: 34,
-              height: 34,
-              radius: 12,
-              color: lineColor,
-            ),
+            ShimmerBlock(width: 34, height: 34, radius: 12, color: lineColor),
             const SizedBox(width: 12),
             const Expanded(
               child: Column(
@@ -984,7 +1290,9 @@ class _LoadingCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.chaputWhite,
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
+              border: Border.all(
+                color: AppColors.chaputBlack.withOpacity(0.06),
+              ),
             ),
             child: Row(
               children: [
@@ -1022,7 +1330,10 @@ class _ErrorCard extends StatelessWidget {
     return Center(
       child: Text(
         context.t('settings.load_failed'),
-        style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.65), fontWeight: FontWeight.w700),
+        style: TextStyle(
+          color: AppColors.chaputBlack.withOpacity(0.65),
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
