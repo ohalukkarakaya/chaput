@@ -661,6 +661,8 @@ class _CloseAccountConfirmDialogState
                 maxLength: 500,
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
+                  alignLabelWithHint: true,
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
                   labelText: context.t('settings.close_reason_label'),
                   hintText: context.t('settings.close_reason_hint'),
                   helperText: context.t(
