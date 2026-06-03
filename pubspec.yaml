@@ -62,6 +62,7 @@ dependencies:
   sensors_plus: ^7.0.0
   three_js_math: ^0.2.6
   webview_flutter: ^4.13.1
+  app_links: ^7.0.0
 
 dev_dependencies:
   flutter_test:

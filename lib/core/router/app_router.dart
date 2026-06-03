@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../chaput/presentation/screens/chaput_detail_screen.dart';
 import '../../features/home/presentation/screens/home_shell.dart';
 import '../../features/onboarding/presentation/screens/boot_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
@@ -20,6 +21,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: Routes.boot,
     observers: [routeObserver],
+    errorPageBuilder: (context, state) => _fadePage(
+      state: state,
+      child: BootScreen(key: ValueKey('link-fallback-${state.uri}')),
+    ),
     routes: [
       GoRoute(
         path: Routes.boot,
@@ -48,6 +53,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: Routes.tree,
+        pageBuilder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          return _fadePage(
+            state: state,
+            child: ProfileScreen(key: ValueKey('tree-$userId'), userId: userId),
+          );
+        },
+      ),
+      GoRoute(
         name: 'profile',
         path: '/profile/:userId',
         builder: (context, state) {
@@ -70,6 +85,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             userId: userId,
             initialThreadId: initialThreadId,
             initialMessageId: initialMessageId,
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.chaput,
+        pageBuilder: (context, state) {
+          final chaputId = state.pathParameters['chaputId']!;
+          return _fadePage(
+            state: state,
+            child: ChaputDetailScreen(chaputId: chaputId),
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.post,
+        pageBuilder: (context, state) {
+          final postId = state.pathParameters['postId']!;
+          return _fadePage(
+            state: state,
+            child: ChaputDetailScreen(chaputId: postId),
           );
         },
       ),

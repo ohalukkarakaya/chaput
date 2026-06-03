@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/deep_links/deep_link_state.dart';
 import '../../../../core/device/device_id_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
@@ -79,6 +80,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _handleEmailChanged() {
     if (_submitError == null) return;
     setState(() => _submitError = null);
+  }
+
+  void _goAfterAuthentication() {
+    final pendingLink = ref.read(pendingDeepLinkProvider);
+    if (pendingLink != null) {
+      ref.read(pendingDeepLinkProvider.notifier).state = null;
+      context.go(pendingLink.location, extra: pendingLink.extra);
+      return;
+    }
+
+    context.go(Routes.home);
   }
 
   Future<void> _showSubmitError(String message) async {
@@ -152,7 +164,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
       if (!mounted) return;
-      context.go(Routes.home);
+      _goAfterAuthentication();
     } on DioException catch (e) {
       final code = e.response?.statusCode;
       log('ONB: /me failed status=$code', error: e);
@@ -224,7 +236,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
       if (!mounted) return;
-      context.go(Routes.home);
+      _goAfterAuthentication();
     } on DioException catch (e) {
       final code = e.response?.statusCode;
       log('ONB: /me failed status=$code', error: e);
@@ -396,11 +408,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                                 Text(
                                                   item['subtitle'] ?? '',
                                                   maxLines: 4,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    color: AppColors.chaputWhite.withValues(
-                                                      alpha: 0.82,
-                                                    ),
+                                                    color: AppColors.chaputWhite
+                                                        .withValues(
+                                                          alpha: 0.82,
+                                                        ),
                                                     fontSize: 13,
                                                     height: 1.35,
                                                     fontWeight: FontWeight.w500,

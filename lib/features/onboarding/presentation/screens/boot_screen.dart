@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/deep_links/deep_link_state.dart';
 import '../../../../core/device/device_id_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
@@ -20,6 +21,17 @@ class BootScreen extends ConsumerStatefulWidget {
 
 class _BootScreenState extends ConsumerState<BootScreen> {
   bool _navigated = false;
+
+  void _goAfterBoot() {
+    final pendingLink = ref.read(pendingDeepLinkProvider);
+    if (pendingLink != null) {
+      ref.read(pendingDeepLinkProvider.notifier).state = null;
+      context.pushReplacement(pendingLink.location, extra: pendingLink.extra);
+      return;
+    }
+
+    context.pushReplacement(Routes.home);
+  }
 
   Future<void> _prepareOnboardingTree() async {
     try {
@@ -93,7 +105,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
         debugPrint('BOOT: /me OK -> HOME');
 
         _navigated = true;
-        if (mounted) context.pushReplacement(Routes.home);
+        if (mounted) _goAfterBoot();
       } on DioException catch (e) {
         final code = e.response?.statusCode;
 

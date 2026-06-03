@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/app_availability/app_availability_gate.dart';
+import 'core/deep_links/deep_link_listener.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
@@ -37,8 +38,10 @@ class ChaputApp extends ConsumerWidget {
       ),
       darkTheme: AppTheme.light(),
       routerConfig: router,
-      builder: (context, child) =>
-          AppAvailabilityGate(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => DeepLinkListener(
+        router: router,
+        child: AppAvailabilityGate(child: child ?? const SizedBox.shrink()),
+      ),
       localizationsDelegates: const [
         AppLocalizationsDelegate(),
         GlobalMaterialLocalizations.delegate,
