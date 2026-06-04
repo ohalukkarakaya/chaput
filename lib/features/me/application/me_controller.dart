@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../me/data/me_api.dart';
 import '../../me/domain/me_models.dart';
+import '../../notifications/application/firebase_token_cleanup.dart';
+import '../../../core/deep_links/deep_link_state.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 
 final meControllerProvider = AsyncNotifierProvider<MeController, MeResponse?>(
@@ -52,7 +54,9 @@ class MeController extends AsyncNotifier<MeResponse?> {
 
       // 401 or 404 -> hard logout
       if (code == 401 || code == 404) {
+        await FirebaseTokenCleanup.deleteLocalMessagingToken();
         await storage.clear();
+        ref.read(pendingDeepLinkProvider.notifier).state = null;
         state = const AsyncData(null);
         rethrow; // caller decide navigation
       }

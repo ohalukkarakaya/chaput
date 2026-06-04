@@ -1,7 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -12,12 +14,23 @@ class LocalNotificationService {
 
   static final LocalNotificationService instance = LocalNotificationService._();
 
-  static const _kMissYouId = 9001;
-  static const _kLastOpenKey = 'last_open_at';
+  static const _kInactiveBaseId = 9000;
+  static const _kInactiveScheduleDays = 7;
+  static const _kTestReminderMinutes = int.fromEnvironment(
+    'CHAPUT_LOCAL_REMINDER_TEST_MINUTES',
+    defaultValue: 0,
+  );
+  static const _kChannelId = 'chaput_local';
+  static const _kRemoteChannelId = 'chaput_activity';
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+  final StreamController<String> _payloads =
+      StreamController<String>.broadcast();
   bool _inited = false;
+  String? _launchPayload;
+
+  Stream<String> get payloads => _payloads.stream;
 
   Future<void> init() async {
     if (_inited) return;
@@ -25,34 +38,171 @@ class LocalNotificationService {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
     const settings = InitializationSettings(android: android, iOS: ios);
-    await _plugin.initialize(settings: settings);
+    await _plugin.initialize(
+      settings: settings,
+      onDidReceiveNotificationResponse: (response) {
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          _payloads.add(payload);
+        }
+      },
+    );
+    await _ensureRemoteChannel();
+    final launch = await _plugin.getNotificationAppLaunchDetails();
+    final payload = launch?.notificationResponse?.payload;
+    if (launch?.didNotificationLaunchApp == true &&
+        payload != null &&
+        payload.isNotEmpty) {
+      _launchPayload = payload;
+    }
     _inited = true;
   }
 
-  Future<void> scheduleMissYou() async {
+  Future<void> _ensureRemoteChannel() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final l10n = await AppLocalizations.load(
+        PlatformDispatcher.instance.locale,
+      );
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(
+            AndroidNotificationChannel(
+              _kRemoteChannelId,
+              l10n.t('notifications.local_channel_name'),
+              description: l10n.t('notifications.local_channel_desc'),
+              importance: Importance.defaultImportance,
+              showBadge: true,
+            ),
+          );
+    } catch (_) {
+      // Channel creation is best-effort; FCM can still use its default channel.
+    }
+  }
+
+  String? takeLaunchPayload() {
+    final payload = _launchPayload;
+    _launchPayload = null;
+    return payload;
+  }
+
+  Future<void> requestPermissions() async {
     await init();
-    await _plugin.cancel(id: _kMissYouId);
-    final now = DateTime.now();
-    await _storage.write(key: _kLastOpenKey, value: now.millisecondsSinceEpoch.toString());
-    final scheduled = now.add(const Duration(hours: 24));
-    final l10n = await AppLocalizations.load(PlatformDispatcher.instance.locale);
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >()
+            ?.requestNotificationsPermission();
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >()
+            ?.requestPermissions(alert: true, badge: true, sound: true);
+      }
+    } catch (_) {
+      // Permission state is best-effort; denied permissions simply mean no local notification.
+    }
+  }
+
+  Future<void> cancelInactivityReminders() async {
+    await init();
+    for (var i = 0; i < _kInactiveScheduleDays; i++) {
+      await _plugin.cancel(id: _kInactiveBaseId + i);
+    }
+  }
+
+  Future<void> scheduleInactivityReminders({
+    required bool hasActiveSession,
+    required bool hasAuthenticatedBefore,
+  }) async {
+    await init();
+    await cancelInactivityReminders();
+
+    final kind = hasActiveSession
+        ? _InactiveReminderKind.authenticated
+        : (!hasAuthenticatedBefore
+              ? _InactiveReminderKind.neverLoggedIn
+              : null);
+    if (kind == null) return;
+
+    final l10n = await AppLocalizations.load(
+      PlatformDispatcher.instance.locale,
+    );
     final details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'chaput_local',
+        _kChannelId,
         l10n.t('notifications.local_channel_name'),
         channelDescription: l10n.t('notifications.local_channel_desc'),
         importance: Importance.defaultImportance,
         priority: Priority.defaultPriority,
+        largeIcon: const DrawableResourceAndroidBitmap(
+          'ic_launcher_foreground',
+        ),
+        number: 0,
+        channelShowBadge: false,
       ),
-      iOS: const DarwinNotificationDetails(),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: false,
+        presentBadge: false,
+        presentSound: false,
+      ),
     );
-    await _plugin.zonedSchedule(
-      id: _kMissYouId,
-      title: l10n.t('notifications.miss_you_title'),
-      body: l10n.t('notifications.miss_you_body'),
-      scheduledDate: tz.TZDateTime.from(scheduled, tz.local),
-      notificationDetails: details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+
+    final now = DateTime.now();
+    for (var day = 1; day <= _kInactiveScheduleDays; day++) {
+      final variant = day.isOdd ? 1 : 2;
+      final content = _contentFor(l10n, kind, variant);
+      final payload = jsonEncode({'source': 'local', 'type': kind.payloadType});
+      final delay = _reminderDelay(day);
+      await _plugin.zonedSchedule(
+        id: _kInactiveBaseId + day - 1,
+        title: content.title,
+        body: content.body,
+        scheduledDate: tz.TZDateTime.from(now.add(delay), tz.local),
+        notificationDetails: details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
+      );
+      if (kDebugMode) {
+        debugPrint(
+          'LOCAL NOTIF: scheduled ${kind.payloadType} #$day after $delay',
+        );
+      }
+    }
+  }
+
+  Duration _reminderDelay(int day) {
+    if (kDebugMode && _kTestReminderMinutes > 0) {
+      return Duration(minutes: _kTestReminderMinutes * day);
+    }
+    return Duration(hours: 24 * day);
+  }
+
+  ({String title, String body}) _contentFor(
+    AppLocalizations l10n,
+    _InactiveReminderKind kind,
+    int variant,
+  ) {
+    final prefix = kind == _InactiveReminderKind.authenticated
+        ? 'notifications.inactive_user'
+        : 'notifications.inactive_guest';
+    return (
+      title: l10n.t('$prefix.title_$variant'),
+      body: l10n.t('$prefix.body_$variant'),
     );
   }
+}
+
+enum _InactiveReminderKind {
+  neverLoggedIn('local_never_logged_in'),
+  authenticated('local_authenticated_inactive');
+
+  const _InactiveReminderKind(this.payloadType);
+
+  final String payloadType;
 }

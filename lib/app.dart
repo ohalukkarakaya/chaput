@@ -4,6 +4,7 @@ import 'core/app_availability/app_availability_gate.dart';
 import 'core/deep_links/deep_link_listener.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/notifications/application/notification_lifecycle_listener.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/i18n/app_localizations.dart';
@@ -38,9 +39,12 @@ class ChaputApp extends ConsumerWidget {
       ),
       darkTheme: AppTheme.light(),
       routerConfig: router,
-      builder: (context, child) => DeepLinkListener(
+      builder: (context, child) => NotificationLifecycleListener(
         router: router,
-        child: AppAvailabilityGate(child: child ?? const SizedBox.shrink()),
+        child: DeepLinkListener(
+          router: router,
+          child: AppAvailabilityGate(child: child ?? const SizedBox.shrink()),
+        ),
       ),
       localizationsDelegates: const [
         AppLocalizationsDelegate(),

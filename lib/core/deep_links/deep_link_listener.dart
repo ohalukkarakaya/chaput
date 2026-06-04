@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../router/routes.dart';
+import '../storage/secure_storage_provider.dart';
 import 'deep_link_state.dart';
 
 class DeepLinkListener extends ConsumerStatefulWidget {
@@ -37,17 +39,17 @@ class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
     try {
       final uri = await _appLinks.getInitialLink();
       if (!mounted || uri == null) return;
-      _storeLink(uri, navigateNow: false);
+      await _storeLink(uri, navigateNow: false);
     } catch (_) {
       // Initial links are non-critical. The app should still boot normally.
     }
   }
 
   void _handleRuntimeLink(Uri uri) {
-    _storeLink(uri, navigateNow: true);
+    unawaited(_storeLink(uri, navigateNow: true));
   }
 
-  void _storeLink(Uri uri, {required bool navigateNow}) {
+  Future<void> _storeLink(Uri uri, {required bool navigateNow}) async {
     final key = uri.toString();
     if (_lastHandledUri == key) return;
 
@@ -55,11 +57,28 @@ class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
     if (target == null) return;
 
     _lastHandledUri = key;
+    if (!await _canOpenTarget(target)) {
+      if (navigateNow) {
+        _navigate(const DeepLinkTarget(location: Routes.onboarding));
+      }
+      return;
+    }
+
     ref.read(pendingDeepLinkProvider.notifier).state = target;
 
     if (navigateNow) {
       _navigate(target);
     }
+  }
+
+  Future<bool> _canOpenTarget(DeepLinkTarget target) async {
+    if (!chaputDeepLinkTargetRequiresAuth(target)) return true;
+    final refresh = await ref.read(tokenStorageProvider).readRefreshToken();
+    final canOpen = refresh != null && refresh.isNotEmpty;
+    if (!canOpen) {
+      ref.read(pendingDeepLinkProvider.notifier).state = null;
+    }
+    return canOpen;
   }
 
   void _navigate(DeepLinkTarget target) {

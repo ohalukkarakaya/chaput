@@ -11,6 +11,18 @@ class DeepLinkTarget {
 
 final pendingDeepLinkProvider = StateProvider<DeepLinkTarget?>((ref) => null);
 
+bool chaputDeepLinkTargetRequiresAuth(DeepLinkTarget target) {
+  final path = Uri.parse(target.location).path;
+  if (path == Routes.boot ||
+      path == Routes.onboarding ||
+      path == Routes.login ||
+      path == Routes.register ||
+      path == Routes.legal) {
+    return false;
+  }
+  return true;
+}
+
 DeepLinkTarget? chaputDeepLinkTargetFromUri(Uri uri) {
   if (!_isSupportedChaputUri(uri)) return null;
 

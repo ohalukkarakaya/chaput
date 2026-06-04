@@ -1,4 +1,4 @@
-package com.example.chaput
+package com.goktigin.chaput
 
 import android.content.Context
 import android.view.LayoutInflater

@@ -1,5 +1,7 @@
 import Flutter
 import UIKit
+import UserNotifications
+import FirebaseMessaging
 import GoogleMobileAds
 import google_mobile_ads
 
@@ -12,10 +14,40 @@ import google_mobile_ads
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
+    if #available(iOS 10.0, *) {
+      UNUserNotificationCenter.current().delegate = self
+    }
+    if let controller = window?.rootViewController as? FlutterViewController {
+      let notificationsChannel = FlutterMethodChannel(
+        name: "chaput/notifications",
+        binaryMessenger: controller.binaryMessenger
+      )
+      notificationsChannel.setMethodCallHandler { call, result in
+        guard call.method == "resetBadge" else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        if #available(iOS 16.0, *) {
+          UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+        } else {
+          UIApplication.shared.applicationIconBadgeNumber = 0
+        }
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        result(nil)
+      }
+    }
     let factory = ChaputNativeAdFactory()
     chaputNativeAdFactory = factory
     FLTGoogleMobileAdsPlugin.registerNativeAdFactory(self, factoryId: "chaputNative", nativeAdFactory: factory)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    Messaging.messaging().apnsToken = deviceToken
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
   override func applicationWillTerminate(_ application: UIApplication) {

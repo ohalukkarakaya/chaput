@@ -10,6 +10,8 @@ import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/video/video_background.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../me/application/me_controller.dart';
+import '../../../notifications/application/firebase_token_cleanup.dart';
+import '../../../notifications/data/notification_api_provider.dart';
 import '../../application/onboarding_tree_preload.dart';
 
 class BootScreen extends ConsumerStatefulWidget {
@@ -60,6 +62,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
     final refresh = await storage.readRefreshToken();
     if (refresh == null || refresh.isEmpty) {
       debugPrint('BOOT: refresh token yok -> onboarding');
+      ref.read(pendingDeepLinkProvider.notifier).state = null;
 
       await Future.wait([
         Future.delayed(const Duration(milliseconds: 600)),
@@ -88,7 +91,9 @@ class _BootScreenState extends ConsumerState<BootScreen> {
         debugPrint(
           'BOOT: refresh 200 geldi ama access_token boş -> onboarding',
         );
+        await FirebaseTokenCleanup.deleteLocalMessagingToken();
         await storage.clear();
+        ref.read(pendingDeepLinkProvider.notifier).state = null;
         await _prepareOnboardingTree();
         if (!mounted) return;
         _navigated = true;
@@ -97,11 +102,16 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       }
 
       await storage.saveAccessToken(res.accessToken);
-      await storage.saveAccessToken(res.accessToken);
       debugPrint('BOOT: refresh OK -> /me fetch');
 
       try {
         await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+        await storage.markAuthenticated();
+        try {
+          await ref
+              .read(notificationApiProvider)
+              .resetBadge(allowUnauthorized: true);
+        } catch (_) {}
         debugPrint('BOOT: /me OK -> HOME');
 
         _navigated = true;
@@ -111,6 +121,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
 
         if (code == 401 || code == 404) {
           debugPrint('BOOT: /me failed status=$code -> onboarding, error= $e');
+          ref.read(pendingDeepLinkProvider.notifier).state = null;
           await _prepareOnboardingTree();
           _navigated = true;
           if (mounted) context.pushReplacement(Routes.onboarding);
@@ -133,7 +144,9 @@ class _BootScreenState extends ConsumerState<BootScreen> {
 
       // 400/401 => invalid_refresh_token / refresh_expired gibi durumlar
       if (code == 400 || code == 401) {
+        await FirebaseTokenCleanup.deleteLocalMessagingToken();
         await storage.clear();
+        ref.read(pendingDeepLinkProvider.notifier).state = null;
         debugPrint('BOOT: refresh invalid/expired -> onboarding');
         await _prepareOnboardingTree();
         _navigated = true;

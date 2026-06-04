@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/storage/secure_storage_provider.dart';
 import '../../../core/storage/token_storage.dart';
+import '../../notifications/application/push_token_registrar.dart';
 import 'auth_api.dart';
 import 'dto/login_verify_response.dart';
 import 'dto/refresh_response.dart';
@@ -10,6 +11,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepositoryImpl(
     api: ref.read(authApiProvider),
     tokenStorage: ref.read(tokenStorageProvider),
+    pushTokenRegistrar: ref.read(pushTokenRegistrarProvider),
   );
 });
 
@@ -26,15 +28,19 @@ abstract class AuthRepository {
   });
 
   Future<void> logout();
+
+  Future<RefreshResponse> refresh({required String refreshToken});
 }
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthApi api;
   final TokenStorage tokenStorage;
+  final PushTokenRegistrar pushTokenRegistrar;
 
   AuthRepositoryImpl({
     required this.api,
     required this.tokenStorage,
+    required this.pushTokenRegistrar,
   });
 
   @override
@@ -51,7 +57,11 @@ class AuthRepositoryImpl implements AuthRepository {
     required String deviceId,
     required String code,
   }) async {
-    final res = await api.verifyLoginCode(email: email, deviceId: deviceId, code: code);
+    final res = await api.verifyLoginCode(
+      email: email,
+      deviceId: deviceId,
+      code: code,
+    );
 
     // ✅ tokens kaydet
     await tokenStorage.saveAccessToken(res.accessToken);
@@ -63,6 +73,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     final refresh = await tokenStorage.readRefreshToken();
+    await pushTokenRegistrar.unregisterCurrentDevice();
+
     if (refresh == null || refresh.isEmpty) {
       await tokenStorage.clear();
       return;

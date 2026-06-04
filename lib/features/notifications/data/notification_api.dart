@@ -8,10 +8,13 @@ class NotificationApi {
     String? cursor,
     int limit = 20,
   }) async {
-    final res = await _dio.get('/me/notifications', queryParameters: {
-      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
-      'limit': limit,
-    });
+    final res = await _dio.get(
+      '/me/notifications',
+      queryParameters: {
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+        'limit': limit,
+      },
+    );
 
     final data = res.data as Map<String, dynamic>;
     if (data['ok'] != true) {
@@ -36,6 +39,21 @@ class NotificationApi {
 
   Future<void> markRead(String id) async {
     await _dio.post('/me/notifications/$id/read');
+  }
+
+  Future<void> resetBadge({bool allowUnauthorized = false}) async {
+    await _dio.post(
+      '/me/notifications/badge/reset',
+      options: allowUnauthorized
+          ? Options(
+              validateStatus: (code) =>
+                  code == null ||
+                  (code >= 200 && code < 300) ||
+                  code == 401 ||
+                  code == 404,
+            )
+          : null,
+    );
   }
 
   Future<bool> approveFollowRequest(int requestSeq) async {
@@ -66,11 +84,33 @@ class NotificationApi {
     required String token,
     required String platform,
     required String deviceId,
+    required String locale,
   }) async {
-    await _dio.post('/me/push-tokens', data: {
-      'token': token,
-      'platform': platform,
-      'device_id': deviceId,
-    });
+    await _dio.post(
+      '/me/push-tokens',
+      data: {
+        'token': token,
+        'platform': platform,
+        'device_id': deviceId,
+        'locale': locale,
+      },
+    );
+  }
+
+  Future<void> deletePushToken({
+    String? token,
+    required String deviceId,
+  }) async {
+    await _dio.delete(
+      '/me/push-tokens',
+      data: {
+        if (token != null && token.isNotEmpty) 'token': token,
+        'device_id': deviceId,
+      },
+      options: Options(
+        validateStatus: (code) =>
+            code == null || (code >= 200 && code < 300) || code == 404,
+      ),
+    );
   }
 }

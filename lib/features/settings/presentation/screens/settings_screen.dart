@@ -15,6 +15,7 @@ import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
+import '../../../notifications/application/push_token_registrar.dart';
 import '../../application/account_controller.dart';
 import '../../application/privacy_controller.dart';
 import 'archive_chaputs_screen.dart';
@@ -225,7 +226,12 @@ class SettingsScreen extends ConsumerWidget {
                           final storage = ref.read(tokenStorageProvider);
                           final refresh = await storage.readRefreshToken();
 
+                          await ref
+                              .read(pushTokenRegistrarProvider)
+                              .unregisterCurrentDevice();
+
                           if (refresh == null || refresh.isEmpty) {
+                            await storage.clear();
                             if (context.mounted) context.go(Routes.onboarding);
                             return;
                           }
@@ -334,6 +340,8 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _logoutNow(BuildContext context, WidgetRef ref) async {
     final storage = ref.read(tokenStorageProvider);
     final refresh = await storage.readRefreshToken();
+
+    await ref.read(pushTokenRegistrarProvider).unregisterCurrentDevice();
 
     try {
       if (refresh != null && refresh.isNotEmpty) {

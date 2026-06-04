@@ -1,10 +1,15 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:ui';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/device/device_id_service.dart';
+import '../../../core/storage/secure_storage_provider.dart';
 import '../data/notification_api_provider.dart';
+import 'firebase_token_cleanup.dart';
 
 final pushTokenRegistrarProvider = Provider<PushTokenRegistrar>((ref) {
   return PushTokenRegistrar(ref);
@@ -14,10 +19,12 @@ class PushTokenRegistrar {
   PushTokenRegistrar(this._ref);
 
   final Ref _ref;
-  bool _listening = false;
+  StreamSubscription<String>? _refreshSub;
   bool _retrying = false;
 
   Future<void> registerOnce() async {
+    if (!await _hasActiveSession()) return;
+
     final messaging = FirebaseMessaging.instance;
     try {
       if (Platform.isIOS) {
@@ -41,12 +48,47 @@ class PushTokenRegistrar {
     }
     if (token == null || token.isEmpty) return;
     final deviceId = await _ref.read(deviceIdServiceProvider).getOrCreate();
-    await _ref.read(notificationApiProvider).upsertPushToken(
-      token: token,
-      platform: Platform.isIOS ? 'IOS' : 'ANDROID',
-      deviceId: deviceId,
-    );
+    try {
+      await _ref
+          .read(notificationApiProvider)
+          .upsertPushToken(
+            token: token,
+            platform: Platform.isIOS ? 'IOS' : 'ANDROID',
+            deviceId: deviceId,
+            locale: _resolvedLocaleCode(),
+          );
+    } catch (_) {
+      return;
+    }
     _listenRefresh(messaging, deviceId);
+  }
+
+  Future<void> unregisterCurrentDevice({bool serverSide = true}) async {
+    final messaging = FirebaseMessaging.instance;
+    final deviceId = await _ref.read(deviceIdServiceProvider).getOrCreate();
+    String? token;
+
+    await _refreshSub?.cancel();
+    _refreshSub = null;
+    _retrying = false;
+
+    try {
+      token = await messaging.getToken();
+    } catch (_) {
+      token = null;
+    }
+
+    if (serverSide && await _hasActiveSession()) {
+      try {
+        await _ref
+            .read(notificationApiProvider)
+            .deletePushToken(token: token, deviceId: deviceId);
+      } catch (_) {
+        // Server-side unregister is best-effort; local token deletion follows.
+      }
+    }
+
+    await FirebaseTokenCleanup.deleteLocalMessagingToken();
   }
 
   void _retryLater() {
@@ -54,20 +96,38 @@ class PushTokenRegistrar {
     _retrying = true;
     Future.delayed(const Duration(seconds: 2), () {
       _retrying = false;
-      registerOnce();
+      unawaited(registerOnce());
     });
   }
 
   void _listenRefresh(FirebaseMessaging messaging, String deviceId) {
-    if (_listening) return;
-    _listening = true;
-    messaging.onTokenRefresh.listen((token) async {
+    if (_refreshSub != null) return;
+    _refreshSub = messaging.onTokenRefresh.listen((token) async {
       if (token.isEmpty) return;
-      await _ref.read(notificationApiProvider).upsertPushToken(
-        token: token,
-        platform: Platform.isIOS ? 'IOS' : 'ANDROID',
-        deviceId: deviceId,
-      );
+      if (!await _hasActiveSession()) return;
+      try {
+        await _ref
+            .read(notificationApiProvider)
+            .upsertPushToken(
+              token: token,
+              platform: Platform.isIOS ? 'IOS' : 'ANDROID',
+              deviceId: deviceId,
+              locale: _resolvedLocaleCode(),
+            );
+      } catch (_) {
+        // Token refresh registration is non-critical and can be retried later.
+      }
     });
+  }
+
+  Future<bool> _hasActiveSession() async {
+    final refresh = await _ref.read(tokenStorageProvider).readRefreshToken();
+    return refresh != null && refresh.isNotEmpty;
+  }
+
+  String _resolvedLocaleCode() {
+    return AppLocalizations.resolve(
+      PlatformDispatcher.instance.locale,
+    ).languageCode;
   }
 }

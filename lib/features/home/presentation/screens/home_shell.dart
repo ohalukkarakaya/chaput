@@ -14,6 +14,7 @@ import '../../../../core/storage/tutorial_storage.dart';
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../notifications/application/notification_count_controller.dart';
+import '../../../notifications/data/notification_api_provider.dart';
 import '../../../../chaput/data/chaput_socket.dart';
 import '../../../notifications/application/push_token_registrar.dart';
 import '../../../user_search/presentation/search_overlay.dart';
@@ -64,6 +65,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         .read(chaputSocketProvider)
         .events
         .listen(_handleSocketEvent);
+    try {
+      await ref
+          .read(notificationApiProvider)
+          .resetBadge(allowUnauthorized: true);
+    } catch (_) {}
     await ref.read(pushTokenRegistrarProvider).registerOnce();
   }
 

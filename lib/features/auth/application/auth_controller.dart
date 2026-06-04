@@ -2,11 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/device/device_id_service.dart';
 import '../../../core/storage/secure_storage_provider.dart';
+import '../../notifications/application/push_token_registrar.dart';
 import '../data/auth_api.dart';
 import '../domain/models/session.dart';
 
-final authControllerProvider =
-AsyncNotifierProvider<AuthController, Session?>(AuthController.new);
+final authControllerProvider = AsyncNotifierProvider<AuthController, Session?>(
+  AuthController.new,
+);
 
 class AuthController extends AsyncNotifier<Session?> {
   late final _tokenStorage = ref.read(tokenStorageProvider);
@@ -18,7 +20,10 @@ class AuthController extends AsyncNotifier<Session?> {
     final userId = await _tokenStorage.readUserId();
     final access = await _tokenStorage.readAccessToken();
 
-    if (userId != null && userId.isNotEmpty && access != null && access.isNotEmpty) {
+    if (userId != null &&
+        userId.isNotEmpty &&
+        access != null &&
+        access.isNotEmpty) {
       return Session(userId: userId, accessToken: access);
     }
 
@@ -70,6 +75,8 @@ class AuthController extends AsyncNotifier<Session?> {
   /// 1.4 Logout
   Future<void> logout() async {
     final refresh = await _tokenStorage.readRefreshToken();
+
+    await ref.read(pushTokenRegistrarProvider).unregisterCurrentDevice();
 
     // server logout çağrısını dene (refresh yoksa direkt temizle)
     if (refresh != null && refresh.isNotEmpty) {

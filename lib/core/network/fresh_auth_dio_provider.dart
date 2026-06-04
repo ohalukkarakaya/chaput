@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/env.dart';
 import '../storage/secure_storage_provider.dart';
+import '../../features/notifications/application/firebase_token_cleanup.dart';
 
 final freshAuthDioProvider = Provider<Dio>((ref) {
   final storage = ref.read(tokenStorageProvider);
@@ -78,6 +79,7 @@ final freshAuthDioProvider = Provider<Dio>((ref) {
           }
 
           log('[Chaput] ⚠️ refresh 200 but access_token empty');
+          await FirebaseTokenCleanup.deleteLocalMessagingToken();
           await storage.clear();
           return handler.reject(
             DioException(
@@ -94,6 +96,7 @@ final freshAuthDioProvider = Provider<Dio>((ref) {
         } on DioException catch (e) {
           final code = e.response?.statusCode;
           if (code == 400 || code == 401) {
+            await FirebaseTokenCleanup.deleteLocalMessagingToken();
             await storage.clear();
           }
           log('[Chaput] ❌ refresh failed -> rejecting request', error: e);

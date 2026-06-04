@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
 
 import '../../../features/auth/data/auth_api.dart';
@@ -17,7 +15,7 @@ class AuthInterceptor extends Interceptor {
   final AuthApi authApi;
   final Future<void> Function() onForceLogout;
 
-  Completer<void>? _refreshCompleter;
+  Future<void>? _refreshFuture;
 
   @override
   void onRequest(
@@ -65,12 +63,12 @@ class AuthInterceptor extends Interceptor {
   }
 
   Future<void> _refreshTokenOnce() async {
-    if (_refreshCompleter != null) {
-      return _refreshCompleter!.future;
+    final current = _refreshFuture;
+    if (current != null) {
+      return current;
     }
 
-    _refreshCompleter = Completer<void>();
-    try {
+    final next = () async {
       final refresh = await tokenStorage.readRefreshToken();
       if (refresh == null || refresh.isEmpty) {
         throw StateError('No refresh token');
@@ -78,13 +76,12 @@ class AuthInterceptor extends Interceptor {
 
       final res = await authApi.refresh(refreshToken: refresh);
       await tokenStorage.saveAccessToken(res.accessToken);
-      _refreshCompleter!.complete();
-    } catch (e, st) {
-      _refreshCompleter!.completeError(e, st);
-      rethrow;
-    } finally {
-      Future.microtask(() => _refreshCompleter = null);
-    }
+    }();
+
+    _refreshFuture = next.whenComplete(() {
+      Future.microtask(() => _refreshFuture = null);
+    });
+    return _refreshFuture!;
   }
 
   Future<Response<dynamic>> _retry(

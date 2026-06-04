@@ -5,6 +5,7 @@ class TokenStorage {
   static const _kRefresh = 'refresh_token';
   static const _kUserId = 'user_id';
   static const _kDeviceId = 'device_id';
+  static const _kHasAuthenticatedBefore = 'has_authenticated_before';
 
   final FlutterSecureStorage _storage;
   TokenStorage(this._storage);
@@ -19,17 +20,29 @@ class TokenStorage {
     await _storage.write(key: _kAccess, value: accessToken);
     await _storage.write(key: _kRefresh, value: refreshToken);
     await _storage.write(key: _kDeviceId, value: deviceId);
+    await markAuthenticated();
   }
 
   Future<String?> readUserId() => _storage.read(key: _kUserId);
   Future<String?> readAccessToken() => _storage.read(key: _kAccess);
   Future<String?> readRefreshToken() => _storage.read(key: _kRefresh);
+  Future<bool> hasAuthenticatedBefore() async =>
+      (await _storage.read(key: _kHasAuthenticatedBefore)) == '1';
+  Future<void> markAuthenticated() =>
+      _storage.write(key: _kHasAuthenticatedBefore, value: '1');
 
-  Future<void> saveDeviceId(String id) => _storage.write(key: _kDeviceId, value: id);
+  Future<void> saveDeviceId(String id) =>
+      _storage.write(key: _kDeviceId, value: id);
   Future<String?> readDeviceId() => _storage.read(key: _kDeviceId);
 
-  Future<void> saveAccessToken(String token) => _storage.write(key: _kAccess, value: token);
-  Future<void> saveRefreshToken(String token) => _storage.write(key: _kRefresh, value: token);
+  Future<void> saveAccessToken(String token) =>
+      _storage.write(key: _kAccess, value: token);
+  Future<void> saveRefreshToken(String token) async {
+    await _storage.write(key: _kRefresh, value: token);
+    if (token.isNotEmpty) {
+      await markAuthenticated();
+    }
+  }
 
   Future<void> clear() async {
     await _storage.delete(key: _kUserId);

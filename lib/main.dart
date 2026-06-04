@@ -11,25 +11,27 @@ import 'app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final enableNotifications = defaultTargetPlatform != TargetPlatform.android;
+  final enableNotifications =
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
 
   if (enableNotifications) {
     await Firebase.initializeApp();
     await FirebaseMessaging.instance.requestPermission();
-    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-      alert: false,
-      badge: false,
-      sound: false,
-    );
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: false,
+          badge: false,
+          sound: false,
+        );
     FirebaseMessaging.onMessage.listen((_) {});
-    await LocalNotificationService.instance.scheduleMissYou();
+    await LocalNotificationService.instance.init();
+    await LocalNotificationService.instance.requestPermissions();
   }
 
   await MobileAds.instance.initialize();
 
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   runApp(const ProviderScope(child: ChaputApp()));
 
