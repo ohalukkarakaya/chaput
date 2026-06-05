@@ -27,6 +27,14 @@ class PushTokenRegistrar {
 
     final messaging = FirebaseMessaging.instance;
     try {
+      final settings = await messaging.getNotificationSettings();
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        return;
+      }
+    } catch (_) {
+      // Some platforms may not expose notification settings consistently.
+    }
+    try {
       if (Platform.isIOS) {
         final apns = await messaging.getAPNSToken();
         if (apns == null || apns.isEmpty) {
@@ -46,7 +54,10 @@ class PushTokenRegistrar {
       _retryLater();
       return;
     }
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) {
+      _retryLater();
+      return;
+    }
     final deviceId = await _ref.read(deviceIdServiceProvider).getOrCreate();
     try {
       await _ref
@@ -58,6 +69,7 @@ class PushTokenRegistrar {
             locale: _resolvedLocaleCode(),
           );
     } catch (_) {
+      _retryLater();
       return;
     }
     _listenRefresh(messaging, deviceId);
@@ -115,7 +127,7 @@ class PushTokenRegistrar {
               locale: _resolvedLocaleCode(),
             );
       } catch (_) {
-        // Token refresh registration is non-critical and can be retried later.
+        _retryLater();
       }
     });
   }

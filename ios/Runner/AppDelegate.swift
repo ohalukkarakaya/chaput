@@ -46,7 +46,11 @@ import google_mobile_ads
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
-    Messaging.messaging().apnsToken = deviceToken
+    #if DEBUG
+    Messaging.messaging().setAPNSToken(deviceToken, type: .sandbox)
+    #else
+    Messaging.messaging().setAPNSToken(deviceToken, type: .prod)
+    #endif
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 

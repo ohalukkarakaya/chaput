@@ -35,6 +35,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<ChaputSocketEvent>? _socketSub;
   final GlobalKey _recoShowcaseKey = GlobalKey();
   bool _homeShowcaseScheduled = false;
+  bool _notificationsBooted = false;
+  bool _notificationsBootScheduled = false;
 
   Future<void> _scheduleHomeShowcase(
     BuildContext context,
@@ -54,13 +56,29 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void initState() {
     super.initState();
-    _bootNotifications();
+    _scheduleNotificationsBoot();
+  }
+
+  void _scheduleNotificationsBoot() {
+    if (_notificationsBooted || _notificationsBootScheduled) return;
+    _notificationsBootScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _notificationsBootScheduled = false;
+        return;
+      }
+      unawaited(_bootNotifications());
+    });
   }
 
   Future<void> _bootNotifications() async {
+    if (_notificationsBooted) return;
+    _notificationsBootScheduled = false;
     await Future<void>.delayed(Duration.zero);
+    if (!mounted || _notificationsBooted) return;
     if (ref.read(meControllerProvider).valueOrNull == null) return;
-    await ref.read(chaputSocketProvider).ensureConnected();
+    _notificationsBooted = true;
+    await ref.read(chaputSocketProvider).resumeFromBackground();
     _socketSub ??= ref
         .read(chaputSocketProvider)
         .events
@@ -130,6 +148,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           );
         }
         final meId = me.user.userId;
+        _scheduleNotificationsBoot();
         if (!_homeShowcaseScheduled && meId.isNotEmpty) {
           _homeShowcaseScheduled = true;
           _scheduleHomeShowcase(showcaseContext, meId);

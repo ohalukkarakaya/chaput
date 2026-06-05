@@ -26,17 +26,18 @@ class ChaputSocketClient {
   final Map<String, String?> _threadSubscriptions = <String, String?>{};
   bool _disposed = false;
   bool _isReady = false;
+  bool _suspended = false;
   Timer? _reconnectTimer;
 
   Stream<ChaputSocketEvent> get events => _events.stream;
 
   Future<void> ensureConnected() async {
+    if (_disposed || _suspended) return;
     final inFlight = _connectFuture;
     if (inFlight != null) {
       await inFlight;
       return;
     }
-    if (_disposed) return;
     if (_channel != null) return;
 
     final completer = Completer<void>();
@@ -44,7 +45,7 @@ class ChaputSocketClient {
 
     try {
       final token = await _storage.readAccessToken();
-      if (_disposed || token == null || token.isEmpty) {
+      if (_disposed || _suspended || token == null || token.isEmpty) {
         _cleanup();
         completer.complete();
         return;
@@ -75,7 +76,7 @@ class ChaputSocketClient {
       );
 
       await channel.ready;
-      if (_disposed || _channel != channel) {
+      if (_disposed || _suspended || _channel != channel) {
         _cleanup(scheduleReconnect: false);
         if (!completer.isCompleted) {
           completer.complete();
@@ -115,12 +116,24 @@ class ChaputSocketClient {
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-    if (_disposed) return;
+    if (_disposed || _suspended) return;
     if (_profileSubscriptions.isEmpty && _threadSubscriptions.isEmpty) return;
     _reconnectTimer = Timer(const Duration(milliseconds: 600), () {
-      if (_disposed || _channel != null) return;
+      if (_disposed || _suspended || _channel != null) return;
       unawaited(ensureConnected());
     });
+  }
+
+  void suspendForBackground() {
+    _suspended = true;
+    _reconnectTimer?.cancel();
+    _cleanup(scheduleReconnect: false);
+  }
+
+  Future<void> resumeFromBackground() async {
+    if (_disposed) return;
+    _suspended = false;
+    await ensureConnected();
   }
 
   void dispose() {
@@ -173,6 +186,7 @@ class ChaputSocketClient {
   }
 
   void _send(Map<String, dynamic> data, {bool reconnectIfDisconnected = true}) {
+    if (_disposed || _suspended) return;
     if (!_isReady) {
       if (reconnectIfDisconnected) {
         unawaited(ensureConnected());

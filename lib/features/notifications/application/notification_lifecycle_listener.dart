@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../chaput/data/chaput_socket.dart';
 import '../../../core/deep_links/deep_link_state.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/storage/secure_storage_provider.dart';
@@ -70,14 +71,36 @@ class _NotificationLifecycleListenerState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _scheduledForBackground = false;
+      unawaited(_resumeRealtimeConnection());
       unawaited(_handleAppOpened());
       return;
     }
     if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      _pauseRealtimeConnection();
       if (_scheduledForBackground) return;
       _scheduledForBackground = true;
       unawaited(_scheduleForBackground());
+    }
+  }
+
+  void _pauseRealtimeConnection() {
+    try {
+      ref.read(chaputSocketProvider).suspendForBackground();
+    } catch (_) {
+      // The realtime connection is best-effort while the app is backgrounded.
+    }
+  }
+
+  Future<void> _resumeRealtimeConnection() async {
+    try {
+      final hasValidatedSession =
+          ref.read(meControllerProvider).valueOrNull != null;
+      if (!hasValidatedSession) return;
+      await ref.read(chaputSocketProvider).resumeFromBackground();
+    } catch (_) {
+      // Reconnect failures are handled by the socket's normal retry path.
     }
   }
 
@@ -167,8 +190,9 @@ class _NotificationLifecycleListenerState
     if (type == 'followed' ||
         type == 'follow_request' ||
         type == 'follow_approved') {
-      if (actorId.isEmpty)
+      if (actorId.isEmpty) {
         return const DeepLinkTarget(location: Routes.notifications);
+      }
       return DeepLinkTarget(location: Routes.profilePath(actorId));
     }
 
