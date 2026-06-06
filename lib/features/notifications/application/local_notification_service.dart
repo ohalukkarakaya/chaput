@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -113,6 +112,15 @@ class LocalNotificationService {
     await init();
     for (var i = 0; i < _kInactiveScheduleDays; i++) {
       await _plugin.cancel(id: _kInactiveBaseId + i);
+    }
+  }
+
+  Future<void> clearDeliveredNotifications() async {
+    await init();
+    try {
+      await _plugin.cancelAll();
+    } catch (_) {
+      // Delivered-notification cleanup is best-effort across platforms.
     }
   }
 

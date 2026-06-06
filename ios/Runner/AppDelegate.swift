@@ -8,6 +8,7 @@ import google_mobile_ads
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private var chaputNativeAdFactory: ChaputNativeAdFactory?
+  private let notificationsChannelName = "chaput/notifications"
 
   override func application(
     _ application: UIApplication,
@@ -17,29 +18,62 @@ import google_mobile_ads
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
     }
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let notificationsChannel = FlutterMethodChannel(
-        name: "chaput/notifications",
-        binaryMessenger: controller.binaryMessenger
-      )
-      notificationsChannel.setMethodCallHandler { call, result in
-        guard call.method == "resetBadge" else {
-          result(FlutterMethodNotImplemented)
-          return
-        }
-        if #available(iOS 16.0, *) {
-          UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
-        } else {
-          UIApplication.shared.applicationIconBadgeNumber = 0
-        }
-        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
-        result(nil)
-      }
-    }
+    registerNotificationsChannel()
     let factory = ChaputNativeAdFactory()
     chaputNativeAdFactory = factory
     FLTGoogleMobileAdsPlugin.registerNativeAdFactory(self, factoryId: "chaputNative", nativeAdFactory: factory)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private func registerNotificationsChannel() {
+    let messenger: FlutterBinaryMessenger?
+    if let registrar = registrar(forPlugin: "ChaputNotifications") {
+      messenger = registrar.messenger()
+    } else if let controller = window?.rootViewController as? FlutterViewController {
+      messenger = controller.binaryMessenger
+    } else {
+      messenger = nil
+    }
+    guard let messenger = messenger else {
+      return
+    }
+    let notificationsChannel = FlutterMethodChannel(
+      name: notificationsChannelName,
+      binaryMessenger: messenger
+    )
+    notificationsChannel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "resetBadge" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard let self = self else {
+        result(nil)
+        return
+      }
+      self.resetNotificationBadge(result)
+    }
+  }
+
+  private func resetNotificationBadge(_ result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+      UIApplication.shared.applicationIconBadgeNumber = 0
+      if #available(iOS 16.0, *) {
+        UNUserNotificationCenter.current().setBadgeCount(0) { error in
+          if let error = error {
+            result(FlutterError(
+              code: "badge_reset_failed",
+              message: error.localizedDescription,
+              details: nil
+            ))
+            return
+          }
+          result(nil)
+        }
+      } else {
+        result(nil)
+      }
+    }
   }
 
   override func application(

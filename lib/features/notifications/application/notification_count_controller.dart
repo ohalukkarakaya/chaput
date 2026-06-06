@@ -32,6 +32,10 @@ class NotificationCountController extends AutoDisposeNotifier<int> {
     state = count;
   }
 
+  void resetToZero() {
+    state = 0;
+  }
+
   void decrementIfUnread() {
     if (state > 0) state = state - 1;
   }

@@ -11,6 +11,8 @@ import '../../../../core/ui/video/video_background.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../notifications/application/firebase_token_cleanup.dart';
+import '../../../notifications/application/notification_badge_service.dart';
+import '../../../notifications/application/notification_count_controller.dart';
 import '../../../notifications/data/notification_api_provider.dart';
 import '../../application/onboarding_tree_preload.dart';
 
@@ -51,6 +53,9 @@ class _BootScreenState extends ConsumerState<BootScreen> {
 
   Future<void> _boot() async {
     if (_navigated) return;
+
+    await NotificationBadgeService.resetAppIconBadge();
+    _resetInAppNotificationCount();
 
     final storage = ref.read(tokenStorageProvider);
 
@@ -111,6 +116,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
           await ref
               .read(notificationApiProvider)
               .resetBadge(allowUnauthorized: true);
+          _resetInAppNotificationCount();
         } catch (_) {}
         debugPrint('BOOT: /me OK -> HOME');
 
@@ -161,6 +167,12 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       debugPrint('BOOT: refresh unknown ERROR -> stay boot, error= $e');
       return;
     }
+  }
+
+  void _resetInAppNotificationCount() {
+    try {
+      ref.read(notificationCountControllerProvider.notifier).resetToZero();
+    } catch (_) {}
   }
 
   @override
