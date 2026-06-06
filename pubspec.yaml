@@ -2,7 +2,7 @@ name: chaput
 description: "Chaput App"
 publish_to: 'none'
 
-version: 1.0.0+7
+version: 1.0.0+8
 
 environment:
   sdk: ^3.8.1
@@ -64,6 +64,7 @@ dependencies:
   three_js_math: ^0.2.6
   webview_flutter: ^4.13.1
   app_links: ^7.0.0
+  audioplayers: ^6.7.1
 
 dev_dependencies:
   flutter_test:
@@ -98,6 +99,7 @@ flutter:
     - assets/images/avatar_assets/background/
     - assets/images/avatar_assets/male/
     - assets/images/avatar_assets/female/
+    - assets/sounds/
     - assets/i18n/en.json
     - assets/i18n/tr.json
     - assets/i18n/de.json

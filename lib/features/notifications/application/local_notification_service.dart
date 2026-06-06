@@ -20,7 +20,8 @@ class LocalNotificationService {
     defaultValue: 0,
   );
   static const _kChannelId = 'chaput_local';
-  static const _kRemoteChannelId = 'chaput_activity';
+  static const _kRemoteChannelId = 'chaput_activity_v2';
+  static const _kRemoteSound = 'chaput_push_notification_sound';
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -74,6 +75,8 @@ class LocalNotificationService {
               description: l10n.t('notifications.local_channel_desc'),
               importance: Importance.defaultImportance,
               showBadge: true,
+              playSound: true,
+              sound: RawResourceAndroidNotificationSound(_kRemoteSound),
             ),
           );
     } catch (_) {

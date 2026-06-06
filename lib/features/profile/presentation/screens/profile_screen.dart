@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:three_js/three_js.dart' as three;
@@ -24,6 +25,7 @@ import '../../../../core/router/route_observer.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/storage/tutorial_storage.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
+import '../../../../core/ux/chaput_sound_service.dart';
 import '../../../billing/data/billing_api_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
@@ -77,7 +79,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen>
-    with SingleTickerProviderStateMixin, RouteAware {
+    with SingleTickerProviderStateMixin, RouteAware, WidgetsBindingObserver {
   OverlayEntry? _toastEntry;
   bool _toastShowing = false;
   bool _isDisposed = false;
@@ -138,6 +140,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   Timer? _typingIdleTimer;
   String? _typingSentThreadId;
   bool _typingSent = false;
+  bool _typingSoundActive = false;
+  String? _typingSoundThreadId;
 
   bool _composerOpen = false; // input bar açık mı?
   three.Vector3? _draftAnchor; // mesaj varken hatırlanan anchor
@@ -260,6 +264,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _reviveArchiveOverrideProfileId;
   String? _reviveArchiveOverrideThreadId;
   final PageController _chaputPageCtrl = PageController();
+  int _lastChaputFeedbackPageIndex = 0;
   int _chaputActiveIndex = 0;
   static const double _chaputSheetMin = 0.12;
   static const double _chaputSheetMid = 0.33;
@@ -333,6 +338,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _socketClient = ref.read(chaputSocketProvider);
     _lastProfileUserId = widget.userId;
     _pendingInitialThreadId = widget.initialThreadId;
@@ -403,6 +409,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _typingUsersByThread.clear();
     _clearTypingExpiryTimers();
     _markTypingUsersChanged();
+  }
+
+  void _playSmallFeedback(ChaputSoundEffect effect) {
+    HapticFeedback.selectionClick();
+    unawaited(ChaputSoundService.instance.play(effect));
+  }
+
+  void _playChaputPageFeedback(int pageIndex) {
+    if (_lastChaputFeedbackPageIndex == pageIndex) return;
+    _lastChaputFeedbackPageIndex = pageIndex;
+    _playSmallFeedback(ChaputSoundEffect.cardSwipe);
   }
 
   DateTime? _parseSocketTime(dynamic v) {
@@ -642,7 +659,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   @override
+  void didPushNext() {
+    _stopTypingSound();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncTypingSound();
+    } else {
+      _stopTypingSound();
+    }
+  }
+
+  @override
   void didPopNext() {
+    _syncTypingSound();
     if (!mounted || !_reloadOnPopNext) return;
     _reloadOnPopNext = false;
     _navToOtherProfile = false;
@@ -688,6 +720,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void dispose() {
     _isDisposed = true;
+    _stopTypingSound();
+    WidgetsBinding.instance.removeObserver(this);
     if (_routeSubscribed) {
       routeObserver.unsubscribe(this);
       _routeSubscribed = false;
@@ -1184,6 +1218,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _markTypingUsersChanged() {
     _typingRevision.value = _typingRevision.value + 1;
+    _syncTypingSound();
   }
 
   String _typingKey(String threadId, String userId) =>
@@ -1253,6 +1288,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     });
     return typingUsersByThread;
+  }
+
+  bool _hasRemoteTypingForActiveThread() {
+    final threadId = _activeThreadId;
+    if (threadId == null || threadId.isEmpty) return false;
+    final ids = _typingUsersByThread[threadId];
+    if (ids == null || ids.isEmpty) return false;
+    final viewerNorm =
+        (_lastChaputArgs?.viewerId ??
+                ref.read(meControllerProvider).valueOrNull?.user.userId ??
+                '')
+            .toLowerCase();
+    return ids.any((id) => id.toLowerCase() != viewerNorm);
+  }
+
+  void _syncTypingSound() {
+    if (_isDisposed) return;
+    final activeThreadId = _activeThreadId;
+    final shouldPlay =
+        _activeThreadIsParticipant && _hasRemoteTypingForActiveThread();
+    if (!shouldPlay || activeThreadId == null || activeThreadId.isEmpty) {
+      _stopTypingSound();
+      return;
+    }
+    if (_typingSoundActive && _typingSoundThreadId == activeThreadId) return;
+    if (_typingSoundActive) {
+      unawaited(ChaputSoundService.instance.stopTypingLoop());
+    }
+    _typingSoundActive = true;
+    _typingSoundThreadId = activeThreadId;
+    unawaited(ChaputSoundService.instance.startTypingLoop());
+  }
+
+  void _stopTypingSound() {
+    if (!_typingSoundActive) return;
+    _typingSoundActive = false;
+    _typingSoundThreadId = null;
+    unawaited(ChaputSoundService.instance.stopTypingLoop());
   }
 
   bool _shouldShowReplyBar({
@@ -1749,6 +1822,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           ).notifier,
         )
         .addLocalMessage(msg);
+    _playSmallFeedback(ChaputSoundEffect.sendMessage);
 
     try {
       final serverMsg = await api.sendMessage(
@@ -1917,6 +1991,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       threadsNotifier.removeThread(thread.threadId);
       if (_chaputPageCtrl.hasClients) {
+        _lastChaputFeedbackPageIndex = 0;
         _chaputPageCtrl.jumpToPage(0);
       }
       unawaited(threadsNotifier.refresh());
@@ -3204,6 +3279,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               idx,
               showAds: showNativeAds,
             );
+            _lastChaputFeedbackPageIndex = pageIdx;
             _chaputPageCtrl.jumpToPage(pageIdx);
           } else {
             setState(() => _chaputActiveIndex = idx);
@@ -3242,6 +3318,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _resetTypingForThreadChange(activeThread?.threadId);
     _activeThreadId = activeThread?.threadId;
     _activeThreadIsParticipant = activeIsParticipant;
+    _syncTypingSound();
 
     if (_composerOpen && !showProfileComposer) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3293,6 +3370,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _silhouetteApplied = false;
       _applySilhouetteIfNeeded();
       if (_chaputPageCtrl.hasClients) {
+        _lastChaputFeedbackPageIndex = 0;
         _chaputPageCtrl.jumpToPage(0);
       }
     }
@@ -3406,6 +3484,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         }
                       },
                       onPageChanged: (pageIndex, thread) async {
+                        _playChaputPageFeedback(pageIndex);
                         final threadIndex = thread == null
                             ? null
                             : _threadIndexForPageIndex(
@@ -3472,6 +3551,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               t.userAId == viewerId || t.userBId == viewerId;
                           _activeThreadId = t.threadId;
                           _activeThreadIsParticipant = isParticipant;
+                          _syncTypingSound();
                           if (isParticipant) {
                             ref
                                 .read(chaputApiProvider)
@@ -3481,6 +3561,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         } else {
                           _activeThreadId = null;
                           _activeThreadIsParticipant = false;
+                          _syncTypingSound();
                         }
                       },
                       onOpenProfile: (uid, tid) {

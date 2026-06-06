@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../i18n/app_localizations.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
+import '../../ux/chaput_sound_service.dart';
 
 class ShareBar extends StatefulWidget {
   const ShareBar({
@@ -25,13 +26,15 @@ class ShareBar extends StatefulWidget {
   State<ShareBar> createState() => _ShareBarState();
 }
 
-class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin {
+class _ShareBarState extends State<ShareBar>
+    with SingleTickerProviderStateMixin {
   bool _copied = false;
   bool _busy = false;
 
   late final AnimationController _shakeCtrl;
 
-  static const _confirmGreen = AppColors.chaputGreen; // güzel “success green” tonu
+  static const _confirmGreen =
+      AppColors.chaputGreen; // güzel “success green” tonu
 
   @override
   void initState() {
@@ -67,10 +70,10 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
 
     // haptic + shake
     _shakeCtrl.forward(from: 0);
+    unawaited(
+      ChaputSoundService.instance.play(ChaputSoundEffect.copyProfileLink),
+    );
     await _playConfirmHaptics();
-
-    // ✅ buraya sonra ses ekleyeceğiz
-    // await _playConfirmSound();
 
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
@@ -137,7 +140,8 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  if (widget.title != null && widget.subtitle != null) const SizedBox(width: 8),
+                  if (widget.title != null && widget.subtitle != null)
+                    const SizedBox(width: 8),
                   if (widget.subtitle != null)
                     Text(
                       widget.subtitle!,
@@ -150,7 +154,8 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                     ),
                 ],
               ),
-            if (widget.title != null || widget.subtitle != null) const SizedBox(height: 8),
+            if (widget.title != null || widget.subtitle != null)
+              const SizedBox(height: 8),
 
             Row(
               children: [
@@ -158,28 +163,33 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
                   decoration: BoxDecoration(
-                    color: _copied ? _confirmGreen.withOpacity(0.10) : AppColors.chaputTransparent,
+                    color: _copied
+                        ? _confirmGreen.withOpacity(0.10)
+                        : AppColors.chaputTransparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: IconButton(
-                    tooltip: _copied ? context.t('common.copied') : context.t('common.copy'),
+                    tooltip: _copied
+                        ? context.t('common.copied')
+                        : context.t('common.copy'),
                     onPressed: _busy ? null : _onCopy,
                     icon: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 160),
                       switchInCurve: Curves.easeOut,
                       switchOutCurve: Curves.easeIn,
-                      transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                      transitionBuilder: (child, anim) =>
+                          ScaleTransition(scale: anim, child: child),
                       child: _copied
                           ? Icon(
-                        Icons.check_rounded,
-                        key: const ValueKey('check'),
-                        color: _confirmGreen, // ✅ yeşil tik
-                      )
+                              Icons.check_rounded,
+                              key: const ValueKey('check'),
+                              color: _confirmGreen, // ✅ yeşil tik
+                            )
                           : Icon(
-                        Icons.copy_rounded,
-                        key: const ValueKey('copy'),
-                        color: AppColors.chaputBlack.withOpacity(0.85),
-                      ),
+                              Icons.copy_rounded,
+                              key: const ValueKey('copy'),
+                              color: AppColors.chaputBlack.withOpacity(0.85),
+                            ),
                     ),
                   ),
                 ),
@@ -209,8 +219,13 @@ class _ShareBarState extends State<ShareBar> with SingleTickerProviderStateMixin
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.chaputBlack,
                       foregroundColor: AppColors.chaputWhite,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 0,
                     ),
                     icon: const Icon(Icons.ios_share_rounded, size: 18),
