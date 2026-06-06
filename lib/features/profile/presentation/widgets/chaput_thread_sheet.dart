@@ -640,7 +640,7 @@ class _ThreadPage extends ConsumerWidget {
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: composerHeight + bottomSafeInset,
+                  bottom: composerHeight + replyOverlay + bottomSafeInset,
                   child: pendingWidget,
                 ),
               if (showMessages && hasTyping)

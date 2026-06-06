@@ -86,12 +86,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         .events
         .listen(_handleSocketEvent);
     await NotificationBadgeService.resetAppIconBadge();
-    ref.read(notificationCountControllerProvider.notifier).resetToZero();
     try {
       await ref
           .read(notificationApiProvider)
           .resetBadge(allowUnauthorized: true);
-      ref.read(notificationCountControllerProvider.notifier).resetToZero();
     } catch (_) {}
     await ref.read(pushTokenRegistrarProvider).registerOnce();
   }

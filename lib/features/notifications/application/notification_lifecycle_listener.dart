@@ -14,7 +14,6 @@ import '../../me/application/me_controller.dart';
 import '../data/notification_api_provider.dart';
 import 'local_notification_service.dart';
 import 'notification_badge_service.dart';
-import 'notification_count_controller.dart';
 
 class NotificationLifecycleListener extends ConsumerStatefulWidget {
   const NotificationLifecycleListener({
@@ -108,7 +107,6 @@ class _NotificationLifecycleListenerState
   Future<void> _handleAppOpened() async {
     await LocalNotificationService.instance.cancelInactivityReminders();
     await NotificationBadgeService.resetAppIconBadge();
-    _resetInAppNotificationCount();
 
     try {
       final hasValidatedSession =
@@ -117,18 +115,9 @@ class _NotificationLifecycleListenerState
         await ref
             .read(notificationApiProvider)
             .resetBadge(allowUnauthorized: true);
-        _resetInAppNotificationCount();
       }
     } catch (_) {
       // Badge reset is best-effort and should not interfere with startup.
-    }
-  }
-
-  void _resetInAppNotificationCount() {
-    try {
-      ref.read(notificationCountControllerProvider.notifier).resetToZero();
-    } catch (_) {
-      // Count state may be unavailable during very early startup.
     }
   }
 

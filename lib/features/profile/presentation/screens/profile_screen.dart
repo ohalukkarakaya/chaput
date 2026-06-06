@@ -2143,13 +2143,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             ? null
             : PaywallReviveTarget(
                 avatarUrl:
-                    (targetUser.profilePhotoKey != null &&
-                        targetUser.profilePhotoKey!.isNotEmpty)
-                    ? targetUser.profilePhotoKey!
+                    (targetUser.profilePhotoPath != null &&
+                        targetUser.profilePhotoPath!.isNotEmpty)
+                    ? targetUser.profilePhotoPath!
                     : targetUser.defaultAvatar,
                 isDefaultAvatar:
-                    targetUser.profilePhotoKey == null ||
-                    targetUser.profilePhotoKey!.isEmpty,
+                    targetUser.profilePhotoPath == null ||
+                    targetUser.profilePhotoPath!.isEmpty,
                 fullName: targetUser.fullName,
                 username: targetUser.username ?? '',
               );
