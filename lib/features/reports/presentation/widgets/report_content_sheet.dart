@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../profile/presentation/widgets/sheet_handle.dart';
 
 class ReportContentDraft {
@@ -59,7 +60,7 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
+    final responsive = context.responsive;
     final targetKey = widget.targetType == ReportTargetType.message
         ? 'message'
         : 'chaput';
@@ -67,7 +68,7 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
     return AnimatedPadding(
       duration: const Duration(milliseconds: 160),
       curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
+      padding: EdgeInsets.only(bottom: responsive.bottomSheetKeyboardInset()),
       child: Align(
         alignment: Alignment.bottomCenter,
         child: ClipRRect(
@@ -76,7 +77,7 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
               padding: EdgeInsets.only(
-                bottom: mq.padding.bottom > 0 ? mq.padding.bottom : 14,
+                bottom: responsive.bottomSheetInnerPadding(min: 14),
               ),
               decoration: BoxDecoration(
                 color: AppColors.chaputBlack.withOpacity(0.82),

@@ -6,6 +6,7 @@ import 'package:chaput/core/constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
 import 'package:chaput/core/legal/legal_documents.dart';
 import 'package:chaput/core/router/routes.dart';
+import 'package:chaput/core/ui/responsive/chaput_responsive.dart';
 import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 import 'package:go_router/go_router.dart';
 
@@ -177,8 +178,8 @@ class _SignupSheetState extends State<_SignupSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final keyboard = mq.viewInsets.bottom;
+    final responsive = context.responsive;
+    final keyboard = responsive.bottomSheetKeyboardInset();
 
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
@@ -187,7 +188,12 @@ class _SignupSheetState extends State<_SignupSheet> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+            padding: EdgeInsets.fromLTRB(
+              18,
+              16,
+              18,
+              18 + responsive.bottomSheetInnerPadding(min: 0),
+            ),
             decoration: BoxDecoration(
               color: AppColors.chaputWhite.withValues(alpha: 0.88),
               borderRadius: const BorderRadius.vertical(
@@ -199,6 +205,7 @@ class _SignupSheetState extends State<_SignupSheet> {
             ),
             child: SafeArea(
               top: false,
+              bottom: false,
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Form(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import '../responsive/chaput_responsive.dart';
 import 'app_text_context_menu.dart';
 
 typedef VerifyResult = ({bool ok, String? errorText, int? lockSeconds});
@@ -237,8 +238,8 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet>
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final keyboard = mq.viewInsets.bottom;
+    final responsive = context.responsive;
+    final keyboard = responsive.bottomSheetKeyboardInset();
 
     final canResend = _resendSeconds == 0 && !_verifying;
     final isLocked = _lockSeconds > 0;
@@ -252,7 +253,12 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet>
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+              padding: EdgeInsets.fromLTRB(
+                18,
+                16,
+                18,
+                18 + responsive.bottomSheetInnerPadding(min: 0),
+              ),
               decoration: BoxDecoration(
                 color: AppColors.chaputWhite.withOpacity(0.88),
                 borderRadius: const BorderRadius.vertical(

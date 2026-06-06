@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../features/auth/data/dto/login_verify_response.dart';
+import '../responsive/chaput_responsive.dart';
 import 'app_text_context_menu.dart';
 
 Future<LoginVerifyResponse?> showCodeVerifySheet({
@@ -280,8 +281,8 @@ class _CodeSheetState extends State<_CodeSheet>
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final keyboard = mq.viewInsets.bottom;
+    final responsive = context.responsive;
+    final keyboard = responsive.bottomSheetKeyboardInset();
 
     final canResend = _resendSeconds == 0 && !_verifying;
     final isLocked = _lockSeconds > 0;
@@ -295,7 +296,12 @@ class _CodeSheetState extends State<_CodeSheet>
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+              padding: EdgeInsets.fromLTRB(
+                18,
+                16,
+                18,
+                18 + responsive.bottomSheetInnerPadding(min: 0),
+              ),
               decoration: BoxDecoration(
                 color: AppColors.chaputWhite.withOpacity(0.88),
                 borderRadius: const BorderRadius.vertical(

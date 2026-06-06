@@ -9,6 +9,7 @@ import 'package:showcaseview/showcaseview.dart';
 
 import '../../../../core/router/routes.dart';
 import '../../../../core/ui/backgrounds/animated_mesh_background.dart';
+import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../core/storage/tutorial_storage.dart';
 
 import '../../../helpers/string_helpers/format_full_name.dart';
@@ -505,9 +506,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               Positioned(
                 left: 16,
                 right: 16,
-                bottom: 16,
-                child: SafeArea(
-                  top: false,
+                bottom: 0,
+                child: Padding(
+                  padding: context.responsive.bottomFixedPadding(base: 16),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 520),

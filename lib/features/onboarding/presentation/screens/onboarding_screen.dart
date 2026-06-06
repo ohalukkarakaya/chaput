@@ -14,6 +14,7 @@ import '../../../../core/deep_links/deep_link_state.dart';
 import '../../../../core/device/device_id_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
+import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../core/ui/widgets/code_verify_sheet.dart';
 import '../../../../core/ui/widgets/email_cta_form.dart';
 
@@ -302,7 +303,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final preload = ref.watch(onboardingTreePreloadProvider);
     final preset = preload.preset;
     final mq = MediaQuery.of(context);
-    final keyboard = mq.viewInsets.bottom;
+    final responsive = context.responsive;
+    final keyboard = responsive.keyboardInset;
     final isKeyboardOpen = keyboard > 0;
     final pauseTree = _emailFocused || isKeyboardOpen || _submitting;
     final screenHeight = mq.size.height;
@@ -353,7 +355,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           0,
                           8,
                           0,
-                          6 + keyboard + mq.padding.bottom,
+                          responsive.bottomFixedOffset(base: 6),
                         ),
                         child: Align(
                           alignment: Alignment.center,

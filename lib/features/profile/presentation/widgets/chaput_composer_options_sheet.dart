@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
+import '../../../../core/ui/responsive/chaput_responsive.dart';
+
 class ComposerOptionsSheet extends StatelessWidget {
   const ComposerOptionsSheet({
     super.key,
@@ -27,7 +28,7 @@ class ComposerOptionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomInset = context.responsive.bottomSheetInnerPadding();
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
@@ -44,7 +45,7 @@ class ComposerOptionsSheet extends StatelessWidget {
               left: 12,
               right: 12,
               top: 10,
-              bottom: (bottomInset > 0 ? bottomInset : 12),
+              bottom: bottomInset,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,

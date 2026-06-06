@@ -8,7 +8,7 @@ import '../../../../features/social/application/ui_restriction_override_provider
 import 'sheet_handle.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
+import '../../../../core/ui/responsive/chaput_responsive.dart';
 
 class ProfileActionsButton extends StatelessWidget {
   const ProfileActionsButton({
@@ -68,7 +68,7 @@ class ProfileActionsSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomInset = context.responsive.bottomSheetInnerPadding();
 
     final blockSt = ref.watch(blockControllerProvider);
     final restrictSt = ref.watch(restrictionsControllerProvider);
@@ -77,10 +77,7 @@ class ProfileActionsSheet extends ConsumerWidget {
     final bool restrictDisabled = busy || iRestrictedHim;
 
     return Container(
-      padding: EdgeInsets.only(
-        top: 8,
-        bottom: bottomInset > 0 ? bottomInset : 12,
-      ),
+      padding: EdgeInsets.only(top: 8, bottom: bottomInset),
       decoration: const BoxDecoration(
         color: AppColors.chaputWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -92,23 +89,30 @@ class ProfileActionsSheet extends ConsumerWidget {
 
           ProfileActionTile(
             icon: Icons.remove_circle_outline,
-            title: iRestrictedHim ? context.t('profile_actions.restrict_already') : context.t('profile_actions.restrict'),
+            title: iRestrictedHim
+                ? context.t('profile_actions.restrict_already')
+                : context.t('profile_actions.restrict'),
             subtitle: iRestrictedHim
                 ? context.t('profile_actions.restrict_already_desc')
                 : context.t('profile_actions.restrict_desc'),
             enabled: !restrictDisabled,
             onTap: () async {
-              ref.read(uiRestrictedOverrideProvider(userId).notifier).state = true;
+              ref.read(uiRestrictedOverrideProvider(userId).notifier).state =
+                  true;
               Navigator.pop(context);
               try {
                 final restrictedNow = await ref
                     .read(restrictionsControllerProvider.notifier)
                     .toggle(userId);
                 if (restrictedNow != true) {
-                  ref.read(uiRestrictedOverrideProvider(userId).notifier).state = null;
+                  ref
+                          .read(uiRestrictedOverrideProvider(userId).notifier)
+                          .state =
+                      null;
                 }
               } catch (_) {
-                ref.read(uiRestrictedOverrideProvider(userId).notifier).state = null;
+                ref.read(uiRestrictedOverrideProvider(userId).notifier).state =
+                    null;
               }
             },
           ),
@@ -126,9 +130,13 @@ class ProfileActionsSheet extends ConsumerWidget {
                     rootNav.pop();
 
                     try {
-                      await ref.read(recommendedUserControllerProvider.notifier).refresh();
+                      await ref
+                          .read(recommendedUserControllerProvider.notifier)
+                          .refresh();
 
-                      await ref.read(blockControllerProvider.notifier).blockUser(username);
+                      await ref
+                          .read(blockControllerProvider.notifier)
+                          .blockUser(username);
 
                       rootNav.pop();
                     } catch (_) {}
@@ -160,23 +168,24 @@ class ProfileActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = !enabled ? AppColors.chaputGrey : (destructive ? AppColors.chaputMaterialRed : AppColors.chaputBlack);
+    final color = !enabled
+        ? AppColors.chaputGrey
+        : (destructive ? AppColors.chaputMaterialRed : AppColors.chaputBlack);
 
     return ListTile(
       enabled: enabled,
       leading: Icon(icon, color: color),
       title: Text(
         title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w600, color: color),
       ),
       subtitle: Text(
         subtitle,
         style: TextStyle(
           fontSize: 12,
-          color: enabled ? AppColors.chaputBlack.withOpacity(0.6) : AppColors.chaputGrey,
+          color: enabled
+              ? AppColors.chaputBlack.withOpacity(0.6)
+              : AppColors.chaputGrey,
         ),
       ),
       onTap: enabled ? onTap : null,

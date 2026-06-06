@@ -23,6 +23,7 @@ import '../../../../core/router/routes.dart';
 import '../../../../core/router/route_observer.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/storage/tutorial_storage.dart';
+import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../billing/data/billing_api_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
@@ -1173,12 +1174,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return _msgCtrl.text.trim().isEmpty;
   }
 
-  double _overlaySystemInset(BuildContext context, double keyboardInset) {
-    if (keyboardInset > 0) return 0.0;
-    final mediaQuery = MediaQuery.of(context);
-    return math.max(mediaQuery.viewPadding.bottom, mediaQuery.padding.bottom);
-  }
-
   void _setChaputSheetExtent(double value) {
     if ((_chaputSheetExtent - value).abs() < 0.0001) return;
     _chaputSheetExtent = value;
@@ -1264,7 +1259,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required double extent,
     required bool canReplyOnActive,
     required String? activeThreadId,
+    required bool isAdPageActive,
   }) {
+    if (isAdPageActive || activeThreadId == null || activeThreadId.isEmpty) {
+      return false;
+    }
     final replyScopedToAnotherThread =
         _replyTargetThreadId != null && _replyTargetThreadId != activeThreadId;
     return canReplyOnActive &&
@@ -1293,8 +1292,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _openComposerOptionsSheet() {
     // Klavye açıkken sheet görünür alanı aşmasın diye kb’yi alıyoruz
-    final mediaQuery = MediaQuery.of(context);
-    final kb = mediaQuery.viewInsets.bottom;
+    final kb = context.responsive.keyboardInset;
     if (kb > 0 &&
         !_composerOpen &&
         _chaputSheetExtent < _chaputSheetMax - 0.01) {
@@ -1312,13 +1310,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       context: context,
       backgroundColor: AppColors.chaputTransparent,
       isScrollControlled: true,
-      builder: (_) {
+      builder: (sheetContext) {
+        final responsive = sheetContext.responsive;
         return Padding(
           padding: EdgeInsets.only(
             left: 12,
             right: 12,
             // sheet’i klavyenin üstüne "oturt"
-            bottom: (kb > 0 ? kb : 12) + 10,
+            bottom: responsive.bottomFixedOffset(base: 10),
           ),
           child: ComposerOptionsSheet(
             anonEnabled: _anonMode,
@@ -1375,12 +1374,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final overlay = Navigator.of(context, rootNavigator: true).overlay;
     if (overlay == null) return;
 
-    final mq = MediaQuery.of(context);
-    final kb = mq.viewInsets.bottom;
     const composerH = 72.0;
     const gap = 12.0;
 
-    final bottom = kb + composerH + gap;
+    final bottom = context.responsive.bottomFixedOffset(base: composerH + gap);
 
     _toastShowing = true;
 
@@ -3105,7 +3102,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     }
 
-    final double topInset = MediaQuery.of(context).padding.top;
+    final responsive = context.responsive;
+    final double topInset = responsive.padding.top;
     const double topBarHeight = 72;
 
     final bool showRequestMode =
@@ -3126,8 +3124,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final bool followButtonDisabled =
         _uiFollowLoading || isBlocked || requestAlreadySent;
-
-    final kb = MediaQuery.of(context).viewInsets.bottom;
 
     final bool isProPlan = _planType == 'PRO';
     final bool hasNormalCredit = _creditNormal > 0;
@@ -3236,9 +3232,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         activeThread != null && activeThread.state == 'PENDING';
     final bool canReplyOnActive =
         activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
+    final bool showProfileComposer =
+        _composerOpen &&
+        !_silhouetteMode &&
+        !_isAdPageActive &&
+        chaputThreads.isEmpty &&
+        chaputAllowed &&
+        !isMe;
     _resetTypingForThreadChange(activeThread?.threadId);
     _activeThreadId = activeThread?.threadId;
     _activeThreadIsParticipant = activeIsParticipant;
+
+    if (_composerOpen && !showProfileComposer) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_composerOpen) _closeComposer();
+      });
+    }
 
     if (chaputAllowed &&
         activeThread != null &&
@@ -3322,7 +3332,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         }
 
         final Widget? threadSheetChild =
-            chaputThreads.isNotEmpty && !_composerOpen && !_silhouetteMode
+            chaputThreads.isNotEmpty && !showProfileComposer && !_silhouetteMode
             ? RepaintBoundary(
                 child: ValueListenableBuilder<int>(
                   valueListenable: _typingRevision,
@@ -3352,6 +3362,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           extent: previousExtent,
                           canReplyOnActive: canReplyOnActive,
                           activeThreadId: activeThread?.threadId,
+                          isAdPageActive: _isAdPageActive,
                         );
                         final wasCollapsed =
                             previousExtent <= _chaputSheetMin + 0.01;
@@ -3377,13 +3388,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           }
                         }
                         if (v <= _chaputSheetMid + 0.001 &&
-                            MediaQuery.of(context).viewInsets.bottom > 0) {
+                            context.responsive.keyboardOpen) {
                           FocusScope.of(context).unfocus();
                         }
                         final isReplyBarVisible = _shouldShowReplyBar(
                           extent: _chaputSheetExtent,
                           canReplyOnActive: canReplyOnActive,
                           activeThreadId: activeThread?.threadId,
+                          isAdPageActive: _isAdPageActive,
                         );
                         final isCollapsed =
                             _chaputSheetExtent <= _chaputSheetMin + 0.01;
@@ -3407,9 +3419,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           final screenHeight = MediaQuery.of(
                             context,
                           ).size.height;
-                          final safeBottom = MediaQuery.of(
-                            context,
-                          ).viewPadding.bottom;
+                          final safeBottom = context.responsive
+                              .bottomSheetInnerPadding(min: 0);
                           _adLockedExtent =
                               ((ChaputNativeAdCard.minTotalHeight +
                                           safeBottom +
@@ -3539,6 +3550,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             extent: _chaputSheetExtent,
                             canReplyOnActive: canReplyOnActive,
                             activeThreadId: activeThread?.threadId,
+                            isAdPageActive: _isAdPageActive,
                           )
                           ? 88.0
                           : 0.0,
@@ -4281,7 +4293,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       alignment: Alignment.bottomCenter,
                       child: Padding(
                         padding: EdgeInsets.only(
-                          bottom: MediaQuery.of(context).viewInsets.bottom,
+                          bottom: context.responsive.keyboardInset,
                         ),
                         child: IgnorePointer(
                           ignoring: _isInteracting,
@@ -4311,14 +4323,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         height:
                             (MediaQuery.of(context).size.height *
                                 _chaputSheetMin) +
-                            MediaQuery.of(context).padding.bottom,
+                            context.responsive.bottomSheetInnerPadding(min: 0),
                         child: IgnorePointer(
                           child: EmptyChaputSheet(
                             message: emptyChaputMessage,
                             height:
                                 (MediaQuery.of(context).size.height *
                                     _chaputSheetMin) +
-                                MediaQuery.of(context).padding.bottom,
+                                context.responsive.bottomSheetInnerPadding(
+                                  min: 0,
+                                ),
                           ),
                         ),
                       ),
@@ -4332,6 +4346,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       extent: chaputSheetExtent,
                       canReplyOnActive: canReplyOnActive,
                       activeThreadId: activeThread?.threadId,
+                      isAdPageActive: _isAdPageActive,
                     );
                     if (!showReplyBar) {
                       return const SizedBox.shrink();
@@ -4339,13 +4354,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     return Positioned(
                       left: 0,
                       right: 0,
-                      bottom: _overlaySystemInset(context, kb),
+                      bottom: 0,
                       child: AnimatedPadding(
                         duration: const Duration(milliseconds: 160),
                         curve: Curves.easeOut,
-                        padding: EdgeInsets.only(
-                          bottom: MediaQuery.of(context).viewInsets.bottom,
-                        ),
+                        padding: context.responsive.bottomFixedPadding(),
                         child: ChaputReplyBar(
                           key: ValueKey(activeThread?.threadId ?? 'none'),
                           canWhisper: creditsWhisper > 0,
@@ -4565,7 +4578,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       : (showEmptyChaputSheet
                             ? (MediaQuery.of(context).size.height *
                                       _chaputSheetMin +
-                                  MediaQuery.of(context).padding.bottom +
+                                  context.responsive.bottomSheetInnerPadding(
+                                    min: 0,
+                                  ) +
                                   6)
                             : 14)),
                   child: SafeArea(
@@ -4682,66 +4697,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 Positioned(
                   left: 12,
                   right: 12,
-                  bottom: 10 + kb + _overlaySystemInset(context, kb),
-                  child: AnimatedSwitcher(
+                  bottom: 0,
+                  child: AnimatedPadding(
                     duration: const Duration(milliseconds: 160),
-                    child: (!_composerOpen || _silhouetteMode)
-                        ? const SizedBox.shrink()
-                        : meAsync.when(
-                            loading: () => ChatComposerBar(
-                              controller: _msgCtrl,
-                              focusNode: _msgFocus,
-                              avatarUrl: null,
-                              isDefaultAvatar: true,
-                              onAvatarTap: _toggleProfileCard,
-                              onSend: () => _sendChaputMessage(
-                                profileId: profileIdHex,
-                                viewerId: viewerId,
-                                targetUserId: userId,
-                                viewerLite: viewerLite,
-                                chaputArgs: chaputArgs,
-                              ),
-                              anonEnabled: _anonMode,
-                              highlightEnabled: _highlightMode,
-                              onOptionsTap: _openComposerOptionsSheet,
-                              onOptionsEmptyTap: _onOptionsEmptyTap,
-                            ),
-                            error: (_, __) => ChatComposerBar(
-                              controller: _msgCtrl,
-                              focusNode: _msgFocus,
-                              avatarUrl: null,
-                              isDefaultAvatar: true,
-                              onAvatarTap: _toggleProfileCard,
-                              onSend: () => _sendChaputMessage(
-                                profileId: profileIdHex,
-                                viewerId: viewerId,
-                                targetUserId: userId,
-                                viewerLite: viewerLite,
-                                chaputArgs: chaputArgs,
-                              ),
-                              anonEnabled: _anonMode,
-                              highlightEnabled: _highlightMode,
-                              onOptionsTap: _openComposerOptionsSheet,
-                              onOptionsEmptyTap: _onOptionsEmptyTap,
-                            ),
-                            data: (me) {
-                              final meUser = me?.user;
-
-                              final meAvatarUrl =
-                                  (meUser?.profilePhotoUrl != null &&
-                                      meUser!.profilePhotoUrl!.isNotEmpty)
-                                  ? meUser.profilePhotoUrl
-                                  : meUser?.defaultAvatar;
-
-                              final meIsDefault =
-                                  (meUser?.profilePhotoUrl == null ||
-                                  (meUser!.profilePhotoUrl?.isEmpty ?? true));
-
-                              return ChatComposerBar(
+                    curve: Curves.easeOut,
+                    padding: context.responsive.bottomFixedPadding(base: 10),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: !showProfileComposer
+                          ? const SizedBox.shrink()
+                          : meAsync.when(
+                              loading: () => ChatComposerBar(
                                 controller: _msgCtrl,
                                 focusNode: _msgFocus,
-                                avatarUrl: meAvatarUrl,
-                                isDefaultAvatar: meIsDefault,
+                                avatarUrl: null,
+                                isDefaultAvatar: true,
                                 onAvatarTap: _toggleProfileCard,
                                 onSend: () => _sendChaputMessage(
                                   profileId: profileIdHex,
@@ -4754,9 +4724,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 highlightEnabled: _highlightMode,
                                 onOptionsTap: _openComposerOptionsSheet,
                                 onOptionsEmptyTap: _onOptionsEmptyTap,
-                              );
-                            },
-                          ),
+                              ),
+                              error: (_, __) => ChatComposerBar(
+                                controller: _msgCtrl,
+                                focusNode: _msgFocus,
+                                avatarUrl: null,
+                                isDefaultAvatar: true,
+                                onAvatarTap: _toggleProfileCard,
+                                onSend: () => _sendChaputMessage(
+                                  profileId: profileIdHex,
+                                  viewerId: viewerId,
+                                  targetUserId: userId,
+                                  viewerLite: viewerLite,
+                                  chaputArgs: chaputArgs,
+                                ),
+                                anonEnabled: _anonMode,
+                                highlightEnabled: _highlightMode,
+                                onOptionsTap: _openComposerOptionsSheet,
+                                onOptionsEmptyTap: _onOptionsEmptyTap,
+                              ),
+                              data: (me) {
+                                final meUser = me?.user;
+
+                                final meAvatarUrl =
+                                    (meUser?.profilePhotoUrl != null &&
+                                        meUser!.profilePhotoUrl!.isNotEmpty)
+                                    ? meUser.profilePhotoUrl
+                                    : meUser?.defaultAvatar;
+
+                                final meIsDefault =
+                                    (meUser?.profilePhotoUrl == null ||
+                                    (meUser!.profilePhotoUrl?.isEmpty ?? true));
+
+                                return ChatComposerBar(
+                                  controller: _msgCtrl,
+                                  focusNode: _msgFocus,
+                                  avatarUrl: meAvatarUrl,
+                                  isDefaultAvatar: meIsDefault,
+                                  onAvatarTap: _toggleProfileCard,
+                                  onSend: () => _sendChaputMessage(
+                                    profileId: profileIdHex,
+                                    viewerId: viewerId,
+                                    targetUserId: userId,
+                                    viewerLite: viewerLite,
+                                    chaputArgs: chaputArgs,
+                                  ),
+                                  anonEnabled: _anonMode,
+                                  highlightEnabled: _highlightMode,
+                                  onOptionsTap: _openComposerOptionsSheet,
+                                  onOptionsEmptyTap: _onOptionsEmptyTap,
+                                );
+                              },
+                            ),
+                    ),
                   ),
                 ),
               ],

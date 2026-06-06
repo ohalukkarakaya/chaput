@@ -7,6 +7,7 @@ import '../../../../chaput/application/chaput_decision_controller.dart';
 import '../../../../chaput/application/chaput_messages_controller.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../user/domain/lite_user.dart';
@@ -127,14 +128,13 @@ class ChaputThreadSheet extends ConsumerWidget {
                       final isParticipant =
                           thread.userAId == viewerId ||
                           thread.userBId == viewerId;
-                      final otherId =
-                          thread.userAId == ownerId
-                              ? thread.userBId
-                              : thread.userBId == ownerId
-                              ? thread.userAId
-                              : (thread.userAId == viewerId
-                                  ? thread.userBId
-                                  : thread.userAId);
+                      final otherId = thread.userAId == ownerId
+                          ? thread.userBId
+                          : thread.userBId == ownerId
+                          ? thread.userAId
+                          : (thread.userAId == viewerId
+                                ? thread.userBId
+                                : thread.userAId);
                       final ownerUser = usersById[ownerId];
                       final rawOtherUser =
                           usersById[otherId] ??
@@ -143,21 +143,20 @@ class ChaputThreadSheet extends ConsumerWidget {
                               : null);
                       final isHiddenForViewer =
                           thread.isHidden && !isParticipant;
-                      final otherUser =
-                          isHiddenForViewer
-                              ? LiteUser(
-                                id: otherId,
-                                username: null,
-                                fullName: ctx.t('chat.anonymous_user'),
-                                bio: null,
-                                defaultAvatar:
-                                    rawOtherUser?.defaultAvatar ??
-                                    ownerUser?.defaultAvatar ??
-                                    '',
-                                profilePhotoKey: null,
-                                profilePhotoUrl: null,
-                              )
-                              : rawOtherUser;
+                      final otherUser = isHiddenForViewer
+                          ? LiteUser(
+                              id: otherId,
+                              username: null,
+                              fullName: ctx.t('chat.anonymous_user'),
+                              bio: null,
+                              defaultAvatar:
+                                  rawOtherUser?.defaultAvatar ??
+                                  ownerUser?.defaultAvatar ??
+                                  '',
+                              profilePhotoKey: null,
+                              profilePhotoUrl: null,
+                            )
+                          : rawOtherUser;
 
                       final child = _SheetPage(
                         thread: thread,
@@ -194,13 +193,12 @@ class ChaputThreadSheet extends ConsumerWidget {
                           }
                           final delta = (page - index).abs().clamp(0.0, 1.0);
                           final scale = 1.0 - (delta * 0.08);
-                          final animatedChild =
-                              entry.isAd
-                                  ? Opacity(
-                                    opacity: 1.0 - (delta * 0.25),
-                                    child: child,
-                                  )
-                                  : child;
+                          final animatedChild = entry.isAd
+                              ? Opacity(
+                                  opacity: 1.0 - (delta * 0.25),
+                                  child: child,
+                                )
+                              : child;
                           return Transform.scale(
                             scale: scale,
                             alignment: Alignment.bottomCenter,
@@ -360,100 +358,97 @@ class _SheetPage extends StatelessWidget {
                 color: AppColors.chaputWhite.withOpacity(0.10),
               ),
             ),
-            child:
-                compact
-                    ? Padding(
-                      padding: const EdgeInsets.only(bottom: 0),
-                      child: SizedBox(
-                        height: constraints.maxHeight,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            if (constraints.maxHeight >= 80) ...[
-                              const SizedBox(height: 6),
-                              const SheetHandle(),
-                            ],
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: SizedBox(
-                                  width: constraints.maxWidth,
-                                  child: _ThreadHeader(
-                                    ownerUser: ownerUser,
-                                    otherUser: otherUser,
-                                    isHidden: thread.isHidden,
-                                    isSpecial: thread.isSpecial,
-                                    isParticipant: isParticipant,
-                                    otherName:
-                                        (thread.isHidden && !isParticipant)
-                                            ? context.t('chat.anonymous_user')
-                                            : (otherUser?.fullName ?? ''),
-                                    otherUsername:
-                                        (thread.isHidden && !isParticipant)
-                                            ? null
-                                            : otherUser?.username,
-                                    onOpenProfile: onOpenProfile,
-                                    threadId: thread.threadId,
-                                    showHideAction:
-                                        isParticipant && !thread.isHidden,
-                                    canMakeHidden: canMakeHidden,
-                                    onMakeHidden: () => onMakeHidden(thread),
-                                    onArchiveThread:
-                                        () => onArchiveThread(thread),
-                                    onReportThread:
-                                        () => onReportThread(thread),
-                                    canArchiveThread:
-                                        isParticipant && thread.state == 'OPEN',
-                                    canReportThread: isParticipant,
-                                    compact: true,
-                                  ),
+            child: compact
+                ? Padding(
+                    padding: const EdgeInsets.only(bottom: 0),
+                    child: SizedBox(
+                      height: constraints.maxHeight,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          if (constraints.maxHeight >= 80) ...[
+                            const SizedBox(height: 6),
+                            const SheetHandle(),
+                          ],
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: SizedBox(
+                                width: constraints.maxWidth,
+                                child: _ThreadHeader(
+                                  ownerUser: ownerUser,
+                                  otherUser: otherUser,
+                                  isHidden: thread.isHidden,
+                                  isSpecial: thread.isSpecial,
+                                  isParticipant: isParticipant,
+                                  otherName: (thread.isHidden && !isParticipant)
+                                      ? context.t('chat.anonymous_user')
+                                      : (otherUser?.fullName ?? ''),
+                                  otherUsername:
+                                      (thread.isHidden && !isParticipant)
+                                      ? null
+                                      : otherUser?.username,
+                                  onOpenProfile: onOpenProfile,
+                                  threadId: thread.threadId,
+                                  showHideAction:
+                                      isParticipant && !thread.isHidden,
+                                  canMakeHidden: canMakeHidden,
+                                  onMakeHidden: () => onMakeHidden(thread),
+                                  onArchiveThread: () =>
+                                      onArchiveThread(thread),
+                                  onReportThread: () => onReportThread(thread),
+                                  canArchiveThread:
+                                      isParticipant && thread.state == 'OPEN',
+                                  canReportThread: isParticipant,
+                                  compact: true,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                    : Padding(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 6),
-                          const SheetHandle(),
-                          Expanded(
-                            child: _ThreadPage(
-                              thread: thread,
-                              ownerUser: ownerUser,
-                              otherUser: otherUser,
-                              viewerUser: viewerUser,
-                              viewerId: viewerId,
-                              isParticipant: isParticipant,
-                              profileId: profileId,
-                              initialMessageId:
-                                  (initialThreadId != null &&
-                                          initialMessageId != null &&
-                                          initialThreadId == thread.threadId)
-                                      ? initialMessageId
-                                      : null,
-                              onOpenProfile: onOpenProfile,
-                              onSendMessage: onSendMessage,
-                              onMakeHidden: onMakeHidden,
-                              onArchiveThread: onArchiveThread,
-                              onReportThread: onReportThread,
-                              onReportMessage: onReportMessage,
-                              canMakeHidden: canMakeHidden,
-                              onOpenWhisperPaywall: onOpenWhisperPaywall,
-                              replyOverlay: replyOverlay,
-                              whisperCredits: whisperCredits,
-                              onReplyMessage: onReplyMessage,
-                              typingUsers:
-                                  typingUsersByThread[thread.threadId] ??
-                                  const [],
                             ),
                           ),
                         ],
                       ),
                     ),
+                  )
+                : Padding(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 6),
+                        const SheetHandle(),
+                        Expanded(
+                          child: _ThreadPage(
+                            thread: thread,
+                            ownerUser: ownerUser,
+                            otherUser: otherUser,
+                            viewerUser: viewerUser,
+                            viewerId: viewerId,
+                            isParticipant: isParticipant,
+                            profileId: profileId,
+                            initialMessageId:
+                                (initialThreadId != null &&
+                                    initialMessageId != null &&
+                                    initialThreadId == thread.threadId)
+                                ? initialMessageId
+                                : null,
+                            onOpenProfile: onOpenProfile,
+                            onSendMessage: onSendMessage,
+                            onMakeHidden: onMakeHidden,
+                            onArchiveThread: onArchiveThread,
+                            onReportThread: onReportThread,
+                            onReportMessage: onReportMessage,
+                            canMakeHidden: canMakeHidden,
+                            onOpenWhisperPaywall: onOpenWhisperPaywall,
+                            replyOverlay: replyOverlay,
+                            whisperCredits: whisperCredits,
+                            onReplyMessage: onReplyMessage,
+                            typingUsers:
+                                typingUsersByThread[thread.threadId] ??
+                                const [],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         );
       },
@@ -515,11 +510,7 @@ class _ThreadPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mediaQuery = MediaQuery.of(context);
-    final safeBottom =
-        mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
-            ? mediaQuery.viewPadding.bottom
-            : mediaQuery.padding.bottom;
+    final safeBottom = context.responsive.bottomSheetInnerPadding(min: 0);
     final args = ChaputMessagesArgs(
       threadId: thread.threadId,
       profileId: profileId,
@@ -530,12 +521,12 @@ class _ThreadPage extends ConsumerWidget {
     final viewerIsStarter = thread.starterId == viewerId;
     final isPending = thread.state == 'PENDING';
 
-    final otherName =
-        (isHidden && !isParticipant)
-            ? context.t('chat.anonymous_user')
-            : (otherUser?.fullName ?? '');
-    final otherUsername =
-        (isHidden && !isParticipant) ? null : otherUser?.username;
+    final otherName = (isHidden && !isParticipant)
+        ? context.t('chat.anonymous_user')
+        : (otherUser?.fullName ?? '');
+    final otherUsername = (isHidden && !isParticipant)
+        ? null
+        : otherUser?.username;
     final canReply = isParticipant && (!isPending || !viewerIsStarter);
     final canArchiveThread = isParticipant && thread.state == 'OPEN';
     final canReportThread = isParticipant;
@@ -545,12 +536,11 @@ class _ThreadPage extends ConsumerWidget {
         final height = constraints.maxHeight;
         final showMessages = height >= 200;
 
-        final pendingWidget =
-            (isParticipant && isPending && viewerIsStarter)
-                ? _PendingNotice(pendingUntil: thread.pendingExpiresAt)
-                : (isParticipant && isPending && !viewerIsStarter)
-                ? const _PendingReplyHint()
-                : null;
+        final pendingWidget = (isParticipant && isPending && viewerIsStarter)
+            ? _PendingNotice(pendingUntil: thread.pendingExpiresAt)
+            : (isParticipant && isPending && !viewerIsStarter)
+            ? const _PendingReplyHint()
+            : null;
 
         const headerHeight = 64.0;
         const spacing = 8.0;
@@ -627,30 +617,23 @@ class _ThreadPage extends ConsumerWidget {
                     onReply: (m) => onReplyMessage(thread, m),
                     onReportMessage: (m) => onReportMessage(thread, m),
                     onToggleLike: (m, like) {
-                      final me =
-                          viewerUser == null
-                              ? null
-                              : ChaputMessageLiker(
-                                id: viewerUser!.id,
-                                username: viewerUser!.username,
-                                fullName: viewerUser!.fullName,
-                                defaultAvatar: viewerUser!.defaultAvatar,
-                                profilePhotoKey: viewerUser!.profilePhotoKey,
-                                profilePhotoUrl: viewerUser!.profilePhotoUrl,
-                              );
+                      final me = viewerUser == null
+                          ? null
+                          : ChaputMessageLiker(
+                              id: viewerUser!.id,
+                              username: viewerUser!.username,
+                              fullName: viewerUser!.fullName,
+                              defaultAvatar: viewerUser!.defaultAvatar,
+                              profilePhotoKey: viewerUser!.profilePhotoKey,
+                              profilePhotoUrl: viewerUser!.profilePhotoUrl,
+                            );
                       ref
                           .read(chaputMessagesControllerProvider(args).notifier)
                           .toggleLike(messageId: m.id, like: like, me: me);
                     },
-                    onLoadMore:
-                        () =>
-                            ref
-                                .read(
-                                  chaputMessagesControllerProvider(
-                                    args,
-                                  ).notifier,
-                                )
-                                .loadMore(),
+                    onLoadMore: () => ref
+                        .read(chaputMessagesControllerProvider(args).notifier)
+                        .loadMore(),
                   ),
                 ),
               if (pendingWidget != null)
@@ -725,8 +708,9 @@ class _ThreadHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
       child: Row(
-        crossAxisAlignment:
-            compact ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        crossAxisAlignment: compact
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
           _AvatarStack(
             ownerUser: ownerUser,
@@ -796,10 +780,9 @@ class _ThreadHeader extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      canMakeHidden
-                          ? AppColors.chaputWhite
-                          : AppColors.chaputWhite.withOpacity(0.12),
+                  color: canMakeHidden
+                      ? AppColors.chaputWhite
+                      : AppColors.chaputWhite.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
                     color: AppColors.chaputWhite.withOpacity(0.2),
@@ -808,10 +791,9 @@ class _ThreadHeader extends StatelessWidget {
                 child: Text(
                   context.t('chat.hide'),
                   style: TextStyle(
-                    color:
-                        canMakeHidden
-                            ? AppColors.chaputBlack
-                            : AppColors.chaputWhite,
+                    color: canMakeHidden
+                        ? AppColors.chaputBlack
+                        : AppColors.chaputWhite,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -847,14 +829,13 @@ class _ThreadHeader extends StatelessWidget {
           if (canArchiveThread || canReportThread) ...[
             const SizedBox(width: 8),
             GestureDetector(
-              onTap:
-                  () => _showThreadActions(
-                    context,
-                    canArchive: canArchiveThread,
-                    canReport: canReportThread,
-                    onArchive: onArchiveThread,
-                    onReport: onReportThread,
-                  ),
+              onTap: () => _showThreadActions(
+                context,
+                canArchive: canArchiveThread,
+                canReport: canReportThread,
+                onArchive: onArchiveThread,
+                onReport: onReportThread,
+              ),
               child: Container(
                 width: 30,
                 height: 30,
@@ -889,13 +870,12 @@ void _showThreadActions(
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
-    builder:
-        (_) => _ThreadActionSheet(
-          canArchive: canArchive,
-          canReport: canReport,
-          onArchive: onArchive,
-          onReport: onReport,
-        ),
+    builder: (_) => _ThreadActionSheet(
+      canArchive: canArchive,
+      canReport: canReport,
+      onArchive: onArchive,
+      onReport: onReport,
+    ),
   );
 }
 
@@ -912,16 +892,15 @@ void _showMessageActions(
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
-    builder:
-        (_) => _MessageActionSheet(
-          message: message,
-          canReply: canReply,
-          canShowLikes: canShowLikes,
-          canReport: canReport,
-          onReply: onReply,
-          onShowLikes: onShowLikes,
-          onReport: onReport,
-        ),
+    builder: (_) => _MessageActionSheet(
+      message: message,
+      canReply: canReply,
+      canShowLikes: canShowLikes,
+      canReport: canReport,
+      onReply: onReply,
+      onShowLikes: onShowLikes,
+      onReport: onReport,
+    ),
   );
 }
 
@@ -940,13 +919,13 @@ class _ThreadActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomInset = context.responsive.bottomSheetInnerPadding();
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 12),
+          padding: EdgeInsets.only(bottom: bottomInset),
           decoration: BoxDecoration(
             color: AppColors.chaputBlack.withOpacity(0.82),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -1006,13 +985,13 @@ class _MessageActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomInset = context.responsive.bottomSheetInnerPadding();
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 12),
+          padding: EdgeInsets.only(bottom: bottomInset),
           decoration: BoxDecoration(
             color: AppColors.chaputBlack.withOpacity(0.82),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -1102,8 +1081,9 @@ class _GlassActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        isDestructive ? AppColors.chaputRed200 : AppColors.chaputWhite;
+    final color = isDestructive
+        ? AppColors.chaputRed200
+        : AppColors.chaputWhite;
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
@@ -1445,10 +1425,9 @@ class _MessagesListState extends State<_MessagesList> {
       itemBuilder: (ctx, i) {
         final g = groups[i];
         final senderNorm = g.senderId.toLowerCase();
-        final isMine =
-            widget.isParticipant
-                ? senderNorm == viewerNorm
-                : senderNorm == starterNorm;
+        final isMine = widget.isParticipant
+            ? senderNorm == viewerNorm
+            : senderNorm == starterNorm;
         final senderUser = _resolveUser(g.senderId);
         final forceDefault =
             widget.isHidden &&
@@ -1492,20 +1471,18 @@ class _MessagesListState extends State<_MessagesList> {
     final labels = List<String?>.filled(groups.length, null, growable: false);
     for (int i = 0; i < groups.length; i++) {
       final g = groups[i];
-      final dt =
-          g.items.isNotEmpty
-              ? (g.items.last.createdAt ?? g.items.first.createdAt)
-              : null;
+      final dt = g.items.isNotEmpty
+          ? (g.items.last.createdAt ?? g.items.first.createdAt)
+          : null;
       final key = _dayKey(dt);
-      final nextKey =
-          (i + 1) < groups.length
-              ? _dayKey(
-                groups[i + 1].items.isNotEmpty
-                    ? (groups[i + 1].items.last.createdAt ??
+      final nextKey = (i + 1) < groups.length
+          ? _dayKey(
+              groups[i + 1].items.isNotEmpty
+                  ? (groups[i + 1].items.last.createdAt ??
                         groups[i + 1].items.first.createdAt)
-                    : null,
-              )
-              : null;
+                  : null,
+            )
+          : null;
       if (key != null && key != nextKey) {
         labels[i] = _formatDayLabel(context, dt!);
       }
@@ -1556,11 +1533,10 @@ class _MessagesListState extends State<_MessagesList> {
       final sameSender =
           prev != null &&
           prev.senderId.toLowerCase() == msg.senderId.toLowerCase();
-      final gapOk =
-          prev?.createdAt != null && msg.createdAt != null
-              ? prev!.createdAt!.difference(msg.createdAt!).abs().inMinutes <=
-                  gapMinutes
-              : false;
+      final gapOk = prev?.createdAt != null && msg.createdAt != null
+          ? prev!.createdAt!.difference(msg.createdAt!).abs().inMinutes <=
+                gapMinutes
+          : false;
 
       if (current == null || !sameSender || !gapOk) {
         current = _MessageGroup(senderId: msg.senderId, items: [msg]);
@@ -1639,8 +1615,9 @@ class _MessageGroupBubble extends StatelessWidget {
     final bubbleColumn = KeyedSubtree(
       key: contentKey,
       child: Column(
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           for (int i = 0; i < orderedItems.length; i++)
             _MessageBubble(
@@ -1667,36 +1644,35 @@ class _MessageGroupBubble extends StatelessWidget {
       avatar: _GroupAvatar(user: senderUser, forceDefault: forceDefaultAvatar),
     );
 
-    final labelWidget =
-        dayLabel == null
-            ? const SizedBox.shrink()
-            : Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+    final labelWidget = dayLabel == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.chaputWhite.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.16),
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.chaputWhite.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppColors.chaputWhite.withOpacity(0.16),
-                    ),
-                  ),
-                  child: Text(
-                    dayLabel!,
-                    style: TextStyle(
-                      color: AppColors.chaputWhite.withOpacity(0.8),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
+                ),
+                child: Text(
+                  dayLabel!,
+                  style: TextStyle(
+                    color: AppColors.chaputWhite.withOpacity(0.8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ),
-            );
+            ),
+          );
 
     if (isMine) {
       final showRightAvatar = !isParticipant;
@@ -1788,8 +1764,9 @@ class _StickyGroupAvatar extends StatelessWidget {
         double groupTop;
         try {
           // position of the group inside the viewport
-          groupTop =
-              groupBox.localToGlobal(Offset.zero, ancestor: viewportBox).dy;
+          groupTop = groupBox
+              .localToGlobal(Offset.zero, ancestor: viewportBox)
+              .dy;
         } catch (_) {
           return child!;
         }
@@ -1887,16 +1864,14 @@ class _MessageBubble extends StatelessWidget {
     final isWhisper = message.kind == 'WHISPER';
     final whisperBg = AppColors.chaputLightBlue;
     final whisperFg = AppColors.chaputBlack;
-    final bg =
-        isWhisper
-            ? whisperBg
-            : (isMine
-                ? AppColors.chaputWhite
-                : AppColors.chaputWhite.withOpacity(0.12));
-    final fg =
-        isWhisper
-            ? whisperFg
-            : (isMine ? AppColors.chaputBlack : AppColors.chaputWhite);
+    final bg = isWhisper
+        ? whisperBg
+        : (isMine
+              ? AppColors.chaputWhite
+              : AppColors.chaputWhite.withOpacity(0.12));
+    final fg = isWhisper
+        ? whisperFg
+        : (isMine ? AppColors.chaputBlack : AppColors.chaputWhite);
 
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(14),
@@ -1907,10 +1882,9 @@ class _MessageBubble extends StatelessWidget {
 
     final masked =
         '*' * (message.body.isEmpty ? 6 : message.body.length.clamp(4, 18));
-    final displayText =
-        (!isParticipant && (isWhisper || isWhisperHidden))
-            ? masked
-            : message.body;
+    final displayText = (!isParticipant && (isWhisper || isWhisperHidden))
+        ? masked
+        : message.body;
     final timeText = _formatTime(message.createdAt);
     final hasReply =
         message.replyToId != null &&
@@ -1918,20 +1892,19 @@ class _MessageBubble extends StatelessWidget {
         message.replyToBody != null &&
         message.replyToBody!.isNotEmpty;
     final hasLikes = message.likeCount > 0;
-    final replyLabel =
-        replyAuthor.isNotEmpty ? replyAuthor : context.t('chat.reply_default');
+    final replyLabel = replyAuthor.isNotEmpty
+        ? replyAuthor
+        : context.t('chat.reply_default');
     final showTicks = isParticipant && isMine && timeText != null;
-    final tickColor =
-        message.readByOther
-            ? AppColors.chaputLightBlueAccent
-            : fg.withOpacity(0.45);
+    final tickColor = message.readByOther
+        ? AppColors.chaputLightBlueAccent
+        : fg.withOpacity(0.45);
     final tickIcon = message.delivered ? Icons.done_all : Icons.check;
 
     final maxWidth = MediaQuery.of(context).size.width * 0.72;
-    final replyBg =
-        isMine
-            ? AppColors.chaputBlack.withOpacity(0.18)
-            : AppColors.chaputWhite.withOpacity(0.2);
+    final replyBg = isMine
+        ? AppColors.chaputBlack.withOpacity(0.18)
+        : AppColors.chaputWhite.withOpacity(0.2);
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2014,10 +1987,9 @@ class _MessageBubble extends StatelessWidget {
               Text(
                 displayText,
                 style: TextStyle(
-                  color:
-                      isWhisperHidden
-                          ? AppColors.chaputWhite.withOpacity(0.7)
-                          : fg,
+                  color: isWhisperHidden
+                      ? AppColors.chaputWhite.withOpacity(0.7)
+                      : fg,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2042,10 +2014,9 @@ class _MessageBubble extends StatelessWidget {
                           Text(
                             timeText,
                             style: TextStyle(
-                              color:
-                                  (isWhisperHidden
-                                      ? AppColors.chaputWhite.withOpacity(0.45)
-                                      : fg.withOpacity(0.45)),
+                              color: (isWhisperHidden
+                                  ? AppColors.chaputWhite.withOpacity(0.45)
+                                  : fg.withOpacity(0.45)),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2064,16 +2035,15 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
 
-    Widget child =
-        isWhisperHidden
-            ? ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: bubble,
-              ),
-            )
-            : bubble;
+    Widget child = isWhisperHidden
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: bubble,
+            ),
+          )
+        : bubble;
 
     child = Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -2084,17 +2054,16 @@ class _MessageBubble extends StatelessWidget {
     if (enableActions) {
       child = GestureDetector(
         onDoubleTap: () => onToggleLike(message, !message.likedByMe),
-        onLongPress:
-            () => _showMessageActions(
-              context,
-              message: message,
-              canReply: canReply,
-              canShowLikes: hasLikes,
-              canReport: isParticipant && !isMine,
-              onReply: () => onReply(message),
-              onShowLikes: () => onShowLikes(message),
-              onReport: () => onReportMessage(message),
-            ),
+        onLongPress: () => _showMessageActions(
+          context,
+          message: message,
+          canReply: canReply,
+          canShowLikes: hasLikes,
+          canReport: isParticipant && !isMine,
+          onReply: () => onReply(message),
+          onShowLikes: () => onShowLikes(message),
+          onReport: () => onReportMessage(message),
+        ),
         child: child,
       );
     }
@@ -2257,18 +2226,18 @@ class _TypingIndicator extends StatelessWidget {
                   shown[i].profilePhotoKey!.isEmpty,
               imageUrl:
                   (shown[i].profilePhotoPath == null ||
-                          shown[i].profilePhotoPath!.isEmpty)
-                      ? shown[i].defaultAvatar
-                      : shown[i].profilePhotoPath!,
+                      shown[i].profilePhotoPath!.isEmpty)
+                  ? shown[i].defaultAvatar
+                  : shown[i].profilePhotoPath!,
             ),
           ),
         Text(
           shown.length == 1
               ? context.t('chat_typing')
               : context.t(
-                'chat.typing_multi',
-                params: {'count': shown.length.toString()},
-              ),
+                  'chat.typing_multi',
+                  params: {'count': shown.length.toString()},
+                ),
           style: TextStyle(
             color: AppColors.chaputWhite.withOpacity(0.65),
             fontSize: 11,
@@ -2404,10 +2373,9 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                 child: Column(
                   children: [
                     Align(
-                      alignment:
-                          widget.isMine
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
+                      alignment: widget.isMine
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: _MessageBubble(
                         message: widget.message,
                         isMine: widget.isMine,
@@ -2425,100 +2393,90 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                     ),
                     const SizedBox(height: 12),
                     Expanded(
-                      child:
-                          _loading
-                              ? const Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.chaputWhite,
+                      child: _loading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.chaputWhite,
+                              ),
+                            )
+                          : _items.isEmpty
+                          ? Center(
+                              child: Text(
+                                context.t('chat_no_likes'),
+                                style: TextStyle(
+                                  color: AppColors.chaputWhite.withOpacity(0.7),
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              )
-                              : _items.isEmpty
-                              ? Center(
-                                child: Text(
-                                  context.t('chat_no_likes'),
-                                  style: TextStyle(
-                                    color: AppColors.chaputWhite.withOpacity(
-                                      0.7,
-                                    ),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              )
-                              : ListView.separated(
-                                controller: _ctrl,
-                                itemCount:
-                                    _items.length + (_loadingMore ? 1 : 0),
-                                separatorBuilder:
-                                    (_, __) => Divider(
-                                      color: AppColors.chaputWhite.withOpacity(
-                                        0.08,
+                              ),
+                            )
+                          : ListView.separated(
+                              controller: _ctrl,
+                              itemCount: _items.length + (_loadingMore ? 1 : 0),
+                              separatorBuilder: (_, __) => Divider(
+                                color: AppColors.chaputWhite.withOpacity(0.08),
+                              ),
+                              itemBuilder: (ctx, i) {
+                                if (i >= _items.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 10),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.chaputWhite,
                                       ),
                                     ),
-                                itemBuilder: (ctx, i) {
-                                  if (i >= _items.length) {
-                                    return const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          color: AppColors.chaputWhite,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  final u = _items[i];
-                                  final hasPhoto =
-                                      u.profilePhotoPath != null &&
-                                      u.profilePhotoPath!.isNotEmpty;
-                                  final isDefault = !hasPhoto;
-                                  final imageUrl =
-                                      isDefault
-                                          ? u.defaultAvatar
-                                          : u.profilePhotoPath!;
-                                  return Row(
-                                    children: [
-                                      ChaputCircleAvatar(
-                                        isDefaultAvatar: isDefault,
-                                        imageUrl: imageUrl,
-                                        width: 34,
-                                        height: 34,
-                                        radius: 34,
-                                        borderWidth: 0,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
+                                  );
+                                }
+                                final u = _items[i];
+                                final hasPhoto =
+                                    u.profilePhotoPath != null &&
+                                    u.profilePhotoPath!.isNotEmpty;
+                                final isDefault = !hasPhoto;
+                                final imageUrl = isDefault
+                                    ? u.defaultAvatar
+                                    : u.profilePhotoPath!;
+                                return Row(
+                                  children: [
+                                    ChaputCircleAvatar(
+                                      isDefaultAvatar: isDefault,
+                                      imageUrl: imageUrl,
+                                      width: 34,
+                                      height: 34,
+                                      radius: 34,
+                                      borderWidth: 0,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            u.fullName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: AppColors.chaputWhite,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          if (u.username != null &&
+                                              u.username!.isNotEmpty)
                                             Text(
-                                              u.fullName,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: AppColors.chaputWhite,
-                                                fontWeight: FontWeight.w800,
+                                              '@${u.username}',
+                                              style: TextStyle(
+                                                color: AppColors.chaputWhite
+                                                    .withOpacity(0.6),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            if (u.username != null &&
-                                                u.username!.isNotEmpty)
-                                              Text(
-                                                '@${u.username}',
-                                                style: TextStyle(
-                                                  color: AppColors.chaputWhite
-                                                      .withOpacity(0.6),
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
+                                        ],
                                       ),
-                                    ],
-                                  );
-                                },
-                              ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),
@@ -2538,13 +2496,12 @@ class _PendingNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final until = pendingUntil;
-    final text =
-        until != null
-            ? context.t(
-              'chat.pending_time',
-              params: {'time': _formatRemaining(context, until)},
-            )
-            : context.t('chat.pending_wait');
+    final text = until != null
+        ? context.t(
+            'chat.pending_time',
+            params: {'time': _formatRemaining(context, until)},
+          )
+        : context.t('chat.pending_wait');
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
       child: Center(

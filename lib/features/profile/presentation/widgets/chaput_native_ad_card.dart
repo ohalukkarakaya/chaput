@@ -6,6 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../../core/config/env.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/ui/responsive/chaput_responsive.dart';
 
 class ChaputNativeAdCard extends StatefulWidget {
   const ChaputNativeAdCard({super.key});
@@ -97,42 +98,32 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
       return const SizedBox.shrink();
     }
 
-    final mediaQuery = MediaQuery.of(context);
-    final safeBottom =
-        mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
-            ? mediaQuery.viewPadding.bottom
-            : mediaQuery.padding.bottom;
+    final safeBottom = context.responsive.bottomSheetInnerPadding();
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        10,
-        20,
-        safeBottom > 0 ? safeBottom : 12,
-      ),
+      padding: EdgeInsets.fromLTRB(20, 10, 20, safeBottom),
       child: SizedBox(
         height: ChaputNativeAdCard.minTotalHeight,
-        child:
-            _loaded && _ad != null
-                ? AdWidget(key: ObjectKey(_ad), ad: _ad!)
-                : Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.chaputNearBlack,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: AppColors.chaputWhite.withOpacity(0.22),
-                    ),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    context.t('ads.sponsored_content'),
-                    style: TextStyle(
-                      color: AppColors.chaputWhite.withOpacity(0.7),
-                      fontWeight: FontWeight.w700,
-                    ),
+        child: _loaded && _ad != null
+            ? AdWidget(key: ObjectKey(_ad), ad: _ad!)
+            : Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.chaputNearBlack,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.22),
                   ),
                 ),
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  context.t('ads.sponsored_content'),
+                  style: TextStyle(
+                    color: AppColors.chaputWhite.withOpacity(0.7),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
       ),
     );
   }
