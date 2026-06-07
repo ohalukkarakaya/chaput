@@ -35,6 +35,8 @@ class TokenStorage {
       _storage.write(key: _kDeviceId, value: id);
   Future<String?> readDeviceId() => _storage.read(key: _kDeviceId);
 
+  Future<void> saveUserId(String id) =>
+      _storage.write(key: _kUserId, value: id);
   Future<void> saveAccessToken(String token) =>
       _storage.write(key: _kAccess, value: token);
   Future<void> saveRefreshToken(String token) async {

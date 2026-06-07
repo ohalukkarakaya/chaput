@@ -41,6 +41,7 @@ import '../../../user/data/user_api_provider.dart';
 import '../../domain/tree_catalog.dart';
 
 import '../../../social/application/follow_controller.dart';
+import '../profile_composer_visibility.dart';
 import '../utils/profile_tree_bounds.dart';
 import '../utils/tree_model_cache.dart';
 import '../widgets/black_glass.dart';
@@ -1659,6 +1660,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
+  Future<bool> _restorePurchasesWithRevenueCat() async {
+    final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    if (userId != null && userId.isNotEmpty) {
+      await RevenueCatService.instance.logInWithBackendUserId(userId);
+    }
+
+    final revenueCatResult = await RevenueCatService.instance
+        .restorePurchases();
+    if (!revenueCatResult.isSuccess) {
+      return false;
+    }
+
+    final restored = await ref.read(accountApiProvider).restorePurchases();
+    await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+    return restored || revenueCatResult.data?.hasChaputSubscription == true;
+  }
+
   Future<bool> _confirmReplaceSubscriptionIfNeeded(
     PaywallPurchase purchase,
   ) async {
@@ -1735,17 +1753,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 requiredAds: requiredAds,
               );
               if (sessionId.isEmpty) return false;
-              await api.claimAdReward(
+              final claim = await api.claimAdReward(
                 sessionId: sessionId,
                 watchedCount: requiredAds,
               );
-              ref
-                  .read(
-                    chaputDecisionControllerProvider(
-                      _decisionProfileId!,
-                    ).notifier,
-                  )
-                  .fetchDecision();
+              final decisionNotifier = ref.read(
+                chaputDecisionControllerProvider(_decisionProfileId!).notifier,
+              );
+              decisionNotifier.applyAdRewardClaimed(
+                watchedToday: claim.watchedToday,
+                canWatch: claim.canWatch,
+              );
+              unawaited(decisionNotifier.fetchDecision());
               return true;
             } catch (_) {
               return false;
@@ -2453,15 +2472,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         planPeriod: effectivePlanPeriod,
         reviveTarget: reviveTarget,
         onPurchaseProduct: _purchaseWithRevenueCat,
-        onRestorePurchases: () async {
-          final restored = await ref
-              .read(accountApiProvider)
-              .restorePurchases();
-          if (restored) {
-            await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
-          }
-          return restored;
-        },
+        onRestorePurchases: _restorePurchasesWithRevenueCat,
       ),
     );
   }
@@ -3389,13 +3400,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         activeThread != null && activeThread.state == 'PENDING';
     final bool canReplyOnActive =
         activeIsParticipant && (!activeIsPending || !activeViewerIsStarter);
-    final bool showProfileComposer =
-        _composerOpen &&
-        !_silhouetteMode &&
-        !_isAdPageActive &&
-        chaputThreads.isEmpty &&
-        chaputAllowed &&
-        !isMe;
+    final bool showProfileComposer = shouldShowProfileComposer(
+      composerOpen: _composerOpen,
+      silhouetteMode: _silhouetteMode,
+      chaputAllowed: chaputAllowed,
+      isMe: isMe,
+      chaputThreadCount: chaputThreads.length,
+    );
     _resetTypingForThreadChange(activeThread?.threadId);
     _activeThreadId = activeThread?.threadId;
     _activeThreadIsParticipant = activeIsParticipant;

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../me/data/me_api.dart';
 import '../../me/domain/me_models.dart';
 import '../../notifications/application/firebase_token_cleanup.dart';
+import '../../revenuecat/data/revenue_cat_service.dart';
 import '../../../core/deep_links/deep_link_state.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 
@@ -30,6 +31,7 @@ class MeController extends AsyncNotifier<MeResponse?> {
 
     try {
       final me = await call();
+      await _syncRevenueCatUser(me);
       state = AsyncData(me);
       return me;
     } on DioException catch (e, st) {
@@ -45,6 +47,7 @@ class MeController extends AsyncNotifier<MeResponse?> {
       if (code == 400) {
         try {
           final me = await call();
+          await _syncRevenueCatUser(me);
           state = AsyncData(me);
           return me;
         } catch (e2, st2) {
@@ -54,6 +57,7 @@ class MeController extends AsyncNotifier<MeResponse?> {
 
       // 401 or 404 -> hard logout
       if (code == 401 || code == 404) {
+        await RevenueCatService.instance.logOut();
         await FirebaseTokenCleanup.deleteLocalMessagingToken();
         await storage.clear();
         ref.read(pendingDeepLinkProvider.notifier).state = null;
@@ -68,6 +72,27 @@ class MeController extends AsyncNotifier<MeResponse?> {
       log('ME: unknown error', error: e, stackTrace: st);
       state = AsyncData(previous);
       rethrow;
+    }
+  }
+
+  Future<void> _syncRevenueCatUser(MeResponse me) async {
+    final userId = me.user.userId.trim();
+    if (userId.isEmpty) return;
+
+    final storage = ref.read(tokenStorageProvider);
+    await storage.saveUserId(userId);
+
+    final result = await RevenueCatService.instance.logInWithBackendUserId(
+      userId,
+      email: me.user.email,
+      displayName: me.user.fullName,
+      username: me.user.username,
+    );
+    if (!result.isSuccess) {
+      log(
+        'RevenueCat user sync failed status=${result.status} message=${result.message}',
+        error: result.exception,
+      );
     }
   }
 }

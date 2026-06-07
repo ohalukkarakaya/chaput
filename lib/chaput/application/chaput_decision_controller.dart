@@ -39,11 +39,14 @@ final chaputApiProvider = Provider<ChaputApi>((ref) {
 });
 
 final chaputDecisionControllerProvider =
-    AutoDisposeNotifierProviderFamily<ChaputDecisionController, ChaputDecisionState, String>(
-  ChaputDecisionController.new,
-);
+    AutoDisposeNotifierProviderFamily<
+      ChaputDecisionController,
+      ChaputDecisionState,
+      String
+    >(ChaputDecisionController.new);
 
-class ChaputDecisionController extends AutoDisposeFamilyNotifier<ChaputDecisionState, String> {
+class ChaputDecisionController
+    extends AutoDisposeFamilyNotifier<ChaputDecisionState, String> {
   ChaputApi get _api => ref.read(chaputApiProvider);
 
   @override
@@ -56,7 +59,11 @@ class ChaputDecisionController extends AutoDisposeFamilyNotifier<ChaputDecisionS
     state = state.copyWith(isLoading: true, error: null, clearError: true);
     try {
       final decision = await _api.getDecision(arg);
-      state = state.copyWith(isLoading: false, decision: decision, clearError: true);
+      state = state.copyWith(
+        isLoading: false,
+        decision: decision,
+        clearError: true,
+      );
       return decision;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -64,13 +71,16 @@ class ChaputDecisionController extends AutoDisposeFamilyNotifier<ChaputDecisionS
     }
   }
 
-
   Future<void> fetchDecision() async {
     if (state.isLoading) return;
     state = state.copyWith(isLoading: true, error: null, clearError: true);
     try {
       final decision = await _api.getDecision(arg);
-      state = state.copyWith(isLoading: false, decision: decision, clearError: true);
+      state = state.copyWith(
+        isLoading: false,
+        decision: decision,
+        clearError: true,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -101,13 +111,17 @@ class ChaputDecisionController extends AutoDisposeFamilyNotifier<ChaputDecisionS
   void applyPlanType(String type) {
     final current = state.decision;
     if (current == null) return;
-    state = state.copyWith(decision: current.copyWith(plan: current.plan.copyWith(type: type)));
+    state = state.copyWith(
+      decision: current.copyWith(plan: current.plan.copyWith(type: type)),
+    );
   }
 
   void applyPlanPeriod(String period) {
     final current = state.decision;
     if (current == null) return;
-    state = state.copyWith(decision: current.copyWith(plan: current.plan.copyWith(period: period)));
+    state = state.copyWith(
+      decision: current.copyWith(plan: current.plan.copyWith(period: period)),
+    );
   }
 
   void setCredits({
@@ -127,6 +141,28 @@ class ChaputDecisionController extends AutoDisposeFamilyNotifier<ChaputDecisionS
           special: special,
           revive: revive,
           whisper: whisper,
+        ),
+      ),
+    );
+  }
+
+  void applyAdRewardClaimed({
+    required int watchedToday,
+    required bool canWatch,
+  }) {
+    final current = state.decision;
+    if (current == null) return;
+    state = state.copyWith(
+      decision: current.copyWith(
+        target: current.target.copyWith(canStart: true, hasThread: false),
+        ads: current.ads.copyWith(
+          canWatch: canWatch,
+          watchedToday: watchedToday,
+          nextRewardIn: 0,
+        ),
+        decision: current.decision.copyWith(
+          path: 'CAN_START',
+          reason: 'ad_reward_claimed',
         ),
       ),
     );

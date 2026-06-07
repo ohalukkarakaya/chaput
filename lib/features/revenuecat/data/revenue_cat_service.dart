@@ -115,7 +115,8 @@ class RevenueCatService {
       return RevenueCatResult.success(null);
     }
 
-    if (RevenueCatConfig.apiKey.trim().isEmpty) {
+    final apiKey = RevenueCatConfig.apiKeyForPlatform(defaultTargetPlatform);
+    if (apiKey.trim().isEmpty) {
       return RevenueCatResult.failure(
         status: RevenueCatResultStatus.invalidRequest,
         message: 'RevenueCat API key is missing.',
@@ -128,7 +129,7 @@ class RevenueCatService {
       );
       final alreadyConfigured = await _isSdkConfigured();
       if (!alreadyConfigured) {
-        final configuration = PurchasesConfiguration(RevenueCatConfig.apiKey);
+        final configuration = PurchasesConfiguration(apiKey);
         if (appUserId != null && appUserId.trim().isNotEmpty) {
           configuration.appUserID = appUserId.trim();
         }
@@ -204,20 +205,27 @@ class RevenueCatService {
     final initialized = await _ensureInitialized<RevenueCatPurchaseData>();
     if (initialized != null) return initialized;
 
-    final trimmedProductId = productId.trim();
-    if (trimmedProductId.isEmpty) {
+    final requestedProductId = productId.trim();
+    if (requestedProductId.isEmpty) {
       return RevenueCatResult.failure(
         status: RevenueCatResultStatus.invalidRequest,
         message: 'Product id is empty.',
       );
     }
+    final logicalProductId = RevenueCatProductIds.logicalProductId(
+      requestedProductId,
+    );
+    final storeProductId = RevenueCatProductIds.storeProductIdForPlatform(
+      logicalProductId,
+      defaultTargetPlatform,
+    );
 
     try {
-      final product = await _findStoreProduct(trimmedProductId);
+      final product = await _findStoreProduct(logicalProductId);
       if (product == null) {
         return RevenueCatResult.failure(
           status: RevenueCatResultStatus.productNotFound,
-          message: 'RevenueCat product was not found: $trimmedProductId',
+          message: 'RevenueCat product was not found: $storeProductId',
         );
       }
       final purchaseResult = await Purchases.purchase(
@@ -228,7 +236,7 @@ class RevenueCatService {
       // TODO: Send this transaction to the existing backend confirmation flow.
       return RevenueCatResult.success(
         RevenueCatPurchaseData(
-          productId: trimmedProductId,
+          productId: logicalProductId,
           customerInfo: purchaseResult.customerInfo,
           storeTransaction: purchaseResult.storeTransaction,
           hasChaputSubscription: isChaputSubscriptionActive(
@@ -284,7 +292,7 @@ class RevenueCatService {
     if (initialized != null) return initialized;
 
     final ids = productIds
-        .map((id) => id.trim())
+        .map((id) => RevenueCatProductIds.logicalProductId(id.trim()))
         .where((id) => id.isNotEmpty)
         .toSet()
         .toList();
@@ -297,8 +305,16 @@ class RevenueCatService {
 
     try {
       if (productCategory != null) {
+        final storeIds = ids
+            .map(
+              (id) => RevenueCatProductIds.storeProductIdForPlatform(
+                id,
+                defaultTargetPlatform,
+              ),
+            )
+            .toList(growable: false);
         final products = await Purchases.getProducts(
-          ids,
+          storeIds,
           productCategory: productCategory,
         );
         return RevenueCatResult.success(products);
@@ -313,9 +329,17 @@ class RevenueCatService {
       final products = <StoreProduct>[];
 
       if (subscriptionIds.isNotEmpty) {
+        final storeSubscriptionIds = subscriptionIds
+            .map(
+              (id) => RevenueCatProductIds.storeProductIdForPlatform(
+                id,
+                defaultTargetPlatform,
+              ),
+            )
+            .toList(growable: false);
         products.addAll(
           await Purchases.getProducts(
-            subscriptionIds,
+            storeSubscriptionIds,
             productCategory: ProductCategory.subscription,
           ),
         );
@@ -338,11 +362,11 @@ class RevenueCatService {
   }
 
   Future<RevenueCatResult<RevenueCatLoginData>> logInWithBackendUserId(
-    String userId,
-  ) async {
-    final initialized = await _ensureInitialized<RevenueCatLoginData>();
-    if (initialized != null) return initialized;
-
+    String userId, {
+    String? email,
+    String? displayName,
+    String? username,
+  }) async {
     final trimmedUserId = userId.trim();
     if (trimmedUserId.isEmpty) {
       return RevenueCatResult.failure(
@@ -351,8 +375,41 @@ class RevenueCatService {
       );
     }
 
+    if (!_initialized) {
+      final result = await init(appUserId: trimmedUserId);
+      if (!result.isSuccess) {
+        return RevenueCatResult.failure(
+          status: result.status,
+          message: result.message,
+          errorCode: result.errorCode,
+          exception: result.exception,
+        );
+      }
+    }
+
     try {
+      final currentAppUserId = await Purchases.appUserID;
+      if (currentAppUserId == trimmedUserId) {
+        await _setBackendUserAttributes(
+          userId: trimmedUserId,
+          email: email,
+          displayName: displayName,
+          username: username,
+        );
+        final customerInfo = await Purchases.getCustomerInfo();
+        _setLatestCustomerInfo(customerInfo);
+        return RevenueCatResult.success(
+          RevenueCatLoginData(customerInfo: customerInfo, created: false),
+        );
+      }
+
       final result = await Purchases.logIn(trimmedUserId);
+      await _setBackendUserAttributes(
+        userId: trimmedUserId,
+        email: email,
+        displayName: displayName,
+        username: username,
+      );
       _setLatestCustomerInfo(result.customerInfo);
       return RevenueCatResult.success(
         RevenueCatLoginData(
@@ -368,10 +425,21 @@ class RevenueCatService {
   }
 
   Future<RevenueCatResult<CustomerInfo>> logOut() async {
-    final initialized = await _ensureInitialized<CustomerInfo>();
-    if (initialized != null) return initialized;
-
     try {
+      final configured = _initialized || await _isSdkConfigured();
+      if (!configured) {
+        return RevenueCatResult.failure(
+          status: RevenueCatResultStatus.notInitialized,
+          message: 'RevenueCat SDK is not configured.',
+        );
+      }
+      final isAnonymous = await Purchases.isAnonymous;
+      if (isAnonymous) {
+        return RevenueCatResult.failure(
+          status: RevenueCatResultStatus.invalidRequest,
+          message: 'RevenueCat user is already anonymous.',
+        );
+      }
       final customerInfo = await Purchases.logOut();
       _setLatestCustomerInfo(customerInfo);
       return RevenueCatResult.success(customerInfo);
@@ -409,9 +477,14 @@ class RevenueCatService {
   }
 
   Future<StoreProduct?> _findStoreProduct(String productId) async {
+    final logicalProductId = RevenueCatProductIds.logicalProductId(productId);
+    final storeProductId = RevenueCatProductIds.storeProductIdForPlatform(
+      logicalProductId,
+      defaultTargetPlatform,
+    );
     final products = await Purchases.getProducts([
-      productId,
-    ], productCategory: RevenueCatProductIds.categoryFor(productId));
+      storeProductId,
+    ], productCategory: RevenueCatProductIds.categoryFor(logicalProductId));
     if (products.isEmpty) return null;
     return products.first;
   }
@@ -426,6 +499,39 @@ class RevenueCatService {
     _latestCustomerInfo = customerInfo;
     if (!_customerInfoController.isClosed) {
       _customerInfoController.add(customerInfo);
+    }
+  }
+
+  Future<void> _setBackendUserAttributes({
+    required String userId,
+    String? email,
+    String? displayName,
+    String? username,
+  }) async {
+    try {
+      final attributes = <String, String>{'backend_user_id': userId};
+      final trimmedUsername = username?.trim();
+      if (trimmedUsername != null && trimmedUsername.isNotEmpty) {
+        attributes['username'] = trimmedUsername;
+      }
+      await Purchases.setAttributes(attributes);
+
+      final trimmedEmail = email?.trim();
+      if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
+        await Purchases.setEmail(trimmedEmail);
+      }
+
+      final trimmedDisplayName = displayName?.trim();
+      if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty) {
+        await Purchases.setDisplayName(trimmedDisplayName);
+      }
+    } on PlatformException catch (error, stackTrace) {
+      developer.log(
+        'RevenueCat attribute sync failed',
+        name: 'RevenueCatService',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 

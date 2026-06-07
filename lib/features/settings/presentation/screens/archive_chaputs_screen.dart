@@ -103,6 +103,23 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     );
   }
 
+  Future<bool> _restorePurchasesWithRevenueCat(WidgetRef ref) async {
+    final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    if (userId != null && userId.isNotEmpty) {
+      await RevenueCatService.instance.logInWithBackendUserId(userId);
+    }
+
+    final revenueCatResult = await RevenueCatService.instance
+        .restorePurchases();
+    if (!revenueCatResult.isSuccess) {
+      return false;
+    }
+
+    final restored = await ref.read(accountApiProvider).restorePurchases();
+    await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+    return restored || revenueCatResult.data?.hasChaputSubscription == true;
+  }
+
   Future<PaywallPurchase?> _openPaywall(
     BuildContext context,
     WidgetRef ref, {
@@ -121,15 +138,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
         reviveTarget: reviveTarget,
         onPurchaseProduct: (productId) =>
             _purchaseWithRevenueCat(context, ref, productId),
-        onRestorePurchases: () async {
-          final restored = await ref
-              .read(accountApiProvider)
-              .restorePurchases();
-          if (restored) {
-            await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
-          }
-          return restored;
-        },
+        onRestorePurchases: () => _restorePurchasesWithRevenueCat(ref),
       ),
     );
   }
