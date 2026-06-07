@@ -267,10 +267,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   static const double _chaputSwipeHapticThreshold = 0.34;
   int _chaputFeedbackBasePageIndex = 0;
   int? _chaputHapticTargetPageIndex;
-  double? _lastChaputScrollPage;
-  DateTime? _lastChaputScrollAt;
-  double _chaputSwipeSmoothedSpeed = 0;
-  Timer? _chaputSwipeSoundIdleTimer;
   int _chaputActiveIndex = 0;
   static const double _chaputSheetMin = 0.12;
   static const double _chaputSheetMid = 0.33;
@@ -428,16 +424,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void _syncChaputFeedbackBasePage(int pageIndex) {
     _chaputFeedbackBasePageIndex = pageIndex;
     _chaputHapticTargetPageIndex = null;
-    _lastChaputScrollPage = pageIndex.toDouble();
-    _lastChaputScrollAt = DateTime.now();
-    _chaputSwipeSmoothedSpeed = 0;
-    _stopChaputSwipeMotion();
-  }
-
-  void _stopChaputSwipeMotion() {
-    _chaputSwipeSoundIdleTimer?.cancel();
-    _chaputSwipeSoundIdleTimer = null;
-    unawaited(ChaputSoundService.instance.stopCardSwipeMotion());
   }
 
   void _handleChaputPageScroll() {
@@ -450,51 +436,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
     if (page == null || !page.isFinite) return;
 
-    final now = DateTime.now();
-    final previousPage = _lastChaputScrollPage;
-    final previousAt = _lastChaputScrollAt;
-    _lastChaputScrollPage = page;
-    _lastChaputScrollAt = now;
-
     final offsetFromBase = page - _chaputFeedbackBasePageIndex;
     final progress = offsetFromBase.abs().clamp(0, 1).toDouble();
-    if (progress < 0.012) {
+    if (progress < _chaputSwipeHapticThreshold) {
       _chaputHapticTargetPageIndex = null;
-      _chaputSwipeSmoothedSpeed = 0;
-      _stopChaputSwipeMotion();
       return;
     }
 
-    var instantSpeed = 0.0;
-    if (previousPage != null && previousAt != null) {
-      final elapsedMs = now.difference(previousAt).inMilliseconds;
-      if (elapsedMs > 0 && elapsedMs < 260) {
-        instantSpeed = ((page - previousPage).abs() * 1000) / elapsedMs;
-      }
-    }
-    if (instantSpeed > 0) {
-      _chaputSwipeSmoothedSpeed = _chaputSwipeSmoothedSpeed == 0
-          ? instantSpeed
-          : _chaputSwipeSmoothedSpeed * 0.58 + instantSpeed * 0.42;
-    } else {
-      _chaputSwipeSmoothedSpeed *= 0.86;
-    }
-
-    if (_chaputSwipeSmoothedSpeed > 0.006) {
-      ChaputSoundService.instance.updateCardSwipeMotion(
-        progress: progress,
-        pagesPerSecond: _chaputSwipeSmoothedSpeed,
-      );
-      _chaputSwipeSoundIdleTimer?.cancel();
-      _chaputSwipeSoundIdleTimer = Timer(
-        const Duration(milliseconds: 140),
-        _stopChaputSwipeMotion,
-      );
-    }
-
-    if (progress < _chaputSwipeHapticThreshold) return;
-
     final direction = offsetFromBase.sign.toInt();
+    if (direction == 0) return;
     final targetPageIndex = _chaputFeedbackBasePageIndex + direction;
     if (targetPageIndex < 0) return;
     if (_chaputHapticTargetPageIndex == targetPageIndex) return;
@@ -742,7 +692,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void didPushNext() {
     _stopTypingSound();
-    _stopChaputSwipeMotion();
   }
 
   @override
@@ -751,7 +700,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _syncTypingSound();
     } else {
       _stopTypingSound();
-      _stopChaputSwipeMotion();
     }
   }
 
@@ -804,7 +752,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void dispose() {
     _isDisposed = true;
     _stopTypingSound();
-    _stopChaputSwipeMotion();
     WidgetsBinding.instance.removeObserver(this);
     if (_routeSubscribed) {
       routeObserver.unsubscribe(this);
@@ -842,6 +789,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _toggleProfileCard() {
+    HapticFeedback.selectionClick();
     setState(() => _profileCardOpen = !_profileCardOpen);
     if (_profileCardOpen) {
       _profileCardCtrl.forward(from: 0);
@@ -2244,6 +2192,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           chaputCtrl.addUsers({viewerLite.id: viewerLite});
         }
         await api.sendMessage(threadIdHex: out.threadId, body: text);
+        _playSmallFeedback(ChaputSoundEffect.sendMessage);
       }
 
       _chaputThreadCreated = true;
@@ -4215,8 +4164,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                               followButtonDisabled
                                                               ? null
                                                               : () async {
-                                                                  if (isBlocked)
+                                                                  if (isBlocked) {
                                                                     return;
+                                                                  }
+                                                                  HapticFeedback.selectionClick();
 
                                                                   setState(
                                                                     () =>

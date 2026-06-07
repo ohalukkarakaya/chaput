@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../features/recommended_users/application/recommended_user_controller.dart';
 import '../../../../features/social/application/block_controller.dart';
@@ -27,6 +28,7 @@ class ProfileActionsButton extends StatelessWidget {
     return InkResponse(
       radius: 20,
       onTap: () {
+        HapticFeedback.selectionClick();
         showModalBottomSheet(
           context: context,
           backgroundColor: AppColors.chaputTransparent,

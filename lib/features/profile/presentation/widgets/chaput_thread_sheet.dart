@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../chaput/application/chaput_decision_controller.dart';
 import '../../../../chaput/application/chaput_messages_controller.dart';
@@ -829,13 +830,16 @@ class _ThreadHeader extends StatelessWidget {
           if (canArchiveThread || canReportThread) ...[
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () => _showThreadActions(
-                context,
-                canArchive: canArchiveThread,
-                canReport: canReportThread,
-                onArchive: onArchiveThread,
-                onReport: onReportThread,
-              ),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                _showThreadActions(
+                  context,
+                  canArchive: canArchiveThread,
+                  canReport: canReportThread,
+                  onArchive: onArchiveThread,
+                  onReport: onReportThread,
+                );
+              },
               child: Container(
                 width: 30,
                 height: 30,
@@ -1084,29 +1088,34 @@ class _GlassActionTile extends StatelessWidget {
     final color = isDestructive
         ? AppColors.chaputRed200
         : AppColors.chaputWhite;
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: AppColors.chaputWhite.withOpacity(isDestructive ? 0.10 : 0.06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.chaputWhite.withOpacity(0.08)),
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.chaputWhite.withOpacity(
+              isDestructive ? 0.10 : 0.06,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.08)),
+          ),
+          child: Icon(icon, color: color, size: 20),
         ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(color: color, fontWeight: FontWeight.w800),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          color: AppColors.chaputWhite.withOpacity(0.58),
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+        title: Text(
+          title,
+          style: TextStyle(color: color, fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            color: AppColors.chaputWhite.withOpacity(0.58),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
