@@ -196,6 +196,7 @@
   "paywall.restore_failed": "No se pudo restaurar.",
   "paywall.restore_purchases": "Restaurar compras",
   "paywall.restore_success": "Compras restauradas.",
+  "paywall.action.revive": "Reactivar",
   "paywall.section.as_needed": "Según necesidad",
   "paywall.section.revive_purchase": "Comprar reactivaciones",
   "paywall.section.single_purchase": "Compra individual",

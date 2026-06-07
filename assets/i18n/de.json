@@ -196,6 +196,7 @@
   "paywall.restore_failed": "Wiederherstellen fehlgeschlagen.",
   "paywall.restore_purchases": "Käufe wiederherstellen",
   "paywall.restore_success": "Käufe wiederhergestellt.",
+  "paywall.action.revive": "Wiederbeleben",
   "paywall.section.as_needed": "Nach Bedarf",
   "paywall.section.revive_purchase": "Wiederbelebungen kaufen",
   "paywall.section.single_purchase": "Einzelkauf",

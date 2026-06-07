@@ -783,9 +783,9 @@ class _ReviveTargetCard extends StatelessWidget {
                           color: AppColors.chaputWhite,
                         ),
                       )
-                    : const Text(
-                        'Kurtar',
-                        style: TextStyle(
+                    : Text(
+                        context.t('paywall.action.revive'),
+                        style: const TextStyle(
                           color: AppColors.chaputWhite,
                           fontWeight: FontWeight.w800,
                           fontSize: 12,

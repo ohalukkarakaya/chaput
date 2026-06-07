@@ -196,6 +196,7 @@
   "paywall.restore_failed": "Palautus epäonnistui.",
   "paywall.restore_purchases": "Palauta ostot",
   "paywall.restore_success": "Ostot palautettu.",
+  "paywall.action.revive": "Palauta",
   "paywall.section.as_needed": "Tarpeen mukaan",
   "paywall.section.revive_purchase": "Osta palautuksia",
   "paywall.section.single_purchase": "Yksittäisosto",

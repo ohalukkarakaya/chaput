@@ -196,6 +196,7 @@
   "paywall.restore_failed": "Gendannelse mislykkedes.",
   "paywall.restore_purchases": "Gendan køb",
   "paywall.restore_success": "Køb gendannet.",
+  "paywall.action.revive": "Gendan",
   "paywall.section.as_needed": "Efter behov",
   "paywall.section.revive_purchase": "Køb gendannelser",
   "paywall.section.single_purchase": "Enkeltkøb",

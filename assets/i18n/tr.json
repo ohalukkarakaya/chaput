@@ -196,6 +196,7 @@
   "paywall.restore_failed": "Satın alımlar geri yüklenemedi.",
   "paywall.restore_purchases": "Satın alımları geri yükle",
   "paywall.restore_success": "Satın alımlar geri yüklendi.",
+  "paywall.action.revive": "Kurtar",
   "paywall.section.as_needed": "İhtiyaca göre",
   "paywall.section.revive_purchase": "Kurtarma satın al",
   "paywall.section.single_purchase": "Tekli satın alım",

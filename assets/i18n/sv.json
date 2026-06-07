@@ -196,6 +196,7 @@
   "paywall.restore_failed": "Återställning misslyckades.",
   "paywall.restore_purchases": "Återställ köp",
   "paywall.restore_success": "Köp återställda.",
+  "paywall.action.revive": "Återuppliva",
   "paywall.section.as_needed": "Vid behov",
   "paywall.section.revive_purchase": "Köp återupplivningar",
   "paywall.section.single_purchase": "Engångsköp",

@@ -196,6 +196,7 @@
   "paywall.restore_failed": "Gjenoppretting mislyktes.",
   "paywall.restore_purchases": "Gjenopprett kjøp",
   "paywall.restore_success": "Kjøp gjenopprettet.",
+  "paywall.action.revive": "Gjenoppliv",
   "paywall.section.as_needed": "Ved behov",
   "paywall.section.revive_purchase": "Kjøp gjenopplivinger",
   "paywall.section.single_purchase": "Enkeltkjøp",
