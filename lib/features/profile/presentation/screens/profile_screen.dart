@@ -267,6 +267,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   static const double _chaputSwipeHapticThreshold = 0.34;
   int _chaputFeedbackBasePageIndex = 0;
   int? _chaputHapticTargetPageIndex;
+  int? _chaputSwipeFeedbackFromPageIndex;
+  bool _chaputSwipeSoundPlayed = false;
+  double _chaputSwipeFeedbackProgress = 0;
+  Timer? _chaputSwipeFeedbackCleanupTimer;
   int _chaputActiveIndex = 0;
   static const double _chaputSheetMin = 0.12;
   static const double _chaputSheetMid = 0.33;
@@ -423,7 +427,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _syncChaputFeedbackBasePage(int pageIndex) {
     _chaputFeedbackBasePageIndex = pageIndex;
+    if (_chaputSwipeFeedbackFromPageIndex == null) {
+      _chaputHapticTargetPageIndex = null;
+    }
+  }
+
+  void _resetChaputSwipeFeedback() {
+    _chaputSwipeFeedbackCleanupTimer?.cancel();
+    _chaputSwipeFeedbackCleanupTimer = null;
+    _chaputSwipeFeedbackFromPageIndex = null;
+    _chaputSwipeSoundPlayed = false;
+    _chaputSwipeFeedbackProgress = 0;
     _chaputHapticTargetPageIndex = null;
+  }
+
+  void _scheduleChaputSwipeFeedbackIdle() {
+    _chaputSwipeFeedbackCleanupTimer?.cancel();
+    _chaputSwipeFeedbackCleanupTimer = Timer(
+      const Duration(milliseconds: 120),
+      () {
+        final progress = _chaputSwipeFeedbackProgress;
+        if (progress <= 0.01 || progress >= 0.99) {
+          _resetChaputSwipeFeedback();
+        }
+      },
+    );
   }
 
   void _handleChaputPageScroll() {
@@ -436,8 +464,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
     if (page == null || !page.isFinite) return;
 
-    final offsetFromBase = page - _chaputFeedbackBasePageIndex;
+    final startOffset = page - _chaputFeedbackBasePageIndex;
+    if (_chaputSwipeFeedbackFromPageIndex == null) {
+      if (startOffset.abs() < 0.001) return;
+      _chaputSwipeFeedbackFromPageIndex = _chaputFeedbackBasePageIndex;
+      _chaputSwipeFeedbackProgress = 0;
+    }
+
+    final feedbackFromPage = _chaputSwipeFeedbackFromPageIndex!;
+    final offsetFromBase = page - feedbackFromPage;
     final progress = offsetFromBase.abs().clamp(0, 1).toDouble();
+    _chaputSwipeFeedbackProgress = progress;
+    if (!_chaputSwipeSoundPlayed) {
+      _chaputSwipeSoundPlayed = true;
+      unawaited(ChaputSoundService.instance.play(ChaputSoundEffect.cardSwipe));
+    }
+    _scheduleChaputSwipeFeedbackIdle();
+
     if (progress < _chaputSwipeHapticThreshold) {
       _chaputHapticTargetPageIndex = null;
       return;
@@ -445,7 +488,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final direction = offsetFromBase.sign.toInt();
     if (direction == 0) return;
-    final targetPageIndex = _chaputFeedbackBasePageIndex + direction;
+    final targetPageIndex = feedbackFromPage + direction;
     if (targetPageIndex < 0) return;
     if (_chaputHapticTargetPageIndex == targetPageIndex) return;
 
@@ -692,6 +735,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void didPushNext() {
     _stopTypingSound();
+    _resetChaputSwipeFeedback();
   }
 
   @override
@@ -700,6 +744,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _syncTypingSound();
     } else {
       _stopTypingSound();
+      _resetChaputSwipeFeedback();
     }
   }
 
@@ -731,6 +776,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.userId != widget.userId) {
+      _resetChaputSwipeFeedback();
       _disposeThree(); // user değiştiyse 3D sıfırla
       _lastTreeId = null;
       _threeError = null;
@@ -752,6 +798,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void dispose() {
     _isDisposed = true;
     _stopTypingSound();
+    _resetChaputSwipeFeedback();
     WidgetsBinding.instance.removeObserver(this);
     if (_routeSubscribed) {
       routeObserver.unsubscribe(this);

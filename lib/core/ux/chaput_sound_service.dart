@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 
 enum ChaputSoundEffect {
+  cardSwipe('sounds/chaput_card_swiping.mp3'),
   copyProfileLink('sounds/chaput_copy_profile_link.mp3'),
   refreshRecommendedUser('sounds/chaput_refresh_recomended_user.mp3'),
   sendMessage('sounds/chaput_send_message.mp3');

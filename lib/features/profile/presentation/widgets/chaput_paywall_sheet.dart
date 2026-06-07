@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import '../../../../core/i18n/app_localizations.dart';
@@ -46,6 +47,13 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
   int _selectedIndex = 0;
   bool _restoreBusy = false;
   String? _purchaseBusyProductId;
+
+  VoidCallback _withTapHaptic(VoidCallback action) {
+    return () {
+      HapticFeedback.selectionClick();
+      action();
+    };
+  }
 
   Future<void> _handlePurchase(
     String productId,
@@ -390,7 +398,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                           const SizedBox(width: 10),
                           InkResponse(
                             radius: 22,
-                            onTap: () => Navigator.pop(context),
+                            onTap: _withTapHaptic(() => Navigator.pop(context)),
                             child: Container(
                               width: 38,
                               height: 38,
@@ -426,7 +434,9 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                             return PlanCard(
                               plan: p,
                               selected: selected,
-                              onTap: () => setState(() => _selectedIndex = i),
+                              onTap: _withTapHaptic(
+                                () => setState(() => _selectedIndex = i),
+                              ),
                             );
                           },
                           separatorBuilder: (_, __) =>
@@ -452,9 +462,11 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                           child: ElevatedButton(
                             onPressed: _purchaseBusyProductId != null
                                 ? null
-                                : () => _handlePurchase(
-                                    plans[selectedIndex].productId,
-                                    _planPurchase(),
+                                : _withTapHaptic(
+                                    () => _handlePurchase(
+                                      plans[selectedIndex].productId,
+                                      _planPurchase(),
+                                    ),
                                   ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.chaputBlack,
@@ -513,14 +525,14 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                       ),
                       _ReviveTargetCard(
                         target: widget.reviveTarget!,
-                        onTap: () {
+                        onTap: _withTapHaptic(() {
                           if (singles.isNotEmpty) {
                             _handlePurchase(
                               singles.first.productId,
                               _singlePurchase(singles.first),
                             );
                           }
-                        },
+                        }),
                         priceLabel: singles.isNotEmpty
                             ? singles.first.price
                             : '€0.99',
@@ -566,9 +578,11 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                                 _purchaseBusyProductId == singles[i].productId,
                             onTap: _purchaseBusyProductId != null
                                 ? null
-                                : () => _handlePurchase(
-                                    singles[i].productId,
-                                    _singlePurchase(singles[i]),
+                                : _withTapHaptic(
+                                    () => _handlePurchase(
+                                      singles[i].productId,
+                                      _singlePurchase(singles[i]),
+                                    ),
                                   ),
                           ),
                           separatorBuilder: (_, __) =>
@@ -583,7 +597,11 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: InkWell(
-                        onTap: _restoreBusy ? null : _handleRestore,
+                        onTap: _restoreBusy
+                            ? null
+                            : _withTapHaptic(() {
+                                _handleRestore();
+                              }),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
