@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,7 @@ import '../../../recommended_users/application/recommended_user_controller.dart'
 import '../../../../core/ui/widgets/glow_shimmer_card.dart';
 import '../../../../core/ui/widgets/share_bar.dart';
 import '../../../../core/ui/widgets/shimmer_skeleton.dart';
+import '../../../../core/ux/chaput_sound_service.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -554,6 +556,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 }
 
 class _RecommendedUserCard extends ConsumerWidget {
+  void _refreshRecommended(WidgetRef ref) {
+    HapticFeedback.selectionClick();
+    unawaited(
+      ChaputSoundService.instance.play(
+        ChaputSoundEffect.refreshRecommendedUser,
+      ),
+    );
+    unawaited(ref.read(recommendedUserControllerProvider.notifier).refresh());
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recAsync = ref.watch(recommendedUserControllerProvider);
@@ -580,9 +592,7 @@ class _RecommendedUserCard extends ConsumerWidget {
               ),
             ),
             TextButton(
-              onPressed: () => ref
-                  .read(recommendedUserControllerProvider.notifier)
-                  .refresh(),
+              onPressed: () => _refreshRecommended(ref),
               child: Text(context.t('common.retry')),
             ),
           ],
@@ -605,9 +615,7 @@ class _RecommendedUserCard extends ConsumerWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => ref
-                      .read(recommendedUserControllerProvider.notifier)
-                      .refresh(),
+                  onPressed: () => _refreshRecommended(ref),
                   child: Text(context.t('common.refresh')),
                 ),
               ],
@@ -678,11 +686,7 @@ class _RecommendedUserCard extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               ElevatedButton.icon(
-                onPressed: isLoading
-                    ? null
-                    : () => ref
-                          .read(recommendedUserControllerProvider.notifier)
-                          .refresh(),
+                onPressed: isLoading ? null : () => _refreshRecommended(ref),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.chaputBlack,
                   foregroundColor: AppColors.chaputWhite,
