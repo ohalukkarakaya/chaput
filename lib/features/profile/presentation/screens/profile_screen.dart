@@ -264,7 +264,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _reviveArchiveOverrideProfileId;
   String? _reviveArchiveOverrideThreadId;
   final PageController _chaputPageCtrl = PageController();
-  int _lastChaputFeedbackPageIndex = 0;
+  static const double _chaputSwipeFeedbackThreshold = 0.32;
+  int _chaputFeedbackBasePageIndex = 0;
+  int? _chaputFeedbackTargetPageIndex;
+  double? _lastChaputScrollPage;
+  DateTime? _lastChaputScrollAt;
   int _chaputActiveIndex = 0;
   static const double _chaputSheetMin = 0.12;
   static const double _chaputSheetMid = 0.33;
@@ -362,6 +366,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     });
     _msgCtrl.addListener(_onComposerTextChanged);
+    _chaputPageCtrl.addListener(_handleChaputPageScroll);
   }
 
   Future<void> _ensureSocket(String profileIdHex) async {
@@ -411,15 +416,62 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _markTypingUsersChanged();
   }
 
-  void _playSmallFeedback(ChaputSoundEffect effect) {
+  void _playSmallFeedback(ChaputSoundEffect effect, {double playbackRate = 1}) {
     HapticFeedback.selectionClick();
-    unawaited(ChaputSoundService.instance.play(effect));
+    unawaited(
+      ChaputSoundService.instance.play(effect, playbackRate: playbackRate),
+    );
   }
 
-  void _playChaputPageFeedback(int pageIndex) {
-    if (_lastChaputFeedbackPageIndex == pageIndex) return;
-    _lastChaputFeedbackPageIndex = pageIndex;
-    _playSmallFeedback(ChaputSoundEffect.cardSwipe);
+  void _syncChaputFeedbackBasePage(int pageIndex) {
+    _chaputFeedbackBasePageIndex = pageIndex;
+    _chaputFeedbackTargetPageIndex = null;
+    _lastChaputScrollPage = pageIndex.toDouble();
+    _lastChaputScrollAt = DateTime.now();
+  }
+
+  void _handleChaputPageScroll() {
+    if (!_chaputPageCtrl.hasClients) return;
+    double? page;
+    try {
+      page = _chaputPageCtrl.page;
+    } catch (_) {
+      return;
+    }
+    if (page == null || !page.isFinite) return;
+
+    final now = DateTime.now();
+    final previousPage = _lastChaputScrollPage;
+    final previousAt = _lastChaputScrollAt;
+    _lastChaputScrollPage = page;
+    _lastChaputScrollAt = now;
+
+    final offsetFromBase = page - _chaputFeedbackBasePageIndex;
+    if (offsetFromBase.abs() < 0.05) {
+      _chaputFeedbackTargetPageIndex = null;
+      return;
+    }
+    if (offsetFromBase.abs() < _chaputSwipeFeedbackThreshold) return;
+
+    final direction = offsetFromBase.sign.toInt();
+    final targetPageIndex = _chaputFeedbackBasePageIndex + direction;
+    if (targetPageIndex < 0) return;
+    if (_chaputFeedbackTargetPageIndex == targetPageIndex) return;
+
+    var playbackRate = 1.0;
+    if (previousPage != null && previousAt != null) {
+      final elapsedMs = now.difference(previousAt).inMilliseconds;
+      if (elapsedMs > 0) {
+        final pagesPerSecond = ((page - previousPage).abs() * 1000) / elapsedMs;
+        playbackRate = 0.92 + pagesPerSecond.clamp(0, 4).toDouble() * 0.075;
+      }
+    }
+
+    _chaputFeedbackTargetPageIndex = targetPageIndex;
+    _playSmallFeedback(
+      ChaputSoundEffect.cardSwipe,
+      playbackRate: playbackRate.clamp(0.9, 1.22).toDouble(),
+    );
   }
 
   DateTime? _parseSocketTime(dynamic v) {
@@ -732,6 +784,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _msgCtrl.removeListener(_onComposerTextChanged);
     _msgCtrl.dispose();
     _msgFocus.dispose();
+    _chaputPageCtrl.removeListener(_handleChaputPageScroll);
     _chaputPageCtrl.dispose();
     _typingIdleTimer?.cancel();
     _socketSub?.cancel();
@@ -1991,7 +2044,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       threadsNotifier.removeThread(thread.threadId);
       if (_chaputPageCtrl.hasClients) {
-        _lastChaputFeedbackPageIndex = 0;
+        _syncChaputFeedbackBasePage(0);
         _chaputPageCtrl.jumpToPage(0);
       }
       unawaited(threadsNotifier.refresh());
@@ -3279,7 +3332,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               idx,
               showAds: showNativeAds,
             );
-            _lastChaputFeedbackPageIndex = pageIdx;
+            _syncChaputFeedbackBasePage(pageIdx);
             _chaputPageCtrl.jumpToPage(pageIdx);
           } else {
             setState(() => _chaputActiveIndex = idx);
@@ -3370,7 +3423,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _silhouetteApplied = false;
       _applySilhouetteIfNeeded();
       if (_chaputPageCtrl.hasClients) {
-        _lastChaputFeedbackPageIndex = 0;
+        _syncChaputFeedbackBasePage(0);
         _chaputPageCtrl.jumpToPage(0);
       }
     }
@@ -3484,7 +3537,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         }
                       },
                       onPageChanged: (pageIndex, thread) async {
-                        _playChaputPageFeedback(pageIndex);
+                        _syncChaputFeedbackBasePage(pageIndex);
                         final threadIndex = thread == null
                             ? null
                             : _threadIndexForPageIndex(

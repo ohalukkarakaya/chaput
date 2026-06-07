@@ -21,12 +21,15 @@ class ChaputSoundService {
   final AudioPlayer _typingPlayer = AudioPlayer(playerId: 'chaput_typing_loop');
   bool _typingPlaying = false;
 
-  Future<void> play(ChaputSoundEffect effect) async {
+  Future<void> play(ChaputSoundEffect effect, {double playbackRate = 1}) async {
     try {
       final player = _effectPlayers.putIfAbsent(effect, () {
         return AudioPlayer(playerId: 'chaput_${effect.name}');
       });
       await player.setReleaseMode(ReleaseMode.stop);
+      try {
+        await player.setPlaybackRate(playbackRate.clamp(0.75, 1.35).toDouble());
+      } catch (_) {}
       await player.stop();
       await player.play(
         AssetSource(effect.assetPath),
