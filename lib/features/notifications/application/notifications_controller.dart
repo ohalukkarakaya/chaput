@@ -46,8 +46,8 @@ class NotificationsState {
 
 final notificationsControllerProvider =
     AutoDisposeNotifierProvider<NotificationsController, NotificationsState>(
-  NotificationsController.new,
-);
+      NotificationsController.new,
+    );
 
 class NotificationsController extends AutoDisposeNotifier<NotificationsState> {
   static const _pageSize = 20;
@@ -81,7 +81,9 @@ class NotificationsController extends AutoDisposeNotifier<NotificationsState> {
   Future<({List<AppNotification> items, String? nextCursor})> _fetchPage({
     required String? cursor,
   }) async {
-    final res = await ref.read(notificationApiProvider).list(cursor: cursor, limit: _pageSize);
+    final res = await ref
+        .read(notificationApiProvider)
+        .list(cursor: cursor, limit: _pageSize);
     final items = res.items
         .map(AppNotification.fromJson)
         .where((e) => e.id.isNotEmpty)
@@ -138,7 +140,10 @@ class NotificationsController extends AutoDisposeNotifier<NotificationsState> {
   void addFromSocket(AppNotification notif) {
     final exists = state.items.any((e) => e.id == notif.id);
     if (exists) return;
-    state = state.copyWith(items: [notif, ...state.items]);
+    final nextItems = state.items
+        .where((e) => !_isSameMessageLikeActor(e, notif))
+        .toList(growable: false);
+    state = state.copyWith(items: [notif, ...nextItems]);
   }
 
   Future<void> ensureActorLoaded(String? actorId) async {
@@ -150,47 +155,67 @@ class NotificationsController extends AutoDisposeNotifier<NotificationsState> {
     state = state.copyWith(usersById: merged);
   }
 
-  Future<void> markRead(String id) async {
+  Future<void> markRead(String id, {bool updateLocal = true}) async {
     await ref.read(notificationApiProvider).markRead(id);
-    final nextItems = state.items.map((e) {
-      if (e.id != id) return e;
-      return AppNotification(
-        id: e.id,
-        userId: e.userId,
-        actorId: e.actorId,
-        type: e.type,
-        payload: e.payload,
-        profileId: e.profileId,
-        threadId: e.threadId,
-        createdAt: e.createdAt,
-        readAt: DateTime.now(),
-      );
-    }).toList(growable: false);
+    if (!updateLocal) return;
+    final nextItems = state.items
+        .map((e) {
+          if (e.id != id) return e;
+          return AppNotification(
+            id: e.id,
+            userId: e.userId,
+            actorId: e.actorId,
+            type: e.type,
+            payload: e.payload,
+            profileId: e.profileId,
+            threadId: e.threadId,
+            createdAt: e.createdAt,
+            readAt: DateTime.now(),
+          );
+        })
+        .toList(growable: false);
     state = state.copyWith(items: nextItems);
+  }
+
+  bool _isSameMessageLikeActor(AppNotification a, AppNotification b) {
+    if (a.type != 'chaput_message_like' || b.type != 'chaput_message_like') {
+      return false;
+    }
+    final aMessageId = a.payload['message_id']?.toString() ?? '';
+    final bMessageId = b.payload['message_id']?.toString() ?? '';
+    if (aMessageId.isEmpty || bMessageId.isEmpty) return false;
+    if (aMessageId != bMessageId) return false;
+    final aActorId = a.actorId ?? '';
+    final bActorId = b.actorId ?? '';
+    return aActorId.isNotEmpty && aActorId == bActorId;
   }
 
   void removeLocal(String id) {
     if (id.isEmpty) return;
-    final nextItems = state.items.where((e) => e.id != id).toList(growable: false);
+    final nextItems = state.items
+        .where((e) => e.id != id)
+        .toList(growable: false);
     if (nextItems.length == state.items.length) return;
     state = state.copyWith(items: nextItems);
   }
 
   void replaceWithFollowed(AppNotification it) {
-    final nextItems = state.items.map((e) {
-      if (e.id != it.id) return e;
-      return AppNotification(
-        id: e.id,
-        userId: e.userId,
-        actorId: e.actorId,
-        type: 'followed',
-        payload: const {},
-        profileId: e.profileId,
-        threadId: e.threadId,
-        createdAt: e.createdAt,
-        readAt: DateTime.now(),
-      );
-    }).toList(growable: false);
+    final nextItems = state.items
+        .map((e) {
+          if (e.id != it.id) return e;
+          return AppNotification(
+            id: e.id,
+            userId: e.userId,
+            actorId: e.actorId,
+            type: 'followed',
+            payload: const {},
+            profileId: e.profileId,
+            threadId: e.threadId,
+            createdAt: e.createdAt,
+            readAt: DateTime.now(),
+          );
+        })
+        .toList(growable: false);
     state = state.copyWith(items: nextItems);
   }
 }

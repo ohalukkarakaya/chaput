@@ -231,8 +231,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   item: it,
                                   actor: actor,
                                   isUnread: entry.isUnread,
-                                  messageBadgeCount: entry.messageBadgeCount,
-                                  showMessageBadge: entry.messageBadgeCount > 0,
+                                  messageBadgeCount: entry.badgeCount,
+                                  showMessageBadge: entry.badgeCount > 0,
+                                  showPlusBadge: entry.isLikeGroup,
                                   onTap: () => _handleTap(
                                     context,
                                     ref,
@@ -331,14 +332,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final it = entry.item;
     if (it == null) return;
 
-    var markedUnreadCount = 0;
+    final markedUnreadCount = entry.unreadCountForBadge;
     for (final notif in entry.notificationsToMark) {
       if (notif.isRead) continue;
       try {
         await ref
             .read(notificationsControllerProvider.notifier)
-            .markRead(notif.id);
-        markedUnreadCount++;
+            .markRead(notif.id, updateLocal: false);
       } catch (_) {
         // ignore
       }
@@ -355,17 +355,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       if (myUserId.isEmpty) return;
       final threadId = it.threadId ?? it.payload['thread_id']?.toString();
       if (threadId == null || threadId.isEmpty) {
-        context.push(await Routes.profile(myUserId));
+        await context.push(await Routes.profile(myUserId));
+        await _refreshAfterNavigation();
         return;
       }
       final messageId = it.payload['message_id']?.toString();
-      context.push(
+      await context.push(
         await Routes.profile(myUserId),
         extra: {
           'threadId': threadId,
           if (messageId != null && messageId.isNotEmpty) 'messageId': messageId,
         },
       );
+      await _refreshAfterNavigation();
       return;
     }
 
@@ -374,8 +376,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         it.type == 'follow_request') {
       final actorId = it.actorId;
       if (actorId == null || actorId.isEmpty) return;
-      context.push(await Routes.profile(actorId));
+      await context.push(await Routes.profile(actorId));
+      await _refreshAfterNavigation();
     }
+  }
+
+  Future<void> _refreshAfterNavigation() async {
+    if (!mounted) return;
+    await ref.read(notificationsControllerProvider.notifier).refresh();
+    await ref.read(notificationCountControllerProvider.notifier).refresh();
   }
 
   List<_NotifEntry> _buildEntries(List<AppNotification> items) {
@@ -390,7 +399,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       }
     }
 
-    final groupedRest = _groupContiguousMessageNotifications(rest);
+    final groupedRest = _groupFeedNotifications(rest);
     final entries = <_NotifEntry>[];
     if (followReqs.isNotEmpty) {
       entries.add(
@@ -415,15 +424,57 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return entries;
   }
 
-  List<_NotifEntry> _groupContiguousMessageNotifications(
+  List<_NotifEntry> _groupFeedNotifications(List<AppNotification> items) {
+    final preliminary = _groupMessageLikeNotifications(items);
+    return _groupContiguousMessageNotifications(preliminary);
+  }
+
+  List<_NotifEntry> _groupMessageLikeNotifications(
     List<AppNotification> items,
   ) {
     final entries = <_NotifEntry>[];
+    final seenMessageIds = <String>{};
+    for (final current in items) {
+      final messageId = _likeMessageId(current);
+      if (messageId == null) {
+        entries.add(_NotifEntry.item(current));
+        continue;
+      }
+      if (!seenMessageIds.add(messageId)) continue;
+
+      final group =
+          items
+              .where((it) => _likeMessageId(it) == messageId)
+              .toList(growable: false)
+            ..sort((a, b) {
+              final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+              final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+              return bd.compareTo(ad);
+            });
+      entries.add(_NotifEntry.item(group.first, notifications: group));
+    }
+    return entries;
+  }
+
+  String? _likeMessageId(AppNotification item) {
+    if (item.type != 'chaput_message_like') return null;
+    final messageId = item.payload['message_id']?.toString() ?? '';
+    return messageId.isEmpty ? null : messageId;
+  }
+
+  List<_NotifEntry> _groupContiguousMessageNotifications(
+    List<_NotifEntry> sourceEntries,
+  ) {
+    final items = sourceEntries;
+    final entries = <_NotifEntry>[];
     var index = 0;
     while (index < items.length) {
-      final current = items[index];
-      if (!_canGroupMessage(current)) {
-        entries.add(_NotifEntry.item(current));
+      final currentEntry = items[index];
+      final current = currentEntry.item;
+      if (current == null ||
+          currentEntry.notifications.length > 1 ||
+          !_canGroupMessage(current)) {
+        entries.add(currentEntry);
         index++;
         continue;
       }
@@ -432,11 +483,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       final isRead = current.isRead;
       final run = <AppNotification>[current];
       index++;
-      while (index < items.length &&
-          _canGroupMessage(items[index]) &&
-          items[index].actorId == actorId &&
-          items[index].isRead == isRead) {
-        run.add(items[index]);
+      while (index < items.length) {
+        final nextEntry = items[index];
+        final next = nextEntry.item;
+        if (next == null ||
+            nextEntry.notifications.length > 1 ||
+            !_canGroupMessage(next) ||
+            next.actorId != actorId ||
+            next.isRead != isRead) {
+          break;
+        }
+        run.add(next);
         index++;
       }
 
@@ -482,6 +539,7 @@ class _NotificationRow extends StatelessWidget {
     required this.isUnread,
     required this.messageBadgeCount,
     required this.showMessageBadge,
+    required this.showPlusBadge,
     required this.onTap,
     required this.onApprove,
     required this.onReject,
@@ -492,6 +550,7 @@ class _NotificationRow extends StatelessWidget {
   final bool isUnread;
   final int messageBadgeCount;
   final bool showMessageBadge;
+  final bool showPlusBadge;
   final VoidCallback onTap;
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
@@ -574,6 +633,7 @@ class _NotificationRow extends StatelessWidget {
                                 _MessageBadge(
                                   count: messageBadgeCount,
                                   isUnread: isUnread,
+                                  showPlus: showPlusBadge,
                                 ),
                               ],
                             ],
@@ -794,13 +854,48 @@ class _NotifEntry {
   final AppNotification? item;
   final List<AppNotification> notifications;
 
-  int get messageBadgeCount {
+  int get badgeCount {
+    if (isLikeGroup) return likeOtherCount;
     if (!isMessageGroup) return 0;
     return notifications.length;
   }
 
+  bool get isLikeGroup {
+    return item?.type == 'chaput_message_like' &&
+        (likeLikerCount > 1 || notifications.length > 1);
+  }
+
   bool get isMessageGroup {
     return item?.type == 'chaput_message' && notifications.length > 1;
+  }
+
+  int get likeLikerCount {
+    final itemCount = _payloadInt(item?.payload['liker_count']);
+    if (itemCount != null && itemCount > 0) return itemCount;
+
+    final actorIds = <String>{};
+    for (final notification in notificationsToMark) {
+      final actorId = notification.actorId;
+      if (actorId != null && actorId.isNotEmpty) actorIds.add(actorId);
+    }
+    if (actorIds.isNotEmpty) return actorIds.length;
+    return item?.type == 'chaput_message_like' ? 1 : 0;
+  }
+
+  int get likeOtherCount {
+    final explicitCount = _payloadInt(item?.payload['other_liker_count']);
+    if (explicitCount != null && explicitCount > 0) return explicitCount;
+    final count = likeLikerCount - 1;
+    return count > 0 ? count : 0;
+  }
+
+  int get unreadCountForBadge {
+    if (item?.type == 'chaput_message_like') return isUnread ? 1 : 0;
+    var count = 0;
+    for (final notification in notificationsToMark) {
+      if (!notification.isRead) count++;
+    }
+    return count;
   }
 
   bool get isUnread {
@@ -815,17 +910,30 @@ class _NotifEntry {
     final single = item;
     return single == null ? const [] : [single];
   }
+
+  static int? _payloadInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
 }
 
 class _MessageBadge extends StatelessWidget {
-  const _MessageBadge({required this.count, required this.isUnread});
+  const _MessageBadge({
+    required this.count,
+    required this.isUnread,
+    required this.showPlus,
+  });
 
   final int count;
   final bool isUnread;
+  final bool showPlus;
 
   @override
   Widget build(BuildContext context) {
-    final label = count > 99 ? '99+' : count.toString();
+    final capped = count > 99 ? '99+' : count.toString();
+    final label = showPlus ? '+$capped' : capped;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
