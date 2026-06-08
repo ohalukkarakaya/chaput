@@ -57,7 +57,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
 
     router.go(Routes.home);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future<void>.delayed(const Duration(milliseconds: 120), () {
+      Future<void>.delayed(const Duration(milliseconds: 500), () {
         router.push(route);
       });
     });

@@ -1621,6 +1621,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _applyBillingResult(res);
       return true;
     } catch (_) {
+      if (!mounted) return false;
       _showGlassToast(
         context.t('profile.toast.purchase_verify_failed'),
         icon: Icons.error_outline,
@@ -1631,8 +1632,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Future<PaywallPurchase?> _purchaseWithRevenueCat(String productId) async {
     final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
-    if (userId != null && userId.isNotEmpty) {
-      await RevenueCatService.instance.logInWithBackendUserId(userId);
+    if (userId == null || userId.isEmpty) {
+      log('RevenueCat purchase blocked: missing backend user id');
+      _showGlassToast(
+        context.t('paywall.purchase_failed'),
+        icon: Icons.error_outline,
+      );
+      return null;
+    }
+
+    final loginResult = await RevenueCatService.instance.logInWithBackendUserId(
+      userId,
+    );
+    if (!loginResult.isSuccess) {
+      log(
+        'RevenueCat login before purchase failed status=${loginResult.status} '
+        'code=${loginResult.errorCode} message=${loginResult.message}',
+        error: loginResult.exception,
+      );
+      if (!mounted) return null;
+      _showGlassToast(
+        _revenueCatFailureText(loginResult),
+        icon: Icons.error_outline,
+      );
+      return null;
     }
 
     final result = await RevenueCatService.instance.purchaseProductId(
@@ -1641,8 +1664,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (result.isCancelled) return null;
     if (!result.isSuccess || result.data == null) {
       if (!mounted) return null;
+      log(
+        'RevenueCat purchase failed product=$productId status=${result.status} '
+        'code=${result.errorCode} message=${result.message}',
+        error: result.exception,
+      );
       _showGlassToast(
-        context.t('paywall.purchase_failed'),
+        _revenueCatFailureText(result),
         icon: Icons.error_outline,
       );
       return null;
@@ -1658,6 +1686,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       provider: 'REVENUECAT',
       transactionId: transactionId,
     );
+  }
+
+  String _revenueCatFailureText(RevenueCatResult<dynamic> result) {
+    return switch (result.status) {
+      RevenueCatResultStatus.invalidRequest ||
+      RevenueCatResultStatus.notInitialized => context.t(
+        'paywall.purchase_not_configured',
+      ),
+      RevenueCatResultStatus.productNotFound => context.t(
+        'paywall.product_not_found',
+      ),
+      RevenueCatResultStatus.networkError => context.t(
+        'paywall.purchase_network_failed',
+      ),
+      _ => context.t('paywall.purchase_failed'),
+    };
   }
 
   Future<bool> _restorePurchasesWithRevenueCat() async {

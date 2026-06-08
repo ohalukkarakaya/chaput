@@ -33,10 +33,7 @@ class RevenueCatConfig {
   }
 
   static bool isApiKeyUsable(String apiKey) {
-    final trimmed = apiKey.trim();
-    if (trimmed.isEmpty) return false;
-    if (!kDebugMode && trimmed.startsWith('test_')) return false;
-    return true;
+    return apiKey.trim().isNotEmpty;
   }
 }
 

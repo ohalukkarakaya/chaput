@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:chaput/core/config/env.dart';
 import 'package:chaput/core/router/routes.dart';
@@ -74,8 +75,31 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     String productId,
   ) async {
     final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
-    if (userId != null && userId.isNotEmpty) {
-      await RevenueCatService.instance.logInWithBackendUserId(userId);
+    if (userId == null || userId.isEmpty) {
+      developer.log('RevenueCat purchase blocked: missing backend user id');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.t('paywall.purchase_failed'))),
+        );
+      }
+      return null;
+    }
+
+    final loginResult = await RevenueCatService.instance.logInWithBackendUserId(
+      userId,
+    );
+    if (!loginResult.isSuccess) {
+      developer.log(
+        'RevenueCat login before purchase failed status=${loginResult.status} '
+        'code=${loginResult.errorCode} message=${loginResult.message}',
+        error: loginResult.exception,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_revenueCatFailureText(context, loginResult))),
+        );
+      }
+      return null;
     }
 
     final result = await RevenueCatService.instance.purchaseProductId(
@@ -83,9 +107,14 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     );
     if (result.isCancelled) return null;
     if (!result.isSuccess || result.data == null) {
+      developer.log(
+        'RevenueCat purchase failed product=$productId status=${result.status} '
+        'code=${result.errorCode} message=${result.message}',
+        error: result.exception,
+      );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.t('paywall.purchase_failed'))),
+          SnackBar(content: Text(_revenueCatFailureText(context, result))),
         );
       }
       return null;
@@ -101,6 +130,25 @@ class ArchiveChaputsScreen extends ConsumerWidget {
       provider: 'REVENUECAT',
       transactionId: transactionId,
     );
+  }
+
+  String _revenueCatFailureText(
+    BuildContext context,
+    RevenueCatResult<dynamic> result,
+  ) {
+    return switch (result.status) {
+      RevenueCatResultStatus.invalidRequest ||
+      RevenueCatResultStatus.notInitialized => context.t(
+        'paywall.purchase_not_configured',
+      ),
+      RevenueCatResultStatus.productNotFound => context.t(
+        'paywall.product_not_found',
+      ),
+      RevenueCatResultStatus.networkError => context.t(
+        'paywall.purchase_network_failed',
+      ),
+      _ => context.t('paywall.purchase_failed'),
+    };
   }
 
   Future<bool> _restorePurchasesWithRevenueCat(WidgetRef ref) async {

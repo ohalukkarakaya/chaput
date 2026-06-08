@@ -219,10 +219,21 @@ class RevenueCatService {
       logicalProductId,
       defaultTargetPlatform,
     );
+    final category = RevenueCatProductIds.categoryFor(logicalProductId);
 
     try {
+      developer.log(
+        'RevenueCat purchase requested logical=$logicalProductId '
+        'store=$storeProductId category=$category',
+        name: 'RevenueCatService',
+      );
       final product = await _findStoreProduct(logicalProductId);
       if (product == null) {
+        developer.log(
+          'RevenueCat product not found logical=$logicalProductId '
+          'store=$storeProductId category=$category',
+          name: 'RevenueCatService',
+        );
         return RevenueCatResult.failure(
           status: RevenueCatResultStatus.productNotFound,
           message: 'RevenueCat product was not found: $storeProductId',
@@ -599,7 +610,8 @@ class RevenueCatService {
     };
 
     developer.log(
-      'RevenueCat platform error: ${error.message ?? error.code}',
+      'RevenueCat platform error code=${error.code} rcCode=$errorCode '
+      'message=${error.message} details=${error.details}',
       name: 'RevenueCatService',
       error: error,
       stackTrace: stackTrace,

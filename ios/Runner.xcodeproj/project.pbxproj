@@ -302,6 +302,11 @@
 					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
+						SystemCapabilities = {
+							com.apple.InAppPurchase = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -424,7 +429,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+			shellScript = "REVENUECAT_DART_DEFINES=\"$(\"$SRCROOT/../scripts/revenuecat_dart_defines.sh\" \"$SRCROOT/../revenuecat.keys.json\")\"\nif [ -n \"$REVENUECAT_DART_DEFINES\" ]; then\n  if [ -n \"${DART_DEFINES:-}\" ]; then\n    export DART_DEFINES=\"$DART_DEFINES,$REVENUECAT_DART_DEFINES\"\n  else\n    export DART_DEFINES=\"$REVENUECAT_DART_DEFINES\"\n  fi\nfi\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
 		};
 		E4755189F4B61EF9DF96133B /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
