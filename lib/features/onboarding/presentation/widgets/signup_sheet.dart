@@ -10,6 +10,9 @@ import 'package:chaput/core/ui/responsive/chaput_responsive.dart';
 import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../helpers/string_helpers/full_name_rules.dart';
+import '../../../helpers/string_helpers/safe_text_rules.dart';
+
 class SignupDraft {
   final String gender; // "M" | "F"
   final String fullName;
@@ -64,19 +67,8 @@ class _SignupSheetState extends State<_SignupSheet> {
     super.dispose();
   }
 
-  bool _isTwoWords(String v) {
-    final parts = v
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((e) => e.isNotEmpty)
-        .toList();
-    return parts.length >= 2;
-  }
-
   bool _validUsername(String v) {
-    // a-z 0-9 _ .  (MVP)
-    final re = RegExp(r'^[a-z0-9_.]{3,20}$');
-    return re.hasMatch(v);
+    return isValidUsernameInput(v);
   }
 
   DateTime _dateOnly(DateTime value) {
@@ -169,8 +161,8 @@ class _SignupSheetState extends State<_SignupSheet> {
     Navigator.of(context).pop(
       SignupDraft(
         gender: _gender!,
-        fullName: _fullName.text.trim(),
-        username: _username.text.trim(),
+        fullName: cleanFullNameForSubmit(_fullName.text),
+        username: sanitizeUsernameInput(_username.text),
         birthDate: _birthDate!,
       ),
     );
@@ -284,6 +276,7 @@ class _SignupSheetState extends State<_SignupSheet> {
 
                       TextFormField(
                         controller: _fullName,
+                        inputFormatters: const [FullNameInputFormatter()],
                         contextMenuBuilder: appTextContextMenuBuilder,
                         decoration: InputDecoration(
                           labelText: context.t('signup.full_name'),
@@ -294,7 +287,10 @@ class _SignupSheetState extends State<_SignupSheet> {
                           if (s.isEmpty) {
                             return context.t('signup.full_name_required');
                           }
-                          if (!_isTwoWords(s)) {
+                          if (!hasOnlyFullNameCharacters(s)) {
+                            return context.t('signup.full_name_letters_only');
+                          }
+                          if (!hasAtLeastTwoFullNameWords(s)) {
                             return context.t('signup.full_name_two_words');
                           }
                           return null;
@@ -305,6 +301,7 @@ class _SignupSheetState extends State<_SignupSheet> {
 
                       TextFormField(
                         controller: _username,
+                        inputFormatters: const [UsernameInputFormatter()],
                         textInputAction: TextInputAction.done,
                         contextMenuBuilder: appTextContextMenuBuilder,
                         decoration: InputDecoration(

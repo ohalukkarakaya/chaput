@@ -363,6 +363,7 @@
   "signup.birthdate_pick": "Pick birthdate",
   "signup.birthdate_selected": "Birthdate: {date}",
   "signup.full_name": "Full name",
+  "signup.full_name_letters_only": "Use letters and spaces only",
   "signup.full_name_required": "Full name is required",
   "signup.full_name_two_words": "Enter first and last name",
   "signup.gender": "Gender",

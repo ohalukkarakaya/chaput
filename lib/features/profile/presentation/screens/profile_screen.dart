@@ -33,6 +33,7 @@ import '../../../reports/data/reports_api.dart';
 import '../../../reports/presentation/widgets/report_content_sheet.dart';
 import '../../../revenuecat/data/revenue_cat_service.dart';
 import '../../../settings/data/account_api.dart';
+import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../social/application/follow_state.dart';
 import '../../../social/application/ui_restriction_override_provider.dart';
@@ -1942,7 +1943,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required ChaputThreadsArgs chaputArgs,
     required String viewerId,
   }) async {
-    if (body.trim().isEmpty) return;
+    final messageBody = cleanUserTextForSubmit(body, maxLength: 2000);
+    if (messageBody.isEmpty) return;
     final api = ref.read(chaputApiProvider);
     final kind = whisper ? 'WHISPER' : 'NORMAL';
     final replyToId =
@@ -1960,7 +1962,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       id: localId,
       senderId: meId.isNotEmpty ? meId.toLowerCase() : '',
       kind: kind,
-      body: body,
+      body: messageBody,
       createdAt: DateTime.now().toUtc(),
       replyToId: replyTarget?.id,
       replyToSenderId: replyTarget?.senderId,
@@ -1986,7 +1988,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     try {
       final serverMsg = await api.sendMessage(
         threadIdHex: thread.threadId,
-        body: body,
+        body: messageBody,
         kind: kind,
         replyToId: replyToId,
       );
@@ -2264,7 +2266,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       return;
     }
-    final text = _msgCtrl.text.trim();
+    final text = cleanUserTextForSubmit(_msgCtrl.text, maxLength: 2000);
     if (text.isEmpty) {
       _showGlassToast(
         context.t('profile.toast.enter_message'),

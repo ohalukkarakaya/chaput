@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../helpers/string_helpers/safe_text_rules.dart';
 import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 
 class ChaputReplyBar extends StatefulWidget {
@@ -240,6 +241,9 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                   child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
+                    inputFormatters: const [
+                      SafeTextInputFormatter(maxLength: 2000),
+                    ],
                     contextMenuBuilder: appTextContextMenuBuilder,
                     style: const TextStyle(
                       color: AppColors.chaputWhite,

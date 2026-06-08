@@ -115,6 +115,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (raw.contains('full_name_blacklisted')) {
       return context.t('errors.full_name_blacklisted');
     }
+    if (raw.contains('invalid_full_name')) {
+      return context.t('signup.full_name_letters_only');
+    }
     if (raw.contains('username_blacklisted')) {
       return context.t('errors.username_blacklisted');
     }
@@ -229,7 +232,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       'ONB: update profile fullName=${draft.fullName} username=${draft.username} birth=$birthIso',
     );
 
-    await meApi.updateFullName(fullName: draft.fullName.toLowerCase());
+    await meApi.updateFullName(fullName: draft.fullName);
     await meApi.updateUsername(username: draft.username.toLowerCase());
     await meApi.updateBirthDate(birthDateIso: birthIso);
 

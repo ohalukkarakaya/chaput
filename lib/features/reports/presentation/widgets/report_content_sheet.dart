@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
+import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../profile/presentation/widgets/sheet_handle.dart';
 
 class ReportContentDraft {
@@ -185,6 +186,9 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                       minLines: 4,
                       maxLines: 6,
                       maxLength: 500,
+                      inputFormatters: const [
+                        SafeTextInputFormatter(maxLength: 500),
+                      ],
                       onChanged: (_) {
                         if (_errorText != null) {
                           setState(() => _errorText = null);
@@ -331,7 +335,10 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
 
   void _submit() {
     final reasonCode = _reasonCode;
-    final details = _detailsController.text.trim();
+    final details = cleanUserTextForSubmit(
+      _detailsController.text,
+      maxLength: 500,
+    );
     if (reasonCode == null || reasonCode.isEmpty) {
       setState(() => _errorText = context.t('reports.sheet.select_reason'));
       return;

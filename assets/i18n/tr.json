@@ -363,6 +363,7 @@
   "signup.birthdate_pick": "Doğum tarihi seç",
   "signup.birthdate_selected": "Doğum tarihi: {date}",
   "signup.full_name": "Ad Soyad",
+  "signup.full_name_letters_only": "Sadece harf ve boşluk kullan",
   "signup.full_name_required": "Ad soyad gerekli",
   "signup.full_name_two_words": "Ad ve soyad gir",
   "signup.gender": "Cinsiyet",

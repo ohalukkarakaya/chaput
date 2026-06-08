@@ -3,7 +3,6 @@ import 'dart:async';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/features/settings/presentation/screens/photo_settings_screen.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
@@ -14,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../helpers/string_helpers/format_full_name.dart';
+import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../notifications/application/push_token_registrar.dart';
 import '../../application/account_controller.dart';
@@ -25,7 +25,6 @@ import 'email_change_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import 'package:chaput/core/router/routes.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -482,6 +481,7 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
               const SizedBox(height: 16),
               TextField(
                 controller: c,
+                inputFormatters: const [UsernameInputFormatter()],
                 contextMenuBuilder: appTextContextMenuBuilder,
                 decoration: InputDecoration(
                   labelText: context.t('settings.username_label'),
@@ -647,6 +647,7 @@ class _CloseAccountConfirmDialogState
               const SizedBox(height: 16),
               TextField(
                 controller: usernameCtrl,
+                inputFormatters: const [UsernameInputFormatter()],
                 contextMenuBuilder: appTextContextMenuBuilder,
                 decoration: InputDecoration(
                   labelText: context.t('settings.username_label'),
@@ -667,6 +668,7 @@ class _CloseAccountConfirmDialogState
                 minLines: 3,
                 maxLines: 5,
                 maxLength: 500,
+                inputFormatters: const [SafeTextInputFormatter(maxLength: 500)],
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
                   alignLabelWithHint: true,
@@ -713,7 +715,10 @@ class _CloseAccountConfirmDialogState
                     child: ElevatedButton(
                       onPressed: () {
                         final username = usernameCtrl.text.trim();
-                        final reason = reasonCtrl.text.trim();
+                        final reason = cleanUserTextForSubmit(
+                          reasonCtrl.text,
+                          maxLength: 500,
+                        );
                         var hasError = false;
 
                         if (username != widget.expectedUsername) {

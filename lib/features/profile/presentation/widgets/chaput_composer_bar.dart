@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
+import '../../../helpers/string_helpers/safe_text_rules.dart';
 import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 
 class ChatComposerBar extends StatefulWidget {
@@ -101,11 +101,16 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                 const SizedBox(width: 10),
                 if (widget.anonEnabled) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.chaputWhite.withOpacity(0.14),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+                      border: Border.all(
+                        color: AppColors.chaputWhite.withOpacity(0.10),
+                      ),
                     ),
                     child: Text(
                       context.t('chat.anon_label'),
@@ -122,14 +127,25 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                   child: TextField(
                     controller: widget.controller,
                     focusNode: widget.focusNode,
+                    inputFormatters: const [
+                      SafeTextInputFormatter(
+                        maxLength: 2000,
+                        allowNewlines: false,
+                      ),
+                    ],
                     textInputAction: TextInputAction.send,
                     contextMenuBuilder: appTextContextMenuBuilder,
                     onSubmitted: (_) => widget.onSend(),
-                    style: const TextStyle(color: AppColors.chaputWhite, fontSize: 16),
+                    style: const TextStyle(
+                      color: AppColors.chaputWhite,
+                      fontSize: 16,
+                    ),
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: context.t('chat.message_hint'),
-                      hintStyle: const TextStyle(color: AppColors.chaputWhite54),
+                      hintStyle: const TextStyle(
+                        color: AppColors.chaputWhite54,
+                      ),
                       border: InputBorder.none,
                     ),
                   ),
