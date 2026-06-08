@@ -867,6 +867,7 @@ class _SettingsContent extends StatelessWidget {
                                 title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                softWrap: false,
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
@@ -883,6 +884,7 @@ class _SettingsContent extends StatelessWidget {
                           subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          softWrap: false,
                           style: TextStyle(
                             color: AppColors.chaputBlack.withOpacity(0.55),
                             fontWeight: FontWeight.w600,

@@ -1297,6 +1297,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
+  void _openCollapsedChaputSheet() {
+    if (!_chaputSheetCtrl.isAttached ||
+        _chaputSheetExtent > _chaputSheetMin + 0.01 ||
+        _isAdPageActive ||
+        _composerOpen ||
+        _silhouetteMode) {
+      return;
+    }
+    _chaputSheetPrevExtent = _chaputSheetMid;
+    _chaputSheetCtrl.animateTo(
+      _chaputSheetMid,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   void _markTypingUsersChanged() {
     _typingRevision.value = _typingRevision.value + 1;
     _syncTypingSound();
@@ -3570,6 +3586,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       sheetController: _chaputSheetCtrl,
                       initialExtent: _chaputSheetExtent,
                       isAdPageActive: _isAdPageActive,
+                      isCollapsed: _chaputSheetExtent <= _chaputSheetMin + 0.01,
+                      onCollapsedTap: _openCollapsedChaputSheet,
                       showNativeAds: showNativeAds,
                       onExtentChanged: (v) {
                         final previousExtent = _chaputSheetExtent;
@@ -3867,8 +3885,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 color: AppColors.chaputWhite.withOpacity(0.35),
                                 shape: const CircleBorder(),
                                 child: InkWell(
-                                  onTap: () =>
-                                      GoRouter.of(context).go(Routes.home),
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    GoRouter.of(context).go(Routes.home);
+                                  },
                                   customBorder: const CircleBorder(),
                                   child: const SizedBox(
                                     width: 44,
@@ -4083,6 +4103,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                         ),
                                                         Text(
                                                           '@$username',
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          softWrap: false,
                                                           style: TextStyle(
                                                             fontSize: 13,
                                                             color: AppColors
