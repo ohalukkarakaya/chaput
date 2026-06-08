@@ -31,6 +31,7 @@ class FollowListScreen extends ConsumerStatefulWidget {
 class _FollowListScreenState extends ConsumerState<FollowListScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   late final FollowListArgs _args;
+  bool _openingProfile = false;
 
   @override
   void initState() {
@@ -42,6 +43,24 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _openProfileFromRow(FollowListItem item) {
+    if (_openingProfile || !item.canOpenProfile || item.userId.isEmpty) return;
+    _openingProfile = true;
+
+    final router = GoRouter.of(context);
+    final route = Routes.profilePath(item.userId);
+
+    if (router.canPop()) router.pop();
+    if (router.canPop()) router.pop();
+
+    router.go(Routes.home);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 120), () {
+        router.push(route);
+      });
+    });
   }
 
   @override
@@ -271,27 +290,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                                   avatarUrl: avatarUrl.toString(),
                                   isDefaultAvatar: isDefaultAvatar,
                                   canOpen: it.canOpenProfile,
-                                  onTap: () async {
-                                    if (!it.canOpenProfile) return;
-                                    final route = await Routes.profile(
-                                      it.userId,
-                                    );
-                                    if (!context.mounted) return;
-                                    final router = GoRouter.of(context);
-                                    if (router.canPop()) router.pop();
-                                    if (router.canPop()) router.pop();
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (!context.mounted) return;
-                                          Future.delayed(
-                                            const Duration(milliseconds: 160),
-                                            () {
-                                              if (!context.mounted) return;
-                                              router.push(route);
-                                            },
-                                          );
-                                        });
-                                  },
+                                  onTap: () => _openProfileFromRow(it),
                                   showRemove:
                                       widget.isMe &&
                                       widget.kind == FollowListKind.followers,
@@ -386,54 +385,63 @@ class _FollowRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.chaputWhite.withOpacity(0.96),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
-      ),
-      child: Row(
-        children: [
-          ChaputCircleAvatar(
-            isDefaultAvatar: isDefaultAvatar,
-            imageUrl: avatarUrl,
+    final radius = BorderRadius.circular(18);
+
+    return Material(
+      color: AppColors.chaputWhite.withValues(alpha: 0.96),
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: canOpen ? onTap : null,
+        borderRadius: radius,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: AppColors.chaputBlack.withValues(alpha: 0.06),
+            ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: InkWell(
-              onTap: canOpen ? onTap : null,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.chaputBlack.withOpacity(0.55),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+          child: Row(
+            children: [
+              ChaputCircleAvatar(
+                isDefaultAvatar: isDefaultAvatar,
+                imageUrl: avatarUrl,
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.chaputBlack.withValues(alpha: 0.55),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (showRemove) ...[
+                const SizedBox(width: 10),
+                TextButton(
+                  onPressed: onRemove,
+                  child: Text(context.t('common.remove')),
+                ),
+              ],
+            ],
           ),
-          if (showRemove) ...[
-            const SizedBox(width: 10),
-            TextButton(
-              onPressed: onRemove,
-              child: Text(context.t('common.remove')),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
