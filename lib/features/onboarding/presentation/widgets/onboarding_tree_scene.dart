@@ -96,9 +96,12 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   static const double _stablePxEps = 2.0;
 
   StreamSubscription<AccelerometerEvent>? _tiltSub;
+  StreamSubscription<GyroscopeEvent>? _gyroSub;
   DateTime? _lastTiltAt;
   double _tiltYaw = 0.0;
   double _tiltPitch = 0.0;
+  double _gyroYaw = 0.0;
+  double _gyroPitch = 0.0;
 
   @override
   void initState() {
@@ -130,10 +133,14 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     _disposed = true;
     _initTimer?.cancel();
     _tiltSub?.cancel();
+    _gyroSub?.cancel();
     _focusScreen.dispose();
     _disposeThree();
     super.dispose();
   }
+
+  bool get _motionParallaxEnabled =>
+      !widget.paused && !_isInteracting && !_snapActive && _focusAnchor != null;
 
   void _startTiltListener() {
     _tiltSub =
@@ -141,12 +148,9 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
           samplingPeriod: const Duration(milliseconds: 66),
         ).listen((event) {
           if (_disposed || !mounted) return;
-          if (widget.paused ||
-              _isInteracting ||
-              _snapActive ||
-              _focusAnchor == null) {
-            _tiltYaw += (0.0 - _tiltYaw) * 0.12;
-            _tiltPitch += (0.0 - _tiltPitch) * 0.12;
+          if (!_motionParallaxEnabled) {
+            _tiltYaw += (0.0 - _tiltYaw) * 0.18;
+            _tiltPitch += (0.0 - _tiltPitch) * 0.18;
             return;
           }
           final now = DateTime.now();
@@ -155,10 +159,24 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
             return;
           }
           _lastTiltAt = now;
-          final nextYaw = (event.x / 9.8 * 0.035).clamp(-0.035, 0.035);
-          final nextPitch = (event.y / 9.8 * 0.025).clamp(-0.025, 0.025);
-          _tiltYaw += (nextYaw - _tiltYaw) * 0.08;
-          _tiltPitch += (nextPitch - _tiltPitch) * 0.08;
+          final nextYaw = (event.x / 9.8 * 0.075).clamp(-0.075, 0.075);
+          final nextPitch = (event.y / 9.8 * 0.052).clamp(-0.052, 0.052);
+          _tiltYaw += (nextYaw - _tiltYaw) * 0.14;
+          _tiltPitch += (nextPitch - _tiltPitch) * 0.14;
+        }, onError: (_) {});
+
+    _gyroSub =
+        gyroscopeEventStream(
+          samplingPeriod: const Duration(milliseconds: 50),
+        ).listen((event) {
+          if (_disposed || !mounted) return;
+          if (!_motionParallaxEnabled) {
+            _gyroYaw *= 0.82;
+            _gyroPitch *= 0.82;
+            return;
+          }
+          _gyroYaw = (_gyroYaw + event.y * 0.010).clamp(-0.040, 0.040);
+          _gyroPitch = (_gyroPitch + event.x * 0.007).clamp(-0.028, 0.028);
         }, onError: (_) {});
   }
 
@@ -255,8 +273,8 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       final dir = three.DirectionalLight(AppColors.chaputWhiteHex, 0.95);
       dir.position.setValues(2.5, 6.0, 3.5);
       dir.castShadow = true;
-      dir.shadow!.mapSize.width = 2048;
-      dir.shadow!.mapSize.height = 2048;
+      dir.shadow!.mapSize.width = 1024;
+      dir.shadow!.mapSize.height = 1024;
       dir.shadow!.camera?.near = 0.2;
       dir.shadow!.camera?.far = 80;
       dir.shadow!.camera?.left = -10;
@@ -508,13 +526,20 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     final minPitch = math.max(_minPitchHard, dynamicMinPitch);
     _pitch = _pitch.clamp(minPitch, _maxPitch);
 
-    final focusTiltEnabled =
-        _focusAnchor != null && !_isInteracting && !_snapActive;
-    final finalYaw = _yaw + (focusTiltEnabled ? _tiltYaw : 0.0);
-    final finalPitch = (_pitch + (focusTiltEnabled ? _tiltPitch : 0.0)).clamp(
-      minPitch,
-      _maxPitch,
-    );
+    if (_motionParallaxEnabled) {
+      final damping = math.pow(0.08, dt.clamp(0.0, 0.08)).toDouble();
+      _gyroYaw *= damping;
+      _gyroPitch *= damping;
+    } else {
+      _gyroYaw += (0.0 - _gyroYaw) * 0.18;
+      _gyroPitch += (0.0 - _gyroPitch) * 0.18;
+    }
+
+    final finalYaw =
+        _yaw + (_motionParallaxEnabled ? _tiltYaw + _gyroYaw : 0.0);
+    final finalPitch =
+        (_pitch + (_motionParallaxEnabled ? _tiltPitch + _gyroPitch : 0.0))
+            .clamp(minPitch, _maxPitch);
 
     final cp = math.cos(finalPitch);
     final sp = math.sin(finalPitch);
