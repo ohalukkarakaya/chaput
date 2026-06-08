@@ -6,7 +6,7 @@ class RevenueCatConfig {
 
   static const apiKey = String.fromEnvironment(
     'REVENUECAT_API_KEY',
-    defaultValue: 'test_WhEewhOoTmPTqDEFFJrAZXfZKFc',
+    defaultValue: '',
   );
 
   static const iosApiKey = String.fromEnvironment(
@@ -30,6 +30,13 @@ class RevenueCatConfig {
       TargetPlatform.android => androidApiKey,
       _ => apiKey,
     };
+  }
+
+  static bool isApiKeyUsable(String apiKey) {
+    final trimmed = apiKey.trim();
+    if (trimmed.isEmpty) return false;
+    if (!kDebugMode && trimmed.startsWith('test_')) return false;
+    return true;
   }
 }
 

@@ -116,10 +116,10 @@ class RevenueCatService {
     }
 
     final apiKey = RevenueCatConfig.apiKeyForPlatform(defaultTargetPlatform);
-    if (apiKey.trim().isEmpty) {
+    if (!RevenueCatConfig.isApiKeyUsable(apiKey)) {
       return RevenueCatResult.failure(
         status: RevenueCatResultStatus.invalidRequest,
-        message: 'RevenueCat API key is missing.',
+        message: 'RevenueCat production API key is not configured.',
       );
     }
 
@@ -359,6 +359,31 @@ class RevenueCatService {
     } catch (error, stackTrace) {
       return _unknownFailure<List<StoreProduct>>(error, stackTrace);
     }
+  }
+
+  Future<RevenueCatResult<Map<String, String>>> getLocalizedPriceStrings(
+    List<String> productIds,
+  ) async {
+    final productsResult = await getProducts(productIds);
+    if (!productsResult.isSuccess || productsResult.data == null) {
+      return RevenueCatResult.failure(
+        status: productsResult.status,
+        message: productsResult.message,
+        errorCode: productsResult.errorCode,
+        exception: productsResult.exception,
+      );
+    }
+
+    final prices = <String, String>{};
+    for (final product in productsResult.data!) {
+      final priceString = product.priceString.trim();
+      if (priceString.isEmpty) continue;
+
+      prices[RevenueCatProductIds.logicalProductId(product.identifier)] =
+          priceString;
+    }
+
+    return RevenueCatResult.success(prices);
   }
 
   Future<RevenueCatResult<RevenueCatLoginData>> logInWithBackendUserId(

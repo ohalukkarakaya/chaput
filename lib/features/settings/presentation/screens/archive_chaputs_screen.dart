@@ -135,6 +135,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
       builder: (_) => FakePaywallSheet(
         feature: PaywallFeature.revive,
         planType: planType,
+        appUserId: me?.user.userId,
         reviveTarget: reviveTarget,
         onPurchaseProduct: (productId) =>
             _purchaseWithRevenueCat(context, ref, productId),

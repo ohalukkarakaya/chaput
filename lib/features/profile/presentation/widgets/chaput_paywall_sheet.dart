@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
+import '../../../revenuecat/data/revenue_cat_config.dart';
+import '../../../revenuecat/data/revenue_cat_service.dart';
 import 'sheet_handle.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 
@@ -27,6 +31,7 @@ class FakePaywallSheet extends StatefulWidget {
     required this.feature,
     this.planType = 'FREE',
     this.planPeriod,
+    this.appUserId,
     this.reviveTarget,
     this.onRestorePurchases,
     this.onPurchaseProduct,
@@ -35,6 +40,7 @@ class FakePaywallSheet extends StatefulWidget {
   final PaywallFeature feature;
   final String planType;
   final String? planPeriod;
+  final String? appUserId;
   final PaywallReviveTarget? reviveTarget;
   final Future<bool> Function()? onRestorePurchases;
   final Future<PaywallPurchase?> Function(String productId)? onPurchaseProduct;
@@ -47,6 +53,43 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
   int _selectedIndex = 0;
   bool _restoreBusy = false;
   String? _purchaseBusyProductId;
+  Map<String, String> _localizedPrices = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadLocalizedPrices());
+  }
+
+  @override
+  void didUpdateWidget(FakePaywallSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.appUserId != widget.appUserId) {
+      unawaited(_loadLocalizedPrices());
+    }
+  }
+
+  Future<void> _loadLocalizedPrices() async {
+    final appUserId = widget.appUserId?.trim();
+    if (appUserId != null && appUserId.isNotEmpty) {
+      final loginResult = await RevenueCatService.instance
+          .logInWithBackendUserId(appUserId);
+      if (!loginResult.isSuccess) return;
+    }
+
+    final result = await RevenueCatService.instance.getLocalizedPriceStrings(
+      RevenueCatProductIds.all,
+    );
+    if (!mounted || !result.isSuccess || result.data == null) return;
+    setState(() => _localizedPrices = result.data!);
+  }
+
+  String _localizedPrice(String productId, String fallback) {
+    final price =
+        _localizedPrices[RevenueCatProductIds.logicalProductId(productId)]
+            ?.trim();
+    return price == null || price.isEmpty ? fallback : price;
+  }
 
   VoidCallback _withTapHaptic(VoidCallback action) {
     return () {
@@ -143,36 +186,51 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
     final proMonthly = PaywallPlan(
       badge: t('paywall.badge.monthly'),
       title: t('paywall.plan.pro'),
-      price: t('paywall.price_per_month', params: {'price': '€9.99'}),
+      price: t(
+        'paywall.price_per_month',
+        params: {
+          'price': _localizedPrice(RevenueCatProductIds.proMonthly, '€9.99'),
+        },
+      ),
       hint: t(
         'paywall.hint.all_rights_bonus',
         params: {'hidden': '5', 'special': '4', 'whisper': '30'},
       ),
-      productId: 'chaput_pro_month',
+      productId: RevenueCatProductIds.proMonthly,
       bullets: proBullets,
     );
 
     final proYearly = PaywallPlan(
       badge: t('paywall.badge.yearly'),
       title: t('paywall.plan.pro_yearly'),
-      price: t('paywall.price_per_year', params: {'price': '€79.99'}),
+      price: t(
+        'paywall.price_per_year',
+        params: {
+          'price': _localizedPrice(RevenueCatProductIds.proYearly, '€79.99'),
+        },
+      ),
       hint: t(
         'paywall.hint.two_months_free_fake',
         params: {'hidden': '5', 'special': '4', 'whisper': '30'},
       ),
-      productId: 'chaput_pro_year',
+      productId: RevenueCatProductIds.proYearly,
       bullets: proBullets,
     );
 
     final plusMonthly = PaywallPlan(
       badge: t('paywall.badge.popular'),
       title: t('paywall.plan.plus'),
-      price: t('paywall.price_per_month', params: {'price': '€4.99'}),
+      price: t(
+        'paywall.price_per_month',
+        params: {
+          'price': _localizedPrice(RevenueCatProductIds.plusMonthly, '€4.99'),
+        },
+      ),
       hint: t(
         'paywall.hint.hidden_plus_boost',
         params: {'hidden': '2', 'special': '1', 'whisper': '10'},
       ),
-      productId: 'chaput_plus_month',
+      productId: RevenueCatProductIds.plusMonthly,
       bullets: [
         t('paywall.bullets.daily_chaput', params: {'count': '5'}),
         t('paywall.bullets.gift_hidden', params: {'count': '2'}),
@@ -208,113 +266,113 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
         ? <PaywallSingle>[
             PaywallSingle(
               title: t('paywall.single.chaput_right', params: {'count': '1'}),
-              price: '€0.99',
+              price: _localizedPrice(RevenueCatProductIds.bind1, '€0.99'),
               caption: t('paywall.single.bind_caption', params: {'count': '1'}),
-              productId: 'chaput_bind_1',
+              productId: RevenueCatProductIds.bind1,
             ),
             PaywallSingle(
               title: t('paywall.single.chaput_pack', params: {'count': '5'}),
-              price: '€3.49',
+              price: _localizedPrice(RevenueCatProductIds.bind5, '€3.49'),
               caption: t('paywall.single.bind_caption', params: {'count': '5'}),
-              productId: 'chaput_bind_5',
+              productId: RevenueCatProductIds.bind5,
             ),
             PaywallSingle(
               title: t('paywall.single.chaput_pack', params: {'count': '20'}),
-              price: '€9.99',
+              price: _localizedPrice(RevenueCatProductIds.bind20, '€9.99'),
               caption: t('paywall.single.best_value_fake'),
-              productId: 'chaput_bind_20',
+              productId: RevenueCatProductIds.bind20,
             ),
           ]
         : widget.feature == PaywallFeature.hideCredentials
         ? <PaywallSingle>[
             PaywallSingle(
               title: t('paywall.single.hidden_right', params: {'count': '1'}),
-              price: '€0.99',
+              price: _localizedPrice(RevenueCatProductIds.hidden1, '€0.99'),
               caption: t(
                 'paywall.single.hidden_caption',
                 params: {'count': '1'},
               ),
-              productId: 'chaput_hidden_1',
+              productId: RevenueCatProductIds.hidden1,
             ),
             PaywallSingle(
               title: t('paywall.single.hidden_pack', params: {'count': '5'}),
-              price: '€3.49',
+              price: _localizedPrice(RevenueCatProductIds.hidden5, '€3.49'),
               caption: t(
                 'paywall.single.hidden_caption',
                 params: {'count': '5'},
               ),
-              productId: 'chaput_hidden_5',
+              productId: RevenueCatProductIds.hidden5,
             ),
             PaywallSingle(
               title: t('paywall.single.hidden_pack', params: {'count': '20'}),
-              price: '€9.99',
+              price: _localizedPrice(RevenueCatProductIds.hidden20, '€9.99'),
               caption: t('paywall.single.best_value_fake'),
-              productId: 'chaput_hidden_20',
+              productId: RevenueCatProductIds.hidden20,
             ),
           ]
         : widget.feature == PaywallFeature.whisper
         ? <PaywallSingle>[
             PaywallSingle(
               title: t('paywall.single.whisper', params: {'count': '1'}),
-              price: '€0.79',
+              price: _localizedPrice(RevenueCatProductIds.whisper1, '€0.79'),
               caption: t(
                 'paywall.single.whisper_caption',
                 params: {'count': '1'},
               ),
-              productId: 'chaput_whisper_1',
+              productId: RevenueCatProductIds.whisper1,
             ),
             PaywallSingle(
               title: t('paywall.single.whisper', params: {'count': '10'}),
-              price: '€3.49',
+              price: _localizedPrice(RevenueCatProductIds.whisper10, '€3.49'),
               caption: t(
                 'paywall.single.whisper_caption',
                 params: {'count': '10'},
               ),
-              productId: 'chaput_whisper_10',
+              productId: RevenueCatProductIds.whisper10,
             ),
             PaywallSingle(
               title: t('paywall.single.whisper', params: {'count': '30'}),
-              price: '€7.99',
+              price: _localizedPrice(RevenueCatProductIds.whisper30, '€7.99'),
               caption: t('paywall.single.best_value_fake'),
-              productId: 'chaput_whisper_30',
+              productId: RevenueCatProductIds.whisper30,
             ),
           ]
         : widget.feature == PaywallFeature.revive
         ? <PaywallSingle>[
             PaywallSingle(
               title: t('paywall.single.revive', params: {'count': '1'}),
-              price: '€0.99',
+              price: _localizedPrice(RevenueCatProductIds.revive1, '€0.99'),
               caption: t(
                 'paywall.single.revive_caption',
                 params: {'count': '1'},
               ),
-              productId: 'chaput_revive_1',
+              productId: RevenueCatProductIds.revive1,
             ),
           ]
         : <PaywallSingle>[
             PaywallSingle(
               title: t('paywall.single.boost', params: {'count': '1'}),
-              price: '€0.79',
+              price: _localizedPrice(RevenueCatProductIds.special1, '€0.79'),
               caption: t(
                 'paywall.single.boost_caption',
                 params: {'count': '1'},
               ),
-              productId: 'chaput_special_1',
+              productId: RevenueCatProductIds.special1,
             ),
             PaywallSingle(
               title: t('paywall.single.boost', params: {'count': '5'}),
-              price: '€2.99',
+              price: _localizedPrice(RevenueCatProductIds.special5, '€2.99'),
               caption: t(
                 'paywall.single.boost_caption',
                 params: {'count': '5'},
               ),
-              productId: 'chaput_special_5',
+              productId: RevenueCatProductIds.special5,
             ),
             PaywallSingle(
               title: t('paywall.single.boost', params: {'count': '20'}),
-              price: '€8.99',
+              price: _localizedPrice(RevenueCatProductIds.special20, '€8.99'),
               caption: t('paywall.single.best_value_fake'),
-              productId: 'chaput_special_20',
+              productId: RevenueCatProductIds.special20,
             ),
           ];
 
@@ -535,7 +593,10 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                         }),
                         priceLabel: singles.isNotEmpty
                             ? singles.first.price
-                            : '€0.99',
+                            : _localizedPrice(
+                                RevenueCatProductIds.revive1,
+                                '€0.99',
+                              ),
                         busy:
                             singles.isNotEmpty &&
                             _purchaseBusyProductId == singles.first.productId,

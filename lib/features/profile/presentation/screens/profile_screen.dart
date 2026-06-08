@@ -2470,6 +2470,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         feature: feature,
         planType: effectivePlanType,
         planPeriod: effectivePlanPeriod,
+        appUserId: me?.user.userId,
         reviveTarget: reviveTarget,
         onPurchaseProduct: _purchaseWithRevenueCat,
         onRestorePurchases: _restorePurchasesWithRevenueCat,

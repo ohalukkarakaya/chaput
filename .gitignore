@@ -205,6 +205,15 @@ GoogleService-Info.plist
 .env.*
 /lib/core/config/env.dart
 
+# Local secrets / dart defines
+dart_defines.json
+dart-defines.json
+*.dart-define.json
+*.dart-defines.json
+revenuecat.keys.json
+secrets/
+*.secrets.json
+
 ###############################################################################
 # Logs & crash dumps
 ###############################################################################
