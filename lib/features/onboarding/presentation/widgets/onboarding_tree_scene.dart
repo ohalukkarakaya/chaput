@@ -90,11 +90,6 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   double _groundY = 0.0;
   static const double _camGroundMargin = 0.06;
 
-  Offset? _lastProjected;
-  double _stableFor = 0.0;
-  static const double _needStableSeconds = 0.18;
-  static const double _stablePxEps = 2.0;
-
   StreamSubscription<AccelerometerEvent>? _tiltSub;
   StreamSubscription<GyroscopeEvent>? _gyroSub;
   DateTime? _lastTiltAt;
@@ -102,6 +97,8 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   double _tiltPitch = 0.0;
   double _gyroYaw = 0.0;
   double _gyroPitch = 0.0;
+  double _parallaxYaw = 0.0;
+  double _parallaxPitch = 0.0;
 
   @override
   void initState() {
@@ -142,41 +139,56 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   bool get _motionParallaxEnabled =>
       !widget.paused && !_isInteracting && !_snapActive && _focusAnchor != null;
 
+  double _deadzone(double value, double threshold) {
+    return value.abs() < threshold ? 0.0 : value;
+  }
+
   void _startTiltListener() {
     _tiltSub =
         accelerometerEventStream(
-          samplingPeriod: const Duration(milliseconds: 66),
+          samplingPeriod: const Duration(milliseconds: 80),
         ).listen((event) {
           if (_disposed || !mounted) return;
           if (!_motionParallaxEnabled) {
-            _tiltYaw += (0.0 - _tiltYaw) * 0.18;
-            _tiltPitch += (0.0 - _tiltPitch) * 0.18;
+            _tiltYaw += (0.0 - _tiltYaw) * 0.12;
+            _tiltPitch += (0.0 - _tiltPitch) * 0.12;
             return;
           }
           final now = DateTime.now();
           if (_lastTiltAt != null &&
-              now.difference(_lastTiltAt!) < const Duration(milliseconds: 48)) {
+              now.difference(_lastTiltAt!) < const Duration(milliseconds: 70)) {
             return;
           }
           _lastTiltAt = now;
-          final nextYaw = (event.x / 9.8 * 0.075).clamp(-0.075, 0.075);
-          final nextPitch = (event.y / 9.8 * 0.052).clamp(-0.052, 0.052);
-          _tiltYaw += (nextYaw - _tiltYaw) * 0.14;
-          _tiltPitch += (nextPitch - _tiltPitch) * 0.14;
+          final nextYaw = _deadzone(
+            event.x / 9.8 * 0.115,
+            0.004,
+          ).clamp(-0.115, 0.115);
+          final nextPitch = _deadzone(
+            event.y / 9.8 * 0.078,
+            0.004,
+          ).clamp(-0.078, 0.078);
+          _tiltYaw += (nextYaw - _tiltYaw) * 0.08;
+          _tiltPitch += (nextPitch - _tiltPitch) * 0.08;
         }, onError: (_) {});
 
     _gyroSub =
         gyroscopeEventStream(
-          samplingPeriod: const Duration(milliseconds: 50),
+          samplingPeriod: const Duration(milliseconds: 66),
         ).listen((event) {
           if (_disposed || !mounted) return;
           if (!_motionParallaxEnabled) {
-            _gyroYaw *= 0.82;
-            _gyroPitch *= 0.82;
+            _gyroYaw *= 0.76;
+            _gyroPitch *= 0.76;
             return;
           }
-          _gyroYaw = (_gyroYaw + event.y * 0.010).clamp(-0.040, 0.040);
-          _gyroPitch = (_gyroPitch + event.x * 0.007).clamp(-0.028, 0.028);
+          final yawVelocity = _deadzone(event.y, 0.025);
+          final pitchVelocity = _deadzone(event.x, 0.025);
+          _gyroYaw = (_gyroYaw + yawVelocity * 0.0065).clamp(-0.055, 0.055);
+          _gyroPitch = (_gyroPitch + pitchVelocity * 0.0048).clamp(
+            -0.038,
+            0.038,
+          );
         }, onError: (_) {});
   }
 
@@ -424,8 +436,6 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   }
 
   void _resetMarkerStabilizer() {
-    _lastProjected = null;
-    _stableFor = 0.0;
     _focusScreen.value = null;
   }
 
@@ -526,8 +536,9 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     final minPitch = math.max(_minPitchHard, dynamicMinPitch);
     _pitch = _pitch.clamp(minPitch, _maxPitch);
 
+    final clampedDt = dt.clamp(0.0, 0.08);
     if (_motionParallaxEnabled) {
-      final damping = math.pow(0.08, dt.clamp(0.0, 0.08)).toDouble();
+      final damping = math.pow(0.025, clampedDt).toDouble();
       _gyroYaw *= damping;
       _gyroPitch *= damping;
     } else {
@@ -535,11 +546,20 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       _gyroPitch += (0.0 - _gyroPitch) * 0.18;
     }
 
-    final finalYaw =
-        _yaw + (_motionParallaxEnabled ? _tiltYaw + _gyroYaw : 0.0);
-    final finalPitch =
-        (_pitch + (_motionParallaxEnabled ? _tiltPitch + _gyroPitch : 0.0))
-            .clamp(minPitch, _maxPitch);
+    final targetParallaxYaw = _motionParallaxEnabled
+        ? (_tiltYaw + _gyroYaw).clamp(-0.160, 0.160)
+        : 0.0;
+    final targetParallaxPitch = _motionParallaxEnabled
+        ? (_tiltPitch + _gyroPitch).clamp(-0.110, 0.110)
+        : 0.0;
+    final parallaxFollow = _motionParallaxEnabled
+        ? 1 - math.pow(0.0008, clampedDt).toDouble()
+        : 0.18;
+    _parallaxYaw += (targetParallaxYaw - _parallaxYaw) * parallaxFollow;
+    _parallaxPitch += (targetParallaxPitch - _parallaxPitch) * parallaxFollow;
+
+    final finalYaw = _yaw + _parallaxYaw;
+    final finalPitch = (_pitch + _parallaxPitch).clamp(minPitch, _maxPitch);
 
     final cp = math.cos(finalPitch);
     final sp = math.sin(finalPitch);
@@ -556,7 +576,7 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   }
 
   void _updateFocusScreenPosition(three.ThreeJS js, double dt) {
-    if (_focusAnchor == null || _isInteracting || _snapActive) {
+    if (_focusAnchor == null || _isInteracting) {
       _resetMarkerStabilizer();
       return;
     }
@@ -572,15 +592,15 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       (1 - (p.y + 1) * 0.5) * js.height,
     );
 
-    final previous = _lastProjected;
-    if (previous != null) {
-      final stable =
-          (now.dx - previous.dx).abs() <= _stablePxEps &&
-          (now.dy - previous.dy).abs() <= _stablePxEps;
-      _stableFor = stable ? _stableFor + dt : 0.0;
+    final previous = _focusScreen.value;
+    if (previous == null || _snapActive) {
+      _focusScreen.value = now;
+      return;
     }
-    _lastProjected = now;
-    _focusScreen.value = _stableFor >= _needStableSeconds ? now : null;
+
+    final clampedDt = dt.clamp(0.0, 0.08);
+    final follow = 1 - math.pow(0.0012, clampedDt).toDouble();
+    _focusScreen.value = Offset.lerp(previous, now, follow);
   }
 
   void _onScaleStart(ScaleStartDetails details) {
