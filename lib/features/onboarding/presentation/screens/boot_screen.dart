@@ -29,7 +29,15 @@ class _BootScreenState extends ConsumerState<BootScreen> {
     final pendingLink = ref.read(pendingDeepLinkProvider);
     if (pendingLink != null) {
       ref.read(pendingDeepLinkProvider.notifier).state = null;
-      context.pushReplacement(pendingLink.location, extra: pendingLink.extra);
+      if (pendingLink.location == Routes.home) {
+        context.go(Routes.home);
+        return;
+      }
+      context.go(Routes.home);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.push(pendingLink.location, extra: pendingLink.extra);
+      });
       return;
     }
 

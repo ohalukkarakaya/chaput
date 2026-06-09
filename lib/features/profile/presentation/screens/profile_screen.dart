@@ -793,6 +793,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _pendingInitialMessageId = widget.initialMessageId;
       _initialThreadApplied = false;
       _msgCtrl.clear();
+    } else if (oldWidget.initialThreadId != widget.initialThreadId ||
+        oldWidget.initialMessageId != widget.initialMessageId) {
+      _pendingInitialThreadId = widget.initialThreadId;
+      _pendingInitialMessageId = widget.initialMessageId;
+      _initialThreadApplied = false;
     }
   }
 
@@ -3552,6 +3557,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return ShowCaseWidget(
       builder: (showcaseContext) {
         final profileReadyForShowcase = userId.isNotEmpty && !st.isLoading;
+        final chaputSheetOuterOffset = context.responsive
+            .bottomSheetOuterOffset();
+        final chaputSheetAvailableHeight =
+            MediaQuery.of(context).size.height - chaputSheetOuterOffset;
+        final androidNavigationBarFillHeight =
+            responsive.isAndroid && !responsive.keyboardOpen
+            ? chaputSheetOuterOffset
+            : 0.0;
 
         if (viewerId.isNotEmpty && profileReadyForShowcase) {
           if (!_profileShowcaseScheduled) {
@@ -3800,171 +3813,198 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               )
             : null;
 
-        return Scaffold(
-          resizeToAvoidBottomInset: false,
-          backgroundColor: bg,
-          body: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              FocusScope.of(context).unfocus();
-            },
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // ThreeJS TAM EKRAN
-                Positioned.fill(
-                  child: (_threeJs == null || _navToOtherProfile)
-                      ? const SizedBox.shrink()
-                      : RepaintBoundary(
-                          child: SizedBox.expand(child: _threeJs!.build()),
-                        ),
-                ),
-
-                // Gesture ALANI (top bar ALTINDAN başlar)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: topInset + topBarHeight,
-                  bottom: 0,
-                  child: IgnorePointer(
-                    ignoring: !_threeReady || _isAdPageActive,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onScaleStart: _onScaleStart,
-                      onScaleUpdate: _onScaleUpdate,
-                      onScaleEnd: _onScaleEnd,
-                      child: const SizedBox.expand(),
+        return PopScope(
+          canPop: !responsive.isAndroid,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (!responsive.isAndroid) return;
+            final router = GoRouter.of(context);
+            if (router.canPop()) {
+              router.pop();
+            } else {
+              router.go(Routes.home);
+            }
+          },
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: const SystemUiOverlayStyle(
+              systemNavigationBarColor: AppColors.chaputBlack,
+              systemNavigationBarDividerColor: AppColors.chaputBlack,
+              systemNavigationBarIconBrightness: Brightness.light,
+            ),
+            child: Scaffold(
+              resizeToAvoidBottomInset: false,
+              backgroundColor: bg,
+              body: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                },
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // ThreeJS TAM EKRAN
+                    Positioned.fill(
+                      child: (_threeJs == null || _navToOtherProfile)
+                          ? const SizedBox.shrink()
+                          : RepaintBoundary(
+                              child: SizedBox.expand(child: _threeJs!.build()),
+                            ),
                     ),
-                  ),
-                ),
 
-                if (showPageLoading)
-                  Positioned.fill(
-                    child: AbsorbPointer(
-                      child: ColoredBox(
-                        color: bg,
-                        child: Center(
-                          child: TreeSilhouetteShimmer(
-                            size: math.min(
-                              MediaQuery.of(context).size.width * 0.6,
-                              240,
+                    // Gesture ALANI (top bar ALTINDAN başlar)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: topInset + topBarHeight,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        ignoring: !_threeReady || _isAdPageActive,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onScaleStart: _onScaleStart,
+                          onScaleUpdate: _onScaleUpdate,
+                          onScaleEnd: _onScaleEnd,
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ),
+
+                    if (showPageLoading)
+                      Positioned.fill(
+                        child: AbsorbPointer(
+                          child: ColoredBox(
+                            color: bg,
+                            child: Center(
+                              child: TreeSilhouetteShimmer(
+                                size: math.min(
+                                  MediaQuery.of(context).size.width * 0.6,
+                                  240,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                if (showTreeLoading)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Center(
-                        child: TreeSilhouetteShimmer(
-                          size: math.min(
-                            MediaQuery.of(context).size.width * 0.5,
-                            200,
+                    if (showTreeLoading)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Center(
+                            child: TreeSilhouetteShimmer(
+                              size: math.min(
+                                MediaQuery.of(context).size.width * 0.5,
+                                200,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
 
-                // TOP BAR (overlay – yer kaplamaz)
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Back button (aynı)
-                        IgnorePointer(
-                          ignoring:
-                              _profileCardOpen, // kart açıkken tıklanmasın
+                    // TOP BAR (overlay – yer kaplamaz)
+                    SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Back button (aynı)
+                            IgnorePointer(
+                              ignoring:
+                                  _profileCardOpen, // kart açıkken tıklanmasın
+                              child: ClipOval(
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(
+                                    sigmaX: 10,
+                                    sigmaY: 10,
+                                  ),
+                                  child: Material(
+                                    color: AppColors.chaputWhite.withOpacity(
+                                      0.35,
+                                    ),
+                                    shape: const CircleBorder(),
+                                    child: InkWell(
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        GoRouter.of(context).go(Routes.home);
+                                      },
+                                      customBorder: const CircleBorder(),
+                                      child: const SizedBox(
+                                        width: 44,
+                                        height: 44,
+                                        child: Center(
+                                          child: Icon(
+                                            Icons.chevron_left,
+                                            size: 30,
+                                            color: AppColors.chaputBlack,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // SMALL AVATAR (sağ üst)
+                    Positioned(
+                      top: topInset + 10,
+                      right: 14,
+                      child: IgnorePointer(
+                        ignoring: _profileCardOpen, // kart açıkken tıklanmasın
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 120),
+                          opacity: _profileCardOpen
+                              ? 0.0
+                              : 1.0, // kart açılınca kaybol
                           child: ClipOval(
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Material(
-                                color: AppColors.chaputWhite.withOpacity(0.35),
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    GoRouter.of(context).go(Routes.home);
-                                  },
-                                  customBorder: const CircleBorder(),
-                                  child: const SizedBox(
-                                    width: 44,
-                                    height: 44,
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.chevron_left,
-                                        size: 30,
-                                        color: AppColors.chaputBlack,
-                                      ),
-                                    ),
-                                  ),
+                              child: Showcase.withWidget(
+                                key: _profileMenuShowcaseKey,
+                                targetPadding: const EdgeInsets.all(6),
+                                targetShapeBorder: const CircleBorder(),
+                                tooltipPosition: TooltipPosition.bottom,
+                                toolTipMargin: 8,
+                                targetTooltipGap: 8,
+                                container: _buildShowcaseCard(
+                                  context,
+                                  context.t('showcase.profile_follow_title'),
+                                  context.t('showcase.profile_follow_body'),
                                 ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // SMALL AVATAR (sağ üst)
-                Positioned(
-                  top: topInset + 10,
-                  right: 14,
-                  child: IgnorePointer(
-                    ignoring: _profileCardOpen, // kart açıkken tıklanmasın
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 120),
-                      opacity: _profileCardOpen
-                          ? 0.0
-                          : 1.0, // kart açılınca kaybol
-                      child: ClipOval(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Showcase.withWidget(
-                            key: _profileMenuShowcaseKey,
-                            targetPadding: const EdgeInsets.all(6),
-                            targetShapeBorder: const CircleBorder(),
-                            tooltipPosition: TooltipPosition.bottom,
-                            toolTipMargin: 8,
-                            targetTooltipGap: 8,
-                            container: _buildShowcaseCard(
-                              context,
-                              context.t('showcase.profile_follow_title'),
-                              context.t('showcase.profile_follow_body'),
-                            ),
-                            child: Material(
-                              color: AppColors.chaputWhite.withOpacity(0.35),
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                onTap: _toggleProfileCard,
-                                customBorder: const CircleBorder(),
-                                child: SizedBox(
-                                  width: 44,
-                                  height: 44,
-                                  child: Center(
-                                    child: ClipOval(
-                                      child: (defaultAvatar != null)
-                                          ? ChaputCircleAvatar(
-                                              isDefaultAvatar:
-                                                  profilePhotoKey == null ||
-                                                  profilePhotoKey == "",
-                                              imageUrl:
-                                                  profilePhotoUrl != null &&
-                                                      profilePhotoUrl != ""
-                                                  ? profilePhotoUrl
-                                                  : defaultAvatar,
-                                            )
-                                          : const ColoredBox(
-                                              color:
-                                                  AppColors.chaputTransparent,
-                                            ),
+                                child: Material(
+                                  color: AppColors.chaputWhite.withOpacity(
+                                    0.35,
+                                  ),
+                                  shape: const CircleBorder(),
+                                  child: InkWell(
+                                    onTap: _toggleProfileCard,
+                                    customBorder: const CircleBorder(),
+                                    child: SizedBox(
+                                      width: 44,
+                                      height: 44,
+                                      child: Center(
+                                        child: ClipOval(
+                                          child: (defaultAvatar != null)
+                                              ? ChaputCircleAvatar(
+                                                  isDefaultAvatar:
+                                                      profilePhotoKey == null ||
+                                                      profilePhotoKey == "",
+                                                  imageUrl:
+                                                      profilePhotoUrl != null &&
+                                                          profilePhotoUrl != ""
+                                                      ? profilePhotoUrl
+                                                      : defaultAvatar,
+                                                )
+                                              : const ColoredBox(
+                                                  color: AppColors
+                                                      .chaputTransparent,
+                                                ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -3974,1058 +4014,1113 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         ),
                       ),
                     ),
-                  ),
-                ),
 
-                // Expanded profile card overlay
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: topInset + 10,
+                    // Expanded profile card overlay
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: topInset + 10,
 
-                  child: IgnorePointer(
-                    ignoring: !_profileCardOpen,
-                    child: AnimatedBuilder(
-                      animation: _profileCardT,
-                      builder: (_, __) {
-                        final t = _profileCardT.value;
+                      child: IgnorePointer(
+                        ignoring: !_profileCardOpen,
+                        child: AnimatedBuilder(
+                          animation: _profileCardT,
+                          builder: (_, __) {
+                            final t = _profileCardT.value;
 
-                        // ufak slide + fade
-                        final dy = (1 - t) * -10; // yukarıdan gelsin
-                        return Opacity(
-                          opacity: t,
-                          child: Transform.translate(
-                            offset: Offset(0, dy),
-                            child: Transform.scale(
-                              scale: 0.98 + 0.02 * t,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Positioned(
-                                    left: 0,
-                                    right: 0,
+                            // ufak slide + fade
+                            final dy = (1 - t) * -10; // yukarıdan gelsin
+                            return Opacity(
+                              opacity: t,
+                              child: Transform.translate(
+                                offset: Offset(0, dy),
+                                child: Transform.scale(
+                                  scale: 0.98 + 0.02 * t,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
 
-                                    // Bu layer'ın üstü, bulunduğu Positioned'ın üstünden
-                                    // topInset+10 yukarı çıkıp ekranın en üstüne oturur:
-                                    top: -(topInset + 10),
+                                        // Bu layer'ın üstü, bulunduğu Positioned'ın üstünden
+                                        // topInset+10 yukarı çıkıp ekranın en üstüne oturur:
+                                        top: -(topInset + 10),
 
-                                    // Altı: içerik yüksekliği kadar kalsın diye 0
-                                    bottom: 0,
+                                        // Altı: içerik yüksekliği kadar kalsın diye 0
+                                        bottom: 0,
 
-                                    child: ClipRRect(
-                                      child: BackdropFilter(
-                                        filter: ImageFilter.blur(
-                                          sigmaX: 12,
-                                          sigmaY: 12,
-                                        ),
-                                        child: DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            color: AppColors.chaputWhite
-                                                .withOpacity(0.35),
-                                            border: Border.all(
-                                              color: AppColors.chaputWhite
-                                                  .withOpacity(0.25),
-                                              width: 1,
+                                        child: ClipRRect(
+                                          child: BackdropFilter(
+                                            filter: ImageFilter.blur(
+                                              sigmaX: 12,
+                                              sigmaY: 12,
+                                            ),
+                                            child: DecoratedBox(
+                                              decoration: BoxDecoration(
+                                                color: AppColors.chaputWhite
+                                                    .withOpacity(0.35),
+                                                border: Border.all(
+                                                  color: AppColors.chaputWhite
+                                                      .withOpacity(0.25),
+                                                  width: 1,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ),
 
-                                  // ✅ İÇERİK: senin mevcut içerik aynen
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        InkWell(
-                                          onTap: _toggleProfileCard,
-                                          customBorder: const CircleBorder(),
-                                          child: SizedBox(
-                                            width: 44,
-                                            height: 44,
-                                            child: ClipOval(
-                                              child: (defaultAvatar != null)
-                                                  ? ChaputCircleAvatar(
-                                                      isDefaultAvatar:
-                                                          profilePhotoKey ==
-                                                              null ||
-                                                          profilePhotoKey == "",
-                                                      imageUrl:
-                                                          profilePhotoUrl !=
-                                                                  null &&
-                                                              profilePhotoUrl !=
-                                                                  ""
-                                                          ? profilePhotoUrl
-                                                          : defaultAvatar,
-                                                    )
-                                                  : const ColoredBox(
-                                                      color: AppColors
-                                                          .chaputTransparent,
-                                                    ),
-                                            ),
-                                          ),
+                                      // ✅ İÇERİK: senin mevcut içerik aynen
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
                                         ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            InkWell(
+                                              onTap: _toggleProfileCard,
+                                              customBorder:
+                                                  const CircleBorder(),
+                                              child: SizedBox(
+                                                width: 44,
+                                                height: 44,
+                                                child: ClipOval(
+                                                  child: (defaultAvatar != null)
+                                                      ? ChaputCircleAvatar(
+                                                          isDefaultAvatar:
+                                                              profilePhotoKey ==
+                                                                  null ||
+                                                              profilePhotoKey ==
+                                                                  "",
+                                                          imageUrl:
+                                                              profilePhotoUrl !=
+                                                                      null &&
+                                                                  profilePhotoUrl !=
+                                                                      ""
+                                                              ? profilePhotoUrl
+                                                              : defaultAvatar,
+                                                        )
+                                                      : const ColoredBox(
+                                                          color: AppColors
+                                                              .chaputTransparent,
+                                                        ),
+                                                ),
+                                              ),
+                                            ),
 
-                                        const SizedBox(width: 10),
+                                            const SizedBox(width: 10),
 
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Row(
+                                            Expanded(
+                                              child: Column(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          fullName,
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style:
-                                                              const TextStyle(
+                                                  Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                              fullName,
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: const TextStyle(
                                                                 fontSize: 16,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w700,
                                                               ),
-                                                        ),
-                                                        Text(
-                                                          '@$username',
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          softWrap: false,
-                                                          style: TextStyle(
-                                                            fontSize: 13,
-                                                            color: AppColors
-                                                                .chaputBlack
-                                                                .withOpacity(
-                                                                  0.65,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 6,
-                                                        ),
-                                                        Wrap(
-                                                          spacing: 8,
-                                                          runSpacing: 6,
-                                                          children: [
-                                                            ProfileStatChip(
-                                                              value:
-                                                                  effectiveFollowerCount,
-                                                              label: context.t(
-                                                                'profile.followers_label',
-                                                              ),
-                                                              onTap: () {
-                                                                if (heRestrictedMe ||
-                                                                    (isPrivateTarget &&
-                                                                        !effectiveIsFollowing &&
-                                                                        !isMe)) {
-                                                                  ScaffoldMessenger.of(
-                                                                    context,
-                                                                  ).showSnackBar(
-                                                                    SnackBar(
-                                                                      content: Text(
-                                                                        context.t(
-                                                                          'profile.follow_list_forbidden',
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                  );
-                                                                  return;
-                                                                }
-                                                                Navigator.of(
-                                                                  context,
-                                                                ).push(
-                                                                  MaterialPageRoute(
-                                                                    builder: (_) => FollowListScreen(
-                                                                      username:
-                                                                          username,
-                                                                      kind: FollowListKind
-                                                                          .followers,
-                                                                      isMe:
-                                                                          isMe,
-                                                                      title: context.t(
-                                                                        'profile.followers_title',
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                              },
                                                             ),
-                                                            ProfileStatChip(
-                                                              value:
-                                                                  followingCount,
-                                                              label: context.t(
-                                                                'profile.following_label',
+                                                            Text(
+                                                              '@$username',
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              softWrap: false,
+                                                              style: TextStyle(
+                                                                fontSize: 13,
+                                                                color: AppColors
+                                                                    .chaputBlack
+                                                                    .withOpacity(
+                                                                      0.65,
+                                                                    ),
                                                               ),
-                                                              onTap: () {
-                                                                if (heRestrictedMe ||
-                                                                    (isPrivateTarget &&
-                                                                        !effectiveIsFollowing &&
-                                                                        !isMe)) {
-                                                                  ScaffoldMessenger.of(
-                                                                    context,
-                                                                  ).showSnackBar(
-                                                                    SnackBar(
-                                                                      content: Text(
-                                                                        context.t(
-                                                                          'profile.follow_list_forbidden',
+                                                            ),
+                                                            const SizedBox(
+                                                              height: 6,
+                                                            ),
+                                                            Wrap(
+                                                              spacing: 8,
+                                                              runSpacing: 6,
+                                                              children: [
+                                                                ProfileStatChip(
+                                                                  value:
+                                                                      effectiveFollowerCount,
+                                                                  label: context.t(
+                                                                    'profile.followers_label',
+                                                                  ),
+                                                                  onTap: () {
+                                                                    if (heRestrictedMe ||
+                                                                        (isPrivateTarget &&
+                                                                            !effectiveIsFollowing &&
+                                                                            !isMe)) {
+                                                                      ScaffoldMessenger.of(
+                                                                        context,
+                                                                      ).showSnackBar(
+                                                                        SnackBar(
+                                                                          content: Text(
+                                                                            context.t(
+                                                                              'profile.follow_list_forbidden',
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      );
+                                                                      return;
+                                                                    }
+                                                                    Navigator.of(
+                                                                      context,
+                                                                    ).push(
+                                                                      MaterialPageRoute(
+                                                                        builder: (_) => FollowListScreen(
+                                                                          username:
+                                                                              username,
+                                                                          kind:
+                                                                              FollowListKind.followers,
+                                                                          isMe:
+                                                                              isMe,
+                                                                          title: context.t(
+                                                                            'profile.followers_title',
+                                                                          ),
                                                                         ),
                                                                       ),
-                                                                    ),
-                                                                  );
-                                                                  return;
-                                                                }
-                                                                Navigator.of(
-                                                                  context,
-                                                                ).push(
-                                                                  MaterialPageRoute(
-                                                                    builder: (_) => FollowListScreen(
-                                                                      username:
-                                                                          username,
-                                                                      kind: FollowListKind
-                                                                          .following,
-                                                                      isMe:
-                                                                          isMe,
-                                                                      title: context.t(
-                                                                        'profile.following_title',
-                                                                      ),
-                                                                    ),
+                                                                    );
+                                                                  },
+                                                                ),
+                                                                ProfileStatChip(
+                                                                  value:
+                                                                      followingCount,
+                                                                  label: context.t(
+                                                                    'profile.following_label',
                                                                   ),
-                                                                );
-                                                              },
+                                                                  onTap: () {
+                                                                    if (heRestrictedMe ||
+                                                                        (isPrivateTarget &&
+                                                                            !effectiveIsFollowing &&
+                                                                            !isMe)) {
+                                                                      ScaffoldMessenger.of(
+                                                                        context,
+                                                                      ).showSnackBar(
+                                                                        SnackBar(
+                                                                          content: Text(
+                                                                            context.t(
+                                                                              'profile.follow_list_forbidden',
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      );
+                                                                      return;
+                                                                    }
+                                                                    Navigator.of(
+                                                                      context,
+                                                                    ).push(
+                                                                      MaterialPageRoute(
+                                                                        builder: (_) => FollowListScreen(
+                                                                          username:
+                                                                              username,
+                                                                          kind:
+                                                                              FollowListKind.following,
+                                                                          isMe:
+                                                                              isMe,
+                                                                          title: context.t(
+                                                                            'profile.following_title',
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                                ),
+                                                              ],
                                                             ),
                                                           ],
                                                         ),
-                                                      ],
-                                                    ),
-                                                  ),
-
-                                                  // ================= ACTION BUTTON =================
-                                                  if (isMe)
-                                                    Showcase.withWidget(
-                                                      key: _settingsShowcaseKey,
-                                                      targetPadding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 4,
-                                                          ),
-                                                      targetShapeBorder:
-                                                          RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                          ),
-                                                      tooltipPosition:
-                                                          TooltipPosition.top,
-                                                      toolTipMargin: 8,
-                                                      targetTooltipGap: 8,
-                                                      container: _buildShowcaseCard(
-                                                        context,
-                                                        context.t(
-                                                          'showcase.profile_settings_title',
-                                                        ),
-                                                        context.t(
-                                                          'showcase.profile_settings_body',
-                                                        ),
                                                       ),
-                                                      child: TextButton(
-                                                        onPressed: () {
-                                                          context.push(
-                                                            Routes.settings,
-                                                          );
-                                                        },
-                                                        style: TextButton.styleFrom(
-                                                          padding:
+
+                                                      // ================= ACTION BUTTON =================
+                                                      if (isMe)
+                                                        Showcase.withWidget(
+                                                          key:
+                                                              _settingsShowcaseKey,
+                                                          targetPadding:
                                                               const EdgeInsets.symmetric(
-                                                                horizontal: 12,
-                                                                vertical: 6,
+                                                                horizontal: 6,
+                                                                vertical: 4,
                                                               ),
-                                                          backgroundColor:
-                                                              AppColors
-                                                                  .chaputBlack,
-                                                          foregroundColor:
-                                                              AppColors
-                                                                  .chaputWhite,
-                                                          shape: RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                        child: Text(
-                                                          context.t(
-                                                            'profile.settings',
-                                                          ),
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 12,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    )
-                                                  else
-                                                    Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        // FOLLOW / UNFOLLOW
-                                                        TextButton(
-                                                          onPressed:
-                                                              followButtonDisabled
-                                                              ? null
-                                                              : () async {
-                                                                  if (isBlocked) {
-                                                                    return;
-                                                                  }
-                                                                  HapticFeedback.selectionClick();
-
-                                                                  setState(
-                                                                    () =>
-                                                                        _uiFollowLoading =
-                                                                            true,
-                                                                  );
-
-                                                                  // PRIVATE + not following: follow -> request gönderme modu
-                                                                  if (showRequestMode) {
-                                                                    // optimistic: anında "İstek Gönderildi"
-                                                                    setState(
-                                                                      () => _uiRequestedFollow =
-                                                                          true,
-                                                                    );
-
-                                                                    try {
-                                                                      final ctrl = ref.read(
-                                                                        followControllerProvider(
-                                                                          username,
-                                                                        ).notifier,
-                                                                      );
-
-                                                                      // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
-                                                                      await ctrl
-                                                                          .follow();
-                                                                    } catch (
-                                                                      _
-                                                                    ) {
-                                                                      // rollback
-                                                                      setState(
-                                                                        () => _uiRequestedFollow =
-                                                                            null,
-                                                                      );
-                                                                    } finally {
-                                                                      setState(
-                                                                        () => _uiFollowLoading =
-                                                                            false,
-                                                                      );
-                                                                    }
-                                                                    return;
-                                                                  }
-
-                                                                  // PUBLIC veya zaten following/unfollow normal akış
-                                                                  setState(() {
-                                                                    if (effectiveIsFollowing) {
-                                                                      _uiIsFollowing =
-                                                                          false;
-                                                                      _uiFollowerDelta -=
-                                                                          1;
-                                                                    } else {
-                                                                      _uiIsFollowing =
-                                                                          true;
-                                                                      _uiFollowerDelta +=
-                                                                          1;
-                                                                    }
-                                                                  });
-
-                                                                  try {
-                                                                    final ctrl = ref.read(
-                                                                      followControllerProvider(
-                                                                        username,
-                                                                      ).notifier,
-                                                                    );
-                                                                    if (effectiveIsFollowing) {
-                                                                      await ctrl
-                                                                          .unfollow();
-                                                                    } else {
-                                                                      await ctrl
-                                                                          .follow();
-                                                                    }
-                                                                  } catch (_) {
-                                                                    setState(() {
-                                                                      _uiIsFollowing =
-                                                                          null;
-                                                                      _uiFollowerDelta =
-                                                                          0;
-                                                                    });
-                                                                  } finally {
-                                                                    setState(
-                                                                      () => _uiFollowLoading =
-                                                                          false,
-                                                                    );
-                                                                  }
-                                                                },
-
-                                                          style: TextButton.styleFrom(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal:
+                                                          targetShapeBorder:
+                                                              RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
                                                                       12,
-                                                                  vertical: 6,
-                                                                ),
-                                                            backgroundColor:
-                                                                isBlocked
-                                                                ? AppColors
-                                                                      .chaputRed200
-                                                                : requestAlreadySent
-                                                                ? AppColors
-                                                                      .chaputMaterialBlue
-                                                                : effectiveIsFollowing
-                                                                ? AppColors
-                                                                      .chaputGrey300
-                                                                : AppColors
+                                                                    ),
+                                                              ),
+                                                          tooltipPosition:
+                                                              TooltipPosition
+                                                                  .top,
+                                                          toolTipMargin: 8,
+                                                          targetTooltipGap: 8,
+                                                          container: _buildShowcaseCard(
+                                                            context,
+                                                            context.t(
+                                                              'showcase.profile_settings_title',
+                                                            ),
+                                                            context.t(
+                                                              'showcase.profile_settings_body',
+                                                            ),
+                                                          ),
+                                                          child: TextButton(
+                                                            onPressed: () {
+                                                              context.push(
+                                                                Routes.settings,
+                                                              );
+                                                            },
+                                                            style: TextButton.styleFrom(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        12,
+                                                                    vertical: 6,
+                                                                  ),
+                                                              backgroundColor:
+                                                                  AppColors
                                                                       .chaputBlack,
-                                                            foregroundColor:
-                                                                requestAlreadySent
-                                                                ? AppColors
-                                                                      .chaputWhite
-                                                                : (effectiveIsFollowing
-                                                                      ? AppColors
-                                                                            .chaputBlack
-                                                                      : AppColors
-                                                                            .chaputWhite),
-
-                                                            // disabled iken de beyaz kalsın
-                                                            disabledForegroundColor:
-                                                                requestAlreadySent
-                                                                ? AppColors
-                                                                      .chaputWhite
-                                                                : AppColors
-                                                                      .chaputWhite70,
-
-                                                            // disabled iken arka plan da mavi kalsın
-                                                            disabledBackgroundColor:
-                                                                requestAlreadySent
-                                                                ? AppColors
-                                                                      .chaputMaterialBlue
-                                                                : AppColors
-                                                                      .chaputGrey300,
-
-                                                            shape: RoundedRectangleBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
+                                                              foregroundColor:
+                                                                  AppColors
+                                                                      .chaputWhite,
+                                                              shape: RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      12,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                            child: Text(
+                                                              context.t(
+                                                                'profile.settings',
+                                                              ),
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        12,
                                                                   ),
                                                             ),
                                                           ),
-                                                          child:
-                                                              _uiFollowLoading
-                                                              ? const SizedBox(
-                                                                  width: 14,
-                                                                  height: 14,
-                                                                  child: CircularProgressIndicator(
-                                                                    strokeWidth:
-                                                                        2,
-                                                                  ),
-                                                                )
-                                                              : Text(
-                                                                  requestAlreadySent
-                                                                      ? context.t(
-                                                                          'profile.follow_request_sent',
-                                                                        )
-                                                                      : (effectiveIsFollowing
-                                                                            ? context.t(
-                                                                                'profile.unfollow',
-                                                                              )
-                                                                            : context.t(
-                                                                                'profile.follow',
-                                                                              )),
-                                                                  style:
-                                                                      const TextStyle(
+                                                        )
+                                                      else
+                                                        Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            // FOLLOW / UNFOLLOW
+                                                            TextButton(
+                                                              onPressed:
+                                                                  followButtonDisabled
+                                                                  ? null
+                                                                  : () async {
+                                                                      if (isBlocked) {
+                                                                        return;
+                                                                      }
+                                                                      HapticFeedback.selectionClick();
+
+                                                                      setState(
+                                                                        () => _uiFollowLoading =
+                                                                            true,
+                                                                      );
+
+                                                                      // PRIVATE + not following: follow -> request gönderme modu
+                                                                      if (showRequestMode) {
+                                                                        // optimistic: anında "İstek Gönderildi"
+                                                                        setState(
+                                                                          () => _uiRequestedFollow =
+                                                                              true,
+                                                                        );
+
+                                                                        try {
+                                                                          final ctrl = ref.read(
+                                                                            followControllerProvider(
+                                                                              username,
+                                                                            ).notifier,
+                                                                          );
+
+                                                                          // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
+                                                                          await ctrl
+                                                                              .follow();
+                                                                        } catch (
+                                                                          _
+                                                                        ) {
+                                                                          // rollback
+                                                                          setState(
+                                                                            () =>
+                                                                                _uiRequestedFollow = null,
+                                                                          );
+                                                                        } finally {
+                                                                          setState(
+                                                                            () =>
+                                                                                _uiFollowLoading = false,
+                                                                          );
+                                                                        }
+                                                                        return;
+                                                                      }
+
+                                                                      // PUBLIC veya zaten following/unfollow normal akış
+                                                                      setState(() {
+                                                                        if (effectiveIsFollowing) {
+                                                                          _uiIsFollowing =
+                                                                              false;
+                                                                          _uiFollowerDelta -=
+                                                                              1;
+                                                                        } else {
+                                                                          _uiIsFollowing =
+                                                                              true;
+                                                                          _uiFollowerDelta +=
+                                                                              1;
+                                                                        }
+                                                                      });
+
+                                                                      try {
+                                                                        final ctrl = ref.read(
+                                                                          followControllerProvider(
+                                                                            username,
+                                                                          ).notifier,
+                                                                        );
+                                                                        if (effectiveIsFollowing) {
+                                                                          await ctrl
+                                                                              .unfollow();
+                                                                        } else {
+                                                                          await ctrl
+                                                                              .follow();
+                                                                        }
+                                                                      } catch (
+                                                                        _
+                                                                      ) {
+                                                                        setState(() {
+                                                                          _uiIsFollowing =
+                                                                              null;
+                                                                          _uiFollowerDelta =
+                                                                              0;
+                                                                        });
+                                                                      } finally {
+                                                                        setState(
+                                                                          () => _uiFollowLoading =
+                                                                              false,
+                                                                        );
+                                                                      }
+                                                                    },
+
+                                                              style: TextButton.styleFrom(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          12,
+                                                                      vertical:
+                                                                          6,
+                                                                    ),
+                                                                backgroundColor:
+                                                                    isBlocked
+                                                                    ? AppColors
+                                                                          .chaputRed200
+                                                                    : requestAlreadySent
+                                                                    ? AppColors
+                                                                          .chaputMaterialBlue
+                                                                    : effectiveIsFollowing
+                                                                    ? AppColors
+                                                                          .chaputGrey300
+                                                                    : AppColors
+                                                                          .chaputBlack,
+                                                                foregroundColor:
+                                                                    requestAlreadySent
+                                                                    ? AppColors
+                                                                          .chaputWhite
+                                                                    : (effectiveIsFollowing
+                                                                          ? AppColors.chaputBlack
+                                                                          : AppColors.chaputWhite),
+
+                                                                // disabled iken de beyaz kalsın
+                                                                disabledForegroundColor:
+                                                                    requestAlreadySent
+                                                                    ? AppColors
+                                                                          .chaputWhite
+                                                                    : AppColors
+                                                                          .chaputWhite70,
+
+                                                                // disabled iken arka plan da mavi kalsın
+                                                                disabledBackgroundColor:
+                                                                    requestAlreadySent
+                                                                    ? AppColors
+                                                                          .chaputMaterialBlue
+                                                                    : AppColors
+                                                                          .chaputGrey300,
+
+                                                                shape: RoundedRectangleBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                              child:
+                                                                  _uiFollowLoading
+                                                                  ? const SizedBox(
+                                                                      width: 14,
+                                                                      height:
+                                                                          14,
+                                                                      child: CircularProgressIndicator(
+                                                                        strokeWidth:
+                                                                            2,
+                                                                      ),
+                                                                    )
+                                                                  : Text(
+                                                                      requestAlreadySent
+                                                                          ? context.t(
+                                                                              'profile.follow_request_sent',
+                                                                            )
+                                                                          : (effectiveIsFollowing
+                                                                                ? context.t(
+                                                                                    'profile.unfollow',
+                                                                                  )
+                                                                                : context.t(
+                                                                                    'profile.follow',
+                                                                                  )),
+                                                                      style: const TextStyle(
                                                                         fontSize:
                                                                             12,
                                                                       ),
-                                                                ),
-                                                        ),
+                                                                    ),
+                                                            ),
 
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
 
-                                                        // THREE DOT MENU
-                                                        ProfileActionsButton(
-                                                          username: username,
-                                                          userId: userId,
-                                                          iRestrictedHim:
-                                                              effectiveIRestrictedHim,
+                                                            // THREE DOT MENU
+                                                            ProfileActionsButton(
+                                                              username:
+                                                                  username,
+                                                              userId: userId,
+                                                              iRestrictedHim:
+                                                                  effectiveIRestrictedHim,
+                                                            ),
+                                                          ],
                                                         ),
-                                                      ],
-                                                    ),
+                                                    ],
+                                                  ),
                                                 ],
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    // MARKER (sheet'in arkasında kalmalı)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: ValueListenableBuilder<Offset?>(
+                          valueListenable: _focusScreen,
+                          builder: (_, off, __) {
+                            if (off == null) return const SizedBox.shrink();
+
+                            return Stack(
+                              children: [
+                                Positioned(
+                                  left: off.dx - 5,
+                                  top: off.dy - 5,
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.chaputWhite,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                          color: AppColors.chaputWhite
+                                              .withOpacity(0.6),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    if (androidNavigationBarFillHeight > 0 &&
+                        (threadSheetChild != null || showEmptyChaputSheet))
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: androidNavigationBarFillHeight,
+                        child: const ColoredBox(color: AppColors.chaputBlack),
+                      ),
+
+                    if (threadSheetChild != null)
+                      Positioned.fill(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: chaputSheetOuterOffset,
+                            ),
+                            child: IgnorePointer(
+                              ignoring: _isInteracting,
+                              child: AnimatedSlide(
+                                duration: const Duration(milliseconds: 140),
+                                curve: Curves.easeOutCubic,
+                                offset: _isInteracting
+                                    ? const Offset(0, 1.08)
+                                    : Offset.zero,
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 100),
+                                  curve: Curves.easeOut,
+                                  opacity: _isInteracting ? 0 : 1,
+                                  child: threadSheetChild,
+                                ),
                               ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    if (showEmptyChaputSheet && emptyChaputMessage != null)
+                      Positioned.fill(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: chaputSheetOuterOffset,
+                            ),
+                            child: SizedBox(
+                              height:
+                                  (chaputSheetAvailableHeight *
+                                      _chaputSheetMin) +
+                                  context.responsive.bottomSheetInnerPadding(
+                                    min: 0,
+                                  ),
+                              child: IgnorePointer(
+                                child: EmptyChaputSheet(
+                                  message: emptyChaputMessage,
+                                  height:
+                                      (chaputSheetAvailableHeight *
+                                          _chaputSheetMin) +
+                                      context.responsive
+                                          .bottomSheetInnerPadding(min: 0),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    ValueListenableBuilder<double>(
+                      valueListenable: _chaputSheetExtentListenable,
+                      builder: (context, chaputSheetExtent, _) {
+                        final showReplyBar = _shouldShowReplyBar(
+                          extent: chaputSheetExtent,
+                          canReplyOnActive: canReplyOnActive,
+                          activeThreadId: activeThread?.threadId,
+                          isAdPageActive: _isAdPageActive,
+                        );
+                        if (!showReplyBar) {
+                          return const SizedBox.shrink();
+                        }
+                        return Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: AnimatedPadding(
+                            duration: const Duration(milliseconds: 160),
+                            curve: Curves.easeOut,
+                            padding: context.responsive.bottomFixedPadding(),
+                            child: ChaputReplyBar(
+                              key: ValueKey(activeThread?.threadId ?? 'none'),
+                              canWhisper: creditsWhisper > 0,
+                              whisperMode: _replyWhisperMode,
+                              replyAuthor: replyAuthor,
+                              replyBody: replyBody,
+                              onClearReply: () {
+                                setState(() {
+                                  _replyTarget = null;
+                                  _replyTargetThreadId = null;
+                                });
+                              },
+                              onTypingChanged: (isTyping) {
+                                if (!mounted) return;
+                                final threadId = activeThread?.threadId;
+                                if (threadId == null || threadId.isEmpty)
+                                  return;
+                                _sendTyping(threadId, isTyping);
+                              },
+
+                              onToggleWhisper: () async {
+                                if (_replyWhisperMode) {
+                                  setState(() => _replyWhisperMode = false);
+                                  return;
+                                }
+
+                                final notifier = ref.read(
+                                  chaputDecisionControllerProvider(
+                                    profileIdHex,
+                                  ).notifier,
+                                );
+                                ChaputDecision? freshDecision;
+                                final api = ref.read(chaputApiProvider);
+                                try {
+                                  freshDecision = await api.getDecision(
+                                    profileIdHex,
+                                  );
+                                  notifier.setCredits(
+                                    normal: freshDecision.credits.normal,
+                                    hidden: freshDecision.credits.hidden,
+                                    special: freshDecision.credits.special,
+                                    revive: freshDecision.credits.revive,
+                                    whisper: freshDecision.credits.whisper,
+                                  );
+                                  notifier.applyPlanType(
+                                    freshDecision.plan.type,
+                                  );
+                                  if (freshDecision.plan.period != null &&
+                                      freshDecision.plan.period!.isNotEmpty) {
+                                    notifier.applyPlanPeriod(
+                                      freshDecision.plan.period!,
+                                    );
+                                  }
+                                } catch (_) {
+                                  freshDecision = await notifier
+                                      .fetchDecisionAndReturn();
+                                }
+                                final freshWhisper =
+                                    freshDecision?.credits.whisper ?? 0;
+
+                                if (freshWhisper > 0) {
+                                  setState(() => _replyWhisperMode = true);
+                                  return;
+                                }
+
+                                final purchase = await _openPaywall(
+                                  feature: PaywallFeature.whisper,
+                                );
+                                if (purchase == null) return;
+
+                                final ok = await _verifyPurchaseAndApply(
+                                  purchase,
+                                );
+                                if (!ok) return;
+
+                                ChaputDecision? after;
+                                try {
+                                  after = await api.getDecision(profileIdHex);
+                                  notifier.setCredits(
+                                    normal: after.credits.normal,
+                                    hidden: after.credits.hidden,
+                                    special: after.credits.special,
+                                    revive: after.credits.revive,
+                                    whisper: after.credits.whisper,
+                                  );
+                                  notifier.applyPlanType(after.plan.type);
+                                  if (after.plan.period != null &&
+                                      after.plan.period!.isNotEmpty) {
+                                    notifier.applyPlanPeriod(
+                                      after.plan.period!,
+                                    );
+                                  }
+                                } catch (_) {
+                                  after = await notifier
+                                      .fetchDecisionAndReturn();
+                                }
+                                final afterWhisper =
+                                    after?.credits.whisper ?? 0;
+
+                                if (afterWhisper > 0) {
+                                  setState(() => _replyWhisperMode = true);
+                                } else {
+                                  _showGlassToast(
+                                    context.t(
+                                      'profile.toast.whisper_unavailable',
+                                    ),
+                                    icon: Icons.error_outline,
+                                  );
+                                }
+                              },
+
+                              onWhisperPaywall: () async {
+                                final notifier = ref.read(
+                                  chaputDecisionControllerProvider(
+                                    profileIdHex,
+                                  ).notifier,
+                                );
+                                ChaputDecision? freshDecision;
+                                final api = ref.read(chaputApiProvider);
+                                try {
+                                  freshDecision = await api.getDecision(
+                                    profileIdHex,
+                                  );
+                                  notifier.setCredits(
+                                    normal: freshDecision.credits.normal,
+                                    hidden: freshDecision.credits.hidden,
+                                    special: freshDecision.credits.special,
+                                    revive: freshDecision.credits.revive,
+                                    whisper: freshDecision.credits.whisper,
+                                  );
+                                  notifier.applyPlanType(
+                                    freshDecision.plan.type,
+                                  );
+                                  if (freshDecision.plan.period != null &&
+                                      freshDecision.plan.period!.isNotEmpty) {
+                                    notifier.applyPlanPeriod(
+                                      freshDecision.plan.period!,
+                                    );
+                                  }
+                                } catch (_) {
+                                  freshDecision = await notifier
+                                      .fetchDecisionAndReturn();
+                                }
+                                final freshWhisper =
+                                    freshDecision?.credits.whisper ?? 0;
+
+                                if (freshWhisper > 0) {
+                                  setState(() => _replyWhisperMode = true);
+                                  return;
+                                }
+
+                                final purchase = await _openPaywall(
+                                  feature: PaywallFeature.whisper,
+                                );
+                                if (purchase == null) return;
+
+                                final ok = await _verifyPurchaseAndApply(
+                                  purchase,
+                                );
+                                if (!ok) return;
+
+                                setState(() => _replyWhisperMode = true);
+                              },
+
+                              onSend: (text, _ignored) async {
+                                final t = activeThread;
+                                if (t == null) return;
+
+                                await _sendThreadMessage(
+                                  thread: t,
+                                  body: text,
+                                  whisper: _replyWhisperMode,
+                                  profileIdHex: profileIdHex,
+                                  chaputArgs: chaputArgs,
+                                  viewerId: viewerId,
+                                );
+
+                                setState(() => _replyWhisperMode = false);
+                                setState(() {
+                                  _replyTarget = null;
+                                  _replyTargetThreadId = null;
+                                });
+                              },
+                              onFocus: () {
+                                _emitTyping(true);
+                                if (_chaputSheetExtent >=
+                                    _chaputSheetMax - 0.01) {
+                                  return;
+                                }
+                                _sheetAutoExpanded = true;
+                                _sheetExtentBeforeKeyboard = _chaputSheetExtent;
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (!_chaputSheetCtrl.isAttached) return;
+                                  _chaputSheetCtrl.animateTo(
+                                    _chaputSheetMax,
+                                    duration: const Duration(milliseconds: 180),
+                                    curve: Curves.easeOut,
+                                  );
+                                });
+                              },
+                              onBlur: () {
+                                _emitTyping(false);
+                                if (!_sheetAutoExpanded) return;
+                                _sheetAutoExpanded = false;
+                                final target = _sheetExtentBeforeKeyboard;
+                                if (target < _chaputSheetMax - 0.01) {
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (!_chaputSheetCtrl.isAttached) return;
+                                    _chaputSheetCtrl.animateTo(
+                                      target.clamp(
+                                        _chaputSheetMin,
+                                        _chaputSheetMax,
+                                      ),
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
+                                      curve: Curves.easeOut,
+                                    );
+                                  });
+                                }
+                              },
                             ),
                           ),
                         );
                       },
                     ),
-                  ),
-                ),
 
-                // MARKER (sheet'in arkasında kalmalı)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: ValueListenableBuilder<Offset?>(
-                      valueListenable: _focusScreen,
-                      builder: (_, off, __) {
-                        if (off == null) return const SizedBox.shrink();
-
-                        return Stack(
-                          children: [
-                            Positioned(
-                              left: off.dx - 5,
-                              top: off.dy - 5,
-                              child: Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: AppColors.chaputWhite,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      blurRadius: 8,
-                                      spreadRadius: 1,
-                                      color: AppColors.chaputWhite.withOpacity(
-                                        0.6,
+                    // BUTON
+                    Positioned(
+                      right: 14,
+                      bottom: (chaputThreads.isNotEmpty
+                          ? (chaputSheetAvailableHeight * _chaputSheetExtent +
+                                chaputSheetOuterOffset +
+                                10)
+                          : (showEmptyChaputSheet
+                                ? (chaputSheetAvailableHeight *
+                                          _chaputSheetMin +
+                                      context.responsive
+                                          .bottomSheetInnerPadding(min: 0) +
+                                      chaputSheetOuterOffset +
+                                      6)
+                                : 14)),
+                      child: SafeArea(
+                        top: false,
+                        bottom:
+                            !(showEmptyChaputSheet && chaputThreads.isEmpty),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 160),
+                          child:
+                              (_composerOpen ||
+                                  _silhouetteMode ||
+                                  isMe ||
+                                  _chaputThreadCreated ||
+                                  hasOurThread ||
+                                  (chaputThreads.isNotEmpty &&
+                                      _chaputSheetExtent >
+                                          _chaputSheetMin + 0.01))
+                              ? const SizedBox.shrink()
+                              : IgnorePointer(
+                                  ignoring: !_threeReady || _reviveFlowBusy,
+                                  child: BlackGlass(
+                                    radius: 16,
+                                    blur: 10,
+                                    opacity: 0.55,
+                                    borderOpacity: 0.12,
+                                    child: Material(
+                                      type: MaterialType.transparency,
+                                      child: InkWell(
+                                        onTap:
+                                            (_silhouetteMode || _composerOpen)
+                                            ? null
+                                            : () async {
+                                                if (decisionHasArchived &&
+                                                    reviveThreadId.length ==
+                                                        32) {
+                                                  await _handleRevivePressed(
+                                                    threadIdHex: reviveThreadId,
+                                                    profileIdHex: profileIdHex,
+                                                    chaputArgs: chaputArgs,
+                                                    targetUser: targetLiteUser,
+                                                  );
+                                                  return;
+                                                }
+                                                if (showBindExhausted) {
+                                                  final purchase =
+                                                      await _openPaywall(
+                                                        feature:
+                                                            PaywallFeature.bind,
+                                                      );
+                                                  if (purchase != null) {
+                                                    final ok =
+                                                        await _verifyPurchaseAndApply(
+                                                          purchase,
+                                                        );
+                                                    if (ok) {
+                                                      _prepareComposer();
+                                                    }
+                                                  }
+                                                  return;
+                                                }
+                                                await _handleBindPressed(
+                                                  profileId: profileIdHex,
+                                                );
+                                              },
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 10,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                decisionHasArchived
+                                                    ? Icons.restore
+                                                    : showBindExhausted
+                                                    ? Icons.lock_clock
+                                                    : (_decisionPath ==
+                                                              'NEED_AD'
+                                                          ? Icons.play_circle
+                                                          : Icons.draw),
+                                                size: 18,
+                                                color: AppColors.chaputWhite,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                decisionHasArchived
+                                                    ? context.t(
+                                                        'profile.bind.restore_archive',
+                                                      )
+                                                    : showBindExhausted
+                                                    ? context.t(
+                                                        'profile.bind.rights_exhausted',
+                                                      )
+                                                    : (_decisionPath ==
+                                                              'NEED_AD'
+                                                          ? context.t(
+                                                              'profile.bind.watch_ad',
+                                                            )
+                                                          : context.t(
+                                                              'profile.bind.start_one',
+                                                            )),
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppColors.chaputWhite,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ),
-
-                if (threadSheetChild != null)
-                  Positioned.fill(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          bottom: context.responsive.keyboardInset,
-                        ),
-                        child: IgnorePointer(
-                          ignoring: _isInteracting,
-                          child: AnimatedSlide(
-                            duration: const Duration(milliseconds: 140),
-                            curve: Curves.easeOutCubic,
-                            offset: _isInteracting
-                                ? const Offset(0, 1.08)
-                                : Offset.zero,
-                            child: AnimatedOpacity(
-                              duration: const Duration(milliseconds: 100),
-                              curve: Curves.easeOut,
-                              opacity: _isInteracting ? 0 : 1,
-                              child: threadSheetChild,
-                            ),
-                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                if (showEmptyChaputSheet && emptyChaputMessage != null)
-                  Positioned.fill(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: SizedBox(
-                        height:
-                            (MediaQuery.of(context).size.height *
-                                _chaputSheetMin) +
-                            context.responsive.bottomSheetInnerPadding(min: 0),
-                        child: IgnorePointer(
-                          child: EmptyChaputSheet(
-                            message: emptyChaputMessage,
-                            height:
-                                (MediaQuery.of(context).size.height *
-                                    _chaputSheetMin) +
-                                context.responsive.bottomSheetInnerPadding(
-                                  min: 0,
-                                ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                ValueListenableBuilder<double>(
-                  valueListenable: _chaputSheetExtentListenable,
-                  builder: (context, chaputSheetExtent, _) {
-                    final showReplyBar = _shouldShowReplyBar(
-                      extent: chaputSheetExtent,
-                      canReplyOnActive: canReplyOnActive,
-                      activeThreadId: activeThread?.threadId,
-                      isAdPageActive: _isAdPageActive,
-                    );
-                    if (!showReplyBar) {
-                      return const SizedBox.shrink();
-                    }
-                    return Positioned(
-                      left: 0,
-                      right: 0,
+                    Positioned(
+                      left: 12,
+                      right: 12,
                       bottom: 0,
                       child: AnimatedPadding(
                         duration: const Duration(milliseconds: 160),
                         curve: Curves.easeOut,
-                        padding: context.responsive.bottomFixedPadding(),
-                        child: ChaputReplyBar(
-                          key: ValueKey(activeThread?.threadId ?? 'none'),
-                          canWhisper: creditsWhisper > 0,
-                          whisperMode: _replyWhisperMode,
-                          replyAuthor: replyAuthor,
-                          replyBody: replyBody,
-                          onClearReply: () {
-                            setState(() {
-                              _replyTarget = null;
-                              _replyTargetThreadId = null;
-                            });
-                          },
-                          onTypingChanged: (isTyping) {
-                            if (!mounted) return;
-                            final threadId = activeThread?.threadId;
-                            if (threadId == null || threadId.isEmpty) return;
-                            _sendTyping(threadId, isTyping);
-                          },
-
-                          onToggleWhisper: () async {
-                            if (_replyWhisperMode) {
-                              setState(() => _replyWhisperMode = false);
-                              return;
-                            }
-
-                            final notifier = ref.read(
-                              chaputDecisionControllerProvider(
-                                profileIdHex,
-                              ).notifier,
-                            );
-                            ChaputDecision? freshDecision;
-                            final api = ref.read(chaputApiProvider);
-                            try {
-                              freshDecision = await api.getDecision(
-                                profileIdHex,
-                              );
-                              notifier.setCredits(
-                                normal: freshDecision.credits.normal,
-                                hidden: freshDecision.credits.hidden,
-                                special: freshDecision.credits.special,
-                                revive: freshDecision.credits.revive,
-                                whisper: freshDecision.credits.whisper,
-                              );
-                              notifier.applyPlanType(freshDecision.plan.type);
-                              if (freshDecision.plan.period != null &&
-                                  freshDecision.plan.period!.isNotEmpty) {
-                                notifier.applyPlanPeriod(
-                                  freshDecision.plan.period!,
-                                );
-                              }
-                            } catch (_) {
-                              freshDecision = await notifier
-                                  .fetchDecisionAndReturn();
-                            }
-                            final freshWhisper =
-                                freshDecision?.credits.whisper ?? 0;
-
-                            if (freshWhisper > 0) {
-                              setState(() => _replyWhisperMode = true);
-                              return;
-                            }
-
-                            final purchase = await _openPaywall(
-                              feature: PaywallFeature.whisper,
-                            );
-                            if (purchase == null) return;
-
-                            final ok = await _verifyPurchaseAndApply(purchase);
-                            if (!ok) return;
-
-                            ChaputDecision? after;
-                            try {
-                              after = await api.getDecision(profileIdHex);
-                              notifier.setCredits(
-                                normal: after.credits.normal,
-                                hidden: after.credits.hidden,
-                                special: after.credits.special,
-                                revive: after.credits.revive,
-                                whisper: after.credits.whisper,
-                              );
-                              notifier.applyPlanType(after.plan.type);
-                              if (after.plan.period != null &&
-                                  after.plan.period!.isNotEmpty) {
-                                notifier.applyPlanPeriod(after.plan.period!);
-                              }
-                            } catch (_) {
-                              after = await notifier.fetchDecisionAndReturn();
-                            }
-                            final afterWhisper = after?.credits.whisper ?? 0;
-
-                            if (afterWhisper > 0) {
-                              setState(() => _replyWhisperMode = true);
-                            } else {
-                              _showGlassToast(
-                                context.t('profile.toast.whisper_unavailable'),
-                                icon: Icons.error_outline,
-                              );
-                            }
-                          },
-
-                          onWhisperPaywall: () async {
-                            final notifier = ref.read(
-                              chaputDecisionControllerProvider(
-                                profileIdHex,
-                              ).notifier,
-                            );
-                            ChaputDecision? freshDecision;
-                            final api = ref.read(chaputApiProvider);
-                            try {
-                              freshDecision = await api.getDecision(
-                                profileIdHex,
-                              );
-                              notifier.setCredits(
-                                normal: freshDecision.credits.normal,
-                                hidden: freshDecision.credits.hidden,
-                                special: freshDecision.credits.special,
-                                revive: freshDecision.credits.revive,
-                                whisper: freshDecision.credits.whisper,
-                              );
-                              notifier.applyPlanType(freshDecision.plan.type);
-                              if (freshDecision.plan.period != null &&
-                                  freshDecision.plan.period!.isNotEmpty) {
-                                notifier.applyPlanPeriod(
-                                  freshDecision.plan.period!,
-                                );
-                              }
-                            } catch (_) {
-                              freshDecision = await notifier
-                                  .fetchDecisionAndReturn();
-                            }
-                            final freshWhisper =
-                                freshDecision?.credits.whisper ?? 0;
-
-                            if (freshWhisper > 0) {
-                              setState(() => _replyWhisperMode = true);
-                              return;
-                            }
-
-                            final purchase = await _openPaywall(
-                              feature: PaywallFeature.whisper,
-                            );
-                            if (purchase == null) return;
-
-                            final ok = await _verifyPurchaseAndApply(purchase);
-                            if (!ok) return;
-
-                            setState(() => _replyWhisperMode = true);
-                          },
-
-                          onSend: (text, _ignored) async {
-                            final t = activeThread;
-                            if (t == null) return;
-
-                            await _sendThreadMessage(
-                              thread: t,
-                              body: text,
-                              whisper: _replyWhisperMode,
-                              profileIdHex: profileIdHex,
-                              chaputArgs: chaputArgs,
-                              viewerId: viewerId,
-                            );
-
-                            setState(() => _replyWhisperMode = false);
-                            setState(() {
-                              _replyTarget = null;
-                              _replyTargetThreadId = null;
-                            });
-                          },
-                          onFocus: () {
-                            _emitTyping(true);
-                            if (_chaputSheetExtent >= _chaputSheetMax - 0.01) {
-                              return;
-                            }
-                            _sheetAutoExpanded = true;
-                            _sheetExtentBeforeKeyboard = _chaputSheetExtent;
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!_chaputSheetCtrl.isAttached) return;
-                              _chaputSheetCtrl.animateTo(
-                                _chaputSheetMax,
-                                duration: const Duration(milliseconds: 180),
-                                curve: Curves.easeOut,
-                              );
-                            });
-                          },
-                          onBlur: () {
-                            _emitTyping(false);
-                            if (!_sheetAutoExpanded) return;
-                            _sheetAutoExpanded = false;
-                            final target = _sheetExtentBeforeKeyboard;
-                            if (target < _chaputSheetMax - 0.01) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (!_chaputSheetCtrl.isAttached) return;
-                                _chaputSheetCtrl.animateTo(
-                                  target.clamp(
-                                    _chaputSheetMin,
-                                    _chaputSheetMax,
+                        padding: context.responsive.bottomFixedPadding(
+                          base: 10,
+                        ),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 160),
+                          child: !showProfileComposer
+                              ? const SizedBox.shrink()
+                              : meAsync.when(
+                                  loading: () => ChatComposerBar(
+                                    controller: _msgCtrl,
+                                    focusNode: _msgFocus,
+                                    avatarUrl: null,
+                                    isDefaultAvatar: true,
+                                    onAvatarTap: _toggleProfileCard,
+                                    onSend: () => _sendChaputMessage(
+                                      profileId: profileIdHex,
+                                      viewerId: viewerId,
+                                      targetUserId: userId,
+                                      viewerLite: viewerLite,
+                                      chaputArgs: chaputArgs,
+                                    ),
+                                    anonEnabled: _anonMode,
+                                    highlightEnabled: _highlightMode,
+                                    onOptionsTap: _openComposerOptionsSheet,
+                                    onOptionsEmptyTap: _onOptionsEmptyTap,
                                   ),
-                                  duration: const Duration(milliseconds: 180),
-                                  curve: Curves.easeOut,
-                                );
-                              });
-                            }
-                          },
+                                  error: (_, __) => ChatComposerBar(
+                                    controller: _msgCtrl,
+                                    focusNode: _msgFocus,
+                                    avatarUrl: null,
+                                    isDefaultAvatar: true,
+                                    onAvatarTap: _toggleProfileCard,
+                                    onSend: () => _sendChaputMessage(
+                                      profileId: profileIdHex,
+                                      viewerId: viewerId,
+                                      targetUserId: userId,
+                                      viewerLite: viewerLite,
+                                      chaputArgs: chaputArgs,
+                                    ),
+                                    anonEnabled: _anonMode,
+                                    highlightEnabled: _highlightMode,
+                                    onOptionsTap: _openComposerOptionsSheet,
+                                    onOptionsEmptyTap: _onOptionsEmptyTap,
+                                  ),
+                                  data: (me) {
+                                    final meUser = me?.user;
+
+                                    final meAvatarUrl =
+                                        (meUser?.profilePhotoUrl != null &&
+                                            meUser!.profilePhotoUrl!.isNotEmpty)
+                                        ? meUser.profilePhotoUrl
+                                        : meUser?.defaultAvatar;
+
+                                    final meIsDefault =
+                                        (meUser?.profilePhotoUrl == null ||
+                                        (meUser!.profilePhotoUrl?.isEmpty ??
+                                            true));
+
+                                    return ChatComposerBar(
+                                      controller: _msgCtrl,
+                                      focusNode: _msgFocus,
+                                      avatarUrl: meAvatarUrl,
+                                      isDefaultAvatar: meIsDefault,
+                                      onAvatarTap: _toggleProfileCard,
+                                      onSend: () => _sendChaputMessage(
+                                        profileId: profileIdHex,
+                                        viewerId: viewerId,
+                                        targetUserId: userId,
+                                        viewerLite: viewerLite,
+                                        chaputArgs: chaputArgs,
+                                      ),
+                                      anonEnabled: _anonMode,
+                                      highlightEnabled: _highlightMode,
+                                      onOptionsTap: _openComposerOptionsSheet,
+                                      onOptionsEmptyTap: _onOptionsEmptyTap,
+                                    );
+                                  },
+                                ),
                         ),
                       ),
-                    );
-                  },
-                ),
-
-                // BUTON
-                Positioned(
-                  right: 14,
-                  bottom: (chaputThreads.isNotEmpty
-                      ? (MediaQuery.of(context).size.height *
-                                _chaputSheetExtent +
-                            10)
-                      : (showEmptyChaputSheet
-                            ? (MediaQuery.of(context).size.height *
-                                      _chaputSheetMin +
-                                  context.responsive.bottomSheetInnerPadding(
-                                    min: 0,
-                                  ) +
-                                  6)
-                            : 14)),
-                  child: SafeArea(
-                    top: false,
-                    bottom: !(showEmptyChaputSheet && chaputThreads.isEmpty),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      child:
-                          (_composerOpen ||
-                              _silhouetteMode ||
-                              isMe ||
-                              _chaputThreadCreated ||
-                              hasOurThread ||
-                              (chaputThreads.isNotEmpty &&
-                                  _chaputSheetExtent > _chaputSheetMin + 0.01))
-                          ? const SizedBox.shrink()
-                          : IgnorePointer(
-                              ignoring: !_threeReady || _reviveFlowBusy,
-                              child: BlackGlass(
-                                radius: 16,
-                                blur: 10,
-                                opacity: 0.55,
-                                borderOpacity: 0.12,
-                                child: Material(
-                                  type: MaterialType.transparency,
-                                  child: InkWell(
-                                    onTap: (_silhouetteMode || _composerOpen)
-                                        ? null
-                                        : () async {
-                                            if (decisionHasArchived &&
-                                                reviveThreadId.length == 32) {
-                                              await _handleRevivePressed(
-                                                threadIdHex: reviveThreadId,
-                                                profileIdHex: profileIdHex,
-                                                chaputArgs: chaputArgs,
-                                                targetUser: targetLiteUser,
-                                              );
-                                              return;
-                                            }
-                                            if (showBindExhausted) {
-                                              final purchase =
-                                                  await _openPaywall(
-                                                    feature:
-                                                        PaywallFeature.bind,
-                                                  );
-                                              if (purchase != null) {
-                                                final ok =
-                                                    await _verifyPurchaseAndApply(
-                                                      purchase,
-                                                    );
-                                                if (ok) {
-                                                  _prepareComposer();
-                                                }
-                                              }
-                                              return;
-                                            }
-                                            await _handleBindPressed(
-                                              profileId: profileIdHex,
-                                            );
-                                          },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 10,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            decisionHasArchived
-                                                ? Icons.restore
-                                                : showBindExhausted
-                                                ? Icons.lock_clock
-                                                : (_decisionPath == 'NEED_AD'
-                                                      ? Icons.play_circle
-                                                      : Icons.draw),
-                                            size: 18,
-                                            color: AppColors.chaputWhite,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            decisionHasArchived
-                                                ? context.t(
-                                                    'profile.bind.restore_archive',
-                                                  )
-                                                : showBindExhausted
-                                                ? context.t(
-                                                    'profile.bind.rights_exhausted',
-                                                  )
-                                                : (_decisionPath == 'NEED_AD'
-                                                      ? context.t(
-                                                          'profile.bind.watch_ad',
-                                                        )
-                                                      : context.t(
-                                                          'profile.bind.start_one',
-                                                        )),
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.chaputWhite,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
                     ),
-                  ),
+                  ],
                 ),
-
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 0,
-                  child: AnimatedPadding(
-                    duration: const Duration(milliseconds: 160),
-                    curve: Curves.easeOut,
-                    padding: context.responsive.bottomFixedPadding(base: 10),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      child: !showProfileComposer
-                          ? const SizedBox.shrink()
-                          : meAsync.when(
-                              loading: () => ChatComposerBar(
-                                controller: _msgCtrl,
-                                focusNode: _msgFocus,
-                                avatarUrl: null,
-                                isDefaultAvatar: true,
-                                onAvatarTap: _toggleProfileCard,
-                                onSend: () => _sendChaputMessage(
-                                  profileId: profileIdHex,
-                                  viewerId: viewerId,
-                                  targetUserId: userId,
-                                  viewerLite: viewerLite,
-                                  chaputArgs: chaputArgs,
-                                ),
-                                anonEnabled: _anonMode,
-                                highlightEnabled: _highlightMode,
-                                onOptionsTap: _openComposerOptionsSheet,
-                                onOptionsEmptyTap: _onOptionsEmptyTap,
-                              ),
-                              error: (_, __) => ChatComposerBar(
-                                controller: _msgCtrl,
-                                focusNode: _msgFocus,
-                                avatarUrl: null,
-                                isDefaultAvatar: true,
-                                onAvatarTap: _toggleProfileCard,
-                                onSend: () => _sendChaputMessage(
-                                  profileId: profileIdHex,
-                                  viewerId: viewerId,
-                                  targetUserId: userId,
-                                  viewerLite: viewerLite,
-                                  chaputArgs: chaputArgs,
-                                ),
-                                anonEnabled: _anonMode,
-                                highlightEnabled: _highlightMode,
-                                onOptionsTap: _openComposerOptionsSheet,
-                                onOptionsEmptyTap: _onOptionsEmptyTap,
-                              ),
-                              data: (me) {
-                                final meUser = me?.user;
-
-                                final meAvatarUrl =
-                                    (meUser?.profilePhotoUrl != null &&
-                                        meUser!.profilePhotoUrl!.isNotEmpty)
-                                    ? meUser.profilePhotoUrl
-                                    : meUser?.defaultAvatar;
-
-                                final meIsDefault =
-                                    (meUser?.profilePhotoUrl == null ||
-                                    (meUser!.profilePhotoUrl?.isEmpty ?? true));
-
-                                return ChatComposerBar(
-                                  controller: _msgCtrl,
-                                  focusNode: _msgFocus,
-                                  avatarUrl: meAvatarUrl,
-                                  isDefaultAvatar: meIsDefault,
-                                  onAvatarTap: _toggleProfileCard,
-                                  onSend: () => _sendChaputMessage(
-                                    profileId: profileIdHex,
-                                    viewerId: viewerId,
-                                    targetUserId: userId,
-                                    viewerLite: viewerLite,
-                                    chaputArgs: chaputArgs,
-                                  ),
-                                  anonEnabled: _anonMode,
-                                  highlightEnabled: _highlightMode,
-                                  onOptionsTap: _openComposerOptionsSheet,
-                                  onOptionsEmptyTap: _onOptionsEmptyTap,
-                                );
-                              },
-                            ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         );

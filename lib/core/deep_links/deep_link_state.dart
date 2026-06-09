@@ -26,9 +26,7 @@ bool chaputDeepLinkTargetRequiresAuth(DeepLinkTarget target) {
 DeepLinkTarget? chaputDeepLinkTargetFromUri(Uri uri) {
   if (!_isSupportedChaputUri(uri)) return null;
 
-  final segments = uri.pathSegments
-      .where((segment) => segment.isNotEmpty)
-      .toList();
+  final segments = _chaputPathSegments(uri);
   if (segments.isEmpty) {
     return DeepLinkTarget(location: _withQuery(Routes.boot, uri));
   }
@@ -59,8 +57,35 @@ DeepLinkTarget? chaputDeepLinkTargetFromUri(Uri uri) {
 bool _isSupportedChaputUri(Uri uri) {
   final scheme = uri.scheme.toLowerCase();
   final host = uri.host.toLowerCase();
-  return scheme == 'https' &&
-      (host == 'chaput.app' || host == 'www.chaput.app');
+  if (scheme == 'https') {
+    return host == 'chaput.app' || host == 'www.chaput.app';
+  }
+  if (scheme != 'app.chaput') return false;
+  return host.isEmpty ||
+      host == 'chaput.app' ||
+      host == 'www.chaput.app' ||
+      _isKnownDeepLinkRoot(host);
+}
+
+List<String> _chaputPathSegments(Uri uri) {
+  final segments = uri.pathSegments
+      .where((segment) => segment.isNotEmpty)
+      .toList();
+  if (uri.scheme.toLowerCase() != 'app.chaput') return segments;
+
+  final host = uri.host.toLowerCase();
+  if (_isKnownDeepLinkRoot(host)) {
+    return [host, ...segments];
+  }
+  return segments;
+}
+
+bool _isKnownDeepLinkRoot(String value) {
+  return value == 'me' ||
+      value == 'u' ||
+      value == 'c' ||
+      value == 'post' ||
+      value == 'profile';
 }
 
 String _withQuery(String path, Uri source) {

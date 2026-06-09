@@ -30,6 +30,45 @@ class NotificationLifecycleListener extends ConsumerStatefulWidget {
       _NotificationLifecycleListenerState();
 }
 
+DeepLinkTarget? chaputNotificationTargetFromRemoteData(
+  Map<String, dynamic> data,
+) {
+  final type = data['type']?.toString() ?? '';
+  final userId = data['user_id']?.toString() ?? '';
+  final actorId = data['actor_id']?.toString() ?? '';
+  final threadId = data['thread_id']?.toString() ?? '';
+  final messageId = data['message_id']?.toString() ?? '';
+
+  if (type == 'chaput_started' ||
+      type == 'chaput_message' ||
+      type == 'chaput_revive' ||
+      type == 'chaput_message_like') {
+    if (userId.isEmpty) return const DeepLinkTarget(location: Routes.home);
+    return DeepLinkTarget(
+      location: Routes.profilePath(userId),
+      extra: {
+        if (threadId.isNotEmpty) 'threadId': threadId,
+        if (messageId.isNotEmpty) 'messageId': messageId,
+      },
+    );
+  }
+
+  if (type == 'followed' ||
+      type == 'follow_request' ||
+      type == 'follow_approved') {
+    if (actorId.isEmpty) {
+      return const DeepLinkTarget(location: Routes.notifications);
+    }
+    return DeepLinkTarget(location: Routes.profilePath(actorId));
+  }
+
+  if (type == 'admin_gift_granted') {
+    return const DeepLinkTarget(location: Routes.notifications);
+  }
+
+  return null;
+}
+
 class _NotificationLifecycleListenerState
     extends ConsumerState<NotificationLifecycleListener>
     with WidgetsBindingObserver {
@@ -167,40 +206,7 @@ class _NotificationLifecycleListenerState
   }
 
   DeepLinkTarget? _targetFromRemoteData(Map<String, dynamic> data) {
-    final type = data['type']?.toString() ?? '';
-    final userId = data['user_id']?.toString() ?? '';
-    final actorId = data['actor_id']?.toString() ?? '';
-    final threadId = data['thread_id']?.toString() ?? '';
-    final messageId = data['message_id']?.toString() ?? '';
-
-    if (type == 'chaput_started' ||
-        type == 'chaput_message' ||
-        type == 'chaput_revive' ||
-        type == 'chaput_message_like') {
-      if (userId.isEmpty) return const DeepLinkTarget(location: Routes.home);
-      return DeepLinkTarget(
-        location: Routes.profilePath(userId),
-        extra: {
-          if (threadId.isNotEmpty) 'threadId': threadId,
-          if (messageId.isNotEmpty) 'messageId': messageId,
-        },
-      );
-    }
-
-    if (type == 'followed' ||
-        type == 'follow_request' ||
-        type == 'follow_approved') {
-      if (actorId.isEmpty) {
-        return const DeepLinkTarget(location: Routes.notifications);
-      }
-      return DeepLinkTarget(location: Routes.profilePath(actorId));
-    }
-
-    if (type == 'admin_gift_granted') {
-      return const DeepLinkTarget(location: Routes.notifications);
-    }
-
-    return null;
+    return chaputNotificationTargetFromRemoteData(data);
   }
 
   Future<void> _openTarget(
@@ -219,12 +225,54 @@ class _NotificationLifecycleListenerState
 
     if (initial) {
       ref.read(pendingDeepLinkProvider.notifier).state = target;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (!_tryOpenInitialTarget(target)) {
+          _scheduleInitialTargetFallback(target);
+        }
+      });
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      widget.router.go(target.location, extra: target.extra);
+      _pushOrGoTarget(target);
     });
+  }
+
+  void _scheduleInitialTargetFallback(DeepLinkTarget target) {
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      _tryOpenInitialTarget(target);
+    });
+  }
+
+  bool _tryOpenInitialTarget(DeepLinkTarget target) {
+    final pending = ref.read(pendingDeepLinkProvider);
+    if (pending?.location != target.location) return true;
+    if (_isBootRoute()) return false;
+    ref.read(pendingDeepLinkProvider.notifier).state = null;
+    _pushOrGoTarget(target);
+    return true;
+  }
+
+  void _pushOrGoTarget(DeepLinkTarget target) {
+    if (target.location == Routes.home ||
+        target.location == Routes.onboarding ||
+        target.location == Routes.login ||
+        target.location == Routes.notifications) {
+      widget.router.go(target.location, extra: target.extra);
+      return;
+    }
+    widget.router.push(target.location, extra: target.extra);
+  }
+
+  bool _isBootRoute() {
+    try {
+      return widget.router.routerDelegate.currentConfiguration.uri.path ==
+          Routes.boot;
+    } catch (_) {
+      return true;
+    }
   }
 
   Future<bool> _canOpenTarget(DeepLinkTarget target) async {

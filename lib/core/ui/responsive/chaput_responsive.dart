@@ -113,6 +113,20 @@ class ChaputResponsive {
 
   double bottomSheetKeyboardInset() => keyboardInset;
 
+  double androidNavigationBarInsetForSheets({double minVisibleInset = 32}) {
+    if (!isAndroid || keyboardOpen) return 0.0;
+    final raw = _rawBottomInset();
+    if (raw < minVisibleInset) return 0.0;
+    return raw;
+  }
+
+  double bottomSheetOuterOffset({double minAndroidNavigationBar = 32}) {
+    if (keyboardOpen) return keyboardInset;
+    return androidNavigationBarInsetForSheets(
+      minVisibleInset: minAndroidNavigationBar,
+    );
+  }
+
   double bottomSheetInnerPadding({double min = 12, double maxIOS = 24}) {
     if (keyboardOpen) return min;
     final raw = _rawBottomInset();

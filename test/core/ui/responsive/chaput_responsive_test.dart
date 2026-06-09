@@ -54,6 +54,7 @@ void main() {
     expect(responsive.keyboardOpen, isFalse);
     expect(responsive.bottomSafeInsetForControls(), 16);
     expect(responsive.bottomFixedOffset(base: 10), 26);
+    expect(responsive.bottomSheetOuterOffset(), 0);
     expect(responsive.bottomSheetInnerPadding(), 24);
   });
 
@@ -69,6 +70,7 @@ void main() {
 
     expect(responsive.bottomSafeInsetForControls(), 48);
     expect(responsive.bottomFixedOffset(base: 10), 58);
+    expect(responsive.bottomSheetOuterOffset(), 48);
     expect(responsive.bottomSheetInnerPadding(), 48);
   });
 
@@ -85,6 +87,7 @@ void main() {
     expect(responsive.bottomSafeInsetForControls(), 0);
     expect(responsive.bottomFixedOffset(base: 10), 330);
     expect(responsive.bottomSheetKeyboardInset(), 320);
+    expect(responsive.bottomSheetOuterOffset(), 320);
     expect(responsive.bottomSheetInnerPadding(), 12);
   });
 
@@ -98,9 +101,24 @@ void main() {
 
       expect(responsive.bottomSafeInsetForControls(), 10);
       expect(responsive.bottomFixedOffset(base: 16), 26);
+      expect(responsive.bottomSheetOuterOffset(), 0);
       expect(responsive.bottomSheetInnerPadding(), 12);
     },
   );
+
+  testWidgets('does not lift Android sheets for small gesture insets', (
+    tester,
+  ) async {
+    final responsive = await _pumpResponsive(
+      tester,
+      platform: TargetPlatform.android,
+      padding: const EdgeInsets.only(bottom: 20),
+      viewPadding: const EdgeInsets.only(bottom: 20),
+    );
+
+    expect(responsive.bottomSheetOuterOffset(), 0);
+    expect(responsive.bottomSheetInnerPadding(), 20);
+  });
 
   test('classifies phone, foldable and tablet widths', () {
     expect(ChaputResponsive.classifyWidth(320), ChaputWindowClass.small);

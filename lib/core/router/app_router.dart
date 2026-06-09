@@ -80,6 +80,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               initialMessageId = messageId;
             }
           }
+          final query = state.uri.queryParameters;
+          final queryThreadId = query['thread_id'];
+          if (initialThreadId == null &&
+              queryThreadId != null &&
+              queryThreadId.isNotEmpty) {
+            initialThreadId = queryThreadId;
+          }
+          final queryMessageId = query['message_id'];
+          if (initialMessageId == null &&
+              queryMessageId != null &&
+              queryMessageId.isNotEmpty) {
+            initialMessageId = queryMessageId;
+          }
           return ProfileScreen(
             key: ValueKey('profile-$userId'),
             userId: userId,

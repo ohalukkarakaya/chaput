@@ -68,7 +68,21 @@ class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
 
     if (navigateNow) {
       _navigate(target);
+    } else {
+      _scheduleInitialTargetFallback(target);
     }
+  }
+
+  void _scheduleInitialTargetFallback(DeepLinkTarget target) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_tryOpenInitialTarget(target)) {
+        Future<void>.delayed(const Duration(milliseconds: 900), () {
+          if (!mounted) return;
+          _tryOpenInitialTarget(target);
+        });
+      }
+    });
   }
 
   Future<bool> _canOpenTarget(DeepLinkTarget target) async {
@@ -84,9 +98,38 @@ class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
   void _navigate(DeepLinkTarget target) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      widget.router.go(target.location, extra: target.extra);
+      if (_isBootRoute() && chaputDeepLinkTargetRequiresAuth(target)) return;
+      _pushOrGoTarget(target);
       ref.read(pendingDeepLinkProvider.notifier).state = null;
     });
+  }
+
+  bool _tryOpenInitialTarget(DeepLinkTarget target) {
+    final pending = ref.read(pendingDeepLinkProvider);
+    if (pending?.location != target.location) return true;
+    if (_isBootRoute()) return false;
+    _pushOrGoTarget(target);
+    ref.read(pendingDeepLinkProvider.notifier).state = null;
+    return true;
+  }
+
+  void _pushOrGoTarget(DeepLinkTarget target) {
+    if (target.location == Routes.home ||
+        target.location == Routes.onboarding ||
+        target.location == Routes.login) {
+      widget.router.go(target.location, extra: target.extra);
+      return;
+    }
+    widget.router.push(target.location, extra: target.extra);
+  }
+
+  bool _isBootRoute() {
+    try {
+      return widget.router.routerDelegate.currentConfiguration.uri.path ==
+          Routes.boot;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override

@@ -47,7 +47,7 @@ class _ProfileUsernameRedirectScreenState
     try {
       final res = await api.resolveUsername(widget.username);
       if (!mounted) return;
-      context.go('/profile/${res.userId}');
+      context.pushReplacement('/profile/${res.userId}');
     } catch (e) {
       if (!mounted) return;
       if (e is DioException && e.response?.statusCode == 401) {
