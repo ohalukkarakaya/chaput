@@ -3,7 +3,6 @@ import 'dart:developer';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 import 'package:three_js/three_js.dart' as three;
 import 'package:three_js_math/three_js_math.dart' as three_math;
 
@@ -89,21 +88,14 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   double _modelMaxDim = 1.0;
   double _groundY = 0.0;
   static const double _camGroundMargin = 0.06;
-
-  StreamSubscription<AccelerometerEvent>? _tiltSub;
-  StreamSubscription<GyroscopeEvent>? _gyroSub;
-  DateTime? _lastTiltAt;
-  double _tiltYaw = 0.0;
-  double _tiltPitch = 0.0;
-  double _gyroYaw = 0.0;
-  double _gyroPitch = 0.0;
-  double _parallaxYaw = 0.0;
-  double _parallaxPitch = 0.0;
+  Offset? _lastProjected;
+  double _stableFor = 0.0;
+  static const double _needStableSeconds = 0.35;
+  static const double _stablePxEps = 1.5;
 
   @override
   void initState() {
     super.initState();
-    _startTiltListener();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _scheduleThreeCreation(widget.preset);
@@ -129,67 +121,9 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   void dispose() {
     _disposed = true;
     _initTimer?.cancel();
-    _tiltSub?.cancel();
-    _gyroSub?.cancel();
     _focusScreen.dispose();
     _disposeThree();
     super.dispose();
-  }
-
-  bool get _motionParallaxEnabled =>
-      !widget.paused && !_isInteracting && !_snapActive && _focusAnchor != null;
-
-  double _deadzone(double value, double threshold) {
-    return value.abs() < threshold ? 0.0 : value;
-  }
-
-  void _startTiltListener() {
-    _tiltSub =
-        accelerometerEventStream(
-          samplingPeriod: const Duration(milliseconds: 80),
-        ).listen((event) {
-          if (_disposed || !mounted) return;
-          if (!_motionParallaxEnabled) {
-            _tiltYaw += (0.0 - _tiltYaw) * 0.12;
-            _tiltPitch += (0.0 - _tiltPitch) * 0.12;
-            return;
-          }
-          final now = DateTime.now();
-          if (_lastTiltAt != null &&
-              now.difference(_lastTiltAt!) < const Duration(milliseconds: 70)) {
-            return;
-          }
-          _lastTiltAt = now;
-          final nextYaw = _deadzone(
-            event.x / 9.8 * 0.115,
-            0.004,
-          ).clamp(-0.115, 0.115);
-          final nextPitch = _deadzone(
-            event.y / 9.8 * 0.078,
-            0.004,
-          ).clamp(-0.078, 0.078);
-          _tiltYaw += (nextYaw - _tiltYaw) * 0.08;
-          _tiltPitch += (nextPitch - _tiltPitch) * 0.08;
-        }, onError: (_) {});
-
-    _gyroSub =
-        gyroscopeEventStream(
-          samplingPeriod: const Duration(milliseconds: 66),
-        ).listen((event) {
-          if (_disposed || !mounted) return;
-          if (!_motionParallaxEnabled) {
-            _gyroYaw *= 0.76;
-            _gyroPitch *= 0.76;
-            return;
-          }
-          final yawVelocity = _deadzone(event.y, 0.025);
-          final pitchVelocity = _deadzone(event.x, 0.025);
-          _gyroYaw = (_gyroYaw + yawVelocity * 0.0065).clamp(-0.055, 0.055);
-          _gyroPitch = (_gyroPitch + pitchVelocity * 0.0048).clamp(
-            -0.038,
-            0.038,
-          );
-        }, onError: (_) {});
   }
 
   bool _isCurrentThree(three.ThreeJS js, int epoch) {
@@ -436,6 +370,8 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   }
 
   void _resetMarkerStabilizer() {
+    _lastProjected = null;
+    _stableFor = 0.0;
     _focusScreen.value = null;
   }
 
@@ -536,31 +472,8 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     final minPitch = math.max(_minPitchHard, dynamicMinPitch);
     _pitch = _pitch.clamp(minPitch, _maxPitch);
 
-    final clampedDt = dt.clamp(0.0, 0.08);
-    if (_motionParallaxEnabled) {
-      final damping = math.pow(0.025, clampedDt).toDouble();
-      _gyroYaw *= damping;
-      _gyroPitch *= damping;
-    } else {
-      _gyroYaw += (0.0 - _gyroYaw) * 0.18;
-      _gyroPitch += (0.0 - _gyroPitch) * 0.18;
-    }
-
-    final targetParallaxYaw = _motionParallaxEnabled
-        ? (_tiltYaw + _gyroYaw).clamp(-0.160, 0.160)
-        : 0.0;
-    final targetParallaxPitch = _motionParallaxEnabled
-        ? (_tiltPitch + _gyroPitch).clamp(-0.110, 0.110)
-        : 0.0;
-    final parallaxFollow = _motionParallaxEnabled
-        ? 1 - math.pow(0.0008, clampedDt).toDouble()
-        : 0.18;
-    _parallaxYaw += (targetParallaxYaw - _parallaxYaw) * parallaxFollow;
-    _parallaxPitch += (targetParallaxPitch - _parallaxPitch) * parallaxFollow;
-
-    final finalYaw = _yaw + _parallaxYaw;
-    final finalPitch = (_pitch + _parallaxPitch).clamp(minPitch, _maxPitch);
-
+    final finalYaw = _yaw;
+    final finalPitch = _pitch.clamp(minPitch, _maxPitch);
     final cp = math.cos(finalPitch);
     final sp = math.sin(finalPitch);
     final cy = math.cos(finalYaw);
@@ -576,7 +489,7 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   }
 
   void _updateFocusScreenPosition(three.ThreeJS js, double dt) {
-    if (_focusAnchor == null || _isInteracting) {
+    if (_focusAnchor == null || _isInteracting || _snapActive) {
       _resetMarkerStabilizer();
       return;
     }
@@ -592,15 +505,25 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       (1 - (p.y + 1) * 0.5) * js.height,
     );
 
-    final previous = _focusScreen.value;
-    if (previous == null || _snapActive) {
+    if (_lastProjected != null) {
+      final dx = (now.dx - _lastProjected!.dx).abs();
+      final dy = (now.dy - _lastProjected!.dy).abs();
+      final stable = dx <= _stablePxEps && dy <= _stablePxEps;
+      if (stable) {
+        _stableFor += dt;
+      } else {
+        _stableFor = 0.0;
+      }
+    }
+
+    _lastProjected = now;
+
+    if (_stableFor >= _needStableSeconds) {
       _focusScreen.value = now;
       return;
     }
 
-    final clampedDt = dt.clamp(0.0, 0.08);
-    final follow = 1 - math.pow(0.0012, clampedDt).toDouble();
-    _focusScreen.value = Offset.lerp(previous, now, follow);
+    _focusScreen.value = null;
   }
 
   void _onScaleStart(ScaleStartDetails details) {
