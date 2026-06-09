@@ -134,6 +134,21 @@ class ChaputResponsive {
     return math.max(min, raw);
   }
 
+  double bottomSheetInnerPaddingInsideOuterOffset({
+    double min = 12,
+    double maxIOS = 24,
+    double minAndroidNavigationBar = 32,
+  }) {
+    if (isAndroid &&
+        androidNavigationBarInsetForSheets(
+              minVisibleInset: minAndroidNavigationBar,
+            ) >
+            0) {
+      return min;
+    }
+    return bottomSheetInnerPadding(min: min, maxIOS: maxIOS);
+  }
+
   double bottomSheetMaxHeight({double fraction = 0.92}) {
     final available = size.height - padding.top;
     return available * fraction.clamp(0.0, 1.0);

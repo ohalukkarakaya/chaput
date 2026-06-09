@@ -72,7 +72,23 @@ void main() {
     expect(responsive.bottomFixedOffset(base: 10), 58);
     expect(responsive.bottomSheetOuterOffset(), 48);
     expect(responsive.bottomSheetInnerPadding(), 48);
+    expect(responsive.bottomSheetInnerPaddingInsideOuterOffset(min: 0), 0);
   });
+
+  testWidgets(
+    'keeps iOS inner sheet padding when no outer sheet offset exists',
+    (tester) async {
+      final responsive = await _pumpResponsive(
+        tester,
+        platform: TargetPlatform.iOS,
+        padding: const EdgeInsets.only(bottom: 34),
+        viewPadding: const EdgeInsets.only(bottom: 34),
+      );
+
+      expect(responsive.bottomSheetOuterOffset(), 0);
+      expect(responsive.bottomSheetInnerPaddingInsideOuterOffset(), 24);
+    },
+  );
 
   testWidgets('uses keyboard inset when the keyboard is open', (tester) async {
     final responsive = await _pumpResponsive(

@@ -519,7 +519,8 @@ class _ThreadPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final safeBottom = context.responsive.bottomSheetInnerPadding(min: 0);
+    final safeBottom = context.responsive
+        .bottomSheetInnerPaddingInsideOuterOffset(min: 0);
     final args = ChaputMessagesArgs(
       threadId: thread.threadId,
       profileId: profileId,
