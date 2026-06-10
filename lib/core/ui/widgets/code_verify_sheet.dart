@@ -23,43 +23,12 @@ Future<LoginVerifyResponse?> showCodeVerifySheet({
     context: context,
     isScrollControlled: true,
     isDismissible: true,
-    enableDrag: true,
+    enableDrag: false,
     backgroundColor: AppColors.chaputTransparent,
-    barrierColor: AppColors.chaputTransparent,
-    builder: (sheetContext) {
-      return _BlurBarrier(
-        onClose: () => Navigator.of(sheetContext).pop(),
-        child: _CodeSheet(email: email, onResend: onResend, onVerify: onVerify),
-      );
-    },
+    barrierColor: AppColors.chaputBlack.withValues(alpha: 0.25),
+    builder: (_) =>
+        _CodeSheet(email: email, onResend: onResend, onVerify: onVerify),
   );
-}
-
-class _BlurBarrier extends StatelessWidget {
-  final Widget child;
-  final VoidCallback onClose;
-  const _BlurBarrier({required this.child, required this.onClose});
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onClose,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-              child: Container(
-                color: AppColors.chaputBlack.withValues(alpha: 0.25),
-              ),
-            ),
-          ),
-        ),
-        Align(alignment: Alignment.bottomCenter, child: child),
-      ],
-    );
-  }
 }
 
 class _CodeSheet extends StatefulWidget {
