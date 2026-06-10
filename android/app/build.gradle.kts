@@ -1,4 +1,6 @@
+import groovy.json.JsonSlurper
 import java.io.FileInputStream
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -6,6 +8,37 @@ plugins {
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+}
+
+fun encodeDartDefine(key: String, value: String): String =
+    Base64.getEncoder().encodeToString("$key=$value".toByteArray(Charsets.UTF_8))
+
+val revenueCatAndroidDartDefines = run {
+    val keysFile = rootProject.file("../revenuecat.keys.json")
+    if (!keysFile.exists()) {
+        ""
+    } else {
+        val keys = JsonSlurper().parse(keysFile) as Map<*, *>
+        listOf(
+            "REVENUECAT_API_KEY",
+            "REVENUECAT_ANDROID_API_KEY",
+            "REVENUECAT_ENTITLEMENT_ID",
+        ).mapNotNull { key ->
+            val value = keys[key]?.toString()?.trim()
+            if (value.isNullOrEmpty()) null else encodeDartDefine(key, value)
+        }.joinToString(",")
+    }
+}
+
+if (revenueCatAndroidDartDefines.isNotBlank()) {
+    val existingDartDefines = providers.gradleProperty("dart-defines").orNull
+    extensions.extraProperties.set(
+        "dart-defines",
+        listOf(existingDartDefines, revenueCatAndroidDartDefines)
+            .filterNotNull()
+            .filter { it.isNotBlank() }
+            .joinToString(","),
+    )
 }
 
 val keystoreProperties = Properties()
