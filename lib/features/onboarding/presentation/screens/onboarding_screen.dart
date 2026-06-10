@@ -157,15 +157,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           authApi.requestLoginCode(email: email, deviceId: deviceId),
       onVerify: (code) =>
           authApi.verifyLoginCode(email: email, deviceId: deviceId, code: code),
-      onRequestCodeForEmail: (nextEmail) =>
-          authApi.requestLoginCode(email: nextEmail, deviceId: deviceId),
-      onEmailChanged: (nextEmail) => _emailController.text = nextEmail,
-      onVerifyForEmail: (activeEmail, code) => authApi.verifyLoginCode(
-        email: activeEmail,
-        deviceId: deviceId,
-        code: code,
-      ),
-      allowEmailEdit: true,
     );
 
     if (!mounted) return;
@@ -217,15 +208,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         deviceId: deviceId,
         code: code,
       ),
-      onRequestCodeForEmail: (nextEmail) =>
-          authApi.requestSignupCode(email: nextEmail, deviceId: deviceId),
-      onEmailChanged: (nextEmail) => _emailController.text = nextEmail,
-      onVerifyForEmail: (activeEmail, code) => authApi.verifySignupCode(
-        email: activeEmail,
-        deviceId: deviceId,
-        code: code,
-      ),
-      allowEmailEdit: true,
     );
 
     if (!mounted) return;

@@ -18,30 +18,18 @@ Future<LoginVerifyResponse?> showCodeVerifySheet({
   required String email,
   required Future<void> Function() onResend,
   required Future<LoginVerifyResponse> Function(String code) onVerify,
-  Future<void> Function(String email)? onRequestCodeForEmail,
-  Future<LoginVerifyResponse> Function(String email, String code)?
-  onVerifyForEmail,
-  ValueChanged<String>? onEmailChanged,
-  bool allowEmailEdit = false,
 }) {
   return showModalBottomSheet<LoginVerifyResponse?>(
     context: context,
     isScrollControlled: true,
-    isDismissible: false,
-    enableDrag: false,
+    isDismissible: true,
+    enableDrag: true,
     backgroundColor: AppColors.chaputTransparent,
     barrierColor: AppColors.chaputTransparent,
-    builder: (_) {
+    builder: (sheetContext) {
       return _BlurBarrier(
-        child: _CodeSheet(
-          email: email,
-          onResend: onResend,
-          onVerify: onVerify,
-          onRequestCodeForEmail: onRequestCodeForEmail,
-          onVerifyForEmail: onVerifyForEmail,
-          onEmailChanged: onEmailChanged,
-          allowEmailEdit: allowEmailEdit,
-        ),
+        onClose: () => Navigator.of(sheetContext).pop(),
+        child: _CodeSheet(email: email, onResend: onResend, onVerify: onVerify),
       );
     },
   );
@@ -49,16 +37,17 @@ Future<LoginVerifyResponse?> showCodeVerifySheet({
 
 class _BlurBarrier extends StatelessWidget {
   final Widget child;
-  const _BlurBarrier({required this.child});
+  final VoidCallback onClose;
+  const _BlurBarrier({required this.child, required this.onClose});
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Blur barrier (touch yok)
         Positioned.fill(
-          child: AbsorbPointer(
-            absorbing: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onClose,
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
               child: Container(
@@ -77,20 +66,11 @@ class _CodeSheet extends StatefulWidget {
   final String email;
   final Future<void> Function() onResend;
   final Future<LoginVerifyResponse> Function(String code) onVerify;
-  final Future<void> Function(String email)? onRequestCodeForEmail;
-  final Future<LoginVerifyResponse> Function(String email, String code)?
-  onVerifyForEmail;
-  final ValueChanged<String>? onEmailChanged;
-  final bool allowEmailEdit;
 
   const _CodeSheet({
     required this.email,
     required this.onResend,
     required this.onVerify,
-    required this.onRequestCodeForEmail,
-    required this.onVerifyForEmail,
-    required this.onEmailChanged,
-    required this.allowEmailEdit,
   });
 
   @override
@@ -100,17 +80,13 @@ class _CodeSheet extends StatefulWidget {
 class _CodeSheetState extends State<_CodeSheet>
     with SingleTickerProviderStateMixin {
   final _controller = TextEditingController();
-  final _emailController = TextEditingController();
   final _focusNode = FocusNode();
-  final _emailFocusNode = FocusNode();
 
   late String _email;
   String? _errorText;
   int _lastCodeLength = 0;
 
   bool _verifying = false;
-  bool _editingEmail = false;
-  bool _requestingEditedEmail = false;
 
   // resend timer (örn: 30s)
   Timer? _resendTimer;
@@ -127,7 +103,6 @@ class _CodeSheetState extends State<_CodeSheet>
   void initState() {
     super.initState();
     _email = widget.email.trim().toLowerCase();
-    _emailController.text = _email;
 
     _shakeController = AnimationController(
       vsync: this,
@@ -179,9 +154,7 @@ class _CodeSheetState extends State<_CodeSheet>
     _resendTimer?.cancel();
     _lockTimer?.cancel();
     _controller.dispose();
-    _emailController.dispose();
     _focusNode.dispose();
-    _emailFocusNode.dispose();
     _shakeController.dispose();
     super.dispose();
   }
@@ -219,7 +192,7 @@ class _CodeSheetState extends State<_CodeSheet>
 
   Future<void> _resend() async {
     if (_resendSeconds > 0) return;
-    if (_verifying || _requestingEditedEmail) return;
+    if (_verifying) return;
 
     setState(() => _errorText = null);
     try {
@@ -228,12 +201,7 @@ class _CodeSheetState extends State<_CodeSheet>
         return;
       }
 
-      final requestForEmail = widget.onRequestCodeForEmail;
-      if (requestForEmail != null) {
-        await requestForEmail(_email);
-      } else {
-        await widget.onResend();
-      }
+      await widget.onResend();
       HapticFeedback.selectionClick();
       _startResendCountdown(seconds: 30);
     } on DioException catch (e) {
@@ -247,7 +215,6 @@ class _CodeSheetState extends State<_CodeSheet>
 
   Future<void> _verify() async {
     if (_verifying) return;
-    if (_requestingEditedEmail || _editingEmail) return;
     if (_lockSeconds > 0) return;
     if (_controller.text.length != 6) return;
 
@@ -257,10 +224,7 @@ class _CodeSheetState extends State<_CodeSheet>
     });
 
     try {
-      final verifyForEmail = widget.onVerifyForEmail;
-      final res = verifyForEmail != null
-          ? await verifyForEmail(_email, _controller.text)
-          : await widget.onVerify(_controller.text);
+      final res = await widget.onVerify(_controller.text);
 
       if (res.accessToken.isEmpty || res.refreshToken.isEmpty) {
         throw StateError('empty tokens');
@@ -297,215 +261,18 @@ class _CodeSheetState extends State<_CodeSheet>
     }
   }
 
-  bool _looksLikeEmail(String value) {
-    final email = value.trim();
-    return email.contains('@') && email.contains('.') && email.length >= 6;
-  }
-
   bool _isTestEmail(String value) {
     return value.trim().toLowerCase().endsWith('@test.com');
   }
 
-  void _beginEmailEdit() {
-    if (!widget.allowEmailEdit || _verifying || _requestingEditedEmail) return;
-    setState(() {
-      _editingEmail = true;
-      _emailController.text = _email;
-      _emailController.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: _emailController.text.length,
-      );
-      _errorText = null;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _emailFocusNode.requestFocus();
-    });
-  }
-
-  void _cancelEmailEdit() {
-    setState(() {
-      _editingEmail = false;
-      _emailController.text = _email;
-      _errorText = null;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
-  }
-
-  Future<void> _submitEditedEmail() async {
-    if (_requestingEditedEmail || _verifying) return;
-    final nextEmail = _emailController.text.trim().toLowerCase();
-    if (!_looksLikeEmail(nextEmail)) {
-      setState(() => _errorText = context.t('errors.invalid_email'));
-      HapticFeedback.heavyImpact();
-      return;
-    }
-
-    if (nextEmail == _email) {
-      _cancelEmailEdit();
-      return;
-    }
-
-    final shouldRequestCode = !_isTestEmail(nextEmail);
-    setState(() {
-      _requestingEditedEmail = true;
-      _errorText = null;
-    });
-
-    try {
-      final requestForEmail = widget.onRequestCodeForEmail;
-      if (shouldRequestCode) {
-        if (requestForEmail != null) {
-          await requestForEmail(nextEmail);
-        } else {
-          await widget.onResend();
-        }
-      }
-
-      if (!mounted) return;
-      _resendTimer?.cancel();
-      _lockTimer?.cancel();
-      setState(() {
-        _email = nextEmail;
-        _editingEmail = false;
-        _requestingEditedEmail = false;
-        _errorText = null;
-        _lockSeconds = 0;
-        _resendSeconds = shouldRequestCode ? 30 : 0;
-        _controller.clear();
-        _lastCodeLength = 0;
-      });
-      if (shouldRequestCode) {
-        _startResendCountdown(seconds: 30);
-      }
-      widget.onEmailChanged?.call(nextEmail);
-      HapticFeedback.selectionClick();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _focusNode.requestFocus();
-      });
-    } on DioException catch (e) {
-      if (!mounted) return;
-      HapticFeedback.heavyImpact();
-      setState(() {
-        _requestingEditedEmail = false;
-        _errorText = _dioErrorToMessage(e);
-      });
-    } catch (_) {
-      if (!mounted) return;
-      HapticFeedback.heavyImpact();
-      setState(() {
-        _requestingEditedEmail = false;
-        _errorText = context.t('errors.generic');
-      });
-    }
-  }
-
   Widget _buildEmailSection() {
-    final subtitleStyle = TextStyle(
-      color: AppColors.chaputBlack.withValues(alpha: 0.65),
-      fontSize: 13,
-      height: 1.3,
-    );
-
-    if (!widget.allowEmailEdit) {
-      return Text(
-        context.t('code.subtitle', params: {'email': _email}),
-        style: subtitleStyle,
-      );
-    }
-
-    if (_editingEmail) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _emailController,
-            focusNode: _emailFocusNode,
-            enabled: !_requestingEditedEmail,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.done,
-            autocorrect: false,
-            enableSuggestions: false,
-            contextMenuBuilder: appTextContextMenuBuilder,
-            onSubmitted: (_) => _submitEditedEmail(),
-            decoration: InputDecoration(
-              hintText: context.t('common.email'),
-              filled: true,
-              fillColor: AppColors.chaputWhite.withValues(alpha: 0.96),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: AppColors.chaputBlack.withValues(alpha: 0.14),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: AppColors.chaputBlack.withValues(alpha: 0.14),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: AppColors.chaputBlack.withValues(alpha: 0.42),
-                  width: 1.2,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              TextButton(
-                onPressed: _requestingEditedEmail ? null : _cancelEmailEdit,
-                child: Text(context.t('common.cancel')),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: _requestingEditedEmail ? null : _submitEditedEmail,
-                child: _requestingEditedEmail
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(context.t('common.send_code')),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            context.t('code.subtitle', params: {'email': _email}),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: subtitleStyle,
-          ),
-        ),
-        const SizedBox(width: 8),
-        TextButton(
-          onPressed: (_verifying || _requestingEditedEmail)
-              ? null
-              : _beginEmailEdit,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(0, 32),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Text(context.t('common.edit')),
-        ),
-      ],
+    return Text(
+      context.t('code.subtitle', params: {'email': _email}),
+      style: TextStyle(
+        color: AppColors.chaputBlack.withValues(alpha: 0.65),
+        fontSize: 13,
+        height: 1.3,
+      ),
     );
   }
 
@@ -550,7 +317,7 @@ class _CodeSheetState extends State<_CodeSheet>
     final isLocked = _lockSeconds > 0;
 
     return PopScope(
-      canPop: false,
+      canPop: true,
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [

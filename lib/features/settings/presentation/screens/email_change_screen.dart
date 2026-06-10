@@ -1,4 +1,3 @@
-import 'package:chaput/core/ui/widgets/code_verify_sheet.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter/services.dart';
@@ -32,43 +31,6 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
     return v.contains('@') && v.contains('.') && v.length >= 6;
   }
 
-  Future<void> _submit() async {
-    final email = _controller.text.trim().toLowerCase();
-    if (!_looksLikeEmail(email)) {
-      HapticFeedback.heavyImpact();
-      return;
-    }
-
-    final ok = await ref.read(emailChangeControllerProvider.notifier).requestCode(email);
-    if (!mounted || !ok) return;
-
-    HapticFeedback.selectionClick();
-
-    // ✅ mevcut sheet’i reuse ediyoruz
-    final verified = await showCodeVerifySheet(
-      context: context,
-      email: email,
-      onResend: () => ref.read(emailChangeControllerProvider.notifier).requestCode(email),
-      onVerify: (code) async {
-        final res = await ref.read(emailChangeControllerProvider.notifier).verifyCode(code);
-
-        if (res.ok) {
-          // sheet LoginVerifyResponse istiyor; burada minimal “dummy” döndürmek yerine
-          // sheet’i generic yapmadığımız için şu an hack yapmayacağız.
-          // Bu yüzden: sheet’i bu ekranda KULLANMAYALIM, kendi email otp sheet’ini yazalım.
-          throw UnsupportedError('use email otp sheet');
-        }
-
-        // sheet kendi içinde DioException bekliyor. Burada da uyumsuzluk var.
-        // O yüzden: Email için ayrı sheet yazacağız (aşağıda).
-        throw UnsupportedError('use email otp sheet');
-      },
-    );
-
-    // Buraya gelmiyoruz (yukarıda UnsupportedError).
-    if (verified == null) return;
-  }
-
   @override
   Widget build(BuildContext context) {
     final meAsync = ref.watch(meControllerProvider);
@@ -90,7 +52,10 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(
+                          context.t('common.back'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                       const Spacer(),
                     ],
@@ -104,16 +69,31 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                         loading: () => const _EmailChangeShimmer(),
                         error: (_, __) => Text(context.t('common.load_failed')),
                         data: (me) {
-                          final current = me?.user.email ?? context.t('common.na');
+                          final current =
+                              me?.user.email ?? context.t('common.na');
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Text(context.t('common.email'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                              Text(
+                                context.t('common.email'),
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
                               const SizedBox(height: 6),
                               Text(
-                                context.t('settings.email_current', params: {'email': current}),
-                                style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.60), fontWeight: FontWeight.w600),
+                                context.t(
+                                  'settings.email_current',
+                                  params: {'email': current},
+                                ),
+                                style: TextStyle(
+                                  color: AppColors.chaputBlack.withValues(
+                                    alpha: 0.60,
+                                  ),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               const SizedBox(height: 14),
 
@@ -122,56 +102,109 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                                 keyboardType: TextInputType.emailAddress,
                                 textInputAction: TextInputAction.done,
                                 contextMenuBuilder: appTextContextMenuBuilder,
-                                onChanged: (_) => ref.read(emailChangeControllerProvider.notifier).clearError(),
+                                onChanged: (_) => ref
+                                    .read(
+                                      emailChangeControllerProvider.notifier,
+                                    )
+                                    .clearError(),
                                 decoration: InputDecoration(
-                                  hintText: context.t('settings.email_new_placeholder'),
+                                  hintText: context.t(
+                                    'settings.email_new_placeholder',
+                                  ),
                                   filled: true,
-                                  fillColor: AppColors.chaputBlack.withOpacity(0.04),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                                  fillColor: AppColors.chaputBlack.withValues(
+                                    alpha: 0.04,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide.none,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
 
                               if (st.errorMessage != null) ...[
-                                Text(context.t(st.errorMessage!), style: const TextStyle(color: AppColors.chaputMaterialRed, fontWeight: FontWeight.w700)),
+                                Text(
+                                  context.t(st.errorMessage!),
+                                  style: const TextStyle(
+                                    color: AppColors.chaputMaterialRed,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                                 const SizedBox(height: 10),
                               ],
 
                               SizedBox(
                                 height: 52,
                                 child: ElevatedButton(
-                                  onPressed: st.isLoading ? null : () async {
-                                    // ✅ Email için özel OTP sheet (bir sonraki dosya)
-                                    final email = _controller.text.trim().toLowerCase();
-                                    if (!_looksLikeEmail(email)) {
-                                      HapticFeedback.heavyImpact();
-                                      return;
-                                    }
+                                  onPressed: st.isLoading
+                                      ? null
+                                      : () async {
+                                          // ✅ Email için özel OTP sheet (bir sonraki dosya)
+                                          final email = _controller.text
+                                              .trim()
+                                              .toLowerCase();
+                                          if (!_looksLikeEmail(email)) {
+                                            HapticFeedback.heavyImpact();
+                                            return;
+                                          }
 
-                                    final ok = await ref.read(emailChangeControllerProvider.notifier).requestCode(email);
-                                    if (!mounted || !ok) return;
+                                          final ok = await ref
+                                              .read(
+                                                emailChangeControllerProvider
+                                                    .notifier,
+                                              )
+                                              .requestCode(email);
+                                          if (!context.mounted || !ok) return;
 
-                                    final didVerify = await showEmailOtpVerifySheet(
-                                      context: context,
-                                      email: email,
-                                      onResend: () => ref.read(emailChangeControllerProvider.notifier).requestCode(email),
-                                      onVerify: (code) => ref.read(emailChangeControllerProvider.notifier).verifyCode(code),
-                                    );
+                                          final didVerify =
+                                              await showEmailOtpVerifySheet(
+                                                context: context,
+                                                email: email,
+                                                onResend: () => ref
+                                                    .read(
+                                                      emailChangeControllerProvider
+                                                          .notifier,
+                                                    )
+                                                    .requestCode(email),
+                                                onVerify: (code) => ref
+                                                    .read(
+                                                      emailChangeControllerProvider
+                                                          .notifier,
+                                                    )
+                                                    .verifyCode(code),
+                                              );
 
-                                    if (!mounted) return;
-                                    if (didVerify == true) {
-                                      Navigator.of(context).pop(); // settings’e dön
-                                    }
-                                  },
+                                          if (!context.mounted) return;
+                                          if (didVerify == true) {
+                                            Navigator.of(
+                                              context,
+                                            ).pop(); // settings’e dön
+                                          }
+                                        },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.chaputBlack,
                                     foregroundColor: AppColors.chaputWhite,
                                     elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
                                   ),
                                   child: st.isLoading
-                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.chaputWhite))
-                                      : Text(context.t('common.send_code'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppColors.chaputWhite,
+                                          ),
+                                        )
+                                      : Text(
+                                          context.t('common.send_code'),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ],
@@ -206,13 +239,13 @@ class _EmailChangeShimmer extends StatelessWidget {
           ShimmerBlock(
             height: 46,
             radius: 14,
-            color: AppColors.chaputBlack.withOpacity(0.06),
+            color: AppColors.chaputBlack.withValues(alpha: 0.06),
           ),
           const SizedBox(height: 14),
           ShimmerBlock(
             height: 52,
             radius: 14,
-            color: AppColors.chaputBlack.withOpacity(0.10),
+            color: AppColors.chaputBlack.withValues(alpha: 0.10),
           ),
         ],
       ),
@@ -228,13 +261,13 @@ class _WhiteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.chaputWhite.withOpacity(0.92),
+        color: AppColors.chaputWhite.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
             blurRadius: 26,
             offset: const Offset(0, 14),
-            color: AppColors.chaputBlack.withOpacity(0.08),
+            color: AppColors.chaputBlack.withValues(alpha: 0.08),
           ),
         ],
       ),
