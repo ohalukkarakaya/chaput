@@ -102,12 +102,12 @@ class _EmailCtaFormState extends State<EmailCtaForm>
               padding: const EdgeInsets.symmetric(horizontal: 14),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppColors.chaputWhite.withOpacity(0.82),
+                color: AppColors.chaputWhite.withValues(alpha: 0.82),
                 borderRadius: BorderRadius.circular(_radius),
                 border: Border.all(
                   color: widget.errorText == null
-                      ? AppColors.chaputWhite.withOpacity(0.58)
-                      : AppColors.chaputMaterialRed.withOpacity(0.45),
+                      ? AppColors.chaputWhite.withValues(alpha: 0.58)
+                      : AppColors.chaputMaterialRed.withValues(alpha: 0.45),
                   width: widget.errorText == null ? 1 : 1.4,
                 ),
               ),
@@ -126,12 +126,12 @@ class _EmailCtaFormState extends State<EmailCtaForm>
                   border: InputBorder.none,
                   hintText: widget.hint ?? context.t('common.email'),
                   hintStyle: TextStyle(
-                    color: AppColors.chaputBlack.withOpacity(0.45),
+                    color: AppColors.chaputBlack.withValues(alpha: 0.45),
                   ),
                   prefixIcon: Icon(
                     Icons.mail_outline,
                     color: widget.errorText == null
-                        ? AppColors.chaputBlack.withOpacity(0.55)
+                        ? AppColors.chaputBlack.withValues(alpha: 0.55)
                         : AppColors.chaputMaterialRed,
                   ),
                   prefixIconConstraints: const BoxConstraints(
@@ -157,17 +157,21 @@ class _EmailCtaFormState extends State<EmailCtaForm>
                 ? const SizedBox(height: 10)
                 : Padding(
                     key: ValueKey(widget.errorText),
-                    padding: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.only(top: 10, bottom: 10),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 11,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.chaputMaterialRed.withOpacity(0.10),
+                        color: AppColors.chaputMaterialRed.withValues(
+                          alpha: 0.10,
+                        ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.chaputMaterialRed.withOpacity(0.24),
+                          color: AppColors.chaputMaterialRed.withValues(
+                            alpha: 0.24,
+                          ),
                         ),
                       ),
                       child: Row(
