@@ -1929,9 +1929,10 @@ class _MessageBubble extends StatelessWidget {
     final tickIcon = message.delivered ? Icons.done_all : Icons.check;
 
     final maxWidth = MediaQuery.of(context).size.width * 0.72;
-    final replyBg = isMine
-        ? AppColors.chaputBlack.withOpacity(0.18)
-        : AppColors.chaputWhite.withOpacity(0.2);
+    final isLightReplyPreview = isMine || isWhisper;
+    final replyBg = isLightReplyPreview
+        ? const Color(0xFFEDEDED)
+        : AppColors.chaputNearBlack;
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1965,7 +1966,9 @@ class _MessageBubble extends StatelessWidget {
                       color: replyBg,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: AppColors.chaputWhite.withOpacity(0.16),
+                        color: isLightReplyPreview
+                            ? AppColors.chaputBlack.withValues(alpha: 0.08)
+                            : AppColors.chaputWhite.withValues(alpha: 0.16),
                       ),
                     ),
                     child: Row(
@@ -1974,7 +1977,9 @@ class _MessageBubble extends StatelessWidget {
                           width: 3,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: AppColors.chaputWhite.withOpacity(0.7),
+                            color: isLightReplyPreview
+                                ? AppColors.chaputBlack.withValues(alpha: 0.35)
+                                : AppColors.chaputWhite.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(99),
                           ),
                         ),

@@ -421,7 +421,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _playSmallFeedback(ChaputSoundEffect effect, {double playbackRate = 1}) {
-    HapticFeedback.selectionClick();
+    if (effect == ChaputSoundEffect.sendMessage) {
+      unawaited(HapticFeedback.mediumImpact());
+    } else {
+      unawaited(HapticFeedback.selectionClick());
+    }
     unawaited(
       ChaputSoundService.instance.play(effect, playbackRate: playbackRate),
     );
@@ -1927,6 +1931,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _handleReplyRequested(ChaputThreadItem thread, ChaputMessage message) {
+    unawaited(HapticFeedback.mediumImpact());
     setState(() {
       _replyTarget = message;
       _replyTargetThreadId = thread.threadId;

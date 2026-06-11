@@ -117,7 +117,9 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.chaputBlack.withValues(alpha: 0.65),
+          color: showReply
+              ? AppColors.chaputBlack
+              : AppColors.chaputBlack.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: AppColors.chaputWhite.withValues(alpha: 0.15),
