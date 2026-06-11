@@ -117,9 +117,11 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.chaputBlack.withOpacity(0.65),
+          color: AppColors.chaputBlack.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.chaputWhite.withOpacity(0.15)),
+          border: Border.all(
+            color: AppColors.chaputWhite.withValues(alpha: 0.15),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -133,10 +135,10 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.chaputWhite.withOpacity(0.08),
+                    color: AppColors.chaputNearBlack,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColors.chaputWhite.withOpacity(0.12),
+                      color: AppColors.chaputWhite.withValues(alpha: 0.18),
                     ),
                   ),
                   child: Row(
@@ -145,7 +147,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                         width: 3,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: AppColors.chaputWhite.withOpacity(0.6),
+                          color: AppColors.chaputWhite.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(99),
                         ),
                       ),
@@ -159,7 +161,9 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: AppColors.chaputWhite.withOpacity(0.9),
+                                color: AppColors.chaputWhite.withValues(
+                                  alpha: 0.9,
+                                ),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -170,7 +174,9 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: AppColors.chaputWhite.withOpacity(0.6),
+                                color: AppColors.chaputWhite.withValues(
+                                  alpha: 0.6,
+                                ),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -185,13 +191,15 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                           width: 22,
                           height: 22,
                           decoration: BoxDecoration(
-                            color: AppColors.chaputWhite.withOpacity(0.14),
+                            color: AppColors.chaputWhite.withValues(
+                              alpha: 0.14,
+                            ),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             Icons.close,
                             size: 14,
-                            color: AppColors.chaputWhite.withOpacity(0.8),
+                            color: AppColors.chaputWhite.withValues(alpha: 0.8),
                           ),
                         ),
                       ),
@@ -216,10 +224,10 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                     decoration: BoxDecoration(
                       color: isWhisper
                           ? AppColors.chaputWhite
-                          : AppColors.chaputWhite.withOpacity(0.12),
+                          : AppColors.chaputWhite.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                        color: AppColors.chaputWhite.withOpacity(0.18),
+                        color: AppColors.chaputWhite.withValues(alpha: 0.18),
                       ),
                     ),
                     child: Text(
@@ -255,7 +263,7 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                           ? context.t('chat.whisper_hint')
                           : context.t('chat.message_input_hint'),
                       hintStyle: TextStyle(
-                        color: AppColors.chaputWhite.withOpacity(0.4),
+                        color: AppColors.chaputWhite.withValues(alpha: 0.4),
                       ),
                       border: InputBorder.none,
                     ),
