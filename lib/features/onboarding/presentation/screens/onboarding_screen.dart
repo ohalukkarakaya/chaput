@@ -311,9 +311,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final isKeyboardOpen = keyboard > 0;
     final pauseTree = _emailFocused || isKeyboardOpen || _submitting;
     final screenHeight = mq.size.height;
-    final cardHeight = (screenHeight * 0.125).clamp(104.0, 146.0);
+    final cardHeight = isKeyboardOpen
+        ? (screenHeight * 0.10).clamp(80.0, 120.0)
+        : (screenHeight * 0.22).clamp(176.0, 252.0);
 
-    final sliderTexts = List.generate(8, (index) {
+    final sliderTexts = List.generate(9, (index) {
       final slide = index + 1;
       return {
         'title': context.t('onboarding.slide${slide}_title'),
@@ -381,51 +383,55 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 16,
                                         ),
-                                        child: FittedBox(
-                                          alignment: Alignment.centerLeft,
-                                          fit: BoxFit.scaleDown,
+                                        child: SingleChildScrollView(
+                                          physics:
+                                              const BouncingScrollPhysics(),
                                           child: ConstrainedBox(
                                             constraints: BoxConstraints(
+                                              minHeight: cardHeight,
                                               maxWidth: math.max(
                                                 1,
                                                 mq.size.width - 32,
                                               ),
                                             ),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  item['title'] ?? '',
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    color:
-                                                        AppColors.chaputWhite,
-                                                    fontSize: 20,
-                                                    height: 1.15,
-                                                    fontWeight: FontWeight.w700,
+                                            child: Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    item['title'] ?? '',
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      color:
+                                                          AppColors.chaputWhite,
+                                                      fontSize: 20,
+                                                      height: 1.15,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
                                                   ),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  item['subtitle'] ?? '',
-                                                  maxLines: 4,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    color: AppColors.chaputWhite
-                                                        .withValues(
-                                                          alpha: 0.82,
-                                                        ),
-                                                    fontSize: 13,
-                                                    height: 1.35,
-                                                    fontWeight: FontWeight.w500,
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    item['subtitle'] ?? '',
+                                                    style: TextStyle(
+                                                      color: AppColors
+                                                          .chaputWhite
+                                                          .withValues(
+                                                            alpha: 0.82,
+                                                          ),
+                                                      fontSize: 12.5,
+                                                      height: 1.32,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ),
