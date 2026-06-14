@@ -553,6 +553,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                                         key: ValueKey(
                                                           'shimmer-$index',
                                                         ),
+                                                        title:
+                                                            item['title'] ?? '',
+                                                        titleStyle: titleStyle,
+                                                        subtitleStyle:
+                                                            subtitleStyle,
                                                       ),
                                               ),
                                             ),
@@ -675,39 +680,114 @@ class _OnboardingSlideText extends StatelessWidget {
 }
 
 class _OnboardingTextShimmer extends StatelessWidget {
-  const _OnboardingTextShimmer({super.key});
+  const _OnboardingTextShimmer({
+    super.key,
+    required this.title,
+    required this.titleStyle,
+    required this.subtitleStyle,
+  });
+
+  final String title;
+  final TextStyle titleStyle;
+  final TextStyle subtitleStyle;
 
   @override
   Widget build(BuildContext context) {
-    final lineColor = AppColors.chaputWhite.withValues(alpha: 0.20);
+    final lineColor = AppColors.chaputWhite.withValues(alpha: 0.72);
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 360.0;
         final height = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : 88.0;
-        final lineCount = ((height - 34) / 22).floor().clamp(1, 4);
+        final textScaler = MediaQuery.textScalerOf(context);
+        final titleHeight = (TextPainter(
+          text: TextSpan(text: title, style: titleStyle),
+          textDirection: Directionality.of(context),
+          textScaler: textScaler,
+          maxLines: 2,
+        )..layout(maxWidth: width)).height;
+        final lineHeight = ((subtitleStyle.fontSize ?? 12.5) * 0.88).clamp(
+          10.0,
+          13.0,
+        );
+        const lineGap = 9.0;
+        final bodyTop = math.min(height, titleHeight + 8);
+        final bodyHeight = math.max(0.0, height - bodyTop);
+        var lineCount = ((bodyHeight + lineGap) / (lineHeight + lineGap))
+            .floor()
+            .clamp(1, 12);
+        while (lineCount > 1 &&
+            (lineCount * lineHeight + (lineCount - 1) * lineGap) > bodyHeight) {
+          lineCount -= 1;
+        }
 
-        return ShimmerLoading(
-          baseColor: AppColors.chaputWhite.withValues(alpha: 0.16),
-          highlightColor: AppColors.chaputWhite.withValues(alpha: 0.38),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ShimmerLine(width: 230, height: 22, color: lineColor),
-              const SizedBox(height: 12),
-              for (var i = 0; i < lineCount; i++) ...[
-                FractionallySizedBox(
-                  widthFactor: i.isEven ? 0.92 : 0.74,
-                  child: ShimmerLine(height: 12, color: lineColor),
+        return ClipRect(
+          child: SizedBox(
+            height: height,
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
                 ),
-                if (i != lineCount - 1) const SizedBox(height: 10),
+                if (bodyHeight > 0)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: bodyTop,
+                    height: bodyHeight,
+                    child: ShimmerLoading(
+                      baseColor: AppColors.chaputWhite.withValues(alpha: 0.34),
+                      highlightColor: AppColors.chaputWhite.withValues(
+                        alpha: 0.86,
+                      ),
+                      period: const Duration(milliseconds: 1050),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (var i = 0; i < lineCount; i++) ...[
+                            FractionallySizedBox(
+                              widthFactor: _paragraphLineWidthFactor(
+                                i,
+                                lineCount,
+                              ),
+                              child: ShimmerLine(
+                                height: lineHeight,
+                                radius: 999,
+                                color: lineColor,
+                              ),
+                            ),
+                            if (i != lineCount - 1)
+                              const SizedBox(height: lineGap),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
               ],
-            ],
+            ),
           ),
         );
       },
     );
+  }
+
+  double _paragraphLineWidthFactor(int index, int lineCount) {
+    if (index == lineCount - 1) return 0.62;
+    const widths = [0.94, 0.86, 0.98, 0.78, 0.91, 0.83];
+    return widths[index % widths.length];
   }
 }
