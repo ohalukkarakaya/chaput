@@ -107,6 +107,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     required TextScaler textScaler,
     required TextStyle titleStyle,
     required TextStyle subtitleStyle,
+    required double verticalPadding,
   }) {
     final titleHeight = _measureTextHeight(
       title,
@@ -122,7 +123,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       textScaler: textScaler,
     );
 
-    return (titleHeight + 8 + subtitleHeight).ceilToDouble();
+    return (verticalPadding +
+            titleHeight +
+            8 +
+            subtitleHeight +
+            verticalPadding)
+        .ceilToDouble();
   }
 
   void _goAfterAuthentication() {
@@ -352,11 +358,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final keyboard = responsive.keyboardInset;
     final isKeyboardOpen = keyboard > 0;
     final pauseTree = _emailFocused || isKeyboardOpen || _submitting;
-    final screenHeight = mq.size.height;
-    final textViewportMaxHeight = isKeyboardOpen
-        ? (screenHeight * 0.10).clamp(80.0, 120.0)
-        : (screenHeight * 0.22).clamp(176.0, 252.0);
     final textViewportMinHeight = isKeyboardOpen ? 72.0 : 88.0;
+    final textVerticalPadding = isKeyboardOpen ? 8.0 : 14.0;
+    final textMeasurementBuffer = isKeyboardOpen ? 8.0 : 12.0;
     final textMaxWidth = math.max(1.0, math.min(mq.size.width, 520.0) - 32);
     final textScaler = MediaQuery.textScalerOf(context);
     const titleStyle = TextStyle(
@@ -388,10 +392,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       textScaler: textScaler,
       titleStyle: titleStyle,
       subtitleStyle: subtitleStyle,
+      verticalPadding: textVerticalPadding,
     );
-    final textViewportHeight = (measuredTextHeight + 4)
-        .clamp(textViewportMinHeight, textViewportMaxHeight)
-        .toDouble();
+    final textViewportHeight = math.max(
+      textViewportMinHeight,
+      measuredTextHeight + textMeasurementBuffer,
+    );
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -452,40 +458,34 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     itemBuilder: (context, index) {
                                       final item = sliderTexts[index];
                                       return Padding(
-                                        padding: const EdgeInsets.symmetric(
+                                        padding: EdgeInsets.symmetric(
                                           horizontal: 16,
+                                          vertical: textVerticalPadding,
                                         ),
-                                        child: SingleChildScrollView(
-                                          physics:
-                                              const BouncingScrollPhysics(),
-                                          child: ConstrainedBox(
-                                            constraints: BoxConstraints(
-                                              maxWidth: math.max(
-                                                1,
-                                                textMaxWidth,
-                                              ),
-                                            ),
-                                            child: Align(
-                                              alignment: Alignment.topLeft,
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    item['title'] ?? '',
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: titleStyle,
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Text(
-                                                    item['subtitle'] ?? '',
-                                                    style: subtitleStyle,
-                                                  ),
-                                                ],
-                                              ),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxWidth: math.max(1, textMaxWidth),
+                                          ),
+                                          child: Align(
+                                            alignment: Alignment.topLeft,
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  item['title'] ?? '',
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: titleStyle,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  item['subtitle'] ?? '',
+                                                  style: subtitleStyle,
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
