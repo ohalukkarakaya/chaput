@@ -83,6 +83,48 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _submitError = null);
   }
 
+  double _measureTextHeight(
+    String text,
+    TextStyle style, {
+    required double maxWidth,
+    required TextScaler textScaler,
+    int? maxLines,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: textScaler,
+      maxLines: maxLines,
+    )..layout(maxWidth: maxWidth);
+
+    return painter.height;
+  }
+
+  double _measureOnboardingTextHeight({
+    required String title,
+    required String subtitle,
+    required double maxWidth,
+    required TextScaler textScaler,
+    required TextStyle titleStyle,
+    required TextStyle subtitleStyle,
+  }) {
+    final titleHeight = _measureTextHeight(
+      title,
+      titleStyle,
+      maxWidth: maxWidth,
+      textScaler: textScaler,
+      maxLines: 2,
+    );
+    final subtitleHeight = _measureTextHeight(
+      subtitle,
+      subtitleStyle,
+      maxWidth: maxWidth,
+      textScaler: textScaler,
+    );
+
+    return (titleHeight + 8 + subtitleHeight).ceilToDouble();
+  }
+
   void _goAfterAuthentication() {
     final pendingLink = ref.read(pendingDeepLinkProvider);
     if (pendingLink != null) {
@@ -311,9 +353,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final isKeyboardOpen = keyboard > 0;
     final pauseTree = _emailFocused || isKeyboardOpen || _submitting;
     final screenHeight = mq.size.height;
-    final cardHeight = isKeyboardOpen
+    final textViewportMaxHeight = isKeyboardOpen
         ? (screenHeight * 0.10).clamp(80.0, 120.0)
         : (screenHeight * 0.22).clamp(176.0, 252.0);
+    final textViewportMinHeight = isKeyboardOpen ? 72.0 : 88.0;
+    final textMaxWidth = math.max(1.0, math.min(mq.size.width, 520.0) - 32);
+    final textScaler = MediaQuery.textScalerOf(context);
+    const titleStyle = TextStyle(
+      color: AppColors.chaputWhite,
+      fontSize: 20,
+      height: 1.15,
+      fontWeight: FontWeight.w700,
+    );
+    final subtitleStyle = TextStyle(
+      color: AppColors.chaputWhite.withValues(alpha: 0.82),
+      fontSize: 12.5,
+      height: 1.32,
+      fontWeight: FontWeight.w500,
+    );
 
     final sliderTexts = List.generate(9, (index) {
       final slide = index + 1;
@@ -322,6 +379,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'subtitle': context.t('onboarding.slide${slide}_subtitle'),
       };
     });
+    final activeText =
+        sliderTexts[_currentIndex.clamp(0, sliderTexts.length - 1)];
+    final measuredTextHeight = _measureOnboardingTextHeight(
+      title: activeText['title'] ?? '',
+      subtitle: activeText['subtitle'] ?? '',
+      maxWidth: textMaxWidth,
+      textScaler: textScaler,
+      titleStyle: titleStyle,
+      subtitleStyle: subtitleStyle,
+    );
+    final textViewportHeight = (measuredTextHeight + 4)
+        .clamp(textViewportMinHeight, textViewportMaxHeight)
+        .toDouble();
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -371,8 +441,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                SizedBox(
-                                  height: cardHeight,
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutCubic,
+                                  height: textViewportHeight,
                                   child: PageView.builder(
                                     controller: _textController,
                                     itemCount: sliderTexts.length,
@@ -388,14 +460,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                               const BouncingScrollPhysics(),
                                           child: ConstrainedBox(
                                             constraints: BoxConstraints(
-                                              minHeight: cardHeight,
                                               maxWidth: math.max(
                                                 1,
-                                                mq.size.width - 32,
+                                                textMaxWidth,
                                               ),
                                             ),
                                             child: Align(
-                                              alignment: Alignment.centerLeft,
+                                              alignment: Alignment.topLeft,
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.min,
                                                 crossAxisAlignment:
@@ -406,29 +477,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                                     maxLines: 2,
                                                     overflow:
                                                         TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      color:
-                                                          AppColors.chaputWhite,
-                                                      fontSize: 20,
-                                                      height: 1.15,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
+                                                    style: titleStyle,
                                                   ),
                                                   const SizedBox(height: 8),
                                                   Text(
                                                     item['subtitle'] ?? '',
-                                                    style: TextStyle(
-                                                      color: AppColors
-                                                          .chaputWhite
-                                                          .withValues(
-                                                            alpha: 0.82,
-                                                          ),
-                                                      fontSize: 12.5,
-                                                      height: 1.32,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
+                                                    style: subtitleStyle,
                                                   ),
                                                 ],
                                               ),
