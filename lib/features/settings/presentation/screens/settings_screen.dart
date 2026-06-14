@@ -991,11 +991,12 @@ class _SettingsContent extends StatelessWidget {
               const SizedBox(height: 12),
 
               Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
-                    context.t('settings.pause_prefix'),
+                    context.t('settings.account_actions_prefix'),
                     style: TextStyle(
-                      color: AppColors.chaputBlack.withOpacity(0.60),
+                      color: AppColors.chaputBlack.withValues(alpha: 0.60),
                       fontWeight: FontWeight.w600,
                       height: 1.25,
                       fontSize: 13,
@@ -1004,8 +1005,8 @@ class _SettingsContent extends StatelessWidget {
                   InkWell(
                     onTap: onPauseAccount,
                     child: Text(
-                      context.t('settings.pause_link'),
-                      style: TextStyle(
+                      context.t('settings.account_actions_pause'),
+                      style: const TextStyle(
                         decoration: TextDecoration.underline,
                         color: AppColors.chaputGolden,
                         fontWeight: FontWeight.w800,
@@ -1015,9 +1016,9 @@ class _SettingsContent extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    context.t('settings.close_prefix'),
+                    context.t('settings.account_actions_middle'),
                     style: TextStyle(
-                      color: AppColors.chaputBlack.withOpacity(0.60),
+                      color: AppColors.chaputBlack.withValues(alpha: 0.60),
                       fontWeight: FontWeight.w600,
                       height: 1.25,
                       fontSize: 13,
@@ -1026,8 +1027,8 @@ class _SettingsContent extends StatelessWidget {
                   InkWell(
                     onTap: onCloseAccount,
                     child: Text(
-                      context.t('settings.close_link'),
-                      style: TextStyle(
+                      context.t('settings.account_actions_close'),
+                      style: const TextStyle(
                         decoration: TextDecoration.underline,
                         color: AppColors.chaputErrorRed,
                         fontWeight: FontWeight.w800,
@@ -1037,9 +1038,9 @@ class _SettingsContent extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    context.t('settings.close_suffix'),
+                    context.t('settings.account_actions_suffix'),
                     style: TextStyle(
-                      color: AppColors.chaputBlack.withOpacity(0.60),
+                      color: AppColors.chaputBlack.withValues(alpha: 0.60),
                       fontWeight: FontWeight.w600,
                       height: 1.25,
                       fontSize: 13,
