@@ -17,6 +17,7 @@ import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../core/ui/widgets/code_verify_sheet.dart';
 import '../../../../core/ui/widgets/email_cta_form.dart';
+import '../../../../core/ui/widgets/shimmer_skeleton.dart';
 
 import '../../../auth/data/auth_api.dart';
 import '../../../me/application/me_controller.dart';
@@ -34,9 +35,15 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
+  static const _textHeightAnimationDuration = Duration(milliseconds: 220);
+  static const _textRevealDelay = Duration(milliseconds: 240);
+
   final _emailController = TextEditingController();
   final PageController _textController = PageController();
   int _currentIndex = 0;
+  int _textHeightIndex = 0;
+  int _settledTextIndex = 0;
+  int _textRevealToken = 0;
   bool _submitting = false;
   String? _submitError;
   int _shakeSignal = 0;
@@ -63,6 +70,47 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _onTextPageChanged(int index) {
     setState(() => _currentIndex = index);
     HapticFeedback.selectionClick();
+  }
+
+  bool _handleTextScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.horizontal) return false;
+
+    if (notification is ScrollStartNotification) {
+      _textRevealToken += 1;
+    } else if (notification is ScrollEndNotification) {
+      _settleTextPage();
+    }
+
+    return false;
+  }
+
+  void _settleTextPage() {
+    final page = _textController.hasClients
+        ? (_textController.page ?? _currentIndex.toDouble())
+        : _currentIndex.toDouble();
+    final index = page.round().clamp(0, 8);
+
+    final alreadySettled =
+        _textHeightIndex == index && _settledTextIndex == index;
+    if (alreadySettled) {
+      if (_currentIndex != index) {
+        setState(() => _currentIndex = index);
+      }
+      return;
+    }
+
+    _textRevealToken += 1;
+    final token = _textRevealToken;
+
+    setState(() {
+      _currentIndex = index;
+      _textHeightIndex = index;
+    });
+
+    Future<void>.delayed(_textRevealDelay, () {
+      if (!mounted || token != _textRevealToken) return;
+      setState(() => _settledTextIndex = index);
+    });
   }
 
   void _handleTreeInteractionChanged(bool value) {
@@ -383,21 +431,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'subtitle': context.t('onboarding.slide${slide}_subtitle'),
       };
     });
-    final activeText =
-        sliderTexts[_currentIndex.clamp(0, sliderTexts.length - 1)];
-    final measuredTextHeight = _measureOnboardingTextHeight(
-      title: activeText['title'] ?? '',
-      subtitle: activeText['subtitle'] ?? '',
-      maxWidth: textMaxWidth,
-      textScaler: textScaler,
-      titleStyle: titleStyle,
-      subtitleStyle: subtitleStyle,
-      verticalPadding: textVerticalPadding,
-    );
+    final slideHeights = sliderTexts.map((text) {
+      return _measureOnboardingTextHeight(
+        title: text['title'] ?? '',
+        subtitle: text['subtitle'] ?? '',
+        maxWidth: textMaxWidth,
+        textScaler: textScaler,
+        titleStyle: titleStyle,
+        subtitleStyle: subtitleStyle,
+        verticalPadding: textVerticalPadding,
+      );
+    }).toList();
+    final textHeightIndex = _textHeightIndex.clamp(0, sliderTexts.length - 1);
     final textViewportHeight = math.max(
       textViewportMinHeight,
-      measuredTextHeight + textMeasurementBuffer,
+      slideHeights[textHeightIndex] + textMeasurementBuffer,
     );
+    final showRealTextForIndex = _settledTextIndex == _textHeightIndex
+        ? _settledTextIndex.clamp(0, sliderTexts.length - 1)
+        : -1;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -448,49 +500,66 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 AnimatedContainer(
-                                  duration: const Duration(milliseconds: 220),
+                                  duration: _textHeightAnimationDuration,
                                   curve: Curves.easeOutCubic,
                                   height: textViewportHeight,
-                                  child: PageView.builder(
-                                    controller: _textController,
-                                    itemCount: sliderTexts.length,
-                                    onPageChanged: _onTextPageChanged,
-                                    itemBuilder: (context, index) {
-                                      final item = sliderTexts[index];
-                                      return Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: textVerticalPadding,
-                                        ),
-                                        child: ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            maxWidth: math.max(1, textMaxWidth),
+                                  child: NotificationListener<ScrollNotification>(
+                                    onNotification:
+                                        _handleTextScrollNotification,
+                                    child: PageView.builder(
+                                      controller: _textController,
+                                      itemCount: sliderTexts.length,
+                                      onPageChanged: _onTextPageChanged,
+                                      itemBuilder: (context, index) {
+                                        final item = sliderTexts[index];
+                                        final showReal =
+                                            index == showRealTextForIndex;
+
+                                        return Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: textVerticalPadding,
                                           ),
-                                          child: Align(
-                                            alignment: Alignment.topLeft,
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  item['title'] ?? '',
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: titleStyle,
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              maxWidth: math.max(
+                                                1,
+                                                textMaxWidth,
+                                              ),
+                                            ),
+                                            child: Align(
+                                              alignment: Alignment.topLeft,
+                                              child: AnimatedSwitcher(
+                                                duration: const Duration(
+                                                  milliseconds: 160,
                                                 ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  item['subtitle'] ?? '',
-                                                  style: subtitleStyle,
-                                                ),
-                                              ],
+                                                switchInCurve: Curves.easeOut,
+                                                switchOutCurve: Curves.easeOut,
+                                                child: showReal
+                                                    ? _OnboardingSlideText(
+                                                        key: ValueKey(
+                                                          'text-$index',
+                                                        ),
+                                                        title:
+                                                            item['title'] ?? '',
+                                                        subtitle:
+                                                            item['subtitle'] ??
+                                                            '',
+                                                        titleStyle: titleStyle,
+                                                        subtitleStyle:
+                                                            subtitleStyle,
+                                                      )
+                                                    : _OnboardingTextShimmer(
+                                                        key: ValueKey(
+                                                          'shimmer-$index',
+                                                        ),
+                                                      ),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      );
-                                    },
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 6),
@@ -568,6 +637,77 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OnboardingSlideText extends StatelessWidget {
+  const _OnboardingSlideText({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.titleStyle,
+    required this.subtitleStyle,
+  });
+
+  final String title;
+  final String subtitle;
+  final TextStyle titleStyle;
+  final TextStyle subtitleStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: titleStyle,
+        ),
+        const SizedBox(height: 8),
+        Text(subtitle, style: subtitleStyle),
+      ],
+    );
+  }
+}
+
+class _OnboardingTextShimmer extends StatelessWidget {
+  const _OnboardingTextShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final lineColor = AppColors.chaputWhite.withValues(alpha: 0.20);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : 88.0;
+        final lineCount = ((height - 34) / 22).floor().clamp(1, 4);
+
+        return ShimmerLoading(
+          baseColor: AppColors.chaputWhite.withValues(alpha: 0.16),
+          highlightColor: AppColors.chaputWhite.withValues(alpha: 0.38),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShimmerLine(width: 230, height: 22, color: lineColor),
+              const SizedBox(height: 12),
+              for (var i = 0; i < lineCount; i++) ...[
+                FractionallySizedBox(
+                  widthFactor: i.isEven ? 0.92 : 0.74,
+                  child: ShimmerLine(height: 12, color: lineColor),
+                ),
+                if (i != lineCount - 1) const SizedBox(height: 10),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
