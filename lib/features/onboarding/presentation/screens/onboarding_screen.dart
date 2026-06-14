@@ -17,7 +17,6 @@ import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../core/ui/widgets/code_verify_sheet.dart';
 import '../../../../core/ui/widgets/email_cta_form.dart';
-import '../../../../core/ui/widgets/shimmer_skeleton.dart';
 
 import '../../../auth/data/auth_api.dart';
 import '../../../me/application/me_controller.dart';
@@ -447,6 +446,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       textViewportMinHeight,
       slideHeights[textHeightIndex] + textMeasurementBuffer,
     );
+    final textPageContentHeight = math.max(
+      0.0,
+      textViewportHeight - (textVerticalPadding * 2),
+    );
     final showRealTextForIndex = _settledTextIndex == _textHeightIndex
         ? _settledTextIndex.clamp(0, sliderTexts.length - 1)
         : -1;
@@ -520,45 +523,53 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                             horizontal: 16,
                                             vertical: textVerticalPadding,
                                           ),
-                                          child: ConstrainedBox(
-                                            constraints: BoxConstraints(
-                                              maxWidth: math.max(
-                                                1,
-                                                textMaxWidth,
-                                              ),
-                                            ),
-                                            child: Align(
-                                              alignment: Alignment.topLeft,
-                                              child: AnimatedSwitcher(
-                                                duration: const Duration(
-                                                  milliseconds: 160,
+                                          child: SizedBox(
+                                            height: textPageContentHeight,
+                                            child: ConstrainedBox(
+                                              constraints: BoxConstraints(
+                                                maxWidth: math.max(
+                                                  1,
+                                                  textMaxWidth,
                                                 ),
-                                                switchInCurve: Curves.easeOut,
-                                                switchOutCurve: Curves.easeOut,
-                                                child: showReal
-                                                    ? _OnboardingSlideText(
-                                                        key: ValueKey(
-                                                          'text-$index',
+                                              ),
+                                              child: Align(
+                                                alignment: Alignment.topLeft,
+                                                child: AnimatedSwitcher(
+                                                  duration: const Duration(
+                                                    milliseconds: 160,
+                                                  ),
+                                                  switchInCurve: Curves.easeOut,
+                                                  switchOutCurve:
+                                                      Curves.easeOut,
+                                                  child: showReal
+                                                      ? _OnboardingSlideText(
+                                                          key: ValueKey(
+                                                            'text-$index',
+                                                          ),
+                                                          title:
+                                                              item['title'] ??
+                                                              '',
+                                                          subtitle:
+                                                              item['subtitle'] ??
+                                                              '',
+                                                          titleStyle:
+                                                              titleStyle,
+                                                          subtitleStyle:
+                                                              subtitleStyle,
+                                                        )
+                                                      : _OnboardingTextShimmer(
+                                                          key: ValueKey(
+                                                            'shimmer-$index',
+                                                          ),
+                                                          title:
+                                                              item['title'] ??
+                                                              '',
+                                                          titleStyle:
+                                                              titleStyle,
+                                                          subtitleStyle:
+                                                              subtitleStyle,
                                                         ),
-                                                        title:
-                                                            item['title'] ?? '',
-                                                        subtitle:
-                                                            item['subtitle'] ??
-                                                            '',
-                                                        titleStyle: titleStyle,
-                                                        subtitleStyle:
-                                                            subtitleStyle,
-                                                      )
-                                                    : _OnboardingTextShimmer(
-                                                        key: ValueKey(
-                                                          'shimmer-$index',
-                                                        ),
-                                                        title:
-                                                            item['title'] ?? '',
-                                                        titleStyle: titleStyle,
-                                                        subtitleStyle:
-                                                            subtitleStyle,
-                                                      ),
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -679,7 +690,7 @@ class _OnboardingSlideText extends StatelessWidget {
   }
 }
 
-class _OnboardingTextShimmer extends StatelessWidget {
+class _OnboardingTextShimmer extends StatefulWidget {
   const _OnboardingTextShimmer({
     super.key,
     required this.title,
@@ -692,8 +703,32 @@ class _OnboardingTextShimmer extends StatelessWidget {
   final TextStyle subtitleStyle;
 
   @override
+  State<_OnboardingTextShimmer> createState() => _OnboardingTextShimmerState();
+}
+
+class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1150),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final lineColor = AppColors.chaputWhite.withValues(alpha: 0.72);
+    final lineColor = AppColors.chaputWhite.withValues(alpha: 0.34);
+    final highlightColor = AppColors.chaputWhite.withValues(alpha: 0.86);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -705,15 +740,13 @@ class _OnboardingTextShimmer extends StatelessWidget {
             : 88.0;
         final textScaler = MediaQuery.textScalerOf(context);
         final titleHeight = (TextPainter(
-          text: TextSpan(text: title, style: titleStyle),
+          text: TextSpan(text: widget.title, style: widget.titleStyle),
           textDirection: Directionality.of(context),
           textScaler: textScaler,
           maxLines: 2,
         )..layout(maxWidth: width)).height;
-        final lineHeight = ((subtitleStyle.fontSize ?? 12.5) * 0.88).clamp(
-          10.0,
-          13.0,
-        );
+        final lineHeight = ((widget.subtitleStyle.fontSize ?? 12.5) * 0.92)
+            .clamp(10.0, 14.0);
         const lineGap = 9.0;
         final bodyTop = math.min(height, titleHeight + 8);
         final bodyHeight = math.max(0.0, height - bodyTop);
@@ -736,10 +769,10 @@ class _OnboardingTextShimmer extends StatelessWidget {
                   right: 0,
                   top: 0,
                   child: Text(
-                    title,
+                    widget.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
+                    style: widget.titleStyle,
                   ),
                 ),
                 if (bodyHeight > 0)
@@ -748,33 +781,27 @@ class _OnboardingTextShimmer extends StatelessWidget {
                     right: 0,
                     top: bodyTop,
                     height: bodyHeight,
-                    child: ShimmerLoading(
-                      baseColor: AppColors.chaputWhite.withValues(alpha: 0.34),
-                      highlightColor: AppColors.chaputWhite.withValues(
-                        alpha: 0.86,
-                      ),
-                      period: const Duration(milliseconds: 1050),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < lineCount; i++) ...[
-                            FractionallySizedBox(
-                              widthFactor: _paragraphLineWidthFactor(
-                                i,
-                                lineCount,
-                              ),
-                              child: ShimmerLine(
-                                height: lineHeight,
-                                radius: 999,
-                                color: lineColor,
-                              ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 0; i < lineCount; i++) ...[
+                          FractionallySizedBox(
+                            widthFactor: _paragraphLineWidthFactor(
+                              i,
+                              lineCount,
                             ),
-                            if (i != lineCount - 1)
-                              const SizedBox(height: lineGap),
-                          ],
+                            child: _OnboardingShimmerLine(
+                              animation: _controller,
+                              height: lineHeight,
+                              baseColor: lineColor,
+                              highlightColor: highlightColor,
+                            ),
+                          ),
+                          if (i != lineCount - 1)
+                            const SizedBox(height: lineGap),
                         ],
-                      ),
+                      ],
                     ),
                   ),
               ],
@@ -789,5 +816,53 @@ class _OnboardingTextShimmer extends StatelessWidget {
     if (index == lineCount - 1) return 0.62;
     const widths = [0.94, 0.86, 0.98, 0.78, 0.91, 0.83];
     return widths[index % widths.length];
+  }
+}
+
+class _OnboardingShimmerLine extends StatelessWidget {
+  const _OnboardingShimmerLine({
+    required this.animation,
+    required this.height,
+    required this.baseColor,
+    required this.highlightColor,
+  });
+
+  final Animation<double> animation;
+  final double height;
+  final Color baseColor;
+  final Color highlightColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final t = animation.value;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: Stack(
+            children: [
+              Container(height: height, color: baseColor),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment(-1.8 + (3.6 * t), 0),
+                      end: Alignment(-0.8 + (3.6 * t), 0),
+                      colors: [
+                        AppColors.chaputTransparent,
+                        highlightColor,
+                        AppColors.chaputTransparent,
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
