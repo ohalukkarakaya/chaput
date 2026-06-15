@@ -86,20 +86,20 @@ class _NotificationLifecycleListenerState
   Future<void> _boot() async {
     await _handleAppOpened();
     _localTapSub = LocalNotificationService.instance.payloads.listen(
-      (payload) => _handleLocalPayload(payload, initial: false),
+      _handleLocalPayload,
     );
     final launchPayload = LocalNotificationService.instance.takeLaunchPayload();
     if (launchPayload != null && launchPayload.isNotEmpty) {
-      _handleLocalPayload(launchPayload, initial: true);
+      _handleLocalPayload(launchPayload);
     }
     try {
       final initialRemote = await FirebaseMessaging.instance
           .getInitialMessage();
       if (initialRemote != null) {
-        _handleRemoteMessage(initialRemote, initial: true);
+        _handleRemoteMessage(initialRemote);
       }
       _remoteTapSub = FirebaseMessaging.onMessageOpenedApp.listen(
-        (message) => _handleRemoteMessage(message, initial: false),
+        _handleRemoteMessage,
       );
     } catch (_) {
       // Firebase may be unavailable on unsupported platforms; notification taps are best-effort.
@@ -175,7 +175,7 @@ class _NotificationLifecycleListenerState
     }
   }
 
-  void _handleLocalPayload(String payload, {required bool initial}) {
+  void _handleLocalPayload(String payload) {
     Map<String, dynamic> data;
     try {
       final parsed = jsonDecode(payload);
@@ -196,93 +196,33 @@ class _NotificationLifecycleListenerState
       _ => null,
     };
     if (target == null) return;
-    unawaited(_openTarget(target, initial: initial));
+    unawaited(_openTarget(target));
   }
 
-  void _handleRemoteMessage(RemoteMessage message, {required bool initial}) {
+  void _handleRemoteMessage(RemoteMessage message) {
     final target = _targetFromRemoteData(message.data);
     if (target == null) return;
-    unawaited(_openTarget(target, initial: initial));
+    unawaited(_openTarget(target));
   }
 
   DeepLinkTarget? _targetFromRemoteData(Map<String, dynamic> data) {
     return chaputNotificationTargetFromRemoteData(data);
   }
 
-  Future<void> _openTarget(
-    DeepLinkTarget target, {
-    required bool initial,
-  }) async {
-    if (!await _canOpenTarget(target)) {
-      if (!initial) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          widget.router.go(Routes.onboarding);
-        });
-      }
-      return;
-    }
-
-    if (initial) {
-      ref.read(pendingDeepLinkProvider.notifier).state = target;
+  Future<void> _openTarget(DeepLinkTarget target) async {
+    if (!chaputDeepLinkTargetRequiresAuth(target)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (!_tryOpenInitialTarget(target)) {
-          _scheduleInitialTargetFallback(target);
-        }
+        widget.router.go(target.location, extra: target.extra);
       });
       return;
     }
+
+    ref.read(pendingDeepLinkProvider.notifier).state = target;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _pushOrGoTarget(target);
+      widget.router.go(Routes.boot);
     });
-  }
-
-  void _scheduleInitialTargetFallback(DeepLinkTarget target) {
-    Future<void>.delayed(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      _tryOpenInitialTarget(target);
-    });
-  }
-
-  bool _tryOpenInitialTarget(DeepLinkTarget target) {
-    final pending = ref.read(pendingDeepLinkProvider);
-    if (pending?.location != target.location) return true;
-    if (_isBootRoute()) return false;
-    ref.read(pendingDeepLinkProvider.notifier).state = null;
-    _pushOrGoTarget(target);
-    return true;
-  }
-
-  void _pushOrGoTarget(DeepLinkTarget target) {
-    if (target.location == Routes.home ||
-        target.location == Routes.onboarding ||
-        target.location == Routes.login ||
-        target.location == Routes.notifications) {
-      widget.router.go(target.location, extra: target.extra);
-      return;
-    }
-    widget.router.push(target.location, extra: target.extra);
-  }
-
-  bool _isBootRoute() {
-    try {
-      return widget.router.routerDelegate.currentConfiguration.uri.path ==
-          Routes.boot;
-    } catch (_) {
-      return true;
-    }
-  }
-
-  Future<bool> _canOpenTarget(DeepLinkTarget target) async {
-    if (!chaputDeepLinkTargetRequiresAuth(target)) return true;
-    final refresh = await ref.read(tokenStorageProvider).readRefreshToken();
-    final canOpen = refresh != null && refresh.isNotEmpty;
-    if (!canOpen) {
-      ref.read(pendingDeepLinkProvider.notifier).state = null;
-    }
-    return canOpen;
   }
 
   @override
