@@ -11,9 +11,16 @@ import '../../../user/application/profile_controller.dart';
 import '../widgets/tree_silhouette_shimmer.dart';
 
 class ProfileUsernameRedirectScreen extends ConsumerStatefulWidget {
-  const ProfileUsernameRedirectScreen({super.key, required this.username});
+  const ProfileUsernameRedirectScreen({
+    super.key,
+    required this.username,
+    this.initialThreadId,
+    this.initialMessageId,
+  });
 
   final String username;
+  final String? initialThreadId;
+  final String? initialMessageId;
 
   @override
   ConsumerState<ProfileUsernameRedirectScreen> createState() =>
@@ -46,12 +53,29 @@ class _ProfileUsernameRedirectScreenState
     final api = ref.read(profileApiProvider);
     try {
       final res = await api.resolveUsername(widget.username);
+      await api.getProfile(res.userId);
       if (!mounted) return;
-      context.pushReplacement('/profile/${res.userId}');
+      final extra = <String, String>{};
+      final threadId = widget.initialThreadId;
+      final messageId = widget.initialMessageId;
+      if (threadId != null && threadId.isNotEmpty) {
+        extra['threadId'] = threadId;
+      }
+      if (messageId != null && messageId.isNotEmpty) {
+        extra['messageId'] = messageId;
+      }
+      context.pushReplacement(
+        '/profile/${res.userId}',
+        extra: extra.isEmpty ? null : extra,
+      );
     } catch (e) {
       if (!mounted) return;
       if (e is DioException && e.response?.statusCode == 401) {
         context.go(Routes.onboarding);
+        return;
+      }
+      if (e is DioException && e.response?.statusCode == 403) {
+        context.go(Routes.home);
         return;
       }
       setState(() {

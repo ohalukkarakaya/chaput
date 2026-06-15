@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../../core/share/chaput_share_links.dart';
 import '../../../../features/recommended_users/application/recommended_user_controller.dart';
 import '../../../../features/social/application/block_controller.dart';
 import '../../../../features/social/application/restrictions_controller.dart';
@@ -88,6 +90,22 @@ class ProfileActionsSheet extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SheetHandle(),
+
+          ProfileActionTile(
+            icon: Icons.ios_share_rounded,
+            title: context.t('profile_actions.share'),
+            subtitle: context.t('profile_actions.share_desc'),
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              Navigator.pop(context);
+              SharePlus.instance.share(
+                ShareParams(
+                  text: ChaputShareLinks.profile(username),
+                  subject: context.t('share.subject'),
+                ),
+              );
+            },
+          ),
 
           ProfileActionTile(
             icon: Icons.remove_circle_outline,

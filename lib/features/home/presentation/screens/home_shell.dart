@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:showcaseview/showcaseview.dart';
 
+import '../../../../core/deep_links/deep_link_state.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/ui/backgrounds/animated_mesh_background.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
@@ -41,6 +42,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   bool _homeShowcaseScheduled = false;
   bool _notificationsBooted = false;
   bool _notificationsBootScheduled = false;
+  bool _pendingDeepLinkOpenScheduled = false;
 
   Future<void> _scheduleHomeShowcase(
     BuildContext context,
@@ -103,6 +105,43 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     });
   }
 
+  void _schedulePendingDeepLinkOpen() {
+    if (_pendingDeepLinkOpenScheduled) return;
+    _pendingDeepLinkOpenScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_openPendingDeepLinkFromHome());
+    });
+  }
+
+  Future<void> _openPendingDeepLinkFromHome() async {
+    _pendingDeepLinkOpenScheduled = false;
+    if (!mounted) return;
+    if (ref.read(meControllerProvider).valueOrNull == null) return;
+
+    final scheduledTarget = ref.read(pendingDeepLinkProvider);
+    if (scheduledTarget == null) return;
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
+    final target = ref.read(pendingDeepLinkProvider);
+    if (target == null) return;
+    if (!identical(target, scheduledTarget)) {
+      _schedulePendingDeepLinkOpen();
+      return;
+    }
+    ref.read(pendingDeepLinkProvider.notifier).state = null;
+
+    if (target.location == Routes.home) return;
+
+    if (target.location == Routes.onboarding ||
+        target.location == Routes.login ||
+        target.location == Routes.register) {
+      context.go(target.location, extra: target.extra);
+      return;
+    }
+    context.push(target.location, extra: target.extra);
+  }
+
   void _handleSocketEvent(ChaputSocketEvent ev) {
     if (ev.type != 'notif.created') return;
     final me = ref.read(meControllerProvider).valueOrNull;
@@ -154,6 +193,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         }
         final meId = me.user.userId;
         _scheduleNotificationsBoot();
+        if (ref.watch(pendingDeepLinkProvider) != null) {
+          _schedulePendingDeepLinkOpen();
+        }
         if (!_homeShowcaseScheduled && meId.isNotEmpty) {
           _homeShowcaseScheduled = true;
           _scheduleHomeShowcase(showcaseContext, meId);

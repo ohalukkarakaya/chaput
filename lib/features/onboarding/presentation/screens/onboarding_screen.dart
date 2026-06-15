@@ -181,8 +181,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _goAfterAuthentication() {
     final pendingLink = ref.read(pendingDeepLinkProvider);
     if (pendingLink != null) {
-      ref.read(pendingDeepLinkProvider.notifier).state = null;
-      context.go(pendingLink.location, extra: pendingLink.extra);
+      context.go(Routes.home);
       return;
     }
 

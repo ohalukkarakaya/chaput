@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../router/routes.dart';
-import '../storage/secure_storage_provider.dart';
 import 'deep_link_state.dart';
 
 class DeepLinkListener extends ConsumerStatefulWidget {
@@ -26,7 +25,6 @@ class DeepLinkListener extends ConsumerStatefulWidget {
 class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _subscription;
-  String? _lastHandledUri;
 
   @override
   void initState() {
@@ -50,77 +48,31 @@ class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
   }
 
   Future<void> _storeLink(Uri uri, {required bool navigateNow}) async {
-    final key = uri.toString();
-    if (_lastHandledUri == key) return;
-
     final target = chaputDeepLinkTargetFromUri(uri);
     if (target == null) return;
-
-    _lastHandledUri = key;
-    if (!await _canOpenTarget(target)) {
-      if (navigateNow) {
-        _navigate(const DeepLinkTarget(location: Routes.onboarding));
-      }
-      return;
-    }
 
     ref.read(pendingDeepLinkProvider.notifier).state = target;
 
     if (navigateNow) {
-      _navigate(target);
+      _restartFromBoot();
     } else {
-      _scheduleInitialTargetFallback(target);
+      _scheduleInitialTargetFallback();
     }
   }
 
-  void _scheduleInitialTargetFallback(DeepLinkTarget target) {
+  void _scheduleInitialTargetFallback() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (!_tryOpenInitialTarget(target)) {
-        Future<void>.delayed(const Duration(milliseconds: 900), () {
-          if (!mounted) return;
-          _tryOpenInitialTarget(target);
-        });
-      }
+      if (_isBootRoute()) return;
+      _restartFromBoot();
     });
   }
 
-  Future<bool> _canOpenTarget(DeepLinkTarget target) async {
-    if (!chaputDeepLinkTargetRequiresAuth(target)) return true;
-    final refresh = await ref.read(tokenStorageProvider).readRefreshToken();
-    final canOpen = refresh != null && refresh.isNotEmpty;
-    if (!canOpen) {
-      ref.read(pendingDeepLinkProvider.notifier).state = null;
-    }
-    return canOpen;
-  }
-
-  void _navigate(DeepLinkTarget target) {
+  void _restartFromBoot() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_isBootRoute() && chaputDeepLinkTargetRequiresAuth(target)) return;
-      _pushOrGoTarget(target);
-      ref.read(pendingDeepLinkProvider.notifier).state = null;
+      widget.router.go(Routes.boot);
     });
-  }
-
-  bool _tryOpenInitialTarget(DeepLinkTarget target) {
-    final pending = ref.read(pendingDeepLinkProvider);
-    if (pending?.location != target.location) return true;
-    if (_isBootRoute()) return false;
-    _pushOrGoTarget(target);
-    ref.read(pendingDeepLinkProvider.notifier).state = null;
-    return true;
-  }
-
-  void _pushOrGoTarget(DeepLinkTarget target) {
-    if (target.location == Routes.home ||
-        target.location == Routes.onboarding ||
-        target.location == Routes.login) {
-      widget.router.go(target.location, extra: target.extra);
-      return;
-    }
-    widget.router.push(target.location, extra: target.extra);
   }
 
   bool _isBootRoute() {

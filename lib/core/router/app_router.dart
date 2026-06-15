@@ -44,6 +44,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             _fadePage(state: state, child: const HomeShell()),
       ),
       GoRoute(
+        path: '/me/:username/:threadId/:messageId',
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: ProfileUsernameRedirectScreen(
+            username: state.pathParameters['username']!,
+            initialThreadId: state.pathParameters['threadId'],
+            initialMessageId: state.pathParameters['messageId'],
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/me/:username/:threadId',
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: ProfileUsernameRedirectScreen(
+            username: state.pathParameters['username']!,
+            initialThreadId: state.pathParameters['threadId'],
+          ),
+        ),
+      ),
+      GoRoute(
         path: '/me/:username',
         pageBuilder: (context, state) => _fadePage(
           state: state,

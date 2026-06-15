@@ -1323,6 +1323,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
+  void _openInitialMessageThreadSheet() {
+    if (_isAdPageActive || _silhouetteMode) return;
+    _chaputSheetPrevExtent = _chaputSheetMax;
+    _setChaputSheetExtent(_chaputSheetMax);
+
+    void expand() {
+      if (!mounted || !_chaputSheetCtrl.isAttached) return;
+      _chaputSheetCtrl.animateTo(
+        _chaputSheetMax,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    expand();
+    WidgetsBinding.instance.addPostFrameCallback((_) => expand());
+    Future<void>.delayed(const Duration(milliseconds: 180), expand);
+    Future<void>.delayed(const Duration(milliseconds: 520), expand);
+  }
+
+  void _handleInitialMessageRevealed(String messageId) {
+    if (_pendingInitialMessageId != messageId) return;
+    if (!mounted) return;
+    setState(() {
+      _pendingInitialThreadId = null;
+      _pendingInitialMessageId = null;
+    });
+  }
+
   void _markTypingUsersChanged() {
     _typingRevision.value = _typingRevision.value + 1;
     _syncTypingSound();
@@ -3437,6 +3466,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       if (idx >= 0) {
         _initialThreadApplied = true;
+        final targetThreadId = _pendingInitialThreadId;
+        final targetMessageId = _pendingInitialMessageId;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_chaputPageCtrl.hasClients) {
@@ -3450,8 +3481,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             setState(() => _chaputActiveIndex = idx);
           }
           _focusToThreadAnchor(chaputThreads[idx], profileIdHex);
-          _pendingInitialThreadId = null;
-          _pendingInitialMessageId = null;
+          if (targetMessageId != null && targetMessageId.isNotEmpty) {
+            _openInitialMessageThreadSheet();
+            Future.delayed(const Duration(seconds: 20), () {
+              if (!mounted) return;
+              if (_pendingInitialThreadId == targetThreadId &&
+                  _pendingInitialMessageId == targetMessageId) {
+                setState(() {
+                  _pendingInitialThreadId = null;
+                  _pendingInitialMessageId = null;
+                });
+              }
+            });
+          } else {
+            Future.delayed(const Duration(milliseconds: 1200), () {
+              if (!mounted) return;
+              if (_pendingInitialThreadId == targetThreadId &&
+                  _pendingInitialMessageId == targetMessageId) {
+                _pendingInitialThreadId = null;
+                _pendingInitialMessageId = null;
+              }
+            });
+          }
         });
       }
     }
@@ -3600,6 +3651,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       viewerId: viewerId,
                       ownerId: userId,
                       profileId: profileIdHex,
+                      profileUsername: username,
                       initialThreadId: _pendingInitialThreadId,
                       initialMessageId: _pendingInitialMessageId,
                       pageController: _chaputPageCtrl,
@@ -3812,6 +3864,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           : 0.0,
                       whisperCredits: creditsWhisper,
                       onReplyMessage: _handleReplyRequested,
+                      onInitialMessageRevealed: _handleInitialMessageRevealed,
                     );
                   },
                 ),

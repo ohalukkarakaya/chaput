@@ -46,7 +46,9 @@ DeepLinkTarget? chaputDeepLinkTargetFromUri(Uri uri) {
           location: _withQuery(Routes.profilePath(id), uri),
         );
       case 'me':
-        return DeepLinkTarget(location: _withQuery('/me/$id', uri));
+        return DeepLinkTarget(
+          location: _withQuery(_profileByUsernamePath(segments), uri),
+        );
     }
   }
 
@@ -91,4 +93,14 @@ bool _isKnownDeepLinkRoot(String value) {
 String _withQuery(String path, Uri source) {
   if (!source.hasQuery) return path;
   return '$path?${source.query}';
+}
+
+String _profileByUsernamePath(List<String> segments) {
+  final username = segments.length > 1 ? segments[1] : '';
+  final threadId = segments.length > 2 ? segments[2] : '';
+  final messageId = segments.length > 3 ? segments[3] : '';
+  final buffer = StringBuffer('/me/$username');
+  if (threadId.isNotEmpty) buffer.write('/$threadId');
+  if (messageId.isNotEmpty) buffer.write('/$messageId');
+  return buffer.toString();
 }
