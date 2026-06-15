@@ -11,6 +11,8 @@ class DeepLinkTarget {
 
 final pendingDeepLinkProvider = StateProvider<DeepLinkTarget?>((ref) => null);
 
+const _customDeepLinkSchemes = {'app.chaput', 'com.goktigin.chaput'};
+
 bool chaputDeepLinkTargetRequiresAuth(DeepLinkTarget target) {
   final path = Uri.parse(target.location).path;
   if (path == Routes.boot ||
@@ -62,7 +64,7 @@ bool _isSupportedChaputUri(Uri uri) {
   if (scheme == 'https') {
     return host == 'chaput.app' || host == 'www.chaput.app';
   }
-  if (scheme != 'app.chaput') return false;
+  if (!_customDeepLinkSchemes.contains(scheme)) return false;
   return host.isEmpty ||
       host == 'chaput.app' ||
       host == 'www.chaput.app' ||
@@ -73,7 +75,9 @@ List<String> _chaputPathSegments(Uri uri) {
   final segments = uri.pathSegments
       .where((segment) => segment.isNotEmpty)
       .toList();
-  if (uri.scheme.toLowerCase() != 'app.chaput') return segments;
+  if (!_customDeepLinkSchemes.contains(uri.scheme.toLowerCase())) {
+    return segments;
+  }
 
   final host = uri.host.toLowerCase();
   if (_isKnownDeepLinkRoot(host)) {

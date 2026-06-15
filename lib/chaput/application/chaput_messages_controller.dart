@@ -8,10 +8,7 @@ import '../../features/me/application/me_controller.dart';
 import 'chaput_decision_controller.dart';
 
 class ChaputMessagesArgs {
-  ChaputMessagesArgs({
-    required this.threadId,
-    required this.profileId,
-  });
+  ChaputMessagesArgs({required this.threadId, required this.profileId});
 
   final String threadId;
   final String profileId;
@@ -42,12 +39,14 @@ class ChaputMessagesState {
   final List<ChaputMessage> items; // newest first
   final String? nextCursor;
 
+  static const Object _unset = Object();
+
   ChaputMessagesState copyWith({
     bool? isLoading,
     bool? isLoadingMore,
     String? error,
     List<ChaputMessage>? items,
-    String? nextCursor,
+    Object? nextCursor = _unset,
     bool clearError = false,
   }) {
     return ChaputMessagesState(
@@ -55,17 +54,22 @@ class ChaputMessagesState {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       error: clearError ? null : (error ?? this.error),
       items: items ?? this.items,
-      nextCursor: nextCursor ?? this.nextCursor,
+      nextCursor: identical(nextCursor, _unset)
+          ? this.nextCursor
+          : nextCursor as String?,
     );
   }
 }
 
-final chaputMessagesControllerProvider = AutoDisposeNotifierProviderFamily<
-    ChaputMessagesController,
-    ChaputMessagesState,
-    ChaputMessagesArgs>(ChaputMessagesController.new);
+final chaputMessagesControllerProvider =
+    AutoDisposeNotifierProviderFamily<
+      ChaputMessagesController,
+      ChaputMessagesState,
+      ChaputMessagesArgs
+    >(ChaputMessagesController.new);
 
-class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesState, ChaputMessagesArgs> {
+class ChaputMessagesController
+    extends AutoDisposeFamilyNotifier<ChaputMessagesState, ChaputMessagesArgs> {
   ChaputApi get _api => ref.read(chaputApiProvider);
   String? _lastLoadCursor;
 
@@ -82,6 +86,7 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
         profileIdHex: arg.profileId,
         limit: 30,
       );
+      _lastLoadCursor = null;
       state = state.copyWith(
         isLoading: false,
         items: res.items,
@@ -114,7 +119,10 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
         cursor: state.nextCursor,
       );
       final items = [...state.items, ...res.items];
-      final nextCursor = (res.items.isEmpty || res.nextCursor == state.nextCursor) ? null : res.nextCursor;
+      final nextCursor =
+          (res.items.isEmpty || res.nextCursor == state.nextCursor)
+          ? null
+          : res.nextCursor;
       state = state.copyWith(
         isLoadingMore: false,
         items: _dedupe(items),
@@ -125,6 +133,39 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
       log('chaput messages loadMore error: $e', stackTrace: st);
       state = state.copyWith(isLoadingMore: false, error: 'load_more_failed');
     }
+  }
+
+  Future<bool> loadUntilMessage(String messageId, {int maxPages = 80}) async {
+    final target = messageId.toLowerCase();
+    var pages = 0;
+
+    bool hasTarget() => state.items.any((m) => m.id.toLowerCase() == target);
+
+    while (pages < maxPages) {
+      if (hasTarget()) return true;
+
+      if (state.isLoading || state.isLoadingMore) {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        continue;
+      }
+
+      final cursor = state.nextCursor;
+      if (cursor == null || cursor.isEmpty) return false;
+
+      final beforeCount = state.items.length;
+      final beforeCursor = cursor;
+      pages += 1;
+      await loadMore();
+
+      if (hasTarget()) return true;
+      if (!state.isLoadingMore &&
+          state.items.length == beforeCount &&
+          state.nextCursor == beforeCursor) {
+        return false;
+      }
+    }
+
+    return hasTarget();
   }
 
   void addLocalMessage(ChaputMessage message) {
@@ -146,12 +187,9 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
       }
       if (m.id == serverMessage.id) {
         foundServer = true;
-        final createdAt = serverMessage.createdAt ?? m.createdAt ?? local?.createdAt;
-        next.add(_copyMessage(
-          m,
-          createdAt: createdAt,
-          delivered: true,
-        ));
+        final createdAt =
+            serverMessage.createdAt ?? m.createdAt ?? local?.createdAt;
+        next.add(_copyMessage(m, createdAt: createdAt, delivered: true));
         continue;
       }
       next.add(m);
@@ -174,7 +212,8 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
 
   void upsertMessageFromSocket(ChaputMessage message) {
     final meId = ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
-    if (meId.isNotEmpty && message.senderId.toLowerCase() == meId.toLowerCase()) {
+    if (meId.isNotEmpty &&
+        message.senderId.toLowerCase() == meId.toLowerCase()) {
       // If this is my message, try to replace a pending local message.
       final idx = state.items.indexWhere((m) {
         if (!m.id.startsWith('local_')) return false;
@@ -203,18 +242,20 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
 
     final exists = state.items.any((m) => m.id == message.id);
     if (exists) {
-      final next = state.items.map((m) {
-        if (m.id != message.id) return m;
-        return _copyMessage(
-          m,
-          createdAt: message.createdAt ?? m.createdAt,
-          delivered: message.delivered,
-          readByOther: message.readByOther,
-          likeCount: message.likeCount,
-          likedByMe: message.likedByMe,
-          topLikers: message.topLikers,
-        );
-      }).toList(growable: false);
+      final next = state.items
+          .map((m) {
+            if (m.id != message.id) return m;
+            return _copyMessage(
+              m,
+              createdAt: message.createdAt ?? m.createdAt,
+              delivered: message.delivered,
+              readByOther: message.readByOther,
+              likeCount: message.likeCount,
+              likedByMe: message.likedByMe,
+              topLikers: message.topLikers,
+            );
+          })
+          .toList(growable: false);
       state = state.copyWith(items: next);
     } else {
       state = state.copyWith(items: [message, ...state.items]);
@@ -225,11 +266,13 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
     final me = ref.read(meControllerProvider).valueOrNull?.user.userId;
     if (me == null || me.isEmpty) return;
     final meNorm = me.toLowerCase();
-    final next = state.items.map((m) {
-      if (m.senderId.toLowerCase() != meNorm) return m;
-      if (m.readByOther) return m;
-      return _copyMessage(m, readByOther: true);
-    }).toList(growable: false);
+    final next = state.items
+        .map((m) {
+          if (m.senderId.toLowerCase() != meNorm) return m;
+          if (m.readByOther) return m;
+          return _copyMessage(m, readByOther: true);
+        })
+        .toList(growable: false);
     state = state.copyWith(items: next);
   }
 
@@ -240,30 +283,32 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
     required bool liked,
     ChaputMessageLiker? liker,
   }) {
-    final next = state.items.map((m) {
-      if (m.id != messageId) return m;
-      var top = m.topLikers;
-      if (liker != null) {
-        if (liked) {
-          if (!top.any((u) => u.id == liker.id)) {
-            top = [liker, ...top];
+    final next = state.items
+        .map((m) {
+          if (m.id != messageId) return m;
+          var top = m.topLikers;
+          if (liker != null) {
+            if (liked) {
+              if (!top.any((u) => u.id == liker.id)) {
+                top = [liker, ...top];
+              }
+            } else {
+              top = top.where((u) => u.id != liker.id).toList(growable: false);
+            }
+            if (top.length > 3) {
+              top = top.take(3).toList(growable: false);
+            }
           }
-        } else {
-          top = top.where((u) => u.id != liker.id).toList(growable: false);
-        }
-        if (top.length > 3) {
-          top = top.take(3).toList(growable: false);
-        }
-      }
-      final me = ref.read(meControllerProvider).valueOrNull?.user.userId;
-      final likedByMe = (me != null && me == likerId) ? liked : m.likedByMe;
-      return _copyMessage(
-        m,
-        likeCount: likeCount,
-        likedByMe: likedByMe,
-        topLikers: top,
-      );
-    }).toList(growable: false);
+          final me = ref.read(meControllerProvider).valueOrNull?.user.userId;
+          final likedByMe = (me != null && me == likerId) ? liked : m.likedByMe;
+          return _copyMessage(
+            m,
+            likeCount: likeCount,
+            likedByMe: likedByMe,
+            topLikers: top,
+          );
+        })
+        .toList(growable: false);
     state = state.copyWith(items: next);
   }
 
@@ -273,13 +318,20 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
     ChaputMessageLiker? me,
   }) async {
     final before = state.items;
-    state = state.copyWith(items: _applyLikeOptimistic(before, messageId, like, me));
+    state = state.copyWith(
+      items: _applyLikeOptimistic(before, messageId, like, me),
+    );
     if (messageId.length != 32) return;
     try {
       final res = await _api.likeMessage(messageIdHex: messageId, like: like);
       if (res.likeCount >= 0) {
         state = state.copyWith(
-          items: _applyLikeServer(state.items, messageId, res.likeCount, res.likedByMe),
+          items: _applyLikeServer(
+            state.items,
+            messageId,
+            res.likeCount,
+            res.likedByMe,
+          ),
         );
       }
     } catch (e, st) {
@@ -294,35 +346,39 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
     bool like,
     ChaputMessageLiker? me,
   ) {
-    return items.map((m) {
-      if (m.id != messageId) return m;
-      final wasLiked = m.likedByMe;
-      final nextLiked = like;
-      var nextCount = m.likeCount;
-      if (like && !wasLiked) nextCount += 1;
-      if (!like && wasLiked) nextCount = (nextCount - 1).clamp(0, 1 << 30);
+    return items
+        .map((m) {
+          if (m.id != messageId) return m;
+          final wasLiked = m.likedByMe;
+          final nextLiked = like;
+          var nextCount = m.likeCount;
+          if (like && !wasLiked) nextCount += 1;
+          if (!like && wasLiked) nextCount = (nextCount - 1).clamp(0, 1 << 30);
 
-      var nextTop = m.topLikers;
-      if (me != null) {
-        if (like) {
-          if (!nextTop.any((u) => u.id == me.id)) {
-            nextTop = [me, ...nextTop];
+          var nextTop = m.topLikers;
+          if (me != null) {
+            if (like) {
+              if (!nextTop.any((u) => u.id == me.id)) {
+                nextTop = [me, ...nextTop];
+              }
+            } else {
+              nextTop = nextTop
+                  .where((u) => u.id != me.id)
+                  .toList(growable: false);
+            }
+            if (nextTop.length > 3) {
+              nextTop = nextTop.take(3).toList(growable: false);
+            }
           }
-        } else {
-          nextTop = nextTop.where((u) => u.id != me.id).toList(growable: false);
-        }
-        if (nextTop.length > 3) {
-          nextTop = nextTop.take(3).toList(growable: false);
-        }
-      }
 
-      return _copyMessage(
-        m,
-        likeCount: nextCount,
-        likedByMe: nextLiked,
-        topLikers: nextTop,
-      );
-    }).toList(growable: false);
+          return _copyMessage(
+            m,
+            likeCount: nextCount,
+            likedByMe: nextLiked,
+            topLikers: nextTop,
+          );
+        })
+        .toList(growable: false);
   }
 
   List<ChaputMessage> _applyLikeServer(
@@ -331,14 +387,12 @@ class ChaputMessagesController extends AutoDisposeFamilyNotifier<ChaputMessagesS
     int likeCount,
     bool likedByMe,
   ) {
-    return items.map((m) {
-      if (m.id != messageId) return m;
-      return _copyMessage(
-        m,
-        likeCount: likeCount,
-        likedByMe: likedByMe,
-      );
-    }).toList(growable: false);
+    return items
+        .map((m) {
+          if (m.id != messageId) return m;
+          return _copyMessage(m, likeCount: likeCount, likedByMe: likedByMe);
+        })
+        .toList(growable: false);
   }
 
   List<ChaputMessage> _dedupe(List<ChaputMessage> items) {

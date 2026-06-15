@@ -18,6 +18,14 @@ void main() {
     expect(target?.location, '/me/melis14');
   });
 
+  test('maps bundle-id custom-scheme links', () {
+    final target = chaputDeepLinkTargetFromUri(
+      Uri.parse('com.goktigin.chaput://chaput.app/me/melis14'),
+    );
+
+    expect(target?.location, '/me/melis14');
+  });
+
   test('maps legacy host-root custom-scheme links', () {
     final target = chaputDeepLinkTargetFromUri(
       Uri.parse('app.chaput://me/melis14'),

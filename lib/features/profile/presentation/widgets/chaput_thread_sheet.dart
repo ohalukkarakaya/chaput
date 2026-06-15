@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -673,6 +674,9 @@ class _ThreadPage extends ConsumerWidget {
                     onLoadMore: () => ref
                         .read(chaputMessagesControllerProvider(args).notifier)
                         .loadMore(),
+                    onLoadUntilMessage: (messageId) => ref
+                        .read(chaputMessagesControllerProvider(args).notifier)
+                        .loadUntilMessage(messageId),
                     onInitialMessageRevealed: onInitialMessageRevealed,
                   ),
                 ),
@@ -1380,6 +1384,7 @@ class _MessagesList extends StatefulWidget {
     required this.onReportMessage,
     required this.onToggleLike,
     required this.onLoadMore,
+    required this.onLoadUntilMessage,
     this.onInitialMessageRevealed,
   });
 
@@ -1398,7 +1403,8 @@ class _MessagesList extends StatefulWidget {
   final ValueChanged<ChaputMessage> onReply;
   final ValueChanged<ChaputMessage> onReportMessage;
   final void Function(ChaputMessage message, bool like) onToggleLike;
-  final VoidCallback onLoadMore;
+  final Future<void> Function() onLoadMore;
+  final Future<bool> Function(String messageId) onLoadUntilMessage;
   final ValueChanged<String>? onInitialMessageRevealed;
 
   @override
@@ -1411,6 +1417,8 @@ class _MessagesListState extends State<_MessagesList> {
   final Map<String, GlobalKey> _groupKeys = {};
   final Map<String, GlobalKey> _groupContentKeys = {};
   bool _loadTriggered = false;
+  bool _jumpScheduled = false;
+  bool _autoPagingForJump = false;
   String? _pendingJumpId;
 
   @override
@@ -1456,7 +1464,7 @@ class _MessagesListState extends State<_MessagesList> {
     final nearTop = pos.pixels >= pos.maxScrollExtent - 40;
     if (nearTop && !_loadTriggered) {
       _loadTriggered = true;
-      widget.onLoadMore();
+      unawaited(widget.onLoadMore());
     }
     if (pos.pixels < pos.maxScrollExtent - 160) {
       _loadTriggered = false;
@@ -1489,22 +1497,103 @@ class _MessagesListState extends State<_MessagesList> {
         alignment: 0.3,
       );
       _pendingJumpId = null;
+      _jumpScheduled = false;
+      _autoPagingForJump = false;
       widget.onInitialMessageRevealed?.call(id);
+      return;
+    }
+    final isLoaded = widget.state.items.any((m) => m.id == id);
+    if (isLoaded) {
+      _pendingJumpId = id;
+      if (mounted) setState(() {});
+      _tryPendingJump();
       return;
     }
     if (widget.state.nextCursor != null &&
         widget.state.nextCursor!.isNotEmpty) {
       _pendingJumpId = id;
-      widget.onLoadMore();
+      _continuePagingUntilMessage(id);
+      return;
+    }
+    if (!widget.state.isLoading && !widget.state.isLoadingMore) {
+      _pendingJumpId = null;
+      _jumpScheduled = false;
+      _autoPagingForJump = false;
+      if (mounted) setState(() {});
     }
   }
 
   void _tryPendingJump() {
     final id = _pendingJumpId;
     if (id == null) return;
+    if (_jumpScheduled) return;
+    _jumpScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _jumpScheduled = false;
+      if (!mounted) return;
       _jumpToMessage(id);
     });
+  }
+
+  void _continuePagingUntilMessage(String id) {
+    if (_autoPagingForJump) return;
+    _autoPagingForJump = true;
+    unawaited(_pageUntilMessageIsLoaded(id));
+  }
+
+  Future<void> _pageUntilMessageIsLoaded(String id) async {
+    try {
+      while (mounted && _pendingJumpId == id) {
+        final key = _messageKeys[id];
+        final ctx = key?.currentContext;
+        if (ctx != null) {
+          _jumpToMessage(id);
+          return;
+        }
+
+        if (widget.state.items.any((m) => m.id == id)) {
+          setState(() {});
+          await WidgetsBinding.instance.endOfFrame;
+          continue;
+        }
+
+        if (widget.state.isLoading || widget.state.isLoadingMore) {
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+          continue;
+        }
+
+        await _scrollToPaginationEdge();
+        if (!mounted || _pendingJumpId != id) return;
+        final found = await widget.onLoadUntilMessage(id);
+        if (!mounted) return;
+        await WidgetsBinding.instance.endOfFrame;
+        if (found) {
+          _jumpToMessage(id);
+          return;
+        }
+        if (_pendingJumpId == id) {
+          _pendingJumpId = null;
+          _jumpScheduled = false;
+          _autoPagingForJump = false;
+          setState(() {});
+        }
+        return;
+      }
+    } finally {
+      _autoPagingForJump = false;
+    }
+  }
+
+  Future<void> _scrollToPaginationEdge() async {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final target = position.maxScrollExtent;
+    if ((position.pixels - target).abs() <= 4) return;
+    await _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _openLikesFocus(ChaputMessage message, bool isMine, bool isParticipant) {
@@ -1554,56 +1643,67 @@ class _MessagesListState extends State<_MessagesList> {
     final viewerNorm = widget.viewerId.toLowerCase();
     final starterNorm = widget.starterId.toLowerCase();
 
+    Widget buildGroup(int i) {
+      final g = groups[i];
+      final senderNorm = g.senderId.toLowerCase();
+      final isMine = widget.isParticipant
+          ? senderNorm == viewerNorm
+          : senderNorm == starterNorm;
+      final senderUser = _resolveUser(g.senderId);
+      final forceDefault =
+          widget.isHidden &&
+          !widget.isParticipant &&
+          senderUser == widget.otherUser;
+      final label = dayLabels[i];
+      final groupKey = _keyForGroup(
+        g.items.isNotEmpty ? g.items.first.id : g.senderId,
+      );
+      final contentKey = _keyForGroupContent(
+        g.items.isNotEmpty ? g.items.first.id : g.senderId,
+      );
+      return _MessageGroupBubble(
+        key: groupKey,
+        group: g,
+        isMine: isMine,
+        senderUser: senderUser,
+        forceDefaultAvatar: forceDefault,
+        isParticipant: widget.isParticipant,
+        dayLabel: label,
+        resolveUser: _resolveUser,
+        canReply: widget.canReply,
+        onReply: widget.onReply,
+        onReportMessage: widget.onReportMessage,
+        onToggleLike: widget.onToggleLike,
+        onShowLikes: (m) => _openLikesFocus(m, isMine, widget.isParticipant),
+        onShareMessage: (m) => _shareMessage(
+          context,
+          widget.profileUsername,
+          widget.threadId,
+          m.id,
+        ),
+        onReplyTap: _jumpToMessage,
+        messageKeyFor: _keyForMessage,
+        scrollController: _scrollController,
+        groupKey: groupKey,
+        contentKey: contentKey,
+      );
+    }
+
+    if (_pendingJumpId != null) {
+      return ListView(
+        controller: _scrollController,
+        reverse: true,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        children: [for (int i = 0; i < groups.length; i++) buildGroup(i)],
+      );
+    }
+
     return ListView.builder(
       controller: _scrollController,
       reverse: true,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       itemCount: groups.length,
-      itemBuilder: (ctx, i) {
-        final g = groups[i];
-        final senderNorm = g.senderId.toLowerCase();
-        final isMine = widget.isParticipant
-            ? senderNorm == viewerNorm
-            : senderNorm == starterNorm;
-        final senderUser = _resolveUser(g.senderId);
-        final forceDefault =
-            widget.isHidden &&
-            !widget.isParticipant &&
-            senderUser == widget.otherUser;
-        final label = dayLabels[i];
-        final groupKey = _keyForGroup(
-          g.items.isNotEmpty ? g.items.first.id : g.senderId,
-        );
-        final contentKey = _keyForGroupContent(
-          g.items.isNotEmpty ? g.items.first.id : g.senderId,
-        );
-        return _MessageGroupBubble(
-          key: groupKey,
-          group: g,
-          isMine: isMine,
-          senderUser: senderUser,
-          forceDefaultAvatar: forceDefault,
-          isParticipant: widget.isParticipant,
-          dayLabel: label,
-          resolveUser: _resolveUser,
-          canReply: widget.canReply,
-          onReply: widget.onReply,
-          onReportMessage: widget.onReportMessage,
-          onToggleLike: widget.onToggleLike,
-          onShowLikes: (m) => _openLikesFocus(m, isMine, widget.isParticipant),
-          onShareMessage: (m) => _shareMessage(
-            context,
-            widget.profileUsername,
-            widget.threadId,
-            m.id,
-          ),
-          onReplyTap: _jumpToMessage,
-          messageKeyFor: _keyForMessage,
-          scrollController: _scrollController,
-          groupKey: groupKey,
-          contentKey: contentKey,
-        );
-      },
+      itemBuilder: (ctx, i) => buildGroup(i),
     );
   }
 
