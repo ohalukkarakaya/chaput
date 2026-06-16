@@ -287,6 +287,8 @@
   "profile_actions.restrict_already": "Zaten kısıtlı",
   "profile_actions.restrict_already_desc": "Bu kullanıcı zaten kısıtlandı.",
   "profile_actions.restrict_desc": "Bu kullanıcıyı kısıtla.",
+  "profile_actions.unrestrict": "Kısıtlamayı kaldır",
+  "profile_actions.unrestrict_desc": "Bu kullanıcının profilini tekrar görmesine izin ver.",
   "profile_actions.share": "Profili paylaş",
   "profile_actions.share_desc": "Bu profil ağacının bağlantısını gönder.",
   "profile_tree.placeholder": "Ağaç yükleniyor...",

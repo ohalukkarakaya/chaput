@@ -264,12 +264,13 @@ class ChaputThreadsController
     state = state.copyWith(items: reordered);
   }
 
-  void upsertThreadFromSocket(ChaputThreadItem item, ChaputThreadsArgs _) {
+  void upsertThreadFromSocket(ChaputThreadItem item, ChaputThreadsArgs arg) {
     if (item.threadId.isEmpty) return;
 
     final exists = state.items.any((t) => t.threadId == item.threadId);
     if (!exists) {
-      state = state.copyWith(items: [...state.items, item]);
+      final next = _reorder(_dedupe([item, ...state.items]), arg);
+      state = state.copyWith(items: next);
       return;
     }
 
@@ -277,7 +278,9 @@ class ChaputThreadsController
         .map((t) {
           if (t.threadId != item.threadId) return t;
           return t.copyWith(
-            threadSlug: item.threadSlug.isNotEmpty ? item.threadSlug : t.threadSlug,
+            threadSlug: item.threadSlug.isNotEmpty
+                ? item.threadSlug
+                : t.threadSlug,
             kind: item.kind,
             state: item.state,
             lastMessageAt: item.lastMessageAt ?? t.lastMessageAt,
@@ -286,6 +289,6 @@ class ChaputThreadsController
           );
         })
         .toList(growable: false);
-    state = state.copyWith(items: next);
+    state = state.copyWith(items: _reorder(next, arg));
   }
 }

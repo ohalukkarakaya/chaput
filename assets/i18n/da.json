@@ -283,6 +283,8 @@
   "profile_actions.restrict_already": "Allerede begrænset",
   "profile_actions.restrict_already_desc": "Denne bruger er allerede begrænset.",
   "profile_actions.restrict_desc": "Begræns denne bruger.",
+  "profile_actions.unrestrict": "Fjern begrænsning",
+  "profile_actions.unrestrict_desc": "Lad denne bruger se din profil igen.",
   "profile_tree.placeholder": "Træet indlæses...",
   "profile_tree.title": "Træ",
   "reports.reason.harassment": "Chikane",

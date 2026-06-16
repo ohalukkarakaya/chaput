@@ -189,7 +189,20 @@ class ChaputMessagesController
         foundServer = true;
         final createdAt =
             serverMessage.createdAt ?? m.createdAt ?? local?.createdAt;
-        next.add(_copyMessage(m, createdAt: createdAt, delivered: true));
+        next.add(
+          _copyMessage(
+            m,
+            createdAt: createdAt,
+            delivered: true,
+            readByOther: serverMessage.readByOther,
+            likeCount: serverMessage.likeCount,
+            likedByMe: serverMessage.likedByMe,
+            topLikers: serverMessage.topLikers,
+            replyToId: serverMessage.replyToId,
+            replyToSenderId: serverMessage.replyToSenderId,
+            replyToBody: serverMessage.replyToBody,
+          ),
+        );
         continue;
       }
       next.add(m);
@@ -203,6 +216,13 @@ class ChaputMessagesController
           id: serverMessage.id,
           createdAt: serverMessage.createdAt ?? local.createdAt,
           delivered: true,
+          readByOther: serverMessage.readByOther,
+          likeCount: serverMessage.likeCount,
+          likedByMe: serverMessage.likedByMe,
+          topLikers: serverMessage.topLikers,
+          replyToId: serverMessage.replyToId,
+          replyToSenderId: serverMessage.replyToSenderId,
+          replyToBody: serverMessage.replyToBody,
         ),
       );
     }
@@ -234,6 +254,9 @@ class ChaputMessagesController
           likeCount: message.likeCount,
           likedByMe: message.likedByMe,
           topLikers: message.topLikers,
+          replyToId: message.replyToId,
+          replyToSenderId: message.replyToSenderId,
+          replyToBody: message.replyToBody,
         );
         state = state.copyWith(items: _dedupe(next));
         return;
@@ -253,6 +276,9 @@ class ChaputMessagesController
               likeCount: message.likeCount,
               likedByMe: message.likedByMe,
               topLikers: message.topLikers,
+              replyToId: message.replyToId,
+              replyToSenderId: message.replyToSenderId,
+              replyToBody: message.replyToBody,
             );
           })
           .toList(growable: false);
@@ -414,6 +440,9 @@ class ChaputMessagesController
     bool? readByOther,
     String? id,
     DateTime? createdAt,
+    String? replyToId,
+    String? replyToSenderId,
+    String? replyToBody,
   }) {
     return ChaputMessage(
       id: id ?? m.id,
@@ -421,9 +450,9 @@ class ChaputMessagesController
       kind: m.kind,
       body: m.body,
       createdAt: createdAt ?? m.createdAt,
-      replyToId: m.replyToId,
-      replyToSenderId: m.replyToSenderId,
-      replyToBody: m.replyToBody,
+      replyToId: replyToId ?? m.replyToId,
+      replyToSenderId: replyToSenderId ?? m.replyToSenderId,
+      replyToBody: replyToBody ?? m.replyToBody,
       likeCount: likeCount ?? m.likeCount,
       likedByMe: likedByMe ?? m.likedByMe,
       delivered: delivered ?? m.delivered,

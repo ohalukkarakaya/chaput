@@ -283,6 +283,8 @@
   "profile_actions.restrict_already": "Jo rajoitettu",
   "profile_actions.restrict_already_desc": "Tämä käyttäjä on jo rajoitettu.",
   "profile_actions.restrict_desc": "Rajoita tämä käyttäjä.",
+  "profile_actions.unrestrict": "Poista rajoitus",
+  "profile_actions.unrestrict_desc": "Salli tämän käyttäjän nähdä profiilisi taas.",
   "profile_tree.placeholder": "Puuta ladataan...",
   "profile_tree.title": "Puu",
   "reports.reason.harassment": "Häirintä",

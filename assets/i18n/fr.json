@@ -283,6 +283,8 @@
   "profile_actions.restrict_already": "Déjà restreint",
   "profile_actions.restrict_already_desc": "Cet utilisateur est déjà restreint.",
   "profile_actions.restrict_desc": "Restreindre cet utilisateur.",
+  "profile_actions.unrestrict": "Retirer la restriction",
+  "profile_actions.unrestrict_desc": "Autoriser à nouveau cet utilisateur à voir ton profil.",
   "profile_tree.placeholder": "Chargement de l’arbre...",
   "profile_tree.title": "Arbre",
   "reports.reason.harassment": "Harcèlement",

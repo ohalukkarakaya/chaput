@@ -283,6 +283,8 @@
   "profile_actions.restrict_already": "Redan begränsad",
   "profile_actions.restrict_already_desc": "Den här användaren är redan begränsad.",
   "profile_actions.restrict_desc": "Begränsa den här användaren.",
+  "profile_actions.unrestrict": "Ta bort begränsning",
+  "profile_actions.unrestrict_desc": "Låt den här användaren se din profil igen.",
   "profile_tree.placeholder": "Trädet laddas...",
   "profile_tree.title": "Träd",
   "reports.reason.harassment": "Trakasserier",

@@ -283,6 +283,8 @@
   "profile_actions.restrict_already": "Bereits eingeschränkt",
   "profile_actions.restrict_already_desc": "Dieser Nutzer ist bereits eingeschränkt.",
   "profile_actions.restrict_desc": "Diesen Nutzer einschränken.",
+  "profile_actions.unrestrict": "Einschränkung aufheben",
+  "profile_actions.unrestrict_desc": "Diesem Nutzer wieder Zugriff auf dein Profil erlauben.",
   "profile_tree.placeholder": "Baum wird geladen...",
   "profile_tree.title": "Baum",
   "reports.reason.harassment": "Belästigung",

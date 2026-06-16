@@ -283,6 +283,8 @@
   "profile_actions.restrict_already": "Ya restringido",
   "profile_actions.restrict_already_desc": "Este usuario ya está restringido.",
   "profile_actions.restrict_desc": "Restringir a este usuario.",
+  "profile_actions.unrestrict": "Quitar restricción",
+  "profile_actions.unrestrict_desc": "Permitir que este usuario vuelva a ver tu perfil.",
   "profile_tree.placeholder": "Cargando árbol...",
   "profile_tree.title": "Árbol",
   "reports.reason.harassment": "Acoso",

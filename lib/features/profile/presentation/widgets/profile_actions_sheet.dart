@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/share/chaput_share_links.dart';
@@ -8,6 +9,7 @@ import '../../../../features/recommended_users/application/recommended_user_cont
 import '../../../../features/social/application/block_controller.dart';
 import '../../../../features/social/application/restrictions_controller.dart';
 import '../../../../features/social/application/ui_restriction_override_provider.dart';
+import '../../../../core/router/routes.dart';
 import 'sheet_handle.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
@@ -78,7 +80,7 @@ class ProfileActionsSheet extends ConsumerWidget {
     final restrictSt = ref.watch(restrictionsControllerProvider);
 
     final busy = blockSt is BlockActionLoading || restrictSt is RestrictLoading;
-    final bool restrictDisabled = busy || iRestrictedHim;
+    final nextRestricted = !iRestrictedHim;
 
     return Container(
       padding: EdgeInsets.only(top: 8, bottom: bottomInset),
@@ -110,26 +112,22 @@ class ProfileActionsSheet extends ConsumerWidget {
           ProfileActionTile(
             icon: Icons.remove_circle_outline,
             title: iRestrictedHim
-                ? context.t('profile_actions.restrict_already')
+                ? context.t('profile_actions.unrestrict')
                 : context.t('profile_actions.restrict'),
             subtitle: iRestrictedHim
-                ? context.t('profile_actions.restrict_already_desc')
+                ? context.t('profile_actions.unrestrict_desc')
                 : context.t('profile_actions.restrict_desc'),
-            enabled: !restrictDisabled,
+            enabled: !busy,
             onTap: () async {
               ref.read(uiRestrictedOverrideProvider(userId).notifier).state =
-                  true;
+                  nextRestricted;
               Navigator.pop(context);
               try {
                 final restrictedNow = await ref
                     .read(restrictionsControllerProvider.notifier)
                     .toggle(userId);
-                if (restrictedNow != true) {
-                  ref
-                          .read(uiRestrictedOverrideProvider(userId).notifier)
-                          .state =
-                      null;
-                }
+                ref.read(uiRestrictedOverrideProvider(userId).notifier).state =
+                    restrictedNow;
               } catch (_) {
                 ref.read(uiRestrictedOverrideProvider(userId).notifier).state =
                     null;
@@ -145,20 +143,21 @@ class ProfileActionsSheet extends ConsumerWidget {
             onTap: busy
                 ? () {}
                 : () async {
+                    final router = GoRouter.of(context);
                     final rootNav = Navigator.of(context, rootNavigator: true);
 
                     rootNav.pop();
 
                     try {
                       await ref
-                          .read(recommendedUserControllerProvider.notifier)
-                          .refresh();
-
-                      await ref
                           .read(blockControllerProvider.notifier)
                           .blockUser(username);
 
-                      rootNav.pop();
+                      await ref
+                          .read(recommendedUserControllerProvider.notifier)
+                          .refresh();
+
+                      router.go(Routes.home);
                     } catch (_) {}
                   },
           ),

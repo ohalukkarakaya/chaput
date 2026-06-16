@@ -508,6 +508,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return DateTime.tryParse(s);
   }
 
+  Map<String, dynamic>? _normalizeSocketMap(dynamic value) {
+    if (value is! Map) return null;
+    return value.map((key, val) => MapEntry(key.toString(), val));
+  }
+
   Future<void> _handleSocketEvent(ChaputSocketEvent ev) async {
     final data = ev.data;
     if (ev.type == 'chaput.thread.bump') {
@@ -531,7 +536,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         z: null,
       );
       final args = _lastChaputArgs;
+      String? previousState;
       if (args != null) {
+        for (final thread
+            in ref.read(chaputThreadsControllerProvider(args)).items) {
+          if (thread.threadId == threadId) {
+            previousState = thread.state;
+            break;
+          }
+        }
         ref
             .read(chaputThreadsControllerProvider(args).notifier)
             .upsertThreadFromSocket(item, args);
@@ -562,13 +575,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               .addUsers(map);
         }
       }
+      if (_chaputProfileId != null &&
+          _activeThreadId == threadId &&
+          _activeThreadIsParticipant &&
+          previousState == 'PENDING' &&
+          item.state == 'OPEN') {
+        _subscribeThreadSocket(threadId, _chaputProfileId!);
+        unawaited(
+          ref
+              .read(
+                chaputMessagesControllerProvider(
+                  ChaputMessagesArgs(
+                    threadId: threadId,
+                    profileId: _chaputProfileId!,
+                  ),
+                ).notifier,
+              )
+              .refresh(),
+        );
+      }
       return;
     }
 
     if (ev.type == 'chaput.message.created') {
       final threadId = data['thread_id']?.toString() ?? '';
-      final msg = data['message'];
-      if (threadId.isEmpty || msg is! Map<String, dynamic>) return;
+      final msg = _normalizeSocketMap(data['message']);
+      if (threadId.isEmpty || msg == null) return;
       if (_chaputProfileId == null) return;
       final senderId = msg['sender_id']?.toString() ?? '';
       final args = ChaputMessagesArgs(
@@ -637,8 +669,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final likeCount = (data['like_count'] ?? 0) as int;
       final liked = data['liked'] == true;
       ChaputMessageLiker? liker;
-      final likerJson = data['liker'];
-      if (likerJson is Map<String, dynamic>) {
+      final likerJson = _normalizeSocketMap(data['liker']);
+      if (likerJson != null) {
         liker = ChaputMessageLiker.fromJson(likerJson);
       }
       ref
@@ -1948,6 +1980,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     FocusScope.of(context).unfocus();
 
     final mask = _showNavMask();
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 220), () {
+        if (mask.mounted) {
+          mask.remove();
+        }
+      }),
+    );
     final router = GoRouter.of(context);
     _reloadOnPopNext = true;
     setState(() {
@@ -1956,7 +1995,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _disposeThree();
     await router.push('/profile/$userId', extra: {'threadId': threadId});
     if (!mounted) return;
-    await Future.delayed(const Duration(milliseconds: 220));
     if (mask.mounted) mask.remove();
   }
 
@@ -2024,6 +2062,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         )
         .addLocalMessage(msg);
     _playSmallFeedback(ChaputSoundEffect.sendMessage);
+    if (replyTarget != null) {
+      setState(() {
+        _replyTarget = null;
+        _replyTargetThreadId = null;
+      });
+    }
 
     try {
       final serverMsg = await api.sendMessage(
@@ -2055,11 +2099,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     } catch (_) {
       // leave local message as-is; UI already shows it as sent but undelivered
     }
-
-    setState(() {
-      _replyTarget = null;
-      _replyTargetThreadId = null;
-    });
   }
 
   Future<void> _makeThreadHidden({

@@ -287,6 +287,8 @@
   "profile_actions.restrict_already": "Already restricted",
   "profile_actions.restrict_already_desc": "This user is already restricted.",
   "profile_actions.restrict_desc": "Restrict this user.",
+  "profile_actions.unrestrict": "Remove restriction",
+  "profile_actions.unrestrict_desc": "Allow this user to view your profile again.",
   "profile_actions.share": "Share profile",
   "profile_actions.share_desc": "Send a link to this profile tree.",
   "profile_tree.placeholder": "Loading tree...",

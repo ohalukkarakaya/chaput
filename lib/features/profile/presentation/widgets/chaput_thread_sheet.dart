@@ -627,12 +627,11 @@ class _ThreadPage extends ConsumerWidget {
                   onMakeHidden: () => onMakeHidden(thread),
                   onArchiveThread: () => onArchiveThread(thread),
                   onReportThread: () => onReportThread(thread),
-                  onShareThread: () =>
-                      _shareThread(
-                        context,
-                        profileUsername,
-                        thread.sharePathSegment,
-                      ),
+                  onShareThread: () => _shareThread(
+                    context,
+                    profileUsername,
+                    thread.sharePathSegment,
+                  ),
                   canArchiveThread: canArchiveThread,
                   canReportThread: canReportThread,
                   canShareThread: profileUsername.isNotEmpty,
@@ -646,6 +645,9 @@ class _ThreadPage extends ConsumerWidget {
                   top: topPad,
                   bottom: listBottom,
                   child: _MessagesList(
+                    key: ValueKey(
+                      'messages-${thread.threadId}-${initialMessageId ?? ''}',
+                    ),
                     state: messagesState,
                     viewerId: viewerId,
                     starterId: thread.starterId,
@@ -1332,6 +1334,7 @@ class ChatComposerAvatar extends StatelessWidget {
 
 class _MessagesList extends StatefulWidget {
   const _MessagesList({
+    super.key,
     required this.state,
     required this.viewerId,
     required this.starterId,
@@ -1379,6 +1382,8 @@ class _MessagesListState extends State<_MessagesList> {
   bool _loadTriggered = false;
   bool _jumpScheduled = false;
   bool _autoPagingForJump = false;
+  bool _latestAnchorScheduled = false;
+  bool _anchoredToLatest = false;
   String? _pendingJumpId;
 
   @override
@@ -1401,6 +1406,7 @@ class _MessagesListState extends State<_MessagesList> {
     if (newId != null &&
         newId.isNotEmpty &&
         newId != oldWidget.initialMessageId) {
+      _anchoredToLatest = false;
       _pendingJumpId = newId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _tryPendingJump();
@@ -1492,6 +1498,28 @@ class _MessagesListState extends State<_MessagesList> {
       _jumpScheduled = false;
       if (!mounted) return;
       _jumpToMessage(id);
+    });
+  }
+
+  void _scheduleLatestAnchor() {
+    if (_anchoredToLatest ||
+        _latestAnchorScheduled ||
+        _pendingJumpId != null ||
+        widget.state.isLoading ||
+        widget.state.items.isEmpty) {
+      return;
+    }
+    _latestAnchorScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _latestAnchorScheduled = false;
+      if (!mounted ||
+          _anchoredToLatest ||
+          _pendingJumpId != null ||
+          !_scrollController.hasClients) {
+        return;
+      }
+      _scrollController.jumpTo(_scrollController.position.minScrollExtent);
+      _anchoredToLatest = true;
     });
   }
 
@@ -1599,6 +1627,7 @@ class _MessagesListState extends State<_MessagesList> {
     final groups = _groupMessages(items);
     final dayLabels = _buildDayLabels(context, groups);
     _tryPendingJump();
+    _scheduleLatestAnchor();
 
     final viewerNorm = widget.viewerId.toLowerCase();
     final starterNorm = widget.starterId.toLowerCase();

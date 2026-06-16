@@ -283,6 +283,8 @@
   "profile_actions.restrict_already": "Allerede begrenset",
   "profile_actions.restrict_already_desc": "Denne brukeren er allerede begrenset.",
   "profile_actions.restrict_desc": "Begrens denne brukeren.",
+  "profile_actions.unrestrict": "Fjern begrensning",
+  "profile_actions.unrestrict_desc": "La denne brukeren se profilen din igjen.",
   "profile_tree.placeholder": "Treet lastes...",
   "profile_tree.title": "Tre",
   "reports.reason.harassment": "Trakassering",
