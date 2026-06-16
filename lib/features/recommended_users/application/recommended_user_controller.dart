@@ -1,14 +1,13 @@
-import 'dart:developer';
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../me/application/me_controller.dart';
 import '../data/recommended_users_api.dart';
 import '../domain/recommended_user.dart';
 
 final recommendedUserControllerProvider =
-AsyncNotifierProvider<RecommendedUserController, RecommendedUser?>(
-  RecommendedUserController.new,
-);
+    AsyncNotifierProvider<RecommendedUserController, RecommendedUser?>(
+      RecommendedUserController.new,
+    );
 
 class RecommendedUserController extends AsyncNotifier<RecommendedUser?> {
   @override
@@ -20,6 +19,16 @@ class RecommendedUserController extends AsyncNotifier<RecommendedUser?> {
   Future<RecommendedUser?> _fetch() async {
     final api = ref.read(recommendedUsersApiProvider);
     final u = await api.getRecommended();
+    final me = ref.read(meControllerProvider).valueOrNull?.user;
+    if (u != null && me != null) {
+      final sameId = u.id.toLowerCase() == me.userId.toLowerCase();
+      final sameUsername =
+          (u.username ?? '').isNotEmpty &&
+          u.username!.toLowerCase() == me.username.toLowerCase();
+      if (sameId || sameUsername) {
+        return null;
+      }
+    }
     return u;
   }
 

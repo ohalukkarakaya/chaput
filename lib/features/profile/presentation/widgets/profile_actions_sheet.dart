@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -82,86 +84,96 @@ class ProfileActionsSheet extends ConsumerWidget {
     final busy = blockSt is BlockActionLoading || restrictSt is RestrictLoading;
     final nextRestricted = !iRestrictedHim;
 
-    return Container(
-      padding: EdgeInsets.only(top: 8, bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: AppColors.chaputWhite,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SheetHandle(),
+    return Material(
+      color: AppColors.chaputWhite,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.only(top: 8, bottom: bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(),
 
-          ProfileActionTile(
-            icon: Icons.ios_share_rounded,
-            title: context.t('profile_actions.share'),
-            subtitle: context.t('profile_actions.share_desc'),
-            onTap: () {
-              HapticFeedback.mediumImpact();
-              Navigator.pop(context);
-              SharePlus.instance.share(
-                ShareParams(
-                  text: ChaputShareLinks.profile(username),
-                  subject: context.t('share.subject'),
-                ),
-              );
-            },
-          ),
+            ProfileActionTile(
+              icon: Icons.ios_share_rounded,
+              title: context.t('profile_actions.share'),
+              subtitle: context.t('profile_actions.share_desc'),
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                Navigator.pop(context);
+                SharePlus.instance.share(
+                  ShareParams(
+                    text: ChaputShareLinks.profile(username),
+                    subject: context.t('share.subject'),
+                  ),
+                );
+              },
+            ),
 
-          ProfileActionTile(
-            icon: Icons.remove_circle_outline,
-            title: iRestrictedHim
-                ? context.t('profile_actions.unrestrict')
-                : context.t('profile_actions.restrict'),
-            subtitle: iRestrictedHim
-                ? context.t('profile_actions.unrestrict_desc')
-                : context.t('profile_actions.restrict_desc'),
-            enabled: !busy,
-            onTap: () async {
-              ref.read(uiRestrictedOverrideProvider(userId).notifier).state =
-                  nextRestricted;
-              Navigator.pop(context);
-              try {
-                final restrictedNow = await ref
-                    .read(restrictionsControllerProvider.notifier)
-                    .toggle(userId);
+            ProfileActionTile(
+              icon: Icons.remove_circle_outline,
+              title: iRestrictedHim
+                  ? context.t('profile_actions.unrestrict')
+                  : context.t('profile_actions.restrict'),
+              subtitle: iRestrictedHim
+                  ? context.t('profile_actions.unrestrict_desc')
+                  : context.t('profile_actions.restrict_desc'),
+              enabled: !busy,
+              onTap: () async {
                 ref.read(uiRestrictedOverrideProvider(userId).notifier).state =
-                    restrictedNow;
-              } catch (_) {
-                ref.read(uiRestrictedOverrideProvider(userId).notifier).state =
-                    null;
-              }
-            },
-          ),
+                    nextRestricted;
+                Navigator.pop(context);
+                try {
+                  final restrictedNow = await ref
+                      .read(restrictionsControllerProvider.notifier)
+                      .toggle(userId);
+                  ref
+                          .read(uiRestrictedOverrideProvider(userId).notifier)
+                          .state =
+                      restrictedNow;
+                } catch (_) {
+                  ref
+                          .read(uiRestrictedOverrideProvider(userId).notifier)
+                          .state =
+                      null;
+                }
+              },
+            ),
 
-          ProfileActionTile(
-            icon: Icons.block,
-            title: context.t('profile_actions.block'),
-            subtitle: context.t('profile_actions.block_desc'),
-            destructive: true,
-            onTap: busy
-                ? () {}
-                : () async {
-                    final router = GoRouter.of(context);
-                    final rootNav = Navigator.of(context, rootNavigator: true);
+            ProfileActionTile(
+              icon: Icons.block,
+              title: context.t('profile_actions.block'),
+              subtitle: context.t('profile_actions.block_desc'),
+              destructive: true,
+              onTap: busy
+                  ? () {}
+                  : () async {
+                      final router = GoRouter.of(context);
+                      final rootNav = Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      );
 
-                    rootNav.pop();
+                      rootNav.pop();
 
-                    try {
-                      await ref
-                          .read(blockControllerProvider.notifier)
-                          .blockUser(username);
+                      try {
+                        await ref
+                            .read(blockControllerProvider.notifier)
+                            .blockUser(username);
 
-                      await ref
-                          .read(recommendedUserControllerProvider.notifier)
-                          .refresh();
+                        router.go(Routes.home);
 
-                      router.go(Routes.home);
-                    } catch (_) {}
-                  },
-          ),
-        ],
+                        unawaited(
+                          ref
+                              .read(recommendedUserControllerProvider.notifier)
+                              .refresh(),
+                        );
+                      } catch (_) {}
+                    },
+            ),
+          ],
+        ),
       ),
     );
   }
