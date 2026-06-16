@@ -69,6 +69,15 @@ class _ChaputTunnelSplashPainter extends CustomPainter {
       ((progress - 0.90) / 0.10).clamp(0.0, 1.0),
     );
 
+    if (progress <= 0.0001) {
+      _drawPortal(canvas, center, baseExtent, 1.0);
+      return;
+    }
+
+    final tunnelReveal = Curves.easeOutCubic.transform(
+      (progress / 0.08).clamp(0.0, 1.0),
+    );
+
     for (var index = 8; index >= 0; index--) {
       final depth = index + 1.0 - travel;
       if (depth <= 0.09) continue;
@@ -77,10 +86,15 @@ class _ChaputTunnelSplashPainter extends CustomPainter {
       final extent = baseExtent * scale;
       if (extent <= 0.5) continue;
 
-      final opacity = ((1 / (depth + 0.32)) * 0.92 * (1 - fadeTail)).clamp(
+      var opacity = ((1 / (depth + 0.32)) * 0.92 * (1 - fadeTail)).clamp(
         0.0,
         1.0,
       );
+
+      if (index != 0) {
+        opacity *= tunnelReveal;
+      }
+
       if (opacity <= 0.002) continue;
 
       _drawPortal(canvas, center, extent, opacity);
