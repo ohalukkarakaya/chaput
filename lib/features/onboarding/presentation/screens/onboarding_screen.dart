@@ -35,7 +35,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   static const _textHeightAnimationDuration = Duration(milliseconds: 220);
-  static const _textRevealDelay = Duration(milliseconds: 240);
+  static const _textRevealDelay = Duration(milliseconds: 160);
 
   final _emailController = TextEditingController();
   final PageController _textController = PageController();
