@@ -1,13 +1,15 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/deep_links/deep_link_state.dart';
 import '../../../../core/device/device_id_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
-import '../../../../core/ui/video/video_background.dart';
+import '../../../../core/ui/widgets/chaput_tunnel_splash.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../notifications/application/firebase_token_cleanup.dart';
@@ -22,17 +24,54 @@ class BootScreen extends ConsumerStatefulWidget {
   ConsumerState<BootScreen> createState() => _BootScreenState();
 }
 
-class _BootScreenState extends ConsumerState<BootScreen> {
+class _BootScreenState extends ConsumerState<BootScreen>
+    with SingleTickerProviderStateMixin {
   bool _navigated = false;
+  bool _exitHapticFired = false;
+  late final AnimationController _exitController;
 
-  void _goAfterBoot() {
-    final pendingLink = ref.read(pendingDeepLinkProvider);
-    if (pendingLink != null) {
-      context.go(Routes.home);
-      return;
+  @override
+  void initState() {
+    super.initState();
+    _exitController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 780),
+    );
+    _exitController.addListener(() {
+      if (_exitHapticFired || _exitController.value < 0.92) {
+        return;
+      }
+      _exitHapticFired = true;
+      HapticFeedback.mediumImpact();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _boot());
+  }
+
+  @override
+  void dispose() {
+    _exitController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _leave(VoidCallback navigate) async {
+    if (_navigated) return;
+    _navigated = true;
+    if (_exitController.status == AnimationStatus.dismissed) {
+      await _exitController.forward();
     }
+    if (!mounted) return;
+    navigate();
+  }
 
-    context.pushReplacement(Routes.home);
+  Future<void> _goAfterBoot() async {
+    final pendingLink = ref.read(pendingDeepLinkProvider);
+    await _leave(() {
+      if (pendingLink != null) {
+        context.go(Routes.home);
+        return;
+      }
+      context.pushReplacement(Routes.home);
+    });
   }
 
   Future<void> _prepareOnboardingTree() async {
@@ -41,12 +80,6 @@ class _BootScreenState extends ConsumerState<BootScreen> {
           .read(onboardingTreePreloadProvider)
           .prepareRandom(forceNew: true);
     } catch (_) {}
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _boot());
   }
 
   Future<void> _boot() async {
@@ -72,8 +105,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
       ]);
       if (!mounted) return;
 
-      _navigated = true;
-      context.pushReplacement(Routes.onboarding); // 👈 Hero için
+      await _leave(() => context.pushReplacement(Routes.onboarding));
       return;
     }
 
@@ -98,8 +130,7 @@ class _BootScreenState extends ConsumerState<BootScreen> {
         ref.read(pendingDeepLinkProvider.notifier).state = null;
         await _prepareOnboardingTree();
         if (!mounted) return;
-        _navigated = true;
-        context.pushReplacement(Routes.onboarding);
+        await _leave(() => context.pushReplacement(Routes.onboarding));
         return;
       }
 
@@ -116,8 +147,9 @@ class _BootScreenState extends ConsumerState<BootScreen> {
         } catch (_) {}
         debugPrint('BOOT: /me OK -> HOME');
 
-        _navigated = true;
-        if (mounted) _goAfterBoot();
+        if (mounted) {
+          await _goAfterBoot();
+        }
       } on DioException catch (e) {
         final code = e.response?.statusCode;
 
@@ -125,8 +157,9 @@ class _BootScreenState extends ConsumerState<BootScreen> {
           debugPrint('BOOT: /me failed status=$code -> onboarding, error= $e');
           ref.read(pendingDeepLinkProvider.notifier).state = null;
           await _prepareOnboardingTree();
-          _navigated = true;
-          if (mounted) context.pushReplacement(Routes.onboarding);
+          if (mounted) {
+            await _leave(() => context.pushReplacement(Routes.onboarding));
+          }
           return;
         }
 
@@ -151,8 +184,9 @@ class _BootScreenState extends ConsumerState<BootScreen> {
         ref.read(pendingDeepLinkProvider.notifier).state = null;
         debugPrint('BOOT: refresh invalid/expired -> onboarding');
         await _prepareOnboardingTree();
-        _navigated = true;
-        if (mounted) context.pushReplacement(Routes.onboarding);
+        if (mounted) {
+          await _leave(() => context.pushReplacement(Routes.onboarding));
+        }
         return;
       }
 
@@ -168,30 +202,12 @@ class _BootScreenState extends ConsumerState<BootScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: VideoBackground(
-        assetPath: 'assets/videos/chaput_bg.M4V',
-        overlayOpacity: 0.55,
-        child: Center(
-          child: Hero(tag: 'chaput_logo', child: _BootLogo()),
-        ),
-      ),
-    );
-  }
-}
-
-class _BootLogo extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    // Logon PNG ise burayı Image.asset yap.
-    // UI’da “bir tık büyük” dediğin için 64 dp verdim.
-    return SizedBox(
-      width: 64,
-      height: 64,
-      child: Center(
-        child: Image.asset(
-          'assets/images/chaput_logo_256px_h.png',
-          fit: BoxFit.contain,
-        ),
+      backgroundColor: AppColors.chaputBlack,
+      body: AnimatedBuilder(
+        animation: _exitController,
+        builder: (context, _) {
+          return ChaputTunnelSplash(progress: _exitController.value);
+        },
       ),
     );
   }
