@@ -517,6 +517,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (threadId.isEmpty) return;
       final item = ChaputThreadItem(
         threadId: threadId,
+        threadSlug: data['thread_slug']?.toString() ?? '',
         userAId: data['user_a_id']?.toString() ?? '',
         userBId: data['user_b_id']?.toString() ?? '',
         starterId: data['starter_id']?.toString() ?? '',
@@ -1323,7 +1324,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  void _openInitialMessageThreadSheet() {
+  void _openInitialThreadSheet() {
     if (_isAdPageActive || _silhouetteMode) return;
     _chaputSheetPrevExtent = _chaputSheetMax;
     _setChaputSheetExtent(_chaputSheetMax);
@@ -2339,6 +2340,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         final now = DateTime.now().toUtc();
         final created = ChaputThreadItem(
           threadId: out.threadId,
+          threadSlug: out.threadSlug,
           userAId: viewerId,
           userBId: targetUserId,
           starterId: viewerId,
@@ -3462,7 +3464,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _pendingInitialThreadId != null &&
         chaputThreads.isNotEmpty) {
       final idx = chaputThreads.indexWhere(
-        (t) => t.threadId == _pendingInitialThreadId,
+        (t) => t.matchesShareRef(_pendingInitialThreadId!),
       );
       if (idx >= 0) {
         _initialThreadApplied = true;
@@ -3482,7 +3484,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           }
           _focusToThreadAnchor(chaputThreads[idx], profileIdHex);
           if (targetMessageId != null && targetMessageId.isNotEmpty) {
-            _openInitialMessageThreadSheet();
+            _openInitialThreadSheet();
             Future.delayed(const Duration(seconds: 20), () {
               if (!mounted) return;
               if (_pendingInitialThreadId == targetThreadId &&
@@ -3494,6 +3496,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               }
             });
           } else {
+            _openInitialThreadSheet();
             Future.delayed(const Duration(milliseconds: 1200), () {
               if (!mounted) return;
               if (_pendingInitialThreadId == targetThreadId &&

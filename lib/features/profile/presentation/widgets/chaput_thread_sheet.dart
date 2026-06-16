@@ -422,7 +422,7 @@ class _SheetPage extends StatelessWidget {
                                   onShareThread: () => _shareThread(
                                     context,
                                     profileUsername,
-                                    thread.threadId,
+                                    thread.sharePathSegment,
                                   ),
                                   canArchiveThread:
                                       isParticipant && thread.state == 'OPEN',
@@ -456,7 +456,7 @@ class _SheetPage extends StatelessWidget {
                             initialMessageId:
                                 (initialThreadId != null &&
                                     initialMessageId != null &&
-                                    initialThreadId == thread.threadId)
+                                    thread.matchesShareRef(initialThreadId))
                                 ? initialMessageId
                                 : null,
                             onOpenProfile: onOpenProfile,
@@ -628,7 +628,11 @@ class _ThreadPage extends ConsumerWidget {
                   onArchiveThread: () => onArchiveThread(thread),
                   onReportThread: () => onReportThread(thread),
                   onShareThread: () =>
-                      _shareThread(context, profileUsername, thread.threadId),
+                      _shareThread(
+                        context,
+                        profileUsername,
+                        thread.sharePathSegment,
+                      ),
                   canArchiveThread: canArchiveThread,
                   canReportThread: canReportThread,
                   canShareThread: profileUsername.isNotEmpty,
@@ -652,8 +656,6 @@ class _ThreadPage extends ConsumerWidget {
                     isParticipant: isParticipant,
                     canReply: canReply,
                     initialMessageId: initialMessageId,
-                    profileUsername: profileUsername,
-                    threadId: thread.threadId,
                     onReply: (m) => onReplyMessage(thread, m),
                     onReportMessage: (m) => onReportMessage(thread, m),
                     onToggleLike: (m, like) {
@@ -922,32 +924,12 @@ class _ThreadHeader extends StatelessWidget {
   }
 }
 
-void _shareThread(BuildContext context, String username, String threadId) {
-  if (username.trim().isEmpty || threadId.trim().isEmpty) return;
+void _shareThread(BuildContext context, String username, String threadSegment) {
+  if (username.trim().isEmpty || threadSegment.trim().isEmpty) return;
   HapticFeedback.mediumImpact();
   SharePlus.instance.share(
     ShareParams(
-      text: ChaputShareLinks.thread(username, threadId),
-      subject: context.t('share.subject'),
-    ),
-  );
-}
-
-void _shareMessage(
-  BuildContext context,
-  String username,
-  String threadId,
-  String messageId,
-) {
-  if (username.trim().isEmpty ||
-      threadId.trim().isEmpty ||
-      messageId.trim().isEmpty) {
-    return;
-  }
-  HapticFeedback.mediumImpact();
-  SharePlus.instance.share(
-    ShareParams(
-      text: ChaputShareLinks.message(username, threadId, messageId),
+      text: ChaputShareLinks.thread(username, threadSegment),
       subject: context.t('share.subject'),
     ),
   );
@@ -982,10 +964,8 @@ void _showMessageActions(
   required bool canReply,
   required bool canShowLikes,
   required bool canReport,
-  required bool canShare,
   required VoidCallback onReply,
   required VoidCallback onShowLikes,
-  required VoidCallback onShare,
   required VoidCallback onReport,
 }) {
   showModalBottomSheet<void>(
@@ -996,10 +976,8 @@ void _showMessageActions(
       canReply: canReply,
       canShowLikes: canShowLikes,
       canReport: canReport,
-      canShare: canShare,
       onReply: onReply,
       onShowLikes: onShowLikes,
-      onShare: onShare,
       onReport: onReport,
     ),
   );
@@ -1085,10 +1063,8 @@ class _MessageActionSheet extends StatelessWidget {
     required this.canReply,
     required this.canShowLikes,
     required this.canReport,
-    required this.canShare,
     required this.onReply,
     required this.onShowLikes,
-    required this.onShare,
     required this.onReport,
   });
 
@@ -1096,10 +1072,8 @@ class _MessageActionSheet extends StatelessWidget {
   final bool canReply;
   final bool canShowLikes;
   final bool canReport;
-  final bool canShare;
   final VoidCallback onReply;
   final VoidCallback onShowLikes;
-  final VoidCallback onShare;
   final VoidCallback onReport;
 
   @override
@@ -1144,16 +1118,6 @@ class _MessageActionSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              if (canShare)
-                _GlassActionTile(
-                  icon: Icons.ios_share_rounded,
-                  title: context.t('chat.action.share_message'),
-                  subtitle: context.t('chat.action.share_message_sub'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onShare();
-                  },
-                ),
               if (canReply)
                 _GlassActionTile(
                   icon: Icons.reply_rounded,
@@ -1378,8 +1342,6 @@ class _MessagesList extends StatefulWidget {
     required this.isParticipant,
     required this.canReply,
     required this.initialMessageId,
-    required this.profileUsername,
-    required this.threadId,
     required this.onReply,
     required this.onReportMessage,
     required this.onToggleLike,
@@ -1398,8 +1360,6 @@ class _MessagesList extends StatefulWidget {
   final bool isParticipant;
   final bool canReply;
   final String? initialMessageId;
-  final String profileUsername;
-  final String threadId;
   final ValueChanged<ChaputMessage> onReply;
   final ValueChanged<ChaputMessage> onReportMessage;
   final void Function(ChaputMessage message, bool like) onToggleLike;
@@ -1675,12 +1635,6 @@ class _MessagesListState extends State<_MessagesList> {
         onReportMessage: widget.onReportMessage,
         onToggleLike: widget.onToggleLike,
         onShowLikes: (m) => _openLikesFocus(m, isMine, widget.isParticipant),
-        onShareMessage: (m) => _shareMessage(
-          context,
-          widget.profileUsername,
-          widget.threadId,
-          m.id,
-        ),
         onReplyTap: _jumpToMessage,
         messageKeyFor: _keyForMessage,
         scrollController: _scrollController,
@@ -1690,11 +1644,17 @@ class _MessagesListState extends State<_MessagesList> {
     }
 
     if (_pendingJumpId != null) {
-      return ListView(
+      return SingleChildScrollView(
         controller: _scrollController,
         reverse: true,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        children: [for (int i = 0; i < groups.length; i++) buildGroup(i)],
+        physics: const ClampingScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [for (int i = 0; i < groups.length; i++) buildGroup(i)],
+          ),
+        ),
       );
     }
 
@@ -1827,7 +1787,6 @@ class _MessageGroupBubble extends StatelessWidget {
     required this.onReportMessage,
     required this.onToggleLike,
     required this.onShowLikes,
-    required this.onShareMessage,
     required this.onReplyTap,
     required this.messageKeyFor,
     required this.scrollController,
@@ -1847,7 +1806,6 @@ class _MessageGroupBubble extends StatelessWidget {
   final ValueChanged<ChaputMessage> onReportMessage;
   final void Function(ChaputMessage message, bool like) onToggleLike;
   final ValueChanged<ChaputMessage> onShowLikes;
-  final ValueChanged<ChaputMessage> onShareMessage;
   final ValueChanged<String> onReplyTap;
   final GlobalKey Function(String id) messageKeyFor;
   final ScrollController scrollController;
@@ -1877,7 +1835,6 @@ class _MessageGroupBubble extends StatelessWidget {
               onReportMessage: onReportMessage,
               onToggleLike: onToggleLike,
               onShowLikes: onShowLikes,
-              onShareMessage: onShareMessage,
               onReplyTap: onReplyTap,
             ),
         ],
@@ -2087,7 +2044,6 @@ class _MessageBubble extends StatelessWidget {
     required this.onReportMessage,
     required this.onToggleLike,
     required this.onShowLikes,
-    required this.onShareMessage,
     required this.onReplyTap,
     this.enableActions = true,
   });
@@ -2102,7 +2058,6 @@ class _MessageBubble extends StatelessWidget {
   final ValueChanged<ChaputMessage> onReportMessage;
   final void Function(ChaputMessage message, bool like) onToggleLike;
   final ValueChanged<ChaputMessage> onShowLikes;
-  final ValueChanged<ChaputMessage> onShareMessage;
   final ValueChanged<String> onReplyTap;
   final bool enableActions;
 
@@ -2313,10 +2268,8 @@ class _MessageBubble extends StatelessWidget {
           canReply: canReply,
           canShowLikes: hasLikes,
           canReport: isParticipant && !isMine,
-          canShare: true,
           onReply: () => onReply(message),
           onShowLikes: () => onShowLikes(message),
-          onShare: () => onShareMessage(message),
           onReport: () => onReportMessage(message),
         ),
         child: child,
@@ -2642,7 +2595,6 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                         onReportMessage: (_) {},
                         onToggleLike: (_, __) {},
                         onShowLikes: (_) {},
-                        onShareMessage: (_) {},
                         onReplyTap: (_) {},
                         enableActions: false,
                       ),

@@ -277,6 +277,7 @@ class ChaputThreadsController
         .map((t) {
           if (t.threadId != item.threadId) return t;
           return t.copyWith(
+            threadSlug: item.threadSlug.isNotEmpty ? item.threadSlug : t.threadSlug,
             kind: item.kind,
             state: item.state,
             lastMessageAt: item.lastMessageAt ?? t.lastMessageAt,

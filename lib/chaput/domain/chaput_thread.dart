@@ -1,6 +1,7 @@
 class ChaputThreadItem {
   ChaputThreadItem({
     required this.threadId,
+    required this.threadSlug,
     required this.userAId,
     required this.userBId,
     required this.starterId,
@@ -15,6 +16,7 @@ class ChaputThreadItem {
   });
 
   final String threadId;
+  final String threadSlug;
   final String userAId;
   final String userBId;
   final String starterId;
@@ -28,6 +30,7 @@ class ChaputThreadItem {
   final double? z;
 
   ChaputThreadItem copyWith({
+    String? threadSlug,
     String? kind,
     String? state,
     DateTime? lastMessageAt,
@@ -39,6 +42,7 @@ class ChaputThreadItem {
   }) {
     return ChaputThreadItem(
       threadId: threadId,
+      threadSlug: threadSlug ?? this.threadSlug,
       userAId: userAId,
       userBId: userBId,
       starterId: starterId,
@@ -68,6 +72,7 @@ class ChaputThreadItem {
 
     return ChaputThreadItem(
       threadId: json['thread_id']?.toString() ?? '',
+      threadSlug: json['thread_slug']?.toString() ?? '',
       userAId: json['user_a_id']?.toString() ?? '',
       userBId: json['user_b_id']?.toString() ?? '',
       starterId: json['starter_id']?.toString() ?? '',
@@ -83,6 +88,15 @@ class ChaputThreadItem {
   }
 
   bool hasCoords() => x != null && y != null && z != null;
+
+  String get sharePathSegment =>
+      threadSlug.trim().isNotEmpty ? threadSlug.trim() : threadId;
+
+  bool matchesShareRef(String value) {
+    final ref = value.trim().toLowerCase();
+    if (ref.isEmpty) return false;
+    return threadId.toLowerCase() == ref || threadSlug.toLowerCase() == ref;
+  }
 
   bool get isHidden => kind == 'HIDDEN' || kind == 'HIDDEN_SPECIAL';
 

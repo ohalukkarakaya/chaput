@@ -96,7 +96,7 @@ class ChaputApi {
     throw Exception('bad_read_response');
   }
 
-  Future<({String threadId, bool alreadyExists})> startThread({
+  Future<({String threadId, String threadSlug, bool alreadyExists})> startThread({
     required String profileIdHex,
     String? kind,
   }) async {
@@ -113,6 +113,7 @@ class ChaputApi {
       if (data['ok'] == true) {
         return (
           threadId: data['thread_id']?.toString() ?? '',
+          threadSlug: data['thread_slug']?.toString() ?? '',
           alreadyExists: data['already_exists'] == true,
         );
       }
