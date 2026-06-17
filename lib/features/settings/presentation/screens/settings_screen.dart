@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'dart:async';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
@@ -362,27 +361,7 @@ class _SettingsShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // soft background blocks
-        Positioned(
-          left: -60,
-          top: 80,
-          child: _SoftBlob(width: 240, height: 180),
-        ),
-        Positioned(
-          right: -40,
-          top: 260,
-          child: _SoftBlob(width: 220, height: 170),
-        ),
-        Positioned(
-          left: -40,
-          bottom: 40,
-          child: _SoftBlob(width: 260, height: 180),
-        ),
-        child,
-      ],
-    );
+    return child;
   }
 }
 
@@ -767,27 +746,6 @@ class _CloseAccountConfirmDialogState
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SoftBlob extends StatelessWidget {
-  final double width;
-  final double height;
-  const _SoftBlob({required this.width, required this.height});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(40),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          width: width,
-          height: height,
-          color: AppColors.chaputWhite.withOpacity(0.35),
         ),
       ),
     );

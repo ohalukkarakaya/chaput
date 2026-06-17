@@ -3604,14 +3604,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         });
       }
     }
+    final String? preservedActiveThreadId = _activeThreadId;
+    int resolvedActiveThreadIndex = _chaputActiveIndex;
+    if (chaputThreads.isNotEmpty &&
+        preservedActiveThreadId != null &&
+        preservedActiveThreadId.isNotEmpty) {
+      final preservedIndex = chaputThreads.indexWhere(
+        (t) => t.threadId == preservedActiveThreadId,
+      );
+      if (preservedIndex >= 0) {
+        resolvedActiveThreadIndex = preservedIndex;
+        if (preservedIndex != _chaputActiveIndex) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (_chaputActiveIndex != preservedIndex) {
+              setState(() => _chaputActiveIndex = preservedIndex);
+            }
+            if (_chaputPageCtrl.hasClients) {
+              final pageIdx = _pageIndexForThreadIndex(
+                preservedIndex,
+                showAds: showNativeAds,
+              );
+              _syncChaputFeedbackBasePage(pageIdx);
+              _chaputPageCtrl.jumpToPage(pageIdx);
+            }
+          });
+        }
+      } else if (resolvedActiveThreadIndex >= chaputThreads.length) {
+        resolvedActiveThreadIndex = 0;
+      }
+    }
+
     final bool hasOurThread = chaputThreads.any(
       (t) =>
           (t.userAId == userId && t.userBId == viewerId) ||
           (t.userAId == viewerId && t.userBId == userId),
     );
     final ChaputThreadItem? activeThread =
-        chaputThreads.isNotEmpty && _chaputActiveIndex < chaputThreads.length
-        ? chaputThreads[_chaputActiveIndex]
+        chaputThreads.isNotEmpty &&
+            resolvedActiveThreadIndex < chaputThreads.length
+        ? chaputThreads[resolvedActiveThreadIndex]
         : null;
     final bool activeIsParticipant =
         activeThread != null &&
