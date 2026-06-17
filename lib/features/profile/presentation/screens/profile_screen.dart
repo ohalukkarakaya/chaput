@@ -265,6 +265,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _reviveFlowBusy = false;
   String? _reviveArchiveOverrideProfileId;
   String? _reviveArchiveOverrideThreadId;
+  String? _sessionThreadOrderProfileId;
+  List<String> _sessionThreadOrderIds = const [];
+  String? _pendingCreatedThreadId;
   final PageController _chaputPageCtrl = PageController();
   static const double _chaputSwipeHapticThreshold = 0.34;
   int _chaputFeedbackBasePageIndex = 0;
@@ -338,6 +341,65 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final pos = pageIndex % 3;
     if (pos == 2) return null;
     return (pageIndex ~/ 3) * 2 + pos;
+  }
+
+  List<ChaputThreadItem> _stableSessionThreads({
+    required String profileIdHex,
+    required List<ChaputThreadItem> source,
+  }) {
+    if (_sessionThreadOrderProfileId != profileIdHex) {
+      _sessionThreadOrderProfileId = profileIdHex;
+      _sessionThreadOrderIds = source
+          .map((t) => t.threadId)
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false);
+      _pendingCreatedThreadId = null;
+      return source;
+    }
+
+    if (source.isEmpty) {
+      _sessionThreadOrderIds = const [];
+      return source;
+    }
+
+    final byId = <String, ChaputThreadItem>{
+      for (final thread in source)
+        if (thread.threadId.isNotEmpty) thread.threadId: thread,
+    };
+    final nextOrder = _sessionThreadOrderIds
+        .where(byId.containsKey)
+        .toList(growable: true);
+    final seen = nextOrder.toSet();
+
+    for (final thread in source) {
+      final tid = thread.threadId;
+      if (tid.isEmpty || seen.contains(tid)) continue;
+      if (_pendingCreatedThreadId != null && tid == _pendingCreatedThreadId) {
+        nextOrder.insert(0, tid);
+      } else {
+        nextOrder.add(tid);
+      }
+      seen.add(tid);
+    }
+
+    _sessionThreadOrderIds = nextOrder.toList(growable: false);
+
+    final ordered = <ChaputThreadItem>[];
+    for (final tid in _sessionThreadOrderIds) {
+      final thread = byId[tid];
+      if (thread != null) {
+        ordered.add(thread);
+      }
+    }
+    if (ordered.length == source.length) {
+      return ordered;
+    }
+    for (final thread in source) {
+      if (!ordered.any((it) => it.threadId == thread.threadId)) {
+        ordered.add(thread);
+      }
+    }
+    return ordered;
   }
 
   // orijinal material'ları saklamak için
@@ -2401,6 +2463,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         final chaputCtrl = ref.read(
           chaputThreadsControllerProvider(chaputArgs).notifier,
         );
+        _pendingCreatedThreadId = out.threadId;
+        _activeThreadId = out.threadId;
+        _activeThreadIsParticipant = true;
         chaputCtrl.addThreadOptimistic(created, chaputArgs);
         if (viewerLite != null) {
           chaputCtrl.addUsers({viewerLite.id: viewerLite});
@@ -2408,9 +2473,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         await api.sendMessage(threadIdHex: out.threadId, body: text);
         _playSmallFeedback(ChaputSoundEffect.sendMessage);
 
-        final nextThreads = ref
-            .read(chaputThreadsControllerProvider(chaputArgs))
-            .items;
+        final nextThreads = _stableSessionThreads(
+          profileIdHex: profileId,
+          source: ref.read(chaputThreadsControllerProvider(chaputArgs)).items,
+        );
         final createdIndex = nextThreads.indexWhere(
           (t) => t.threadId == out.threadId,
         );
@@ -2428,9 +2494,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          final currentThreads = ref
-              .read(chaputThreadsControllerProvider(chaputArgs))
-              .items;
+          final currentThreads = _stableSessionThreads(
+            profileIdHex: profileId,
+            source: ref.read(chaputThreadsControllerProvider(chaputArgs)).items,
+          );
           if (currentThreads.isEmpty) return;
           final idx = currentThreads.indexWhere(
             (t) => t.threadId == out.threadId,
@@ -2457,6 +2524,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           _syncTypingSound();
           _focusToThreadAnchor(targetThread, profileId);
           _openInitialThreadSheet();
+          _pendingCreatedThreadId = null;
         });
       }
 
@@ -2474,6 +2542,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             .fetchDecision();
       }
     } catch (e) {
+      _pendingCreatedThreadId = null;
       _showGlassToast(
         context.t('profile.toast.chaput_send_failed'),
         icon: Icons.error_outline,
@@ -3531,7 +3600,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ? ref.watch(chaputThreadsControllerProvider(chaputArgs))
         : ChaputThreadsState.empty;
 
-    final chaputThreads = chaputThreadsState.items;
+    final chaputThreads = _stableSessionThreads(
+      profileIdHex: profileIdHex,
+      source: chaputThreadsState.items,
+    );
     final bool showEmptyChaputSheet =
         chaputAllowed &&
         chaputThreads.isEmpty &&
