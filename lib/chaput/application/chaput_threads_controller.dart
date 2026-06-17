@@ -201,7 +201,7 @@ class ChaputThreadsController
               (t.userAId == owner && t.userBId == viewer) ||
               (t.userAId == viewer && t.userBId == owner),
         )
-        .toList();
+        .toList(growable: false);
     if (arg.restricted) {
       return ourThread;
     }
@@ -228,7 +228,18 @@ class ChaputThreadsController
 
     final ordered = [...items];
     ordered.sort(byPriorityAndActivity);
-    return ordered;
+    if (ourThread.isEmpty) {
+      return ordered;
+    }
+
+    final ourIds = ourThread.map((t) => t.threadId).toSet();
+    final pinned = ordered
+        .where((t) => ourIds.contains(t.threadId))
+        .toList(growable: false);
+    final rest = ordered
+        .where((t) => !ourIds.contains(t.threadId))
+        .toList(growable: false);
+    return [...pinned, ...rest];
   }
 
   Future<Map<String, LiteUser>> _hydrateUsers(

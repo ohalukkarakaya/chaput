@@ -2366,13 +2366,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final out = await api.startThread(profileIdHex: profileId, kind: kind);
 
       if (out.threadId.isNotEmpty && anchor != null) {
-        await api.setThreadNode(
-          threadIdHex: out.threadId,
-          profileIdHex: profileId,
-          x: anchor.x,
-          y: anchor.y,
-          z: anchor.z,
-        );
+        unawaited(() async {
+          try {
+            await api.setThreadNode(
+              threadIdHex: out.threadId,
+              profileIdHex: profileId,
+              x: anchor.x,
+              y: anchor.y,
+              z: anchor.z,
+            );
+          } catch (error, st) {
+            log('thread node persist failed: $error', stackTrace: st);
+          }
+        }());
       }
 
       if (out.threadId.isNotEmpty) {
@@ -2401,9 +2407,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         }
         await api.sendMessage(threadIdHex: out.threadId, body: text);
         _playSmallFeedback(ChaputSoundEffect.sendMessage);
+
+        final nextThreads = ref
+            .read(chaputThreadsControllerProvider(chaputArgs))
+            .items;
+        final createdIndex = nextThreads.indexWhere(
+          (t) => t.threadId == out.threadId,
+        );
+        final targetIndex = createdIndex >= 0 ? createdIndex : 0;
+
+        if (mounted) {
+          setState(() {
+            _chaputThreadCreated = true;
+            _chaputActiveIndex = targetIndex;
+          });
+        } else {
+          _chaputThreadCreated = true;
+          _chaputActiveIndex = targetIndex;
+        }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final currentThreads = ref
+              .read(chaputThreadsControllerProvider(chaputArgs))
+              .items;
+          if (currentThreads.isEmpty) return;
+          final idx = currentThreads.indexWhere(
+            (t) => t.threadId == out.threadId,
+          );
+          final safeIndex = idx >= 0
+              ? idx
+              : (targetIndex < currentThreads.length
+                    ? targetIndex
+                    : currentThreads.length - 1);
+          final showNativeAds = _isFreePlan(_planType.toUpperCase());
+          final targetThread = currentThreads[safeIndex];
+          if (_chaputPageCtrl.hasClients) {
+            final pageIdx = _pageIndexForThreadIndex(
+              safeIndex,
+              showAds: showNativeAds,
+            );
+            _syncChaputFeedbackBasePage(pageIdx);
+            _chaputPageCtrl.jumpToPage(pageIdx);
+          }
+          setState(() => _chaputActiveIndex = safeIndex);
+          _subscribeThreadSocket(targetThread.threadId, profileId);
+          _activeThreadId = targetThread.threadId;
+          _activeThreadIsParticipant = true;
+          _syncTypingSound();
+          _focusToThreadAnchor(targetThread, profileId);
+          _openInitialThreadSheet();
+        });
       }
 
-      _chaputThreadCreated = true;
       _msgCtrl.clear();
       _closeComposer();
       _showGlassToast(
