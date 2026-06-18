@@ -280,6 +280,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   static const double _chaputSheetMin = 0.12;
   static const double _chaputSheetMid = 0.33;
   static const double _chaputSheetMax = 0.95;
+  static const double _chaputSheetCollapsedTapTolerance = 0.035;
+  static const double _chaputSheetMaxTolerance = 0.01;
 
   double _chaputSheetExtent = _chaputSheetMin;
   final ValueNotifier<double> _chaputSheetExtentListenable = ValueNotifier(
@@ -1404,7 +1406,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _openCollapsedChaputSheet() {
     if (!_chaputSheetCtrl.isAttached ||
-        _chaputSheetExtent > _chaputSheetMin + 0.01 ||
+        _chaputSheetExtent >
+            _chaputSheetMin + _chaputSheetCollapsedTapTolerance ||
         _isAdPageActive ||
         _composerOpen ||
         _silhouetteMode) {
@@ -1419,14 +1422,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _openInitialThreadSheet() {
+    _openChaputSheetToExtent(_chaputSheetMax);
+  }
+
+  void _openCreatedThreadSheet() {
+    _openChaputSheetToExtent(_chaputSheetMid);
+  }
+
+  void _openChaputSheetToExtent(double targetExtent) {
     if (_isAdPageActive || _silhouetteMode) return;
-    _chaputSheetPrevExtent = _chaputSheetMax;
-    _setChaputSheetExtent(_chaputSheetMax);
+    final clampedTarget = targetExtent.clamp(_chaputSheetMin, _chaputSheetMax);
+    _chaputSheetPrevExtent = clampedTarget;
+    _setChaputSheetExtent(clampedTarget);
 
     void expand() {
       if (!mounted || !_chaputSheetCtrl.isAttached) return;
       _chaputSheetCtrl.animateTo(
-        _chaputSheetMax,
+        clampedTarget,
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
       );
@@ -1599,7 +1611,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final kb = context.responsive.keyboardInset;
     if (kb > 0 &&
         !_composerOpen &&
-        _chaputSheetExtent < _chaputSheetMax - 0.01) {
+        _chaputSheetExtent < _chaputSheetMax - _chaputSheetMaxTolerance) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_chaputSheetCtrl.isAttached) return;
         _chaputSheetCtrl.animateTo(
@@ -2523,7 +2535,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           _activeThreadIsParticipant = true;
           _syncTypingSound();
           _focusToThreadAnchor(targetThread, profileId);
-          _openInitialThreadSheet();
+          _openCreatedThreadSheet();
           _pendingCreatedThreadId = null;
         });
       }
@@ -3815,13 +3827,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return ShowCaseWidget(
       builder: (showcaseContext) {
         final profileReadyForShowcase = userId.isNotEmpty && !st.isLoading;
+        final mediaQuery = MediaQuery.of(context);
         final chaputSheetOuterOffset = context.responsive
             .bottomSheetOuterOffset();
         final chaputSheetAvailableHeight =
-            MediaQuery.of(context).size.height - chaputSheetOuterOffset;
-        final androidNavigationBarFillHeight =
-            responsive.isAndroid && !responsive.keyboardOpen
-            ? chaputSheetOuterOffset
+            mediaQuery.size.height - chaputSheetOuterOffset;
+        final androidSystemBottomFillHeight = responsive.isAndroid
+            ? (responsive.keyboardOpen
+                  ? mediaQuery.viewInsets.bottom
+                  : mediaQuery.viewPadding.bottom)
             : 0.0;
 
         if (viewerId.isNotEmpty && profileReadyForShowcase) {
@@ -3860,7 +3874,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       sheetController: _chaputSheetCtrl,
                       initialExtent: _chaputSheetExtent,
                       isAdPageActive: _isAdPageActive,
-                      isCollapsed: _chaputSheetExtent <= _chaputSheetMin + 0.01,
+                      isCollapsed:
+                          _chaputSheetExtent <=
+                          _chaputSheetMin + _chaputSheetCollapsedTapTolerance,
                       onCollapsedTap: _openCollapsedChaputSheet,
                       showNativeAds: showNativeAds,
                       onExtentChanged: (v) {
@@ -3872,7 +3888,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           isAdPageActive: _isAdPageActive,
                         );
                         final wasCollapsed =
-                            previousExtent <= _chaputSheetMin + 0.01;
+                            previousExtent <=
+                            _chaputSheetMin + _chaputSheetCollapsedTapTolerance;
                         if (_isAdPageActive) {
                           _setChaputSheetExtent(_adLockedExtent);
                           if (!_isProgrammaticAdSheetChange &&
@@ -3905,7 +3922,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           isAdPageActive: _isAdPageActive,
                         );
                         final isCollapsed =
-                            _chaputSheetExtent <= _chaputSheetMin + 0.01;
+                            _chaputSheetExtent <=
+                            _chaputSheetMin + _chaputSheetCollapsedTapTolerance;
                         if ((wasReplyBarVisible != isReplyBarVisible ||
                                 wasCollapsed != isCollapsed) &&
                             mounted) {
@@ -4839,13 +4857,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       ),
                     ),
 
-                    if (androidNavigationBarFillHeight > 0 &&
+                    if (androidSystemBottomFillHeight > 0 &&
                         (threadSheetChild != null || showEmptyChaputSheet))
                       Positioned(
                         left: 0,
                         right: 0,
-                        bottom: 0,
-                        height: androidNavigationBarFillHeight,
+                        bottom: -1,
+                        height: androidSystemBottomFillHeight + 2,
                         child: const ColoredBox(color: AppColors.chaputBlack),
                       ),
 
@@ -5113,7 +5131,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               onFocus: () {
                                 _emitTyping(true);
                                 if (_chaputSheetExtent >=
-                                    _chaputSheetMax - 0.01) {
+                                    _chaputSheetMax -
+                                        _chaputSheetMaxTolerance) {
                                   return;
                                 }
                                 _sheetAutoExpanded = true;
@@ -5122,11 +5141,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                   _,
                                 ) {
                                   if (!_chaputSheetCtrl.isAttached) return;
-                                  _chaputSheetCtrl.animateTo(
-                                    _chaputSheetMax,
-                                    duration: const Duration(milliseconds: 180),
-                                    curve: Curves.easeOut,
-                                  );
+                                  if (context.responsive.isAndroid) {
+                                    _setChaputSheetExtent(_chaputSheetMax);
+                                    _chaputSheetCtrl.jumpTo(_chaputSheetMax);
+                                  } else {
+                                    _chaputSheetCtrl.animateTo(
+                                      _chaputSheetMax,
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
+                                      curve: Curves.easeOut,
+                                    );
+                                  }
                                 });
                               },
                               onBlur: () {
@@ -5134,7 +5160,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 if (!_sheetAutoExpanded) return;
                                 _sheetAutoExpanded = false;
                                 final target = _sheetExtentBeforeKeyboard;
-                                if (target < _chaputSheetMax - 0.01) {
+                                if (target <
+                                    _chaputSheetMax -
+                                        _chaputSheetMaxTolerance) {
                                   WidgetsBinding.instance.addPostFrameCallback((
                                     _,
                                   ) {

@@ -114,7 +114,7 @@ class ChaputThreadSheet extends ConsumerWidget {
         controller: sheetController,
         builder: (ctx, scrollCtrl) {
           return GestureDetector(
-            behavior: HitTestBehavior.translucent,
+            behavior: HitTestBehavior.opaque,
             onTap: isCollapsed ? onCollapsedTap : null,
             child: LayoutBuilder(
               builder: (ctx, constraints) {
@@ -1607,6 +1607,9 @@ class _MessagesListState extends State<_MessagesList> {
   @override
   Widget build(BuildContext context) {
     final items = widget.state.items;
+    final scrollBehavior = ScrollConfiguration.of(
+      context,
+    ).copyWith(scrollbars: false, overscroll: false);
     if (widget.state.isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.chaputWhite),
@@ -1673,26 +1676,33 @@ class _MessagesListState extends State<_MessagesList> {
     }
 
     if (_pendingJumpId != null) {
-      return SingleChildScrollView(
-        controller: _scrollController,
-        reverse: true,
-        physics: const ClampingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [for (int i = 0; i < groups.length; i++) buildGroup(i)],
+      return ScrollConfiguration(
+        behavior: scrollBehavior,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          reverse: true,
+          physics: const ClampingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [for (int i = 0; i < groups.length; i++) buildGroup(i)],
+            ),
           ),
         ),
       );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      reverse: true,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      itemCount: groups.length,
-      itemBuilder: (ctx, i) => buildGroup(i),
+    return ScrollConfiguration(
+      behavior: scrollBehavior,
+      child: ListView.builder(
+        controller: _scrollController,
+        reverse: true,
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        itemCount: groups.length,
+        itemBuilder: (ctx, i) => buildGroup(i),
+      ),
     );
   }
 

@@ -31,11 +31,16 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(context.t('common.back'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                        child: Text(
+                          context.t('common.back'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
-                        onPressed: () => ref.read(visibilityControllerProvider.notifier).refresh(),
+                        onPressed: () => ref
+                            .read(visibilityControllerProvider.notifier)
+                            .refresh(),
                         icon: const Icon(Icons.refresh),
                       ),
                     ],
@@ -43,24 +48,27 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
 
                   Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              context.t('blocked.title'),
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            context.t('blocked.title'),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                          if (st.isLoading)
-                            const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                        ],
-                      ),
+                        ),
+                        if (st.isLoading)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
                     ),
+                  ),
                   const SizedBox(height: 12),
 
                   Expanded(
@@ -70,58 +78,85 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                         ? Padding(
                             padding: const EdgeInsets.all(18),
                             child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text('${context.t('common.error')}: ${st.error}', style: const TextStyle(color: AppColors.chaputMaterialRed)),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: () => ref.read(visibilityControllerProvider.notifier).refresh(),
-                              child: Text(context.t('common.retry')),
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  '${context.t('common.error')}: ${st.error}',
+                                  style: const TextStyle(
+                                    color: AppColors.chaputMaterialRed,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  onPressed: () => ref
+                                      .read(
+                                        visibilityControllerProvider.notifier,
+                                      )
+                                      .refresh(),
+                                  child: Text(context.t('common.retry')),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      )
-                          : (st.items.isEmpty && !st.isLoading)
-                          ? Center(
-                              child: Text(
-                                context.t('common.empty'),
-                                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.chaputBlack54),
+                          )
+                        : (st.items.isEmpty && !st.isLoading)
+                        ? Center(
+                            child: Text(
+                              context.t('common.empty'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.chaputBlack54,
                               ),
-                            )
-                          : NotificationListener<ScrollNotification>(
-                        onNotification: (n) {
-                          if (n.metrics.pixels >= n.metrics.maxScrollExtent - 220) {
-                            ref.read(visibilityControllerProvider.notifier).loadMore();
-                          }
-                          return false;
-                        },
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                          itemCount: st.items.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, i) {
-                            final it = st.items[i];
-                            final u = st.usersById[it.userId];
+                            ),
+                          )
+                        : NotificationListener<ScrollNotification>(
+                            onNotification: (n) {
+                              if (n.metrics.pixels >=
+                                  n.metrics.maxScrollExtent - 220) {
+                                ref
+                                    .read(visibilityControllerProvider.notifier)
+                                    .loadMore();
+                              }
+                              return false;
+                            },
+                            child: ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(
+                                12,
+                                12,
+                                12,
+                                12,
+                              ),
+                              itemCount: st.items.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, i) {
+                                final it = st.items[i];
+                                final u = st.usersById[it.userId];
+                                final username = u?.username ?? it.username;
 
-                            final title = u?.fullName ?? context.t('common.na');
-                            final username = u?.username;
-                            final avatarUrl = (u?.profilePhotoPath?.isNotEmpty == true)
-                                ? u!.profilePhotoPath!
-                                : (u?.defaultAvatar ?? '');
+                                final title =
+                                    u?.fullName ?? context.t('common.na');
+                                final avatarUrl =
+                                    (u?.profilePhotoPath?.isNotEmpty == true)
+                                    ? u!.profilePhotoPath!
+                                    : (u?.defaultAvatar ?? '');
 
-                            return _UserRow(
-                              title: title,
-                              subtitle: username == null || username.isEmpty ? it.userId : '@$username',
-                              avatarUrl: avatarUrl.toString(),
-                              isDefaultAvatar: u?.profilePhotoPath == null || u?.profilePhotoPath == '',
-                              createdAt: it.createdAt,
-                              kind: it.kind,
-                              userId: it.userId,
-                              username: username,
-                            );
-                          },
-                        ),
-                      ),
+                                return _UserRow(
+                                  title: title,
+                                  subtitle: username == null || username.isEmpty
+                                      ? it.userId
+                                      : '@$username',
+                                  avatarUrl: avatarUrl.toString(),
+                                  isDefaultAvatar:
+                                      u?.profilePhotoPath == null ||
+                                      u?.profilePhotoPath == '',
+                                  createdAt: it.createdAt,
+                                  kind: it.kind,
+                                  userId: it.userId,
+                                  username: username,
+                                );
+                              },
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -162,7 +197,9 @@ class _UserRow extends ConsumerWidget {
     final chipBg = (kind == VisibilityKind.blocked)
         ? AppColors.chaputMaterialRed.withOpacity(0.10)
         : AppColors.chaputMaterialOrange.withOpacity(0.12);
-    final chipFg = (kind == VisibilityKind.blocked) ? AppColors.chaputRed700 : AppColors.chaputOrange800;
+    final chipFg = (kind == VisibilityKind.blocked)
+        ? AppColors.chaputRed700
+        : AppColors.chaputOrange800;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -184,11 +221,22 @@ class _UserRow extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55), fontWeight: FontWeight.w600)),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.chaputBlack.withOpacity(0.55),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -197,8 +245,18 @@ class _UserRow extends ConsumerWidget {
 
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(7)),
-            child: Text(chipText, style: TextStyle(color: chipFg, fontWeight: FontWeight.w900, fontSize: 12)),
+            decoration: BoxDecoration(
+              color: chipBg,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Text(
+              chipText,
+              style: TextStyle(
+                color: chipFg,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            ),
           ),
 
           const SizedBox(width: 10),
@@ -207,15 +265,19 @@ class _UserRow extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               try {
-                await ref.read(visibilityControllerProvider.notifier).removeVisibility(
-                  userId: userId,
-                  kind: kind,
-                  username: username,
-                );
+                await ref
+                    .read(visibilityControllerProvider.notifier)
+                    .removeVisibility(
+                      userId: userId,
+                      kind: kind,
+                      username: username,
+                    );
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${context.t('common.remove_failed')}: $e')),
+                  SnackBar(
+                    content: Text('${context.t('common.remove_failed')}: $e'),
+                  ),
                 );
               }
             },

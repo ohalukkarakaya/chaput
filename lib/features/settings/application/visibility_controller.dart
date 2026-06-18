@@ -49,7 +49,8 @@ class VisibilityState {
       items: items ?? this.items,
       usersById: usersById ?? this.usersById,
       nextBlocksAfter: nextBlocksAfter ?? this.nextBlocksAfter,
-      nextRestrictionsCursor: nextRestrictionsCursor ?? this.nextRestrictionsCursor,
+      nextRestrictionsCursor:
+          nextRestrictionsCursor ?? this.nextRestrictionsCursor,
       hasMoreBlocks: hasMoreBlocks ?? this.hasMoreBlocks,
       hasMoreRestrictions: hasMoreRestrictions ?? this.hasMoreRestrictions,
     );
@@ -57,9 +58,9 @@ class VisibilityState {
 }
 
 final visibilityControllerProvider =
-AutoDisposeNotifierProvider<VisibilityController, VisibilityState>(
-  VisibilityController.new,
-);
+    AutoDisposeNotifierProvider<VisibilityController, VisibilityState>(
+      VisibilityController.new,
+    );
 
 class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
   static const _pageSize = 20;
@@ -82,21 +83,32 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
 
       final results = await Future.wait([blocksF, restrF]);
 
-      final blocksRes = results[0] as ({List<Map<String, dynamic>> items, int nextAfter});
-      final restrRes = results[1] as ({List<Map<String, dynamic>> items, String? nextCursor});
+      final blocksRes =
+          results[0] as ({List<Map<String, dynamic>> items, int nextAfter});
+      final restrRes =
+          results[1]
+              as ({List<Map<String, dynamic>> items, String? nextCursor});
 
       final merged = <VisibilityItem>[
-        ...blocksRes.items.map((e) => VisibilityItem(
-          userId: e['user_id']?.toString() ?? '',
-          createdAt: (e['created_at'] as num?)?.toInt() ?? 0,
-          kind: VisibilityKind.blocked,
-        )),
-        ...restrRes.items.map((e) => VisibilityItem(
-          userId: e['user_id']?.toString() ?? '',
-          createdAt: DateTime.tryParse(e['created_at'] ?? '')
-              ?.millisecondsSinceEpoch ?? 0,
-          kind: VisibilityKind.restricted,
-        )),
+        ...blocksRes.items.map(
+          (e) => VisibilityItem(
+            userId: e['user_id']?.toString() ?? '',
+            createdAt: (e['created_at'] as num?)?.toInt() ?? 0,
+            kind: VisibilityKind.blocked,
+            username: e['username']?.toString(),
+          ),
+        ),
+        ...restrRes.items.map(
+          (e) => VisibilityItem(
+            userId: e['user_id']?.toString() ?? '',
+            createdAt:
+                DateTime.tryParse(
+                  e['created_at'] ?? '',
+                )?.millisecondsSinceEpoch ??
+                0,
+            kind: VisibilityKind.restricted,
+          ),
+        ),
       ].where((e) => e.userId.isNotEmpty).toList(growable: false);
 
       merged.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // newest first
@@ -112,7 +124,8 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
         nextBlocksAfter: blocksRes.nextAfter,
         nextRestrictionsCursor: restrRes.nextCursor,
         hasMoreBlocks: blocksRes.items.length == _pageSize,
-        hasMoreRestrictions: restrRes.items.length == _pageSize && restrRes.nextCursor != null,
+        hasMoreRestrictions:
+            restrRes.items.length == _pageSize && restrRes.nextCursor != null,
       );
     } catch (e, st) {
       log('visibility initial load error: $e', stackTrace: st);
@@ -153,7 +166,10 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
         futures.add(blocksF);
       }
       if (state.hasMoreRestrictions) {
-        restrF = _restrictions.list(limit: _pageSize, cursor: state.nextRestrictionsCursor);
+        restrF = _restrictions.list(
+          limit: _pageSize,
+          cursor: state.nextRestrictionsCursor,
+        );
         futures.add(restrF);
       }
 
@@ -164,30 +180,42 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
       ({List<Map<String, dynamic>> items, String? nextCursor})? restrRes;
 
       for (final r in results) {
-        if (r is ({List<Map<String, dynamic>> items, int nextAfter})) blocksRes = r;
-        if (r is ({List<Map<String, dynamic>> items, String? nextCursor})) restrRes = r;
+        if (r is ({List<Map<String, dynamic>> items, int nextAfter}))
+          blocksRes = r;
+        if (r is ({List<Map<String, dynamic>> items, String? nextCursor}))
+          restrRes = r;
       }
 
       final added = <VisibilityItem>[];
 
       if (blocksRes != null) {
-        added.addAll(blocksRes.items.map((e) => VisibilityItem(
-          userId: e['user_id']?.toString() ?? '',
-          createdAt: (e['created_at'] as num?)?.toInt() ?? 0,
-          kind: VisibilityKind.blocked,
-        )));
+        added.addAll(
+          blocksRes.items.map(
+            (e) => VisibilityItem(
+              userId: e['user_id']?.toString() ?? '',
+              createdAt: (e['created_at'] as num?)?.toInt() ?? 0,
+              kind: VisibilityKind.blocked,
+              username: e['username']?.toString(),
+            ),
+          ),
+        );
       }
       if (restrRes != null) {
-        added.addAll(restrRes.items.map((e) => VisibilityItem(
-          userId: e['user_id']?.toString() ?? '',
-          createdAt: (e['created_at'] as num?)?.toInt() ?? 0,
-          kind: VisibilityKind.restricted,
-        )));
+        added.addAll(
+          restrRes.items.map(
+            (e) => VisibilityItem(
+              userId: e['user_id']?.toString() ?? '',
+              createdAt: (e['created_at'] as num?)?.toInt() ?? 0,
+              kind: VisibilityKind.restricted,
+            ),
+          ),
+        );
       }
 
-      final all = [...state.items, ...added]
-          .where((e) => e.userId.isNotEmpty)
-          .toList(growable: false);
+      final all = [
+        ...state.items,
+        ...added,
+      ].where((e) => e.userId.isNotEmpty).toList(growable: false);
 
       // dedupe (aynı userId + kind + createdAt)
       final seen = <String>{};
@@ -198,7 +226,11 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
       }
       deduped.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      final newIds = added.map((e) => e.userId).where((id) => !state.usersById.containsKey(id)).toSet().toList();
+      final newIds = added
+          .map((e) => e.userId)
+          .where((id) => !state.usersById.containsKey(id))
+          .toSet()
+          .toList();
       final newUsers = await _hydrateUsers(newIds);
 
       state = state.copyWith(
@@ -207,11 +239,15 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
         items: deduped,
         usersById: {...state.usersById, ...newUsers},
         nextBlocksAfter: blocksRes?.nextAfter ?? state.nextBlocksAfter,
-        nextRestrictionsCursor: restrRes?.nextCursor ?? state.nextRestrictionsCursor,
-        hasMoreBlocks: blocksRes == null ? state.hasMoreBlocks : blocksRes.items.length == _pageSize,
+        nextRestrictionsCursor:
+            restrRes?.nextCursor ?? state.nextRestrictionsCursor,
+        hasMoreBlocks: blocksRes == null
+            ? state.hasMoreBlocks
+            : blocksRes.items.length == _pageSize,
         hasMoreRestrictions: restrRes == null
             ? state.hasMoreRestrictions
-            : (restrRes.items.length == _pageSize && restrRes.nextCursor != null),
+            : (restrRes.items.length == _pageSize &&
+                  restrRes.nextCursor != null),
       );
     } catch (e, st) {
       log('visibility loadMore error: $e', stackTrace: st);
@@ -224,7 +260,6 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
     required VisibilityKind kind,
     required String? username, // blocked için gerekli
   }) async {
-
     final prev = state;
 
     // optimistic: listeden çıkar
@@ -267,5 +302,4 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
       rethrow;
     }
   }
-
 }
