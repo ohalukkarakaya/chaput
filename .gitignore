@@ -203,9 +203,9 @@ google-services.json
 GoogleService-Info.plist
 *.env
 .env.*
-/lib/core/config/env.dart
 
 # Local secrets / dart defines
+lib/core/config/env.dart
 dart_defines.json
 dart-defines.json
 *.dart-define.json

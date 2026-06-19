@@ -71,7 +71,7 @@
         </receiver>
         <meta-data
                 android:name="com.google.android.gms.ads.APPLICATION_ID"
-                android:value="ca-app-pub-6238877568284429~8925599212"/>
+                android:value="${ADMOB_APP_ID}"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

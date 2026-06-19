@@ -90,7 +90,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-3940256099942544~3347511713"
+        }
+
         release {
+            manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-6238877568284429~8925599212"
             signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {
