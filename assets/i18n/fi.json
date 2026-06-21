@@ -449,5 +449,14 @@
   "onboarding.slide8_title": "👀 Kuka voi nähdä keskustelut?",
   "onboarding.slide8_subtitle": "Vain osallistujat voivat lähettää viestejä keskusteluun.\n\nMuut käyttäjät voivat lukea keskusteluja ja reagoida viesteihin.",
   "onboarding.slide9_title": "🌳 Tutustu ihmisiin heidän keskustelujensa kautta",
-  "onboarding.slide9_subtitle": "Profiilikuvat eivät aina kerro koko tarinaa.\n\nTutustu ihmisiin niiden keskustelujen kautta, joita he käyvät muiden kanssa."
+  "onboarding.slide9_subtitle": "Profiilikuvat eivät aina kerro koko tarinaa.\n\nTutustu ihmisiin niiden keskustelujen kautta, joita he käyvät muiden kanssa.",
+  "feedback.sheet_subtitle": "Voit piirtää kuvakaappaukseen ja lisätä lyhyen huomautuksen.",
+  "feedback.sheet_title": "Mikä on ongelma?",
+  "feedback.sheet_hint": "Kuvaile lyhyesti, mitä tapahtui ja miten ongelman voi tarvittaessa toistaa.",
+  "feedback.sheet_input_placeholder": "Kirjoita lyhyt kuvaus...",
+  "feedback.sheet_submit": "Lähetä",
+  "feedback.submit_success": "Kiitos! Ilmoituksesi on lähetetty.",
+  "feedback.submit_failed": "Ilmoituksen lähettäminen epäonnistui. Yritä uudelleen.",
+  "settings.row_feedback": "Ilmoita ongelmasta",
+  "settings.row_feedback_sub": "Lähetä kuvakaappaus ja muistiinpanosi Chaput-tiimille"
 }

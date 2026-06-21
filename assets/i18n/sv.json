@@ -449,5 +449,14 @@
   "onboarding.slide8_title": "👀 Vem kan se konversationerna?",
   "onboarding.slide8_subtitle": "Endast deltagarna kan skicka meddelanden i en konversation.\n\nAndra användare kan läsa konversationerna och reagera på meddelandena.",
   "onboarding.slide9_title": "🌳 Lär känna människor genom deras konversationer",
-  "onboarding.slide9_subtitle": "Profilbilder berättar inte alltid hela historien.\n\nUpptäck människor genom samtalen de har med andra."
+  "onboarding.slide9_subtitle": "Profilbilder berättar inte alltid hela historien.\n\nUpptäck människor genom samtalen de har med andra.",
+  "feedback.sheet_subtitle": "Du kan rita på skärmbilden och lägga till en kort kommentar.",
+  "feedback.sheet_title": "Vad är problemet?",
+  "feedback.sheet_hint": "Beskriv kort vad som hände och hur problemet kan återskapas om möjligt.",
+  "feedback.sheet_input_placeholder": "Skriv en kort beskrivning...",
+  "feedback.sheet_submit": "Skicka",
+  "feedback.submit_success": "Tack! Din rapport har skickats.",
+  "feedback.submit_failed": "Det gick inte att skicka rapporten. Försök igen.",
+  "settings.row_feedback": "Rapportera ett problem",
+  "settings.row_feedback_sub": "Skicka en skärmbild och dina anteckningar till Chaput-teamet"
 }

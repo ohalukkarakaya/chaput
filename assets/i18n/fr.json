@@ -449,5 +449,14 @@
   "onboarding.slide8_title": "👀 Qui peut voir les conversations ?",
   "onboarding.slide8_subtitle": "Seuls les participants peuvent envoyer des messages dans une conversation.\n\nLes autres utilisateurs peuvent lire les conversations et réagir aux messages.",
   "onboarding.slide9_title": "🌳 Découvre les personnes à travers leurs conversations",
-  "onboarding.slide9_subtitle": "Les photos de profil ne racontent pas toujours toute l’histoire.\n\nDécouvre les gens à travers les conversations qu’ils entretiennent avec les autres."
+  "onboarding.slide9_subtitle": "Les photos de profil ne racontent pas toujours toute l’histoire.\n\nDécouvre les gens à travers les conversations qu’ils entretiennent avec les autres.",
+  "feedback.sheet_subtitle": "Dessinez sur la capture d’écran et ajoutez une courte note.",
+  "feedback.sheet_title": "Quel est le problème ?",
+  "feedback.sheet_hint": "Décrivez brièvement le problème et, si possible, comment le reproduire.",
+  "feedback.sheet_input_placeholder": "Écrivez une courte description...",
+  "feedback.sheet_submit": "Envoyer",
+  "feedback.submit_success": "Merci ! Votre signalement a été envoyé.",
+  "feedback.submit_failed": "Impossible d'envoyer le signalement. Veuillez réessayer.",
+  "settings.row_feedback": "Signaler un problème",
+  "settings.row_feedback_sub": "Envoyez une capture d’écran et vos notes à l’équipe Chaput"
 }

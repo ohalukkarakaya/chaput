@@ -449,5 +449,14 @@
   "onboarding.slide8_title": "👀 Hvem kan se samtalene?",
   "onboarding.slide8_subtitle": "Bare deltakerne kan sende meldinger i en samtale.\n\nAndre brukere kan lese samtalene og reagere på meldinger.",
   "onboarding.slide9_title": "🌳 Bli kjent med mennesker gjennom samtalene deres",
-  "onboarding.slide9_subtitle": "Profilbilder forteller ikke alltid hele historien.\n\nOppdag mennesker gjennom samtalene de har med andre."
+  "onboarding.slide9_subtitle": "Profilbilder forteller ikke alltid hele historien.\n\nOppdag mennesker gjennom samtalene de har med andre.",
+  "feedback.sheet_subtitle": "Du kan tegne på skjermbildet og legge til en kort kommentar.",
+  "feedback.sheet_title": "Hva er problemet?",
+  "feedback.sheet_hint": "Beskriv kort hva som skjedde, og hvordan problemet kan gjenskapes hvis mulig.",
+  "feedback.sheet_input_placeholder": "Skriv en kort beskrivelse...",
+  "feedback.sheet_submit": "Send",
+  "feedback.submit_success": "Takk! Rapporten din er sendt.",
+  "feedback.submit_failed": "Kunne ikke sende rapporten. Prøv igjen.",
+  "settings.row_feedback": "Rapporter et problem",
+  "settings.row_feedback_sub": "Send et skjermbilde og notatene dine til Chaput-teamet"
 }

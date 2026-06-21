@@ -449,5 +449,14 @@
   "onboarding.slide8_title": "👀 Hvem kan se samtalerne?",
   "onboarding.slide8_subtitle": "Kun deltagerne kan sende beskeder i en samtale.\n\nAndre brugere kan læse samtalerne og reagere på beskeder.",
   "onboarding.slide9_title": "🌳 Lær mennesker at kende gennem deres samtaler",
-  "onboarding.slide9_subtitle": "Profilbilleder fortæller ikke altid hele historien.\n\nOpdag mennesker gennem de samtaler, de har med andre."
+  "onboarding.slide9_subtitle": "Profilbilleder fortæller ikke altid hele historien.\n\nOpdag mennesker gennem de samtaler, de har med andre.",
+  "feedback.sheet_subtitle": "Du kan tegne på skærmbilledet og tilføje en kort note.",
+  "feedback.sheet_title": "Hvad er problemet?",
+  "feedback.sheet_hint": "Beskriv kort, hvad der skete, og hvordan problemet kan genskabes, hvis muligt.",
+  "feedback.sheet_input_placeholder": "Skriv en kort beskrivelse...",
+  "feedback.sheet_submit": "Send",
+  "feedback.submit_success": "Tak! Din rapport er blevet sendt.",
+  "feedback.submit_failed": "Rapporten kunne ikke sendes. Prøv igen.",
+  "settings.row_feedback": "Rapportér et problem",
+  "settings.row_feedback_sub": "Send et skærmbillede og dine noter til Chaput-teamet"
 }

@@ -463,5 +463,6 @@
   "onboarding.slide8_title": "👀 Kimler Görebilir?",
   "onboarding.slide8_subtitle": "Sohbetlere yalnızca katılımcılar mesaj gönderebilir.\n\nDiğer kullanıcılar ise sohbetleri okuyabilir ve mesajlara tepki verebilir.",
   "onboarding.slide9_title": "🌳 İnsanları Konuşmalarından Tanı",
-  "onboarding.slide9_subtitle": "Profil fotoğrafları her zaman her şeyi anlatmaz.\n\nİnsanları, başkalarıyla kurdukları sohbetler üzerinden keşfet."
+  "onboarding.slide9_subtitle": "Profil fotoğrafları her zaman her şeyi anlatmaz.\n\nİnsanları, başkalarıyla kurdukları sohbetler üzerinden keşfet.",
+  "feedback.sheet_subtitle": "Ekran görüntüsüne çizim yapabilir, kısa bir not ekleyebilirsin."
 }

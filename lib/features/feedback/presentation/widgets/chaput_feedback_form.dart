@@ -1,14 +1,15 @@
 import 'package:feedback/feedback.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 
 Widget chaputFeedbackBuilder(
-  BuildContext context,
-  OnSubmit onSubmit,
-  ScrollController? scrollController,
-) {
+    BuildContext context,
+    OnSubmit onSubmit,
+    ScrollController? scrollController,
+    ) {
   return _ChaputFeedbackForm(
     onSubmit: onSubmit,
     scrollController: scrollController,
@@ -81,7 +82,7 @@ class _ChaputFeedbackFormState extends State<_ChaputFeedbackForm> {
         controller: widget.scrollController,
         physics: const ClampingScrollPhysics(),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,66 +90,89 @@ class _ChaputFeedbackFormState extends State<_ChaputFeedbackForm> {
             if (widget.scrollController != null)
               const Center(child: FeedbackSheetDragHandle()),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
 
             Text(
               context.t('feedback.sheet_title'),
-              style: textTheme.headlineMedium?.copyWith(
+              style: textTheme.headlineSmall?.copyWith(
                 color: AppColors.chaputBlack,
                 fontWeight: FontWeight.w900,
-                letterSpacing: -0.6,
+                letterSpacing: -0.4,
               ),
             ),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 6),
 
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F8F6),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: _controller.text.trim().isEmpty
-                      ? AppColors.chaputBlack.withOpacity(0.18)
-                      : AppColors.chaputBlack,
-                  width: _controller.text.trim().isEmpty ? 1.2 : 1.6,
-                ),
+            Text(
+              context.t('feedback.sheet_subtitle'),
+              style: TextStyle(
+                color: AppColors.chaputBlack.withOpacity(0.52),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
               ),
-              child: TextField(
-                controller: _controller,
-                autofocus: false,
-                minLines: 1,
-                maxLines: 7,
-                maxLength: 1200,
-                cursorColor: AppColors.chaputBlack,
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.newline,
-                style: const TextStyle(
-                  color: AppColors.chaputBlack87,
+            ),
+
+            const SizedBox(height: 14),
+
+            TextField(
+              controller: _controller,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
+              minLines: 2,
+              maxLines: 5,
+              maxLength: 500,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              cursorColor: AppColors.chaputBlack,
+              textCapitalization: TextCapitalization.sentences,
+              style: const TextStyle(
+                color: AppColors.chaputBlack87,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                height: 1.35,
+              ),
+              decoration: InputDecoration(
+                hintText: context.t('feedback.sheet_input_placeholder'),
+                hintStyle: TextStyle(
+                  color: AppColors.chaputBlack.withOpacity(0.38),
                   fontWeight: FontWeight.w600,
-                  fontSize: 18,
-                  height: 1.35,
                 ),
-                decoration: InputDecoration(
-                  hintText: context.t('feedback.sheet_input_placeholder'),
-                  hintStyle: TextStyle(
-                    color: AppColors.chaputBlack.withOpacity(0.42),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 18,
+                counterStyle: TextStyle(
+                  color: AppColors.chaputBlack.withOpacity(0.45),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF7F7F5),
+                contentPadding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide(
+                    color: AppColors.chaputBlack.withOpacity(0.16),
+                    width: 1.2,
                   ),
-                  counterText: '',
-                  contentPadding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                  border: InputBorder.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide(
+                    color: AppColors.chaputBlack.withOpacity(0.16),
+                    width: 1.2,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: const BorderSide(
+                    color: AppColors.chaputBlack,
+                    width: 1.4,
+                  ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
 
             SizedBox(
-              width: double.infinity,
-              height: 56,
+              height: 50,
               child: ElevatedButton(
                 onPressed: _canSubmit ? _submit : null,
                 style: ElevatedButton.styleFrom(
@@ -159,22 +183,22 @@ class _ChaputFeedbackFormState extends State<_ChaputFeedbackForm> {
                   disabledForegroundColor: AppColors.chaputWhite,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(19),
                   ),
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
-                  width: 22,
-                  height: 22,
+                  width: 21,
+                  height: 21,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
+                    strokeWidth: 2.3,
                     color: AppColors.chaputWhite,
                   ),
                 )
                     : Text(
                   context.t('feedback.sheet_submit'),
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w900,
                   ),
                 ),

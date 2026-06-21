@@ -463,5 +463,6 @@
   "onboarding.slide8_title": "👀 Who Can See Conversations?",
   "onboarding.slide8_subtitle": "Only participants can send messages in a conversation.\n\nOther users can read conversations and react to messages.",
   "onboarding.slide9_title": "🌳 Get to Know People Through Their Conversations",
-  "onboarding.slide9_subtitle": "Profile photos don't always tell the whole story.\n\nDiscover people through the conversations they have with others."
+  "onboarding.slide9_subtitle": "Profile photos don't always tell the whole story.\n\nDiscover people through the conversations they have with others.",
+  "feedback.sheet_subtitle": "Draw on the screenshot and add a short note."
 }

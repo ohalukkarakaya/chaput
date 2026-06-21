@@ -52,8 +52,8 @@ Future<void> main() async {
         ],
         theme: FeedbackThemeData(
           background: Colors.black.withValues(alpha: 0.58),
-          feedbackSheetColor: AppColors.chaputWhite,
           feedbackSheetHeight: 0.38,
+          feedbackSheetColor: AppColors.chaputWhite,
           activeFeedbackModeColor: AppColors.chaputBlack,
           dragHandleColor: Colors.black26,
           drawColors: const [

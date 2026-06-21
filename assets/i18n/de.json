@@ -449,5 +449,14 @@
   "onboarding.slide8_title": "👀 Wer kann Gespräche sehen?",
   "onboarding.slide8_subtitle": "Nur die Teilnehmer können Nachrichten in einer Unterhaltung senden.\n\nAndere Nutzer können die Gespräche lesen und auf Nachrichten reagieren.",
   "onboarding.slide9_title": "🌳 Menschen durch ihre Gespräche kennenlernen",
-  "onboarding.slide9_subtitle": "Profilbilder erzählen nicht immer die ganze Geschichte.\n\nEntdecke Menschen durch die Gespräche, die sie mit anderen führen."
+  "onboarding.slide9_subtitle": "Profilbilder erzählen nicht immer die ganze Geschichte.\n\nEntdecke Menschen durch die Gespräche, die sie mit anderen führen.",
+  "feedback.sheet_subtitle": "Du kannst auf dem Screenshot zeichnen und eine kurze Notiz hinzufügen.",
+  "feedback.sheet_title": "Was ist das Problem?",
+  "feedback.sheet_hint": "Beschreibe kurz, was passiert ist und wie sich das Problem gegebenenfalls reproduzieren lässt.",
+  "feedback.sheet_input_placeholder": "Kurze Beschreibung eingeben...",
+  "feedback.sheet_submit": "Senden",
+  "feedback.submit_success": "Danke! Deine Meldung wurde gesendet.",
+  "feedback.submit_failed": "Die Meldung konnte nicht gesendet werden. Bitte versuche es erneut.",
+  "settings.row_feedback": "Problem melden",
+  "settings.row_feedback_sub": "Sende einen Screenshot und deine Notizen an das Chaput-Team"
 }
