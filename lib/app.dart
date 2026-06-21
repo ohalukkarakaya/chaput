@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'features/feedback/presentation/widgets/global_feedback_trigger.dart';
 import 'core/app_availability/app_availability_gate.dart';
 import 'core/deep_links/deep_link_listener.dart';
 import 'core/router/app_router.dart';
@@ -31,19 +32,20 @@ class ChaputApp extends ConsumerWidget {
           primary: AppColors.chaputBlack,
           secondary: AppColors.chaputBlack,
           surface: AppColors.chaputWhite,
-          background: AppColors.chaputWhite,
-          onBackground: AppColors.chaputBlack,
           onSurface: AppColors.chaputBlack,
           onPrimary: AppColors.chaputWhite,
         ),
       ),
       darkTheme: AppTheme.light(),
       routerConfig: router,
-      builder: (context, child) => NotificationLifecycleListener(
+      builder: (context, child) => GlobalFeedbackTrigger(
         router: router,
-        child: DeepLinkListener(
+        child: NotificationLifecycleListener(
           router: router,
-          child: AppAvailabilityGate(child: child ?? const SizedBox.shrink()),
+          child: DeepLinkListener(
+            router: router,
+            child: AppAvailabilityGate(child: child ?? const SizedBox.shrink()),
+          ),
         ),
       ),
       localizationsDelegates: const [

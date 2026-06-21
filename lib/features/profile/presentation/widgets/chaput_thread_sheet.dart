@@ -14,6 +14,7 @@ import '../../../../core/share/chaput_share_links.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
+import '../../../feedback/presentation/feedback_launcher.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'black_glass.dart';
@@ -894,6 +895,7 @@ class _ThreadHeader extends StatelessWidget {
                 HapticFeedback.selectionClick();
                 _showThreadActions(
                   context,
+                  hostContext: context,
                   canShare: canShareThread,
                   canArchive: canArchiveThread,
                   canReport: canReportThread,
@@ -939,6 +941,7 @@ void _shareThread(BuildContext context, String username, String threadSegment) {
 
 void _showThreadActions(
   BuildContext context, {
+  required BuildContext hostContext,
   required bool canShare,
   required bool canArchive,
   required bool canReport,
@@ -950,6 +953,7 @@ void _showThreadActions(
     context: context,
     backgroundColor: Colors.transparent,
     builder: (_) => _ThreadActionSheet(
+      hostContext: hostContext,
       canShare: canShare,
       canArchive: canArchive,
       canReport: canReport,
@@ -985,8 +989,9 @@ void _showMessageActions(
   );
 }
 
-class _ThreadActionSheet extends StatelessWidget {
+class _ThreadActionSheet extends ConsumerWidget {
   const _ThreadActionSheet({
+    required this.hostContext,
     required this.canShare,
     required this.canArchive,
     required this.canReport,
@@ -995,6 +1000,7 @@ class _ThreadActionSheet extends StatelessWidget {
     required this.onReport,
   });
 
+  final BuildContext hostContext;
   final bool canShare;
   final bool canArchive;
   final bool canReport;
@@ -1003,7 +1009,7 @@ class _ThreadActionSheet extends StatelessWidget {
   final VoidCallback onReport;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = context.responsive.bottomSheetInnerPadding();
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -1030,6 +1036,21 @@ class _ThreadActionSheet extends StatelessWidget {
                     onShare();
                   },
                 ),
+              _GlassActionTile(
+                icon: Icons.bug_report_outlined,
+                title: context.t('settings.row_feedback'),
+                subtitle: context.t('settings.row_feedback_sub'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Future.microtask(
+                    () => showAppFeedbackSheet(
+                      hostContext,
+                      ref,
+                      triggerSource: 'thread_actions_menu',
+                    ),
+                  );
+                },
+              ),
               if (canArchive)
                 _GlassActionTile(
                   icon: Icons.archive_outlined,

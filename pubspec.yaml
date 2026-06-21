@@ -64,6 +64,9 @@ dependencies:
   webview_flutter: ^4.13.1
   app_links: ^7.0.0
   audioplayers: ^6.7.1
+  feedback: ^3.2.0
+  package_info_plus: ^9.0.0
+  device_info_plus: ^12.1.0
 
 dev_dependencies:
   flutter_test:

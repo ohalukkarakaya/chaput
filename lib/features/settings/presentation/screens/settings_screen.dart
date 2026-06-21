@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../auth/data/auth_api.dart';
+import '../../../feedback/presentation/feedback_launcher.dart';
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../me/application/me_controller.dart';
@@ -109,6 +110,13 @@ class SettingsScreen extends ConsumerWidget {
                             MaterialPageRoute(
                               builder: (_) => const ArchiveChaputsScreen(),
                             ),
+                          );
+                        },
+                        onOpenFeedback: () {
+                          showAppFeedbackSheet(
+                            context,
+                            ref,
+                            triggerSource: 'settings',
                           );
                         },
                         onPauseAccount: () async {
@@ -764,6 +772,7 @@ class _SettingsContent extends StatelessWidget {
   final VoidCallback onOpenEmail;
   final VoidCallback onOpenPrivacy;
   final VoidCallback onOpenArchive;
+  final VoidCallback onOpenFeedback;
   final VoidCallback onPauseAccount;
   final VoidCallback onCloseAccount;
   final VoidCallback onLogout;
@@ -782,6 +791,7 @@ class _SettingsContent extends StatelessWidget {
     required this.onOpenEmail,
     required this.onOpenPrivacy,
     required this.onOpenArchive,
+    required this.onOpenFeedback,
     required this.onPauseAccount,
     required this.onCloseAccount,
     required this.onLogout,
@@ -928,6 +938,13 @@ class _SettingsContent extends StatelessWidget {
                 title: context.t('settings.row_archived'),
                 subtitle: context.t('settings.row_archived_sub'),
                 onTap: onOpenArchive,
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                icon: Icons.bug_report_outlined,
+                title: context.t('settings.row_feedback'),
+                subtitle: context.t('settings.row_feedback_sub'),
+                onTap: onOpenFeedback,
               ),
 
               const SizedBox(height: 18),

@@ -11,6 +11,7 @@ import '../../../../features/recommended_users/application/recommended_user_cont
 import '../../../../features/social/application/block_controller.dart';
 import '../../../../features/social/application/restrictions_controller.dart';
 import '../../../../features/social/application/ui_restriction_override_provider.dart';
+import '../../../feedback/presentation/feedback_launcher.dart';
 import '../../../../core/router/routes.dart';
 import 'sheet_handle.dart';
 import 'package:chaput/core/constants/app_colors.dart';
@@ -39,6 +40,7 @@ class ProfileActionsButton extends StatelessWidget {
           context: context,
           backgroundColor: AppColors.chaputTransparent,
           builder: (_) => ProfileActionsSheet(
+            hostContext: context,
             username: username,
             userId: userId,
             iRestrictedHim: iRestrictedHim,
@@ -65,11 +67,13 @@ class ProfileActionsButton extends StatelessWidget {
 class ProfileActionsSheet extends ConsumerWidget {
   const ProfileActionsSheet({
     super.key,
+    required this.hostContext,
     required this.username,
     required this.userId,
     required this.iRestrictedHim,
   });
 
+  final BuildContext hostContext;
   final String username;
   final String userId;
   final bool iRestrictedHim;
@@ -106,6 +110,23 @@ class ProfileActionsSheet extends ConsumerWidget {
                   ShareParams(
                     text: ChaputShareLinks.profile(username),
                     subject: context.t('share.subject'),
+                  ),
+                );
+              },
+            ),
+
+            ProfileActionTile(
+              icon: Icons.bug_report_outlined,
+              title: context.t('settings.row_feedback'),
+              subtitle: context.t('settings.row_feedback_sub'),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                Navigator.pop(context);
+                Future.microtask(
+                  () => showAppFeedbackSheet(
+                    hostContext,
+                    ref,
+                    triggerSource: 'profile_actions_menu',
                   ),
                 );
               },

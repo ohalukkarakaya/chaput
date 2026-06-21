@@ -1,13 +1,19 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:feedback/feedback.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+import 'core/constants/app_colors.dart';
+import 'core/i18n/app_localizations.dart';
 import 'features/notifications/application/local_notification_service.dart';
 import 'features/profile/presentation/utils/tree_model_cache.dart';
 import 'app.dart';
+import 'features/feedback/presentation/widgets/chaput_feedback_form.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +39,44 @@ Future<void> main() async {
 
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  runApp(const ProviderScope(child: ChaputApp()));
+  runApp(
+    ProviderScope(
+      child: BetterFeedback(
+        feedbackBuilder: chaputFeedbackBuilder,
+        localizationsDelegates: [
+          const AppLocalizationsDelegate(),
+          GlobalFeedbackLocalizationsDelegate(),
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: FeedbackThemeData(
+          background: Colors.black.withValues(alpha: 0.58),
+          feedbackSheetColor: AppColors.chaputWhite,
+          feedbackSheetHeight: 0.38,
+          activeFeedbackModeColor: AppColors.chaputBlack,
+          dragHandleColor: Colors.black26,
+          drawColors: const [
+            AppColors.chaputErrorRed,
+            AppColors.chaputGolden,
+            AppColors.chaputRoyalBlue,
+            AppColors.chaputBlack,
+          ],
+          bottomSheetDescriptionStyle: const TextStyle(
+            color: AppColors.chaputBlack87,
+            fontWeight: FontWeight.w600,
+          ),
+          bottomSheetTextInputStyle: const TextStyle(
+            color: AppColors.chaputBlack87,
+            fontWeight: FontWeight.w600,
+            fontSize: 17,
+            height: 1.4,
+          ),
+        ),
+        child: const ChaputApp(),
+      ),
+    ),
+  );
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
     TreeModelCache.instance.warmUpAll();
