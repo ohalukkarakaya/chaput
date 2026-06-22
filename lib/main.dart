@@ -60,7 +60,6 @@ Future<void> main() async {
             AppColors.chaputErrorRed,
             AppColors.chaputGolden,
             AppColors.chaputRoyalBlue,
-            AppColors.chaputBlack,
           ],
           bottomSheetDescriptionStyle: const TextStyle(
             color: AppColors.chaputBlack87,
