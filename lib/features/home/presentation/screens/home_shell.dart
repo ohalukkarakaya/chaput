@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show lerpDouble;
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
@@ -9,10 +10,13 @@ import 'package:go_router/go_router.dart';
 import 'package:showcaseview/showcaseview.dart';
 
 import '../../../../core/deep_links/deep_link_state.dart';
+import '../../../../core/app_availability/app_availability_controller.dart';
 import '../../../../core/router/routes.dart';
+import '../../../../core/app_availability/app_update_service.dart';
 import '../../../../core/ui/backgrounds/animated_mesh_background.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../core/storage/tutorial_storage.dart';
+import '../../../../core/review/app_review_service.dart';
 
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
@@ -28,6 +32,7 @@ import '../../../../core/ui/widgets/share_bar.dart';
 import '../../../../core/ui/widgets/shimmer_skeleton.dart';
 import '../../../../core/ux/chaput_sound_service.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import '../widgets/app_review_prompt_sheet.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -39,24 +44,91 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<ChaputSocketEvent>? _socketSub;
   final GlobalKey _recoShowcaseKey = GlobalKey();
+  final GlobalKey _feedbackShowcaseKey = GlobalKey();
   bool _homeShowcaseScheduled = false;
   bool _notificationsBooted = false;
   bool _notificationsBootScheduled = false;
   bool _pendingDeepLinkOpenScheduled = false;
+  bool _reviewPromptScheduled = false;
+  bool _reviewPromptCheckInFlight = false;
 
   Future<void> _scheduleHomeShowcase(
     BuildContext context,
     String userId,
   ) async {
     final storage = ref.read(tutorialStorageProvider);
-    final shouldShow = await storage.shouldShow(userId, 'home_recommended');
-    if (!shouldShow || !mounted) return;
+    final showRecommended = await storage.shouldShow(
+      userId,
+      'home_recommended',
+    );
+    final showFeedback = await storage.shouldShow(
+      userId,
+      'home_feedback_gesture',
+    );
+    if ((!showRecommended && !showFeedback) || !mounted) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ShowCaseWidget.of(context).startShowCase([_recoShowcaseKey]);
-      storage.markShown(userId, 'home_recommended');
+      final keys = <GlobalKey>[
+        if (showRecommended) _recoShowcaseKey,
+        if (showFeedback) _feedbackShowcaseKey,
+      ];
+      if (keys.isEmpty) return;
+      ShowCaseWidget.of(context).startShowCase(keys);
+      if (showRecommended) {
+        unawaited(storage.markShown(userId, 'home_recommended'));
+      }
+      if (showFeedback) {
+        unawaited(storage.markShown(userId, 'home_feedback_gesture'));
+      }
     });
+  }
+
+  Future<void> _scheduleReviewPrompt(String userId) async {
+    if (_reviewPromptCheckInFlight || _reviewPromptScheduled) return;
+    _reviewPromptCheckInFlight = true;
+
+    final tutorialStorage = ref.read(tutorialStorageProvider);
+    try {
+      final hasPendingTutorial =
+          await tutorialStorage.shouldShow(userId, 'home_recommended') ||
+          await tutorialStorage.shouldShow(userId, 'home_feedback_gesture');
+      if (hasPendingTutorial) return;
+      if (ref.read(appAvailabilityProvider).blocksApp) return;
+
+      final updateSnapshot = await ref
+          .read(appUpdateServiceProvider)
+          .checkForUpdate();
+      if (!updateSnapshot.storePublished) return;
+
+      final shouldPrompt = await ref
+          .read(appReviewServiceProvider)
+          .shouldPrompt(userId);
+      if (!shouldPrompt || !mounted) return;
+
+      _reviewPromptScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 650));
+        if (!mounted) return;
+        if (ref.read(pendingDeepLinkProvider) != null) return;
+        if (ref.read(appAvailabilityProvider).blocksApp) return;
+
+        final action = await showAppReviewPromptSheet(this.context);
+        if (!mounted) return;
+
+        final service = ref.read(appReviewServiceProvider);
+        switch (action ?? AppReviewPromptAction.later) {
+          case AppReviewPromptAction.liked:
+            await service.markLiked(userId);
+            break;
+          case AppReviewPromptAction.later:
+            await service.markAskLater(userId);
+            break;
+        }
+      });
+    } finally {
+      _reviewPromptCheckInFlight = false;
+    }
   }
 
   @override
@@ -199,6 +271,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         if (!_homeShowcaseScheduled && meId.isNotEmpty) {
           _homeShowcaseScheduled = true;
           _scheduleHomeShowcase(showcaseContext, meId);
+        }
+        if (!_reviewPromptScheduled &&
+            !_reviewPromptCheckInFlight &&
+            meId.isNotEmpty &&
+            ref.read(pendingDeepLinkProvider) == null) {
+          unawaited(_scheduleReviewPrompt(meId));
         }
 
         return Scaffold(
@@ -569,17 +647,82 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                               if (me == null) return const SizedBox();
 
                               final username = me.user.username;
-                              if (username == null || username.isEmpty) {
+                              if (username.isEmpty) {
                                 return const SizedBox();
                               }
 
                               final link = 'https://chaput.app/me/$username';
 
-                              return ShareBar(
-                                link: link,
-                                title: context.t('home.share_title'),
-                                subtitle: context.t('home.share_subtitle'),
-                                showShareButton: false,
+                              return Showcase.withWidget(
+                                key: _feedbackShowcaseKey,
+                                targetPadding: EdgeInsets.zero,
+                                targetBorderRadius: BorderRadius.circular(22),
+                                targetShapeBorder: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(22),
+                                ),
+                                tooltipPosition: TooltipPosition.top,
+                                toolTipMargin: 8,
+                                targetTooltipGap: 10,
+                                container: Container(
+                                  width: 292,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    14,
+                                    14,
+                                    14,
+                                    12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.chaputBlack.withOpacity(
+                                      0.92,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.chaputBlack
+                                            .withOpacity(0.28),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const _FeedbackPinchPreview(),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        context.t(
+                                          'showcase.home_feedback_title',
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.chaputWhite,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        context.t(
+                                          'showcase.home_feedback_body',
+                                        ),
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          height: 1.35,
+                                          color: AppColors.chaputWhite
+                                              .withOpacity(0.9),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                child: ShareBar(
+                                  link: link,
+                                  title: context.t('home.share_title'),
+                                  subtitle: context.t('home.share_subtitle'),
+                                  showShareButton: false,
+                                ),
                               );
                             },
                           );
@@ -865,4 +1008,108 @@ class _SearchOverlayRoute extends PageRouteBuilder<void> {
           );
         },
       );
+}
+
+class _FeedbackPinchPreview extends StatefulWidget {
+  const _FeedbackPinchPreview();
+
+  @override
+  State<_FeedbackPinchPreview> createState() => _FeedbackPinchPreviewState();
+}
+
+class _FeedbackPinchPreviewState extends State<_FeedbackPinchPreview>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 92,
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.chaputWhite.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.chaputWhite.withOpacity(0.08)),
+        ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final t = Curves.easeInOut.transform(_controller.value);
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _PinchDot(
+                  alignment: Alignment.lerp(
+                    const Alignment(0.82, -0.72),
+                    const Alignment(0.18, -0.08),
+                    t,
+                  )!,
+                  size: lerpDouble(26, 18, t)!,
+                ),
+                _PinchDot(
+                  alignment: Alignment.lerp(
+                    const Alignment(-0.82, 0.72),
+                    const Alignment(-0.18, 0.08),
+                    t,
+                  )!,
+                  size: lerpDouble(26, 18, t)!,
+                ),
+                Align(
+                  child: Container(
+                    width: lerpDouble(56, 34, t)!,
+                    height: 1.5,
+                    color: AppColors.chaputWhite.withOpacity(
+                      lerpDouble(0.1, 0.22, t)!,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PinchDot extends StatelessWidget {
+  const _PinchDot({required this.alignment, required this.size});
+
+  final Alignment alignment;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.chaputWhite.withOpacity(0.08),
+          border: Border.all(
+            color: AppColors.chaputWhite.withOpacity(0.42),
+            width: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
 }

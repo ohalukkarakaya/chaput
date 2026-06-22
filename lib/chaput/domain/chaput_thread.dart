@@ -1,3 +1,5 @@
+import '../../core/utils/backend_time.dart';
+
 class ChaputThreadItem {
   ChaputThreadItem({
     required this.threadId,
@@ -58,12 +60,6 @@ class ChaputThreadItem {
   }
 
   factory ChaputThreadItem.fromJson(Map<String, dynamic> json) {
-    DateTime? parseTime(dynamic v) {
-      final s = v?.toString();
-      if (s == null || s.isEmpty || s == 'null') return null;
-      return DateTime.tryParse(s);
-    }
-
     double? parseDouble(dynamic v) {
       if (v == null) return null;
       if (v is num) return v.toDouble();
@@ -78,9 +74,9 @@ class ChaputThreadItem {
       starterId: json['starter_id']?.toString() ?? '',
       kind: json['kind']?.toString() ?? 'NORMAL',
       state: json['state']?.toString() ?? 'OPEN',
-      lastMessageAt: parseTime(json['last_message_at']),
-      pendingExpiresAt: parseTime(json['pending_expires_at']),
-      createdAt: parseTime(json['created_at']),
+      lastMessageAt: parseBackendUtcDateTime(json['last_message_at']),
+      pendingExpiresAt: parseBackendUtcDateTime(json['pending_expires_at']),
+      createdAt: parseBackendUtcDateTime(json['created_at']),
       x: parseDouble(json['x']),
       y: parseDouble(json['y']),
       z: parseDouble(json['z']),

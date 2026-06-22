@@ -20,6 +20,7 @@ import '../../../../chaput/domain/chaput_decision.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../../core/config/env.dart';
+import '../../../../core/utils/backend_time.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/router/route_observer.dart';
 import '../../../../core/i18n/app_localizations.dart';
@@ -567,9 +568,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   DateTime? _parseSocketTime(dynamic v) {
-    final s = v?.toString();
-    if (s == null || s.isEmpty || s == 'null') return null;
-    return DateTime.tryParse(s);
+    return parseBackendUtcDateTime(v);
   }
 
   Map<String, dynamic>? _normalizeSocketMap(dynamic value) {

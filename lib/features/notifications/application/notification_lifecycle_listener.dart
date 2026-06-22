@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../chaput/data/chaput_socket.dart';
+import '../../../core/app_availability/app_availability_controller.dart';
 import '../../../core/deep_links/deep_link_state.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/storage/secure_storage_provider.dart';
@@ -146,6 +147,9 @@ class _NotificationLifecycleListenerState
   Future<void> _handleAppOpened() async {
     await LocalNotificationService.instance.cancelInactivityReminders();
     await NotificationBadgeService.resetAppIconBadge();
+    try {
+      await ref.read(appAvailabilityProvider.notifier).checkNow();
+    } catch (_) {}
 
     try {
       final hasValidatedSession =

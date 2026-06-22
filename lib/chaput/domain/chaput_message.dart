@@ -1,3 +1,5 @@
+import '../../core/utils/backend_time.dart';
+
 class ChaputMessage {
   ChaputMessage({
     required this.id,
@@ -30,18 +32,12 @@ class ChaputMessage {
   final List<ChaputMessageLiker> topLikers;
 
   factory ChaputMessage.fromJson(Map<String, dynamic> json) {
-    DateTime? parseTime(dynamic v) {
-      final s = v?.toString();
-      if (s == null || s.isEmpty || s == 'null') return null;
-      return DateTime.tryParse(s);
-    }
-
     return ChaputMessage(
       id: json['id']?.toString() ?? '',
       senderId: json['sender_id']?.toString() ?? '',
       kind: json['kind']?.toString() ?? 'NORMAL',
       body: json['body']?.toString() ?? '',
-      createdAt: parseTime(json['created_at']),
+      createdAt: parseBackendUtcDateTime(json['created_at']),
       replyToId: json['reply_to_id']?.toString(),
       replyToSenderId: json['reply_to_sender_id']?.toString(),
       replyToBody: json['reply_to_body']?.toString(),
@@ -86,7 +82,8 @@ class ChaputMessageLiker {
   }
 
   String? get profilePhotoPath {
-    if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty) return profilePhotoUrl;
+    if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty)
+      return profilePhotoUrl;
     if (profilePhotoKey != null && profilePhotoKey!.isNotEmpty) {
       if (profilePhotoKey!.contains('/')) return profilePhotoKey;
       return '/uploads/profile_photos/$profilePhotoKey';

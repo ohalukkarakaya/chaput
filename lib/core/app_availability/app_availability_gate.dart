@@ -6,6 +6,7 @@ import '../i18n/app_localizations.dart';
 import '../router/app_router.dart';
 import '../router/routes.dart';
 import 'app_availability_controller.dart';
+import 'app_update_service.dart';
 
 class AppAvailabilityGate extends ConsumerStatefulWidget {
   const AppAvailabilityGate({super.key, required this.child});
@@ -19,6 +20,7 @@ class AppAvailabilityGate extends ConsumerStatefulWidget {
 
 class _AppAvailabilityGateState extends ConsumerState<AppAvailabilityGate> {
   bool _retrying = false;
+  bool _openingStore = false;
 
   Future<void> _retryAndGoHomeIfRecovered() async {
     if (_retrying) return;
@@ -53,6 +55,16 @@ class _AppAvailabilityGateState extends ConsumerState<AppAvailabilityGate> {
     });
   }
 
+  Future<void> _openStoreForUpdate() async {
+    if (_openingStore) return;
+    _openingStore = true;
+    try {
+      await ref.read(appUpdateServiceProvider).openStore();
+    } finally {
+      _openingStore = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appAvailabilityProvider);
@@ -64,7 +76,10 @@ class _AppAvailabilityGateState extends ConsumerState<AppAvailabilityGate> {
             child: _AvailabilityBlocker(
               mode: state.mode,
               message: state.message,
+              storeVersion: state.storeVersion,
+              storeName: state.storeName,
               onRetry: _retryAndGoHomeIfRecovered,
+              onOpenStore: _openStoreForUpdate,
             ),
           ),
       ],
@@ -76,26 +91,47 @@ class _AvailabilityBlocker extends StatelessWidget {
   const _AvailabilityBlocker({
     required this.mode,
     required this.message,
+    required this.storeVersion,
+    required this.storeName,
     required this.onRetry,
+    required this.onOpenStore,
   });
 
   final AppAvailabilityMode mode;
   final String? message;
+  final String? storeVersion;
+  final String? storeName;
   final Future<void> Function() onRetry;
+  final Future<void> Function() onOpenStore;
 
   @override
   Widget build(BuildContext context) {
     final maintenance = mode == AppAvailabilityMode.maintenance;
+    final updateRequired = mode == AppAvailabilityMode.updateRequired;
     final title = maintenance
         ? context.t('availability.maintenance_title')
+        : updateRequired
+        ? context.t('availability.update_title')
         : context.t('availability.offline_title');
     final body = maintenance
         ? (message?.isNotEmpty == true
               ? message!
               : context.t('availability.maintenance_body'))
+        : updateRequired
+        ? context
+              .t('availability.update_body')
+              .replaceAll('{store}', storeName ?? 'store')
+              .replaceAll(
+                '{version}',
+                storeVersion == null || storeVersion!.isEmpty
+                    ? ''
+                    : ' $storeVersion',
+              )
         : context.t('availability.offline_body');
     final icon = maintenance
         ? Icons.construction_rounded
+        : updateRequired
+        ? Icons.system_update_rounded
         : Icons.wifi_off_rounded;
 
     return Material(
@@ -182,7 +218,11 @@ class _AvailabilityBlocker extends StatelessWidget {
                           height: 52,
                           child: ElevatedButton(
                             onPressed: () {
-                              onRetry();
+                              if (updateRequired) {
+                                onOpenStore();
+                              } else {
+                                onRetry();
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.chaputBlack,
@@ -193,7 +233,9 @@ class _AvailabilityBlocker extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              context.t('availability.retry'),
+                              updateRequired
+                                  ? context.t('availability.update_button')
+                                  : context.t('availability.retry'),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w900,
                               ),

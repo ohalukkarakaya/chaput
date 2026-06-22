@@ -1,3 +1,5 @@
+import '../../../core/utils/backend_time.dart';
+
 class AppNotification {
   final String id;
   final String userId;
@@ -24,9 +26,7 @@ class AppNotification {
   bool get isRead => readAt != null;
 
   static DateTime? _parseDate(dynamic v) {
-    final s = v?.toString();
-    if (s == null || s.isEmpty || s == 'null') return null;
-    return DateTime.tryParse(s);
+    return parseBackendUtcDateTime(v);
   }
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
@@ -35,7 +35,9 @@ class AppNotification {
       userId: json['user_id']?.toString() ?? '',
       actorId: json['actor_id']?.toString(),
       type: json['type']?.toString() ?? '',
-      payload: (json['payload'] as Map?)?.map((k, v) => MapEntry(k.toString(), v)) ?? const {},
+      payload:
+          (json['payload'] as Map?)?.map((k, v) => MapEntry(k.toString(), v)) ??
+          const {},
       profileId: json['profile_id']?.toString(),
       threadId: json['thread_id']?.toString(),
       createdAt: _parseDate(json['created_at']),

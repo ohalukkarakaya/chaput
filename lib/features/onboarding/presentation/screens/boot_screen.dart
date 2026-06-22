@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/deep_links/deep_link_state.dart';
 import '../../../../core/device/device_id_service.dart';
+import '../../../../core/review/app_review_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/widgets/chaput_tunnel_splash.dart';
@@ -138,8 +139,16 @@ class _BootScreenState extends ConsumerState<BootScreen>
       debugPrint('BOOT: refresh OK -> /me fetch');
 
       try {
-        await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+        final me = await ref
+            .read(meControllerProvider.notifier)
+            .fetchAndStoreMe();
         await storage.markAuthenticated();
+        final userId = me?.user.userId ?? '';
+        if (userId.isNotEmpty) {
+          await ref
+              .read(appReviewServiceProvider)
+              .recordAppOpenForSession(userId);
+        }
         try {
           await ref
               .read(notificationApiProvider)

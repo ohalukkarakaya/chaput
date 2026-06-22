@@ -4,18 +4,21 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_status_api.dart';
+import 'app_update_service.dart';
 
 final appAvailabilityProvider =
     NotifierProvider<AppAvailabilityController, AppAvailabilityState>(
       AppAvailabilityController.new,
     );
 
-enum AppAvailabilityMode { available, offline, maintenance }
+enum AppAvailabilityMode { available, offline, maintenance, updateRequired }
 
 class AppAvailabilityState {
   const AppAvailabilityState({
     required this.mode,
     this.message,
+    this.storeVersion,
+    this.storeName,
     this.checking = false,
   });
 
@@ -28,8 +31,21 @@ class AppAvailabilityState {
   const AppAvailabilityState.maintenance({String? message})
     : this(mode: AppAvailabilityMode.maintenance, message: message);
 
+  const AppAvailabilityState.updateRequired({
+    String? message,
+    String? storeVersion,
+    String? storeName,
+  }) : this(
+         mode: AppAvailabilityMode.updateRequired,
+         message: message,
+         storeVersion: storeVersion,
+         storeName: storeName,
+       );
+
   final AppAvailabilityMode mode;
   final String? message;
+  final String? storeVersion;
+  final String? storeName;
   final bool checking;
 
   bool get blocksApp => mode != AppAvailabilityMode.available;
@@ -57,7 +73,7 @@ class AppAvailabilityController extends Notifier<AppAvailabilityState> {
     return const AppAvailabilityState.available(checking: true);
   }
 
-  Future<AppAvailabilityState> checkNow() async {
+  Future<AppAvailabilityState> checkNow({bool forceUpdateCheck = false}) async {
     if (_checking) return state;
     _checking = true;
     if (!state.blocksApp) {
@@ -75,7 +91,17 @@ class AppAvailabilityController extends Notifier<AppAvailabilityState> {
       if (status.maintenance) {
         state = AppAvailabilityState.maintenance(message: status.message);
       } else {
-        state = const AppAvailabilityState.available();
+        final update = await ref
+            .read(appUpdateServiceProvider)
+            .checkForUpdate(force: forceUpdateCheck);
+        if (update.updateRequired) {
+          state = AppAvailabilityState.updateRequired(
+            storeVersion: update.storeVersion,
+            storeName: update.storeName,
+          );
+        } else {
+          state = const AppAvailabilityState.available();
+        }
       }
       return state;
     } catch (_) {

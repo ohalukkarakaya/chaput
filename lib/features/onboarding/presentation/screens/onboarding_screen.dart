@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/deep_links/deep_link_state.dart';
 import '../../../../core/device/device_id_service.dart';
+import '../../../../core/review/app_review_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/storage/secure_storage_provider.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
@@ -260,7 +261,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await storage.saveRefreshToken(verified.refreshToken);
 
     try {
-      await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+      final me = await ref
+          .read(meControllerProvider.notifier)
+          .fetchAndStoreMe();
+      final userId = me?.user.userId ?? '';
+      if (userId.isNotEmpty) {
+        await ref
+            .read(appReviewServiceProvider)
+            .recordAppOpenForSession(userId);
+      }
       if (!mounted) return;
       _goAfterAuthentication();
     } on DioException catch (e) {
@@ -332,7 +341,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     if (!mounted) return;
     try {
-      await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
+      final me = await ref
+          .read(meControllerProvider.notifier)
+          .fetchAndStoreMe();
+      final userId = me?.user.userId ?? '';
+      if (userId.isNotEmpty) {
+        await ref
+            .read(appReviewServiceProvider)
+            .recordAppOpenForSession(userId);
+      }
       if (!mounted) return;
       _goAfterAuthentication();
     } on DioException catch (e) {
