@@ -32,22 +32,32 @@ class _GlobalFeedbackTriggerState extends ConsumerState<GlobalFeedbackTrigger> {
   final Map<int, Offset> _pointers = <int, Offset>{};
   double? _initialDistance;
   bool _hasTriggered = false;
+  BuildContext? _routeContext;
 
   String get _currentRouteLocation {
+    final routeContext = _routeContext;
+    if (routeContext != null) {
+      try {
+        final uri = GoRouterState.of(routeContext).uri.toString();
+        if (uri.isNotEmpty) return uri;
+      } catch (_) {}
+
+      final routeName = ModalRoute.of(routeContext)?.settings.name;
+      if (routeName != null && routeName.isNotEmpty) return routeName;
+    }
+
     final routeInfoPath = widget.router.routeInformationProvider.value.uri
         .toString();
     if (routeInfoPath.isNotEmpty) return routeInfoPath;
     return widget.router.routerDelegate.currentConfiguration.uri.toString();
   }
 
-  bool get _isProfileRoute {
+  bool get _isGestureBlockedRoute {
     final path =
         widget.router.routeInformationProvider.value.uri.path.isNotEmpty
         ? widget.router.routeInformationProvider.value.uri.path
         : widget.router.routerDelegate.currentConfiguration.uri.path;
-    return path.startsWith('${Routes.profileBase}/') ||
-        path.startsWith('/u/') ||
-        path.startsWith('/me/');
+    return _isBlockedGestureRoutePath(path);
   }
 
   void _resetGesture() {
@@ -84,7 +94,7 @@ class _GlobalFeedbackTriggerState extends ConsumerState<GlobalFeedbackTrigger> {
   void _handlePointerMove(PointerMoveEvent event) {
     _pointers[event.pointer] = event.position;
 
-    if (_isProfileRoute) return;
+    if (_isGestureBlockedRoute) return;
     if (_hasTriggered || _initialDistance == null) return;
     if (_pointers.length != _requiredPointers) return;
 
@@ -124,7 +134,28 @@ class _GlobalFeedbackTriggerState extends ConsumerState<GlobalFeedbackTrigger> {
       onPointerMove: _handlePointerMove,
       onPointerUp: (event) => _handlePointerUp(event.pointer),
       onPointerCancel: (event) => _handlePointerUp(event.pointer),
-      child: widget.child,
+      child: Builder(
+        builder: (routeContext) {
+          _routeContext = routeContext;
+          return widget.child;
+        },
+      ),
     );
   }
+}
+
+bool _isBlockedGestureRoutePath(String routePath) {
+  final uri = Uri.tryParse(routePath);
+  final path = uri?.path ?? routePath;
+
+  if (path == Routes.boot ||
+      path == Routes.onboarding ||
+      path == Routes.login ||
+      path == Routes.register) {
+    return true;
+  }
+
+  return path.startsWith('${Routes.profileBase}/') ||
+      path.startsWith('/u/') ||
+      path.startsWith('/me/');
 }

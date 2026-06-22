@@ -13,6 +13,9 @@ import 'package:go_router/go_router.dart';
 import '../../../helpers/string_helpers/full_name_rules.dart';
 import '../../../helpers/string_helpers/safe_text_rules.dart';
 
+const int _fullNameMaxChars = 80;
+const int _usernameMaxChars = 32;
+
 class SignupDraft {
   final String gender; // "M" | "F"
   final String fullName;
@@ -276,7 +279,10 @@ class _SignupSheetState extends State<_SignupSheet> {
 
                       TextFormField(
                         controller: _fullName,
-                        inputFormatters: const [FullNameInputFormatter()],
+                        inputFormatters: [
+                          FullNameInputFormatter(),
+                          LengthLimitingTextInputFormatter(_fullNameMaxChars),
+                        ],
                         contextMenuBuilder: appTextContextMenuBuilder,
                         decoration: InputDecoration(
                           labelText: context.t('signup.full_name'),
@@ -301,7 +307,10 @@ class _SignupSheetState extends State<_SignupSheet> {
 
                       TextFormField(
                         controller: _username,
-                        inputFormatters: const [UsernameInputFormatter()],
+                        inputFormatters: [
+                          UsernameInputFormatter(),
+                          LengthLimitingTextInputFormatter(_usernameMaxChars),
+                        ],
                         textInputAction: TextInputAction.done,
                         contextMenuBuilder: appTextContextMenuBuilder,
                         decoration: InputDecoration(

@@ -39,255 +39,278 @@ class SettingsScreen extends ConsumerWidget {
       backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
         bottom: false,
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: meAsync.when(
-                  loading: () => const _SettingsShell(child: _LoadingCard()),
-                  error: (_, __) => const _SettingsShell(child: _ErrorCard()),
-                  data: (me) {
-                    final user = me?.user;
-                    final username = user?.username ?? '';
-                    final usernameLabel = username.isEmpty
-                        ? context.t('common.na')
-                        : '@$username';
-                    final fullName = user?.fullName ?? context.t('common.na');
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 10,
+                    ),
+                    child: meAsync.when(
+                      loading: () =>
+                          const _SettingsShell(child: _LoadingCard()),
+                      error: (_, __) =>
+                          const _SettingsShell(child: _ErrorCard()),
+                      data: (me) {
+                        final user = me?.user;
+                        final username = user?.username ?? '';
+                        final usernameLabel = username.isEmpty
+                            ? context.t('common.na')
+                            : '@$username';
+                        final fullName =
+                            user?.fullName ?? context.t('common.na');
 
-                    final defaultAvatar = user?.defaultAvatar;
-                    final profilePhotoUrl = user?.profilePhotoUrl;
+                        final defaultAvatar = user?.defaultAvatar;
+                        final profilePhotoUrl = user?.profilePhotoUrl;
 
-                    final privacySt = ref.watch(privacyControllerProvider);
+                        final privacySt = ref.watch(privacyControllerProvider);
 
-                    // backend: isPublic? -> private = !isPublic
-                    final bool privateAccountValue =
-                        (privacySt.isPublic == null)
-                        ? false // yüklenene kadar kapalı göster (istersen skeleton da yaparız)
-                        : !(privacySt.isPublic!);
+                        final bool privateAccountValue =
+                            (privacySt.isPublic == null)
+                            ? false
+                            : !(privacySt.isPublic!);
 
-                    // switch disabled: yüklenmemişken veya request sırasında istersen disable edebilirsin
-                    final bool privateSwitchEnabled =
-                        privacySt.isPublic != null && !privacySt.isLoading;
+                        final bool privateSwitchEnabled =
+                            privacySt.isPublic != null && !privacySt.isLoading;
 
-                    return _SettingsShell(
-                      child: _SettingsContent(
-                        title: formatFullName(fullName),
-                        subtitle: usernameLabel,
-                        avatarUrl:
-                            (profilePhotoUrl != null &&
-                                profilePhotoUrl.isNotEmpty)
-                            ? profilePhotoUrl
-                            : (defaultAvatar ?? ''),
-                        isDefaultAvatar:
-                            profilePhotoUrl == null || profilePhotoUrl.isEmpty,
-                        onBack: () => Navigator.of(context).pop(),
-                        onOpenPhoto: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const PhotoSettingsScreen(),
-                            ),
-                          );
-                        },
-                        onOpenEmail: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const EmailChangeScreen(),
-                            ),
-                          );
-                        },
-                        onOpenPrivacy: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const BlockedRestrictedScreen(),
-                            ),
-                          );
-                        },
-                        onOpenArchive: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ArchiveChaputsScreen(),
-                            ),
-                          );
-                        },
-                        onOpenFeedback: () {
-                          showAppFeedbackSheet(
-                            context,
-                            ref,
-                            triggerSource: 'settings',
-                          );
-                        },
-                        onPauseAccount: () async {
-                          if (username.isEmpty) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    context.t(
-                                      'settings.username_not_available',
+                        return _SettingsShell(
+                          child: _SettingsContent(
+                            title: formatFullName(fullName),
+                            subtitle: usernameLabel,
+                            avatarUrl:
+                                (profilePhotoUrl != null &&
+                                    profilePhotoUrl.isNotEmpty)
+                                ? profilePhotoUrl
+                                : (defaultAvatar ?? ''),
+                            isDefaultAvatar:
+                                profilePhotoUrl == null ||
+                                profilePhotoUrl.isEmpty,
+                            onBack: () => Navigator.of(context).pop(),
+                            onOpenPhoto: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const PhotoSettingsScreen(),
+                                ),
+                              );
+                            },
+                            onOpenEmail: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const EmailChangeScreen(),
+                                ),
+                              );
+                            },
+                            onOpenPrivacy: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const BlockedRestrictedScreen(),
+                                ),
+                              );
+                            },
+                            onOpenArchive: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ArchiveChaputsScreen(),
+                                ),
+                              );
+                            },
+                            onOpenFeedback: () {
+                              showAppFeedbackSheet(
+                                context,
+                                ref,
+                                triggerSource: 'settings',
+                              );
+                            },
+                            onPauseAccount: () async {
+                              if (username.isEmpty) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        context.t(
+                                          'settings.username_not_available',
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            }
-                            return;
-                          }
-
-                          final ok = await _confirmUsernameDialog(
-                            context,
-                            expectedUsername: username,
-                            title: context.t('settings.pause_title'),
-                            description: context.t('settings.pause_desc'),
-                            confirmLabel: context.t('settings.pause_confirm'),
-                            isDestructive: false,
-                          );
-                          if (!ok) return;
-
-                          try {
-                            await ref
-                                .read(accountControllerProvider.notifier)
-                                .freezeMe();
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    context.t('settings.pause_success'),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            await _logoutNow(context, ref);
-                          } catch (_) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    context.t('settings.pause_failed'),
-                                  ),
-                                ),
-                              );
-                            }
-                          }
-                        },
-
-                        onCloseAccount: () async {
-                          if (username.isEmpty) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    context.t(
-                                      'settings.username_not_available',
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                            return;
-                          }
-
-                          final reason = await _confirmCloseAccountDialog(
-                            context,
-                            expectedUsername: username,
-                            title: context.t('settings.close_title'),
-                            description: context.t('settings.close_desc'),
-                            confirmLabel: context.t('settings.close_confirm'),
-                            minReasonLength: _closeReasonMinLength,
-                          );
-                          if (reason == null) return;
-
-                          try {
-                            await ref
-                                .read(accountControllerProvider.notifier)
-                                .deleteMeHard(reason: reason);
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    context.t('settings.close_success'),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            await _logoutNow(context, ref);
-                          } catch (_) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    context.t('settings.close_failed'),
-                                  ),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        onLogout: () async {
-                          final storage = ref.read(tokenStorageProvider);
-                          final refresh = await storage.readRefreshToken();
-
-                          await ref
-                              .read(pushTokenRegistrarProvider)
-                              .unregisterCurrentDevice();
-
-                          if (refresh == null || refresh.isEmpty) {
-                            await storage.clear();
-                            if (context.mounted) context.go(Routes.onboarding);
-                            return;
-                          }
-
-                          try {
-                            final api = ref.read(authApiProvider);
-                            await api.logout(refreshToken: refresh);
-
-                            await storage.clear();
-                            if (context.mounted) context.go(Routes.onboarding);
-                          } on DioException {
-                            await storage.clear();
-                            if (context.mounted) context.go(Routes.onboarding);
-                          } catch (_) {
-                            await storage.clear();
-                            if (context.mounted) context.go(Routes.onboarding);
-                          }
-                        },
-
-                        privateAccountValue: privateAccountValue,
-                        privateSwitchEnabled: privateSwitchEnabled,
-                        onPrivateAccountChanged: privateSwitchEnabled
-                            ? (v) {
-                                unawaited(
-                                  ref
-                                      .read(privacyControllerProvider.notifier)
-                                      .setPrivate(v)
-                                      .catchError((_) {
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                context.t(
-                                                  'settings.privacy_update_failed',
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      }),
-                                );
+                                  );
+                                }
+                                return;
                               }
-                            : null,
-                      ),
-                    );
-                  },
-                ),
-              ),
+
+                              final ok = await _confirmUsernameDialog(
+                                context,
+                                expectedUsername: username,
+                                title: context.t('settings.pause_title'),
+                                description: context.t('settings.pause_desc'),
+                                confirmLabel: context.t(
+                                  'settings.pause_confirm',
+                                ),
+                                isDestructive: false,
+                              );
+                              if (!ok) return;
+
+                              try {
+                                await ref
+                                    .read(accountControllerProvider.notifier)
+                                    .freezeMe();
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        context.t('settings.pause_success'),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                await _logoutNow(context, ref);
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        context.t('settings.pause_failed'),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            onCloseAccount: () async {
+                              if (username.isEmpty) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        context.t(
+                                          'settings.username_not_available',
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
+
+                              final reason = await _confirmCloseAccountDialog(
+                                context,
+                                expectedUsername: username,
+                                title: context.t('settings.close_title'),
+                                description: context.t('settings.close_desc'),
+                                confirmLabel: context.t(
+                                  'settings.close_confirm',
+                                ),
+                                minReasonLength: _closeReasonMinLength,
+                              );
+                              if (reason == null) return;
+
+                              try {
+                                await ref
+                                    .read(accountControllerProvider.notifier)
+                                    .deleteMeHard(reason: reason);
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        context.t('settings.close_success'),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                await _logoutNow(context, ref);
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        context.t('settings.close_failed'),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            onLogout: () async {
+                              final storage = ref.read(tokenStorageProvider);
+                              final refresh = await storage.readRefreshToken();
+
+                              await ref
+                                  .read(pushTokenRegistrarProvider)
+                                  .unregisterCurrentDevice();
+
+                              if (refresh == null || refresh.isEmpty) {
+                                await storage.clear();
+                                if (context.mounted) {
+                                  context.go(Routes.onboarding);
+                                }
+                                return;
+                              }
+
+                              try {
+                                final api = ref.read(authApiProvider);
+                                await api.logout(refreshToken: refresh);
+
+                                await storage.clear();
+                                if (context.mounted) {
+                                  context.go(Routes.onboarding);
+                                }
+                              } on DioException {
+                                await storage.clear();
+                                if (context.mounted) {
+                                  context.go(Routes.onboarding);
+                                }
+                              } catch (_) {
+                                await storage.clear();
+                                if (context.mounted) {
+                                  context.go(Routes.onboarding);
+                                }
+                              }
+                            },
+                            privateAccountValue: privateAccountValue,
+                            privateSwitchEnabled: privateSwitchEnabled,
+                            onPrivateAccountChanged: privateSwitchEnabled
+                                ? (v) {
+                                    unawaited(
+                                      ref
+                                          .read(
+                                            privacyControllerProvider.notifier,
+                                          )
+                                          .setPrivate(v)
+                                          .catchError((_) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    context.t(
+                                                      'settings.privacy_update_failed',
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          }),
+                                    );
+                                  }
+                                : null,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -1049,40 +1072,6 @@ class _SettingsContent extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StepDots extends StatelessWidget {
-  const _StepDots();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _Dot(active: true),
-        const SizedBox(width: 4),
-        _Dot(active: false),
-      ],
-    );
-  }
-}
-
-class _Dot extends StatelessWidget {
-  final bool active;
-  const _Dot({required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        color: active
-            ? AppColors.chaputWhite
-            : AppColors.chaputWhite.withOpacity(0.45),
-        borderRadius: BorderRadius.circular(999),
-      ),
     );
   }
 }

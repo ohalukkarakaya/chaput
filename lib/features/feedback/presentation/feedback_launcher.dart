@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/env.dart';
 import '../../../core/i18n/app_localizations.dart';
+import '../../../core/router/routes.dart';
 import '../../../core/utils/logger.dart';
 import '../application/app_feedback_service.dart';
 import '../data/app_feedback_api.dart';
@@ -20,7 +21,7 @@ void showAppFeedbackSheet(
   final messenger = ScaffoldMessenger.maybeOf(context);
   final locale = Localizations.maybeLocaleOf(context) ?? const Locale('en');
   final routePath = _resolveRoutePath(context, routePathOverride);
-  if (triggerSource == 'gesture' && _isProfileRoute(routePath)) {
+  if (triggerSource == 'gesture' && _isGestureBlockedRoute(routePath)) {
     return;
   }
   final successText = context.t('feedback.submit_success');
@@ -31,19 +32,19 @@ void showAppFeedbackSheet(
   controller.show((feedback) async {
     try {
       await feedbackService.submit(
-            feedback: feedback,
-            routePath: routePath,
-            locale: locale,
-            triggerSource: triggerSource,
-            extras: {
-              if (mediaQuery != null) 'screen_width': mediaQuery.size.width,
-              if (mediaQuery != null) 'screen_height': mediaQuery.size.height,
-              if (mediaQuery != null)
-                'device_pixel_ratio': mediaQuery.devicePixelRatio,
-              if (mediaQuery != null)
-                'text_scale_factor': mediaQuery.textScaler.scale(1),
-            },
-          );
+        feedback: feedback,
+        routePath: routePath,
+        locale: locale,
+        triggerSource: triggerSource,
+        extras: {
+          if (mediaQuery != null) 'screen_width': mediaQuery.size.width,
+          if (mediaQuery != null) 'screen_height': mediaQuery.size.height,
+          if (mediaQuery != null)
+            'device_pixel_ratio': mediaQuery.devicePixelRatio,
+          if (mediaQuery != null)
+            'text_scale_factor': mediaQuery.textScaler.scale(1),
+        },
+      );
 
       controller.hide();
 
@@ -91,9 +92,17 @@ String _resolveRoutePath(BuildContext context, String? routePathOverride) {
   return 'unknown';
 }
 
-bool _isProfileRoute(String routePath) {
+bool _isGestureBlockedRoute(String routePath) {
   final uri = Uri.tryParse(routePath);
   final path = uri?.path ?? routePath;
+
+  if (path == Routes.boot ||
+      path == Routes.onboarding ||
+      path == Routes.login ||
+      path == Routes.register) {
+    return true;
+  }
+
   return path.startsWith('/profile/') ||
       path.startsWith('/u/') ||
       path.startsWith('/me/');
