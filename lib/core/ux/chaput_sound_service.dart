@@ -1,6 +1,21 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
+
+final AudioContext _chaputSfxAudioContext = AudioContext(
+  iOS: AudioContextIOS(
+    category: AVAudioSessionCategory.playback,
+    options: {
+      AVAudioSessionOptions.mixWithOthers,
+    },
+  ),
+  android: AudioContextAndroid(
+    contentType: AndroidContentType.sonification,
+    usageType: AndroidUsageType.assistanceSonification,
+    audioFocus: AndroidAudioFocus.none,
+  ),
+);
 
 enum ChaputSoundEffect {
   cardSwipe('sounds/chaput_card_swiping.mp3'),
@@ -24,31 +39,52 @@ class ChaputSoundService {
   final AudioPlayer _typingPlayer = AudioPlayer(playerId: 'chaput_typing_loop');
   bool _typingPlaying = false;
 
+  Future<AudioPlayer> _createPlayer(String playerId) async {
+    final player = AudioPlayer(playerId: playerId);
+    await player.setAudioContext(_chaputSfxAudioContext);
+    return player;
+  }
+
   Future<void> play(ChaputSoundEffect effect, {double playbackRate = 1}) async {
     try {
-      final player = _effectPlayers.putIfAbsent(effect, () {
-        return AudioPlayer(playerId: 'chaput_${effect.name}');
-      });
+      var player = _effectPlayers[effect];
+
+      if (player == null) {
+        player = await _createPlayer('chaput_${effect.name}');
+        _effectPlayers[effect] = player;
+      }
+
+      await player.setAudioContext(_chaputSfxAudioContext);
       await player.setReleaseMode(ReleaseMode.stop);
+
       try {
-        await player.setPlaybackRate(playbackRate.clamp(0.75, 1.35).toDouble());
+        await player.setPlaybackRate(
+          playbackRate.clamp(0.75, 1.35).toDouble(),
+        );
       } catch (_) {}
+
       await player.stop();
       await player.play(
         AssetSource(effect.assetPath),
         mode: PlayerMode.lowLatency,
       );
-    } catch (_) {
-      // UX sounds are best-effort and must never block the primary action.
+    } catch (e, st) {
+      debugPrint('ChaputSoundService play failed: $e');
+      debugPrintStack(stackTrace: st);
     }
   }
 
   Future<void> startTypingLoop() async {
     if (_typingPlaying) return;
     _typingPlaying = true;
+
     try {
+      await _typingPlayer.setAudioContext(_chaputSfxAudioContext);
       await _typingPlayer.setReleaseMode(ReleaseMode.loop);
-      await _typingPlayer.play(AssetSource(_typingAsset));
+      await _typingPlayer.play(
+        AssetSource(_typingAsset),
+        mode: PlayerMode.lowLatency,
+      );
     } catch (_) {
       _typingPlaying = false;
     }
@@ -57,6 +93,7 @@ class ChaputSoundService {
   Future<void> stopTypingLoop() async {
     if (!_typingPlaying) return;
     _typingPlaying = false;
+
     try {
       await _typingPlayer.stop();
     } catch (_) {}

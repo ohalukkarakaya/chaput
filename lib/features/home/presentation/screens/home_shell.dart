@@ -44,7 +44,6 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<ChaputSocketEvent>? _socketSub;
   final GlobalKey _recoShowcaseKey = GlobalKey();
-  final GlobalKey _feedbackShowcaseKey = GlobalKey();
   bool _homeShowcaseScheduled = false;
   bool _notificationsBooted = false;
   bool _notificationsBootScheduled = false;
@@ -53,35 +52,140 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   bool _reviewPromptCheckInFlight = false;
 
   Future<void> _scheduleHomeShowcase(
-    BuildContext context,
-    String userId,
-  ) async {
+      BuildContext context,
+      String userId,
+      ) async {
     final storage = ref.read(tutorialStorageProvider);
+
     final showRecommended = await storage.shouldShow(
       userId,
       'home_recommended',
     );
+
     final showFeedback = await storage.shouldShow(
       userId,
       'home_feedback_gesture',
     );
+
     if ((!showRecommended && !showFeedback) || !mounted) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final keys = <GlobalKey>[
-        if (showRecommended) _recoShowcaseKey,
-        if (showFeedback) _feedbackShowcaseKey,
-      ];
-      if (keys.isEmpty) return;
-      ShowCaseWidget.of(context).startShowCase(keys);
+
       if (showRecommended) {
+        ShowCaseWidget.of(context).startShowCase([_recoShowcaseKey]);
         unawaited(storage.markShown(userId, 'home_recommended'));
+        return;
       }
+
       if (showFeedback) {
-        unawaited(storage.markShown(userId, 'home_feedback_gesture'));
+        unawaited(_maybeShowFeedbackTutorial(userId));
       }
     });
+  }
+
+  Future<void> _maybeShowFeedbackTutorial(String userId) async {
+    if (!mounted) return;
+
+    final storage = ref.read(tutorialStorageProvider);
+
+    final showFeedback = await storage.shouldShow(
+      userId,
+      'home_feedback_gesture',
+    );
+
+    if (!showFeedback || !mounted) return;
+
+    await _showFeedbackGestureTutorial();
+
+    if (!mounted) return;
+
+    await storage.markShown(userId, 'home_feedback_gesture');
+  }
+
+  Future<void> _showFeedbackGestureTutorial() async {
+    if (!mounted) return;
+
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'feedback tutorial',
+      barrierColor: AppColors.chaputBlack.withOpacity(0.45),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return SafeArea(
+          child: Material(
+            color: AppColors.chaputTransparent,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: GestureDetector(
+                    onTap: () {},
+                    child: Container(
+                      width: 292,
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.chaputBlack.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.chaputBlack.withOpacity(0.28),
+                            blurRadius: 18,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _FeedbackPinchPreview(),
+                          const SizedBox(height: 10),
+                          Text(
+                            context.t('showcase.home_feedback_title'),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.chaputWhite,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            context.t('showcase.home_feedback_body'),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.35,
+                              color: AppColors.chaputWhite.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOut,
+        );
+
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.98, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _scheduleReviewPrompt(String userId) async {
@@ -93,12 +197,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       final hasPendingTutorial =
           await tutorialStorage.shouldShow(userId, 'home_recommended') ||
           await tutorialStorage.shouldShow(userId, 'home_feedback_gesture');
+      if (!mounted) return;
+
       if (hasPendingTutorial) return;
       if (ref.read(appAvailabilityProvider).blocksApp) return;
 
       final updateSnapshot = await ref
           .read(appUpdateServiceProvider)
           .checkForUpdate();
+      if (!mounted) return;
+
       if (!updateSnapshot.storePublished) return;
 
       final shouldPrompt = await ref
@@ -251,6 +359,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return ShowCaseWidget(
+      onFinish: () {
+        if (!mounted) return;
+
+        final userId =
+            ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
+
+        if (userId.isEmpty) return;
+
+        unawaited(_maybeShowFeedbackTutorial(userId));
+      },
       builder: (showcaseContext) {
         final meState = ref.watch(meControllerProvider);
         final me = meState.valueOrNull;
@@ -653,76 +771,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
                               final link = 'https://chaput.app/me/$username';
 
-                              return Showcase.withWidget(
-                                key: _feedbackShowcaseKey,
-                                targetPadding: EdgeInsets.zero,
-                                targetBorderRadius: BorderRadius.circular(22),
-                                targetShapeBorder: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(22),
-                                ),
-                                tooltipPosition: TooltipPosition.top,
-                                toolTipMargin: 8,
-                                targetTooltipGap: 10,
-                                container: Container(
-                                  width: 292,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    14,
-                                    14,
-                                    14,
-                                    12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.chaputBlack.withOpacity(
-                                      0.92,
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.chaputBlack
-                                            .withOpacity(0.28),
-                                        blurRadius: 18,
-                                        offset: const Offset(0, 10),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const _FeedbackPinchPreview(),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        context.t(
-                                          'showcase.home_feedback_title',
-                                        ),
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppColors.chaputWhite,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        context.t(
-                                          'showcase.home_feedback_body',
-                                        ),
-                                        style: TextStyle(
-                                          fontSize: 12.5,
-                                          height: 1.35,
-                                          color: AppColors.chaputWhite
-                                              .withOpacity(0.9),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                child: ShareBar(
-                                  link: link,
-                                  title: context.t('home.share_title'),
-                                  subtitle: context.t('home.share_subtitle'),
-                                  showShareButton: false,
-                                ),
+                              return ShareBar(
+                                link: link,
+                                title: context.t('home.share_title'),
+                                subtitle: context.t('home.share_subtitle'),
+                                showShareButton: false,
                               );
                             },
                           );

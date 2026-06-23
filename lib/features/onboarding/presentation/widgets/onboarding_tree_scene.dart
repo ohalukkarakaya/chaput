@@ -121,8 +121,8 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
   void dispose() {
     _disposed = true;
     _initTimer?.cancel();
-    _focusScreen.dispose();
     _disposeThree();
+    _focusScreen.dispose();
     super.dispose();
   }
 
