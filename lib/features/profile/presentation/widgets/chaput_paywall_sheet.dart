@@ -725,20 +725,20 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                         ),
                       ),
                     ),
-
-                    const SizedBox(height: 10),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        t('paywall.disclaimer_demo'),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.chaputBlack.withOpacity(0.45),
-                        ),
-                      ),
-                    ),
+                    // since we are going review, we don't want this clamer any more, but we can keep it for testing purposes
+                    // const SizedBox(height: 10),
+                    //
+                    // Padding(
+                    //   padding: const EdgeInsets.symmetric(horizontal: 16),
+                    //   child: Text(
+                    //     t('paywall.disclaimer_demo'),
+                    //     style: TextStyle(
+                    //       fontSize: 11,
+                    //       fontWeight: FontWeight.w600,
+                    //       color: AppColors.chaputBlack.withOpacity(0.45),
+                    //     ),
+                    //   ),
+                    // ),
                   ],
                 ),
               ),

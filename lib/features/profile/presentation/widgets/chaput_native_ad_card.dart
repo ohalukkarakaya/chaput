@@ -115,9 +115,10 @@ class _ChaputNativeAdCardState extends State<ChaputNativeAdCard> {
                     color: AppColors.chaputWhite.withOpacity(0.22),
                   ),
                 ),
-                alignment: Alignment.centerLeft,
+                alignment: Alignment.center,
                 child: Text(
                   context.t('ads.sponsored_content'),
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.chaputWhite.withOpacity(0.7),
                     fontWeight: FontWeight.w700,
