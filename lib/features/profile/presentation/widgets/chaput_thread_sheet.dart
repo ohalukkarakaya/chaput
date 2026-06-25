@@ -1654,14 +1654,14 @@ class _MessagesListState extends State<_MessagesList> {
     _scheduleLatestAnchor();
 
     final viewerNorm = widget.viewerId.toLowerCase();
-    final starterNorm = widget.starterId.toLowerCase();
+    final ownerNorm = widget.ownerUser?.id.toLowerCase() ?? '';
 
     Widget buildGroup(int i) {
       final g = groups[i];
       final senderNorm = g.senderId.toLowerCase();
       final isMine = widget.isParticipant
           ? senderNorm == viewerNorm
-          : senderNorm == starterNorm;
+          : senderNorm == ownerNorm;
       final senderUser = _resolveUser(g.senderId);
       final forceDefault =
           widget.isHidden &&

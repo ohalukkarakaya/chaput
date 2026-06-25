@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/features/settings/presentation/screens/photo_settings_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
@@ -35,6 +36,14 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final meAsync = ref.watch(meControllerProvider);
 
+    final mq = MediaQuery.of(context);
+
+    final bottomPadding =
+    defaultTargetPlatform == TargetPlatform.android &&
+        mq.viewPadding.bottom > 0
+        ? 12 + mq.viewPadding.bottom
+        : 12;
+
     return Scaffold(
       backgroundColor: AppColors.chaputLightGrey,
       body: SafeArea(
@@ -47,7 +56,7 @@ class SettingsScreen extends ConsumerWidget {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                  padding: EdgeInsets.fromLTRB(16, 10, 16, bottomPadding.toDouble()),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight - 10,
