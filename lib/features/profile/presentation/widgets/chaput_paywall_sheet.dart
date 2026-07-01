@@ -1,8 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/legal/legal_documents.dart';
+import '../../../../core/router/routes.dart';
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
@@ -142,6 +146,17 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
     } finally {
       if (mounted) setState(() => _restoreBusy = false);
     }
+  }
+
+  void _openLegalDocument(LegalDocument document) {
+    final locale = Localizations.localeOf(context);
+    context.push(
+      Routes.legal,
+      extra: {
+        'title': context.t(document.titleKey),
+        'url': chaputLegalUrlForLocale(locale, document),
+      },
+    );
   }
 
   @override
@@ -725,26 +740,88 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                         ),
                       ),
                     ),
-                    // since we are going review, we don't want this clamer any more, but we can keep it for testing purposes
-                    // const SizedBox(height: 10),
-                    //
-                    // Padding(
-                    //   padding: const EdgeInsets.symmetric(horizontal: 16),
-                    //   child: Text(
-                    //     t('paywall.disclaimer_demo'),
-                    //     style: TextStyle(
-                    //       fontSize: 11,
-                    //       fontWeight: FontWeight.w600,
-                    //       color: AppColors.chaputBlack.withOpacity(0.45),
-                    //     ),
-                    //   ),
-                    // ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _PaywallLegalConsentText(
+                        onOpenDocument: _openLegalDocument,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PaywallLegalConsentText extends StatefulWidget {
+  const _PaywallLegalConsentText({required this.onOpenDocument});
+
+  final ValueChanged<LegalDocument> onOpenDocument;
+
+  @override
+  State<_PaywallLegalConsentText> createState() =>
+      _PaywallLegalConsentTextState();
+}
+
+class _PaywallLegalConsentTextState extends State<_PaywallLegalConsentText> {
+  late final TapGestureRecognizer _termsTap;
+  late final TapGestureRecognizer _privacyTap;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsTap = TapGestureRecognizer()
+      ..onTap = () => widget.onOpenDocument(LegalDocument.terms);
+    _privacyTap = TapGestureRecognizer()
+      ..onTap = () => widget.onOpenDocument(LegalDocument.privacy);
+  }
+
+  @override
+  void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = TextStyle(
+      color: AppColors.chaputBlack.withOpacity(0.52),
+      fontSize: 11.5,
+      fontWeight: FontWeight.w600,
+      height: 1.35,
+    );
+    final linkStyle = baseStyle.copyWith(
+      color: AppColors.chaputBlack.withOpacity(0.82),
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      decorationThickness: 1.2,
+    );
+
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        style: baseStyle,
+        children: [
+          TextSpan(text: context.t('paywall.legal_text_before_terms')),
+          TextSpan(
+            text: context.t('legal.terms_title'),
+            style: linkStyle,
+            recognizer: _termsTap,
+          ),
+          TextSpan(text: context.t('paywall.legal_text_after_terms')),
+          TextSpan(
+            text: context.t('legal.privacy_title'),
+            style: linkStyle,
+            recognizer: _privacyTap,
+          ),
+          TextSpan(text: context.t('paywall.legal_text_after_privacy')),
+        ],
       ),
     );
   }
