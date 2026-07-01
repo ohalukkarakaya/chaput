@@ -137,15 +137,43 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     required double maxWidth,
     required TextScaler textScaler,
     int? maxLines,
+    InlineSpan? span,
   }) {
     final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
+      text: span ?? TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,
       textScaler: textScaler,
       maxLines: maxLines,
     )..layout(maxWidth: maxWidth);
 
     return painter.height;
+  }
+
+  TextSpan _buildOnboardingSubtitleSpan(
+    String subtitle,
+    TextStyle subtitleStyle,
+  ) {
+    final paragraphs = subtitle.split('\n\n');
+    final children = <InlineSpan>[];
+
+    for (var i = 0; i < paragraphs.length; i += 1) {
+      if (i > 0) {
+        children.add(const TextSpan(text: '\n\n'));
+      }
+      children.add(
+        TextSpan(
+          text: paragraphs[i],
+          style: i == 0
+              ? subtitleStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.chaputWhite.withValues(alpha: 0.94),
+                )
+              : subtitleStyle,
+        ),
+      );
+    }
+
+    return TextSpan(style: subtitleStyle, children: children);
   }
 
   double _measureOnboardingTextHeight({
@@ -165,10 +193,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       maxLines: 2,
     );
     final subtitleHeight = _measureTextHeight(
-      subtitle,
+      '',
       subtitleStyle,
       maxWidth: maxWidth,
       textScaler: textScaler,
+      span: _buildOnboardingSubtitleSpan(subtitle, subtitleStyle),
     );
 
     return (verticalPadding +
@@ -436,7 +465,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       color: AppColors.chaputWhite.withValues(alpha: 0.82),
       fontSize: 12.5,
       height: 1.32,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w400,
     );
 
     final sliderTexts = List.generate(9, (index) {
@@ -687,6 +716,30 @@ class _OnboardingSlideText extends StatelessWidget {
   final TextStyle titleStyle;
   final TextStyle subtitleStyle;
 
+  TextSpan _buildSubtitleSpan() {
+    final paragraphs = subtitle.split('\n\n');
+    final children = <InlineSpan>[];
+
+    for (var i = 0; i < paragraphs.length; i += 1) {
+      if (i > 0) {
+        children.add(const TextSpan(text: '\n\n'));
+      }
+      children.add(
+        TextSpan(
+          text: paragraphs[i],
+          style: i == 0
+              ? subtitleStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.chaputWhite.withValues(alpha: 0.94),
+                )
+              : subtitleStyle,
+        ),
+      );
+    }
+
+    return TextSpan(style: subtitleStyle, children: children);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -700,7 +753,7 @@ class _OnboardingSlideText extends StatelessWidget {
           style: titleStyle,
         ),
         const SizedBox(height: 8),
-        Text(subtitle, style: subtitleStyle),
+        Text.rich(_buildSubtitleSpan(), textAlign: TextAlign.start),
       ],
     );
   }

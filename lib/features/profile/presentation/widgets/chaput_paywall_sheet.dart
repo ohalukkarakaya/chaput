@@ -803,25 +803,28 @@ class _PaywallLegalConsentTextState extends State<_PaywallLegalConsentText> {
       decorationThickness: 1.2,
     );
 
-    return RichText(
-      textAlign: TextAlign.center,
-      text: TextSpan(
-        style: baseStyle,
-        children: [
-          TextSpan(text: context.t('paywall.legal_text_before_terms')),
-          TextSpan(
-            text: context.t('legal.terms_title'),
-            style: linkStyle,
-            recognizer: _termsTap,
-          ),
-          TextSpan(text: context.t('paywall.legal_text_after_terms')),
-          TextSpan(
-            text: context.t('legal.privacy_title'),
-            style: linkStyle,
-            recognizer: _privacyTap,
-          ),
-          TextSpan(text: context.t('paywall.legal_text_after_privacy')),
-        ],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: RichText(
+        textAlign: TextAlign.start,
+        text: TextSpan(
+          style: baseStyle,
+          children: [
+            TextSpan(text: context.t('paywall.legal_text_before_terms')),
+            TextSpan(
+              text: context.t('legal.terms_title'),
+              style: linkStyle,
+              recognizer: _termsTap,
+            ),
+            TextSpan(text: context.t('paywall.legal_text_after_terms')),
+            TextSpan(
+              text: context.t('legal.privacy_title'),
+              style: linkStyle,
+              recognizer: _privacyTap,
+            ),
+            TextSpan(text: context.t('paywall.legal_text_after_privacy')),
+          ],
+        ),
       ),
     );
   }
