@@ -108,6 +108,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _emptyChaputProfileId;
   bool? _emptyChaputIsMe;
   bool _emptyChaputAnchorPicked = false;
+  String? _emptyChaputVisualSignature;
 
   late final AnimationController _profileCardCtrl;
   late final Animation<double> _profileCardT;
@@ -1364,6 +1365,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _emptyChaputIndex = null;
     _emptyChaputProfileId = null;
     _emptyChaputIsMe = null;
+    _emptyChaputVisualSignature = null;
+  }
+
+  void _ensureEmptyChaputFocus({
+    required String profileId,
+    required bool isMe,
+    String? profilePhotoKey,
+    String? profilePhotoUrl,
+  }) {
+    final signature =
+        '$profileId|$isMe|${profilePhotoKey ?? ''}|${profilePhotoUrl ?? ''}';
+    final needsRepick =
+        _emptyChaputVisualSignature != signature ||
+        _focusAnchor == null ||
+        !_emptyChaputAnchorPicked;
+
+    if (!needsRepick) return;
+
+    _emptyChaputVisualSignature = signature;
+    _emptyChaputAnchorPicked = false;
+    _focusAnchor = null;
+    _showFocusMarker = false;
+    _isInteracting = false;
+    _pendingTreeModeShift = false;
+    _treeModeShiftDoneThisGesture = false;
+    _resetMarkerStabilizer();
   }
 
   void _pickNewRandomAnchorAndSnap() {
@@ -3634,6 +3661,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         : null;
 
     if (showEmptyChaputSheet) {
+      _ensureEmptyChaputFocus(
+        profileId: userId,
+        isMe: isMe,
+        profilePhotoKey: profilePhotoKey,
+        profilePhotoUrl: profilePhotoUrl,
+      );
       _scheduleEmptyChaputAnchorPick();
     } else if (chaputThreads.isNotEmpty) {
       _clearEmptyChaputState();
