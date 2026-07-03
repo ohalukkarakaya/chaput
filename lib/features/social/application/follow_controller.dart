@@ -11,17 +11,11 @@ final followApiProvider = Provider<FollowApi>((ref) {
 });
 
 final followControllerProvider =
-AutoDisposeNotifierProviderFamily<
-    FollowController,
-    FollowState,
-    String
->(
-  FollowController.new,
-);
+    AutoDisposeNotifierProviderFamily<FollowController, FollowState, String>(
+      FollowController.new,
+    );
 
-class FollowController
-    extends AutoDisposeFamilyNotifier<FollowState, String> {
-
+class FollowController extends AutoDisposeFamilyNotifier<FollowState, String> {
   @override
   FollowState build(String username) {
     return const FollowIdle();
@@ -38,7 +32,9 @@ class FollowController
         requestPending: res.requestCreated,
       );
     } on DioException catch (e) {
-      state = FollowError(e.message ?? 'network_error');
+      final code = extractFollowErrorCode(e);
+      state = FollowError(code);
+      throw FollowActionException(code);
     }
   }
 
@@ -49,7 +45,18 @@ class FollowController
       await api.unfollow(arg);
       state = const FollowIdle(isFollowing: false);
     } on DioException catch (e) {
-      state = FollowError(e.message ?? 'network_error');
+      final code = extractFollowErrorCode(e);
+      state = FollowError(code);
+      throw FollowActionException(code);
     }
   }
+}
+
+class FollowActionException implements Exception {
+  const FollowActionException(this.code);
+
+  final String code;
+
+  @override
+  String toString() => 'FollowActionException($code)';
 }

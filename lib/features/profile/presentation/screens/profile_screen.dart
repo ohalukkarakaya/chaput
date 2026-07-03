@@ -1743,6 +1743,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     overlay.insert(entry);
   }
 
+  void _handleFollowActionError(Object error) {
+    if (error is FollowActionException &&
+        error.code == 'follow_request_rate_limited') {
+      _showGlassToast(
+        context.t('profile.follow_rate_limited'),
+        icon: Icons.hourglass_top_rounded,
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
   String _resolveProfileId(Map<String, dynamic>? profileJson, String fallback) {
     if (profileJson == null) return fallback;
     final user = (profileJson['user'] is Map)
@@ -3470,12 +3481,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       1 << 30,
     );
     bool effectiveIsFollowing = _uiIsFollowing ?? isFollowing;
-    final effectiveRequestedFollow = _uiRequestedFollow ?? iRequestedFollow;
+    bool effectiveRequestedFollow = _uiRequestedFollow ?? iRequestedFollow;
 
     final followState = ref.watch(followControllerProvider(username));
 
-    if (followState is FollowIdle && followState.isFollowing != null) {
-      effectiveIsFollowing = followState.isFollowing!;
+    if (followState is FollowIdle) {
+      if (followState.isFollowing != null) {
+        effectiveIsFollowing = followState.isFollowing!;
+      }
+      if (followState.requestPending != null) {
+        effectiveRequestedFollow = followState.requestPending!;
+      }
     }
 
     final followLoading = followState is FollowLoading;
@@ -3581,6 +3597,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final bool showRequestMode =
         !isMe && isPrivateTarget && !effectiveIsFollowing;
+    final bool showPrivateFollowSheet =
+        showRequestMode && !showPageLoading && !_composerOpen;
 
     final bool silhouetteMode =
         !isMe && isPrivateTarget && !effectiveIsFollowing;
@@ -3648,6 +3666,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         !showPageLoading &&
         !_composerOpen &&
         !_silhouetteMode;
+    final bool showBottomInfoSheet =
+        showEmptyChaputSheet || showPrivateFollowSheet;
 
     final String? emptyChaputMessage = showEmptyChaputSheet
         ? context.t(
@@ -3659,8 +3679,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             )],
           )
         : null;
+    final String? privateFollowMessage = showPrivateFollowSheet
+        ? context.t('profile.private_follow_required')
+        : null;
 
-    if (showEmptyChaputSheet) {
+    if (showEmptyChaputSheet || showPrivateFollowSheet) {
       _ensureEmptyChaputFocus(
         profileId: userId,
         isMe: isMe,
@@ -4678,12 +4701,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                                           await ctrl
                                                                               .follow();
                                                                         } catch (
-                                                                          _
+                                                                          error
                                                                         ) {
                                                                           // rollback
                                                                           setState(
                                                                             () =>
                                                                                 _uiRequestedFollow = null,
+                                                                          );
+                                                                          _handleFollowActionError(
+                                                                            error,
                                                                           );
                                                                         } finally {
                                                                           setState(
@@ -4890,7 +4916,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     ),
 
                     if (androidSystemBottomFillHeight > 0 &&
-                        (threadSheetChild != null || showEmptyChaputSheet))
+                        (threadSheetChild != null || showBottomInfoSheet))
                       Positioned(
                         left: 0,
                         right: 0,
@@ -4927,7 +4953,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         ),
                       ),
 
-                    if (showEmptyChaputSheet && emptyChaputMessage != null)
+                    if (showBottomInfoSheet &&
+                        (emptyChaputMessage != null ||
+                            privateFollowMessage != null))
                       Positioned.fill(
                         child: Align(
                           alignment: Alignment.bottomCenter,
@@ -4942,15 +4970,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                   context.responsive.bottomSheetInnerPadding(
                                     min: 0,
                                   ),
-                              child: IgnorePointer(
-                                child: EmptyChaputSheet(
-                                  message: emptyChaputMessage,
-                                  height:
-                                      (chaputSheetAvailableHeight *
-                                          _chaputSheetMin) +
-                                      context.responsive
-                                          .bottomSheetInnerPadding(min: 0),
-                                ),
+                              child: EmptyChaputSheet(
+                                message:
+                                    privateFollowMessage ?? emptyChaputMessage!,
+                                height:
+                                    (chaputSheetAvailableHeight *
+                                        _chaputSheetMin) +
+                                    context.responsive.bottomSheetInnerPadding(
+                                      min: 0,
+                                    ),
+                                actionLabel: null,
                               ),
                             ),
                           ),
@@ -5223,16 +5252,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       right: 14,
                       bottom: (chaputThreads.isNotEmpty
                           ? (chaputSheetAvailableHeight * _chaputSheetExtent +
-                                chaputSheetOuterOffset +
-                                10)
-                          : (showEmptyChaputSheet
-                                ? (chaputSheetAvailableHeight *
-                                          _chaputSheetMin +
-                                      context.responsive
-                                          .bottomSheetInnerPadding(min: 0) +
-                                      chaputSheetOuterOffset +
-                                      6)
-                                : 14)),
+                          chaputSheetOuterOffset +
+                          10)
+                          : ((showEmptyChaputSheet || showPrivateFollowSheet)
+                          ? (chaputSheetAvailableHeight *
+                          _chaputSheetMin +
+                          context.responsive
+                              .bottomSheetInnerPadding(min: 0) +
+                          chaputSheetOuterOffset +
+                          14)
+                          : 14)),
                       child: SafeArea(
                         top: false,
                         bottom:
@@ -5241,16 +5270,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           duration: const Duration(milliseconds: 160),
                           child:
                               (_composerOpen ||
-                                  _silhouetteMode ||
+                                  (_silhouetteMode && !showPrivateFollowSheet) ||
                                   isMe ||
                                   _chaputThreadCreated ||
                                   hasOurThread ||
                                   (chaputThreads.isNotEmpty &&
-                                      _chaputSheetExtent >
-                                          _chaputSheetMin + 0.01))
+                                      _chaputSheetExtent > _chaputSheetMin + 0.01))
                               ? const SizedBox.shrink()
                               : IgnorePointer(
-                                  ignoring: !_threeReady || _reviveFlowBusy,
+                                  ignoring: !_threeReady || _reviveFlowBusy || _uiFollowLoading,
                                   child: BlackGlass(
                                     radius: 16,
                                     blur: 10,
@@ -5260,9 +5288,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                       type: MaterialType.transparency,
                                       child: InkWell(
                                         onTap:
-                                            (_silhouetteMode || _composerOpen)
+                                        ((_silhouetteMode && !showPrivateFollowSheet) || _composerOpen)
                                             ? null
                                             : () async {
+                                              if (showPrivateFollowSheet) {
+                                                if (isBlocked || followButtonDisabled) return;
+
+                                                HapticFeedback.selectionClick();
+
+                                                setState(() {
+                                                  _uiFollowLoading = true;
+                                                  _uiRequestedFollow = true;
+                                                });
+
+                                                try {
+                                                  final ctrl = ref.read(
+                                                    followControllerProvider(username).notifier,
+                                                  );
+                                                  await ctrl.follow();
+                                                } catch (error) {
+                                                  if (!mounted) return;
+                                                  setState(() => _uiRequestedFollow = null);
+                                                  _handleFollowActionError(error);
+                                                } finally {
+                                                  if (!mounted) return;
+                                                  setState(() => _uiFollowLoading = false);
+                                                }
+
+                                                return;
+                                              }
                                                 if (decisionHasArchived &&
                                                     reviveThreadId.length ==
                                                         32) {
@@ -5304,7 +5358,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(
-                                                decisionHasArchived
+                                                showPrivateFollowSheet
+                                                    ? (requestAlreadySent ? Icons.schedule_rounded : Icons.add_rounded)
+                                                    : decisionHasArchived
                                                     ? Icons.restore
                                                     : showBindExhausted
                                                     ? Icons.lock_clock
@@ -5317,10 +5373,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                decisionHasArchived
-                                                    ? context.t(
-                                                        'profile.bind.restore_archive',
-                                                      )
+                                                showPrivateFollowSheet
+                                                    ? (requestAlreadySent
+                                                    ? context.t('profile.follow_request_sent')
+                                                    : context.t('profile.follow'))
+                                                    : decisionHasArchived
+                                                    ? context.t('profile.bind.restore_archive')
                                                     : showBindExhausted
                                                     ? context.t(
                                                         'profile.bind.rights_exhausted',

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show lerpDouble;
+import 'dart:ui' show ImageFilter, lerpDouble;
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +27,9 @@ import '../../../../chaput/data/chaput_socket.dart';
 import '../../../notifications/application/push_token_registrar.dart';
 import '../../../user_search/presentation/search_overlay.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
+import '../../../recommended_users/domain/recommended_user.dart';
+import '../../../social/application/follow_controller.dart';
+import '../../../social/application/follow_state.dart';
 import '../../../../core/ui/widgets/glow_shimmer_card.dart';
 import '../../../../core/ui/widgets/share_bar.dart';
 import '../../../../core/ui/widgets/shimmer_skeleton.dart';
@@ -52,9 +55,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   bool _reviewPromptCheckInFlight = false;
 
   Future<void> _scheduleHomeShowcase(
-      BuildContext context,
-      String userId,
-      ) async {
+    BuildContext context,
+    String userId,
+  ) async {
     final storage = ref.read(tutorialStorageProvider);
 
     final showRecommended = await storage.shouldShow(
@@ -677,63 +680,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                 ),
 
                                 const SizedBox(height: 14),
-                                Showcase.withWidget(
-                                  key: _recoShowcaseKey,
-                                  targetPadding: EdgeInsets.zero,
-                                  targetBorderRadius: BorderRadius.circular(22),
-                                  targetShapeBorder: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(22),
-                                  ),
-                                  tooltipPosition: TooltipPosition.bottom,
-                                  toolTipMargin: 8,
-                                  targetTooltipGap: 8,
-                                  container: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.chaputBlack.withOpacity(
-                                        0.9,
-                                      ),
-                                      borderRadius: BorderRadius.circular(14),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.chaputBlack
-                                              .withOpacity(0.25),
-                                          blurRadius: 16,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          context.t('showcase.home_reco_title'),
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w800,
-                                            color: AppColors.chaputWhite,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          context.t('showcase.home_reco_body'),
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            height: 1.3,
-                                            color: AppColors.chaputWhite
-                                                .withOpacity(0.9),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  child: _RecommendedUserCard(),
-                                ),
+                                _RecommendedUsersRail(showcaseKey: _recoShowcaseKey),
                               ],
                             ),
                           ),
@@ -793,179 +740,511 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 }
 
-class _RecommendedUserCard extends ConsumerWidget {
-  void _refreshRecommended(WidgetRef ref) {
+class _RecommendedUsersRail extends ConsumerStatefulWidget {
+  const _RecommendedUsersRail({required this.showcaseKey});
+
+  final GlobalKey showcaseKey;
+
+  @override
+  ConsumerState<_RecommendedUsersRail> createState() =>
+      _RecommendedUsersRailState();
+}
+
+class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
+  final Set<String> _dismissedIds = <String>{};
+
+  void _refreshRecommended() {
     HapticFeedback.selectionClick();
-    unawaited(
-      ChaputSoundService.instance.play(
-        ChaputSoundEffect.refreshRecommendedUser,
-      ),
-    );
     unawaited(ref.read(recommendedUserControllerProvider.notifier).refresh());
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final recAsync = ref.watch(recommendedUserControllerProvider);
+  void _dismissCard(String id) {
+    HapticFeedback.selectionClick();
+    setState(() => _dismissedIds.add(id));
+  }
 
-    Widget wrap(Widget child) => GlowShimmerCard(
-      radius: 22,
-      glowSigma: 24,
-      glowOpacity: 0.55,
-      enableBlur: false,
-      child: child,
-    );
-
-    return recAsync.when(
-      loading: () => wrap(const _RecommendedUserShimmer()),
-      error: (e, _) => wrap(
-        Row(
-          children: [
-            const Icon(Icons.error_outline, color: AppColors.chaputWhite70),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                context.t('home.reco_failed'),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            TextButton(
-              onPressed: () => _refreshRecommended(ref),
-              child: Text(context.t('common.retry')),
-            ),
-          ],
-        ),
-      ),
-      data: (u) {
-        if (u == null) {
-          return wrap(
-            Row(
-              children: [
-                const Icon(
-                  Icons.people_outline,
-                  color: AppColors.chaputWhite70,
+  void _showGlassToast(
+    BuildContext context,
+    String message, {
+    IconData icon = Icons.hourglass_top_rounded,
+  }) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          elevation: 0,
+          backgroundColor: AppColors.chaputTransparent,
+          margin: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          duration: const Duration(seconds: 3),
+          content: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    context.t('home.reco_empty'),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                decoration: BoxDecoration(
+                  color: AppColors.chaputBlack.withOpacity(0.78),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.12),
                   ),
                 ),
-                TextButton(
-                  onPressed: () => _refreshRecommended(ref),
-                  child: Text(context.t('common.refresh')),
+                child: Row(
+                  children: [
+                    Icon(icon, color: AppColors.chaputWhite, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: const TextStyle(
+                          color: AppColors.chaputWhite,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
+          ),
+        ),
+      );
+  }
+
+  Future<void> _handleFollowTap(
+    RecommendedUser user,
+    FollowState followState,
+  ) async {
+    final username = user.username;
+    if (username == null || username.isEmpty) return;
+    final rateLimitedMessage = this.context.t('profile.follow_rate_limited');
+    final recoFailedMessage = this.context.t('home.reco_failed');
+
+    final isFollowing =
+        followState is FollowIdle && followState.isFollowing == true;
+    final requestPending =
+        (followState is FollowIdle && followState.requestPending == true) ||
+        user.requestPending;
+    if (requestPending && !isFollowing) {
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+    if (!isFollowing) {
+      unawaited(
+        ChaputSoundService.instance.play(
+          ChaputSoundEffect.refreshRecommendedUser,
+        ),
+      );
+    }
+
+    try {
+      final ctrl = ref.read(followControllerProvider(username).notifier);
+      if (isFollowing) {
+        await ctrl.unfollow();
+        return;
+      }
+
+      await ctrl.follow();
+      final latestState = ref.read(followControllerProvider(username));
+      if (user.isPublic &&
+          latestState is FollowIdle &&
+          latestState.isFollowing == true &&
+          mounted) {
+        setState(() => _dismissedIds.add(user.id));
+      }
+    } on FollowActionException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'follow_request_rate_limited') {
+        _showGlassToast(this.context, rateLimitedMessage);
+      } else {
+        _showGlassToast(
+          this.context,
+          recoFailedMessage,
+          icon: Icons.error_outline_rounded,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recAsync = ref.watch(recommendedUserControllerProvider);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final cardWidth = screenWidth < 390 ? screenWidth - 96 : 250.0;
+
+    return recAsync.when(
+      loading: () => const _RecommendedUsersRailShimmer(),
+      error: (e, _) => _RecommendedUsersEmptyCard(
+        icon: Icons.error_outline_rounded,
+        message: context.t('home.reco_failed'),
+        actionLabel: context.t('common.retry'),
+        onActionTap: _refreshRecommended,
+      ),
+      data: (items) {
+        final visibleItems = items
+            .where((u) => !_dismissedIds.contains(u.id))
+            .toList(growable: false);
+
+        if (visibleItems.isEmpty) {
+          return _RecommendedUsersEmptyCard(
+            icon: Icons.people_outline_rounded,
+            message: context.t('home.reco_empty'),
+            actionLabel: context.t('common.refresh'),
+            onActionTap: () {
+              setState(_dismissedIds.clear);
+              _refreshRecommended();
+            },
           );
         }
 
-        final isLoading = recAsync.isLoading;
+        return SizedBox(
+          height: 154,
+          child: ListView.separated(
+            clipBehavior: Clip.none,
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.zero,
+            itemCount: visibleItems.length + 2,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              if (index == 0 || index == visibleItems.length + 1) {
+                return const SizedBox(width: 5);
+              }
 
-        return wrap(
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () async => context.push(await Routes.profile(u.id)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
+              final user = visibleItems[index - 1];
+              final username = user.username;
+              final followState = (username == null || username.isEmpty)
+                  ? const FollowIdle()
+                  : ref.watch(followControllerProvider(username));
+              final isLoading = followState is FollowLoading;
+              final isFollowing =
+                  followState is FollowIdle && followState.isFollowing == true;
+              final requestPending =
+                  (followState is FollowIdle &&
+                      followState.requestPending == true) ||
+                  user.requestPending;
+              final canTapAction =
+                  !isLoading &&
+                  username != null &&
+                  username.isNotEmpty &&
+                  (!requestPending || isFollowing);
+
+              final actionColor = requestPending
+                  ? AppColors.chaputMaterialBlue
+                  : (isFollowing
+                        ? AppColors.chaputGrey300
+                        : AppColors.chaputBlack);
+              final actionForeground = isFollowing
+                  ? AppColors.chaputBlack
+                  : AppColors.chaputWhite;
+              final actionLabel = requestPending
+                  ? context.t('profile.follow_request_sent')
+                  : (isFollowing
+                        ? context.t('profile.unfollow')
+                        : context.t('profile.follow'));
+
+              final card = SizedBox(
+                width: cardWidth,
+                child: GlowShimmerCard(
+                  radius: 22,
+                  glowSigma: 0,
+                  glowOpacity: 0,
+                  enableBlur: false,
+                  glassOpacity: 0.96,
+                  enableInnerShimmer: false,
+                  padding: EdgeInsets.zero,
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ChaputCircleAvatar(
-                          width: 40,
-                          height: 40,
-                          radius: 999,
-                          borderWidth: 2,
-                          bgColor: AppColors.chaputBlack,
-                          isDefaultAvatar:
-                              u.profilePhotoPath == null ||
-                              u.profilePhotoPath!.isEmpty,
-                          imageUrl:
-                              (u.profilePhotoPath != null &&
-                                  u.profilePhotoPath!.isNotEmpty)
-                              ? u.profilePhotoPath!
-                              : u.defaultAvatar,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                        InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () async =>
+                              context.push(await Routes.profile(user.id)),
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                u.fullName,
-                                maxLines: 1,
-                                softWrap: false,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
+                              ChaputCircleAvatar(
+                                width: 48,
+                                height: 48,
+                                radius: 999,
+                                borderWidth: 2,
+                                bgColor: AppColors.chaputBlack,
+                                isDefaultAvatar:
+                                    user.profilePhotoPath == null ||
+                                    user.profilePhotoPath!.isEmpty,
+                                imageUrl:
+                                    (user.profilePhotoPath != null &&
+                                        user.profilePhotoPath!.isNotEmpty)
+                                    ? user.profilePhotoPath!
+                                    : user.defaultAvatar,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user.fullName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        username == null || username.isEmpty
+                                            ? context.t('common.na')
+                                            : '@$username',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.chaputBlack
+                                              .withOpacity(0.6),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              Text(
-                                u.username == null
-                                    ? context.t('common.na')
-                                    : '@${u.username}',
-                                maxLines: 1,
-                                softWrap: false,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: () => _dismissCard(user.id),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.chaputWhite.withOpacity(
+                                      0.68,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                  ),
+                                ),
                               ),
                             ],
+                          ),
+                        ),
+                        const Spacer(),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: canTapAction
+                                ? () => _handleFollowTap(user, followState)
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              backgroundColor: actionColor,
+                              foregroundColor: actionForeground,
+                              disabledBackgroundColor: actionColor,
+                              disabledForegroundColor: actionForeground
+                                  .withOpacity(0.92),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: isLoading
+                                ? SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        actionForeground,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    requestPending
+                                        ? Icons.schedule_rounded
+                                        : (isFollowing
+                                              ? Icons
+                                                    .person_remove_alt_1_rounded
+                                              : Icons.add_rounded),
+                                    size: 18,
+                                  ),
+                            label: Text(
+                              actionLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: isLoading ? null : () => _refreshRecommended(ref),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.chaputBlack,
-                  foregroundColor: AppColors.chaputWhite,
-                  disabledBackgroundColor: AppColors.chaputBlack.withOpacity(
-                    0.6,
+              );
+
+              if (index == 1) {
+                return Showcase.withWidget(
+                  key: widget.showcaseKey,
+                  targetPadding: EdgeInsets.zero,
+                  targetBorderRadius: BorderRadius.circular(22),
+                  targetShapeBorder: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
                   ),
-                  disabledForegroundColor: AppColors.chaputWhite.withOpacity(
-                    0.7,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                icon: isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.chaputWhite,
+                  tooltipPosition: TooltipPosition.bottom,
+                  toolTipMargin: 8,
+                  targetTooltipGap: 8,
+                  container: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 320),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.chaputBlack.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.t('showcase.home_reco_title'),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.chaputWhite,
+                            ),
                           ),
-                        ),
-                      )
-                    : const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(
-                  isLoading
-                      ? context.t('common.loading')
-                      : context.t('common.refresh'),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
+                          const SizedBox(height: 4),
+                          Text(
+                            context.t('showcase.home_reco_body'),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.3,
+                              color: AppColors.chaputWhite.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  child: card,
+                );
+              }
+
+              return card;
+            },
           ),
         );
       },
+    );
+  }
+}
+
+class _RecommendedUsersEmptyCard extends StatelessWidget {
+  const _RecommendedUsersEmptyCard({
+    required this.icon,
+    required this.message,
+    required this.actionLabel,
+    required this.onActionTap,
+  });
+
+  final IconData icon;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onActionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlowShimmerCard(
+      radius: 22,
+      glowSigma: 24,
+      glowOpacity: 0.55,
+      enableBlur: false,
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.chaputWhite70),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(onPressed: onActionTap, child: Text(actionLabel)),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendedUsersRailShimmer extends StatelessWidget {
+  const _RecommendedUsersRailShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 174,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        itemCount: 2,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, __) => const SizedBox(
+          width: 260,
+          child: GlowShimmerCard(
+            radius: 22,
+            glowSigma: 24,
+            glowOpacity: 0.55,
+            enableBlur: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerCircle(size: 48),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ShimmerLine(width: 120, height: 12),
+                          SizedBox(height: 8),
+                          ShimmerLine(width: 86, height: 10),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    ShimmerBlock(width: 34, height: 34, radius: 14),
+                  ],
+                ),
+                Spacer(),
+                ShimmerBlock(height: 42, radius: 14),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1006,34 +1285,6 @@ class _ShareBarShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ShimmerLoading(child: ShimmerBlock(height: 52, radius: 18));
-  }
-}
-
-class _RecommendedUserShimmer extends StatelessWidget {
-  const _RecommendedUserShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    return const ShimmerLoading(
-      child: Row(
-        children: [
-          ShimmerCircle(size: 40),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ShimmerLine(width: 140, height: 12),
-                SizedBox(height: 6),
-                ShimmerLine(width: 90, height: 10),
-              ],
-            ),
-          ),
-          SizedBox(width: 12),
-          ShimmerBlock(width: 72, height: 32, radius: 12),
-        ],
-      ),
-    );
   }
 }
 

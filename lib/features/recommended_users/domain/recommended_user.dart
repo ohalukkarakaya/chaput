@@ -5,6 +5,8 @@ class RecommendedUser {
   final String defaultAvatar;
   final String? profilePhotoKey;
   final String? profilePhotoUrl;
+  final bool isPublic;
+  final bool requestPending;
 
   const RecommendedUser({
     required this.id,
@@ -13,6 +15,8 @@ class RecommendedUser {
     required this.defaultAvatar,
     required this.profilePhotoKey,
     required this.profilePhotoUrl,
+    required this.isPublic,
+    required this.requestPending,
   });
 
   factory RecommendedUser.fromJson(Map<String, dynamic> json) {
@@ -23,11 +27,14 @@ class RecommendedUser {
       defaultAvatar: (json['default_avatar'] as String?) ?? '',
       profilePhotoKey: json['profile_photo_key'] as String?,
       profilePhotoUrl: json['profile_photo_url'] as String?,
+      isPublic: json['is_public'] == true,
+      requestPending: json['request_pending'] == true,
     );
   }
 
   String? get profilePhotoPath {
-    if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty) return profilePhotoUrl;
+    if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty)
+      return profilePhotoUrl;
     if (profilePhotoKey != null && profilePhotoKey!.isNotEmpty) {
       if (profilePhotoKey!.contains('/')) return profilePhotoKey;
       return '/uploads/profile_photos/$profilePhotoKey';

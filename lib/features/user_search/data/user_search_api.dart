@@ -12,6 +12,21 @@ class UserSearchApi {
   final Dio _dio;
   UserSearchApi(this._dio);
 
+  Future<UserSearchResponse> discover({
+    required int limit,
+    String? cursor,
+  }) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/users/discover',
+      queryParameters: {
+        'limit': limit,
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+      },
+    );
+
+    return UserSearchResponse.fromJson(res.data ?? const {});
+  }
+
   Future<UserSearchResponse> search({
     required String q,
     required int limit,
@@ -19,11 +34,7 @@ class UserSearchApi {
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/users/search',
-      data: {
-        'q': q,
-        'limit': limit,
-        if (cursor != null) 'cursor': cursor,
-      },
+      data: {'q': q, 'limit': limit, if (cursor != null) 'cursor': cursor},
       options: Options(contentType: Headers.jsonContentType),
     );
 

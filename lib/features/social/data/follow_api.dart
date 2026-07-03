@@ -27,10 +27,7 @@ class FollowApi {
   }) async {
     final res = await _dio.get(
       '/users/$username/followers',
-      queryParameters: {
-        'after': after,
-        'limit': limit,
-      },
+      queryParameters: {'after': after, 'limit': limit},
       options: Options(validateStatus: (s) => s != null && s < 500),
     );
 
@@ -59,10 +56,7 @@ class FollowApi {
   }) async {
     final res = await _dio.get(
       '/users/$username/following',
-      queryParameters: {
-        'after': after,
-        'limit': limit,
-      },
+      queryParameters: {'after': after, 'limit': limit},
       options: Options(validateStatus: (s) => s != null && s < 500),
     );
 
@@ -92,14 +86,22 @@ class FollowApi {
   }
 }
 
+String extractFollowErrorCode(DioException error) {
+  final data = error.response?.data;
+  if (data is Map && data['error'] is String) {
+    return data['error'] as String;
+  }
+  if (error.response?.statusCode == 429) {
+    return 'follow_request_rate_limited';
+  }
+  return 'network_error';
+}
+
 class FollowResult {
   final bool followed;
   final bool requestCreated;
 
-  FollowResult({
-    required this.followed,
-    required this.requestCreated,
-  });
+  FollowResult({required this.followed, required this.requestCreated});
 }
 
 class FollowForbidden implements Exception {

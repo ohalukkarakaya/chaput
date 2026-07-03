@@ -18,7 +18,6 @@ import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../notifications/application/push_token_registrar.dart';
 import '../../application/account_controller.dart';
-import '../../application/privacy_controller.dart';
 import 'archive_chaputs_screen.dart';
 import 'blocked_restricted_screen.dart';
 import 'email_change_screen.dart';
@@ -39,8 +38,8 @@ class SettingsScreen extends ConsumerWidget {
     final mq = MediaQuery.of(context);
 
     final bottomPadding =
-    defaultTargetPlatform == TargetPlatform.android &&
-        mq.viewPadding.bottom > 0
+        defaultTargetPlatform == TargetPlatform.android &&
+            mq.viewPadding.bottom > 0
         ? 12 + mq.viewPadding.bottom
         : 12;
 
@@ -56,7 +55,12 @@ class SettingsScreen extends ConsumerWidget {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(16, 10, 16, bottomPadding.toDouble()),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    10,
+                    16,
+                    bottomPadding.toDouble(),
+                  ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight - 10,
@@ -77,16 +81,6 @@ class SettingsScreen extends ConsumerWidget {
 
                         final defaultAvatar = user?.defaultAvatar;
                         final profilePhotoUrl = user?.profilePhotoUrl;
-
-                        final privacySt = ref.watch(privacyControllerProvider);
-
-                        final bool privateAccountValue =
-                            (privacySt.isPublic == null)
-                            ? false
-                            : !(privacySt.isPublic!);
-
-                        final bool privateSwitchEnabled =
-                            privacySt.isPublic != null && !privacySt.isLoading;
 
                         return _SettingsShell(
                           child: _SettingsContent(
@@ -285,34 +279,6 @@ class SettingsScreen extends ConsumerWidget {
                                 }
                               }
                             },
-                            privateAccountValue: privateAccountValue,
-                            privateSwitchEnabled: privateSwitchEnabled,
-                            onPrivateAccountChanged: privateSwitchEnabled
-                                ? (v) {
-                                    unawaited(
-                                      ref
-                                          .read(
-                                            privacyControllerProvider.notifier,
-                                          )
-                                          .setPrivate(v)
-                                          .catchError((_) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    context.t(
-                                                      'settings.privacy_update_failed',
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          }),
-                                    );
-                                  }
-                                : null,
                           ),
                         );
                       },
@@ -809,10 +775,6 @@ class _SettingsContent extends StatelessWidget {
   final VoidCallback onCloseAccount;
   final VoidCallback onLogout;
 
-  final bool privateAccountValue;
-  final ValueChanged<bool>? onPrivateAccountChanged;
-  final bool privateSwitchEnabled;
-
   const _SettingsContent({
     required this.title,
     required this.subtitle,
@@ -827,9 +789,6 @@ class _SettingsContent extends StatelessWidget {
     required this.onPauseAccount,
     required this.onCloseAccount,
     required this.onLogout,
-    required this.privateAccountValue,
-    required this.onPrivateAccountChanged,
-    required this.privateSwitchEnabled,
   });
 
   @override
@@ -990,12 +949,8 @@ class _SettingsContent extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-              _PrivateAccountRow(
-                value: privateAccountValue,
-                enabled: privateSwitchEnabled,
-                onChanged: onPrivateAccountChanged,
-              ),
-              const SizedBox(height: 12),
+              // Private account switch is intentionally hidden for now.
+              const SizedBox(height: 4),
 
               Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -1324,83 +1279,6 @@ class _ErrorCard extends StatelessWidget {
         style: TextStyle(
           color: AppColors.chaputBlack.withOpacity(0.65),
           fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _PrivateAccountRow extends StatelessWidget {
-  const _PrivateAccountRow({
-    required this.value,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool value;
-  final bool enabled;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final opacity = enabled ? 1.0 : 0.55;
-
-    return Opacity(
-      opacity: opacity,
-      child: Material(
-        color: AppColors.chaputWhite,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.chaputBlack.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.lock_outline,
-                  size: 18,
-                  color: AppColors.chaputBlack,
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.t('settings.private_account_title'),
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      context.t('settings.private_account_subtitle'),
-                      style: TextStyle(
-                        color: AppColors.chaputBlack.withOpacity(0.55),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Switch
-              Switch.adaptive(
-                value: value,
-                onChanged: enabled ? onChanged : null,
-              ),
-            ],
-          ),
         ),
       ),
     );

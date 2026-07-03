@@ -1,19 +1,19 @@
-import 'dart:developer';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/network/fresh_auth_dio_provider.dart'; // sende hangi dosyaysa onu import et
+import '../../../core/network/fresh_auth_dio_provider.dart';
 import '../domain/recommended_user.dart';
 
 class RecommendedUsersApi {
   final Dio dio;
   RecommendedUsersApi(this.dio);
 
-  Future<RecommendedUser?> getRecommended() async {
-    final res = await dio.get('/users/recommended');
+  Future<List<RecommendedUser>> getRecommended({int limit = 8}) async {
+    final res = await dio.get(
+      '/users/recommended',
+      queryParameters: {'limit': limit},
+    );
 
-    // beklenen format:
-    // { ok:true, user: {...} } veya { ok:true, user:null }
     final data = res.data;
     if (data is! Map<String, dynamic>) {
       throw Exception('bad_json');
@@ -23,18 +23,29 @@ class RecommendedUsersApi {
       throw Exception((data['error'] ?? 'bad_request').toString());
     }
 
-    final user = data['user'];
-    if (user == null) return null;
+    final items = data['items'];
+    if (items is List) {
+      return items
+          .whereType<Map>()
+          .map(
+            (item) => RecommendedUser.fromJson(
+              item.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          )
+          .toList(growable: false);
+    }
 
+    final user = data['user'];
+    if (user == null) return const [];
     if (user is! Map<String, dynamic>) {
       throw Exception('bad_user_payload');
     }
 
-    return RecommendedUser.fromJson(user);
+    return [RecommendedUser.fromJson(user)];
   }
 }
 
 final recommendedUsersApiProvider = Provider<RecommendedUsersApi>((ref) {
-  final dio = ref.read(freshAuthDioProvider); // ✅ Authorization + refresh interceptor burada olmalı
+  final dio = ref.read(freshAuthDioProvider);
   return RecommendedUsersApi(dio);
 });

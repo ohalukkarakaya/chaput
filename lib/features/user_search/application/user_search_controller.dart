@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/user_search_api.dart';
 import '../domain/user_search_models.dart';
 
+enum UserSearchMode { discover, search }
+
 class UserSearchState {
   final String query;
   final List<UserSearchItem> items;
@@ -12,6 +14,7 @@ class UserSearchState {
   final bool isLoading;
   final bool isLoadingMore;
   final String? error;
+  final UserSearchMode mode;
 
   const UserSearchState({
     required this.query,
@@ -20,15 +23,17 @@ class UserSearchState {
     required this.isLoading,
     required this.isLoadingMore,
     required this.error,
+    required this.mode,
   });
 
   const UserSearchState.initial()
-      : query = '',
-        items = const [],
-        nextCursor = null,
-        isLoading = false,
-        isLoadingMore = false,
-        error = null;
+    : query = '',
+      items = const [],
+      nextCursor = null,
+      isLoading = false,
+      isLoadingMore = false,
+      error = null,
+      mode = UserSearchMode.discover;
 
   bool get hasMore => nextCursor != null && nextCursor!.isNotEmpty;
 
@@ -39,6 +44,7 @@ class UserSearchState {
     bool? isLoading,
     bool? isLoadingMore,
     String? error,
+    UserSearchMode? mode,
   }) {
     return UserSearchState(
       query: query ?? this.query,
@@ -47,15 +53,17 @@ class UserSearchState {
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       error: error,
+      mode: mode ?? this.mode,
     );
   }
 }
 
 final userSearchControllerProvider =
-NotifierProvider<UserSearchController, UserSearchState>(UserSearchController.new);
+    NotifierProvider<UserSearchController, UserSearchState>(
+      UserSearchController.new,
+    );
 
 class UserSearchController extends Notifier<UserSearchState> {
-  // ✅ Pagination test için 2
   static const int _limit = 20;
 
   @override
@@ -65,16 +73,50 @@ class UserSearchController extends Notifier<UserSearchState> {
     state = const UserSearchState.initial();
   }
 
+  Future<void> loadDiscoverFirstPage() async {
+    state = state.copyWith(
+      query: '',
+      mode: UserSearchMode.discover,
+      isLoading: true,
+      isLoadingMore: false,
+      error: null,
+      items: const [],
+      nextCursor: null,
+    );
+
+    try {
+      final api = ref.read(userSearchApiProvider);
+      final res = await api.discover(limit: _limit);
+
+      log(
+        'USER_DISCOVER firstPage: items=${res.items.length} next=${res.nextCursor}',
+      );
+
+      state = state.copyWith(
+        items: res.items,
+        nextCursor: res.nextCursor,
+        isLoading: false,
+        error: null,
+      );
+    } on DioException catch (e, st) {
+      log('USER_DISCOVER: firstPage error', error: e, stackTrace: st);
+      state = state.copyWith(isLoading: false, error: _extractError(e));
+    } catch (e, st) {
+      log('USER_DISCOVER: firstPage unknown', error: e, stackTrace: st);
+      state = state.copyWith(isLoading: false, error: 'unknown_error');
+    }
+  }
+
   Future<void> searchFirstPage(String q) async {
     final qq = q.trim();
 
     if (qq.isEmpty) {
-      clear();
-      return;
+      return loadDiscoverFirstPage();
     }
 
     state = state.copyWith(
       query: qq,
+      mode: UserSearchMode.search,
       isLoading: true,
       isLoadingMore: false,
       error: null,
@@ -86,7 +128,9 @@ class UserSearchController extends Notifier<UserSearchState> {
       final api = ref.read(userSearchApiProvider);
       final res = await api.search(q: qq, limit: _limit);
 
-      log('USER_SEARCH firstPage: q="$qq" items=${res.items.length} next=${res.nextCursor}');
+      log(
+        'USER_SEARCH firstPage: q="$qq" items=${res.items.length} next=${res.nextCursor}',
+      );
 
       state = state.copyWith(
         items: res.items,
@@ -107,18 +151,30 @@ class UserSearchController extends Notifier<UserSearchState> {
     if (state.isLoading || state.isLoadingMore) return;
 
     final cursor = state.nextCursor;
-    final q = state.query.trim();
 
     if (cursor == null || cursor.isEmpty) return;
-    if (q.isEmpty) return;
 
     state = state.copyWith(isLoadingMore: true, error: null);
 
     try {
       final api = ref.read(userSearchApiProvider);
-      final res = await api.search(q: q, limit: _limit, cursor: cursor);
-
-      log('USER_SEARCH loadMore: q="$q" added=${res.items.length} next=${res.nextCursor}');
+      late final UserSearchResponse res;
+      if (state.mode == UserSearchMode.discover) {
+        res = await api.discover(limit: _limit, cursor: cursor);
+        log(
+          'USER_DISCOVER loadMore: added=${res.items.length} next=${res.nextCursor}',
+        );
+      } else {
+        final q = state.query.trim();
+        if (q.isEmpty) {
+          state = state.copyWith(isLoadingMore: false);
+          return;
+        }
+        res = await api.search(q: q, limit: _limit, cursor: cursor);
+        log(
+          'USER_SEARCH loadMore: q="$q" added=${res.items.length} next=${res.nextCursor}',
+        );
+      }
 
       state = state.copyWith(
         items: [...state.items, ...res.items],

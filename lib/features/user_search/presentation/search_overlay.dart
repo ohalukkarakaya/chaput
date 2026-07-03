@@ -33,9 +33,10 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
   void initState() {
     super.initState();
 
-    // her açılışta önceki sonuçları sil
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(userSearchControllerProvider.notifier).clear();
+      unawaited(
+        ref.read(userSearchControllerProvider.notifier).loadDiscoverFirstPage(),
+      );
       if (mounted) _focusNode.requestFocus();
     });
 
@@ -64,9 +65,10 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
 
     final q = value.trim();
 
-    // ✅ min char = 1
     if (q.isEmpty) {
-      ref.read(userSearchControllerProvider.notifier).clear();
+      unawaited(
+        ref.read(userSearchControllerProvider.notifier).loadDiscoverFirstPage(),
+      );
       return;
     }
 
@@ -122,6 +124,7 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
           ),
 
           SafeArea(
+            bottom: false,
             child: Column(
               children: [
                 const SizedBox(height: 10),
@@ -193,20 +196,18 @@ class _ResultsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ arama yapılmadı: ortada ikon
-    if (state.query.trim().isEmpty) {
-      return Center(
-        child: Icon(Icons.search_rounded, size: 56, color: AppColors.chaputWhite.withOpacity(0.55)),
-      );
-    }
-
     if (state.isLoading) {
       final cardBg = AppColors.chaputWhite.withOpacity(0.12);
       return ShimmerLoading(
         baseColor: AppColors.chaputWhite.withOpacity(0.10),
         highlightColor: AppColors.chaputWhite.withOpacity(0.28),
         child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            MediaQuery.paddingOf(context).bottom + 48,
+          ),
           itemCount: 6,
           separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (_, __) => ShimmerUserCard(
@@ -227,16 +228,24 @@ class _ResultsList extends StatelessWidget {
       );
     }
 
-    // ✅ arama var ama sonuç yok: ortada ikon + mesaj
     if (state.items.isEmpty) {
+      final isDiscover = state.mode == UserSearchMode.discover;
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_search_rounded, size: 56, color: AppColors.chaputWhite.withOpacity(0.65)),
+            Icon(
+              isDiscover
+                  ? Icons.people_outline_rounded
+                  : Icons.person_search_rounded,
+              size: 56,
+              color: AppColors.chaputWhite.withOpacity(0.65),
+            ),
             const SizedBox(height: 12),
             Text(
-              context.t('search.no_users'),
+              isDiscover
+                  ? context.t('home.reco_empty')
+                  : context.t('search.no_users'),
               style: TextStyle(
                 color: AppColors.chaputWhite.withOpacity(0.85),
                 fontSize: 16,
@@ -258,20 +267,25 @@ class _ResultsList extends StatelessWidget {
 
     return ListView.builder(
       controller: scroll,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        16
+      ),
       itemCount: state.items.length + 1,
       itemBuilder: (context, i) {
         if (i == state.items.length) {
           return state.isLoadingMore
               ? Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: ShimmerLoading(
-              baseColor: AppColors.chaputWhite.withOpacity(0.10),
-              highlightColor: AppColors.chaputWhite.withOpacity(0.28),
-              child: const ShimmerLine(width: 140, height: 10),
-            ),
-          )
-              : const SizedBox(height: 12);
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: ShimmerLoading(
+                    baseColor: AppColors.chaputWhite.withOpacity(0.10),
+                    highlightColor: AppColors.chaputWhite.withOpacity(0.28),
+                    child: const ShimmerLine(width: 140, height: 10),
+                  ),
+                )
+              : SizedBox(height: 40);
         }
 
         final u = state.items[i];
@@ -317,28 +331,19 @@ class _ResultsList extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        u.username == null ? context.t('common.na') : '@${u.username}',
+                        u.username == null
+                            ? context.t('common.na')
+                            : '@${u.username}',
                         maxLines: 1,
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55)),
+                        style: TextStyle(
+                          color: AppColors.chaputBlack.withOpacity(0.55),
+                        ),
                       ),
                     ],
                   ),
                 ),
-
-                if (!u.isPublic)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.chaputBlack,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      context.t('search.private'),
-                      style: const TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w700, fontSize: 12),
-                    ),
-                  ),
               ],
             ),
           ),
