@@ -76,6 +76,21 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // flutter_angle currently ships ANGLE native libraries only for arm64.
+        // Do not let Play generate installs for ABIs that will crash at 3D init.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+    }
+
+    packaging {
+        jniLibs {
+            excludes += setOf(
+                "lib/armeabi-v7a/**",
+                "lib/x86_64/**",
+            )
+        }
     }
 
     signingConfigs {
