@@ -28,6 +28,7 @@ import '../../../../core/storage/tutorial_storage.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../core/ux/chaput_sound_service.dart';
 import '../../../billing/data/billing_api_provider.dart';
+import '../../../ads/data/chaput_ad_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../reports/data/reports_api.dart';
@@ -1990,9 +1991,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       MaterialPageRoute(
         builder: (_) => ChaputAdsWatchScreen(
           requiredAds: requiredAds,
-          onComplete: () async {
+          onComplete: (network) async {
             try {
               final sessionId = await api.startAdRewardSession(
+                network: network.wireValue,
                 requiredAds: requiredAds,
               );
               if (sessionId.isEmpty) return false;
@@ -2556,7 +2558,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               : (targetIndex < currentThreads.length
                     ? targetIndex
                     : currentThreads.length - 1);
-          final showNativeAds = _isFreePlan(_planType.toUpperCase());
+          final showNativeAds =
+              _isFreePlan(_planType.toUpperCase()) &&
+              ChaputNativeAdCard.isAvailable;
           final targetThread = currentThreads[safeIndex];
           if (_chaputPageCtrl.hasClients) {
             final pageIdx = _pageIndexForThreadIndex(
@@ -3456,8 +3460,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     bool _asBool(dynamic v) => v == true || v == 1 || v == '1';
 
+    int _asNonNegativeInt(dynamic value) {
+      final parsed = switch (value) {
+        int value => value,
+        num value => value.toInt(),
+        _ => int.tryParse(value?.toString() ?? ''),
+      };
+      return (parsed ?? 0).clamp(0, 1 << 30).toInt();
+    }
+
     final isPublic = _asBool(user?['is_public']);
     final isPrivateTarget = !isPublic;
+    final privateChaputCount = _asNonNegativeInt(
+      st.profileJson?['chaput_count'],
+    );
 
     final viewerState = (st.profileJson?['viewer_state'] is Map)
         ? (st.profileJson!['viewer_state'] as Map)
@@ -3510,7 +3526,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             profilePhotoUrl: me.user.profilePhotoUrl,
           );
     final viewerPlan = (me?.subscription.plan ?? _planType).toUpperCase();
-    final showNativeAds = _isFreePlan(viewerPlan);
+    final showNativeAds =
+        _isFreePlan(viewerPlan) && ChaputNativeAdCard.isAvailable;
     if (showNativeAds && !_nativeAdPreloaded) {
       _nativeAdPreloaded = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3679,8 +3696,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             )],
           )
         : null;
-    final String? privateFollowMessage = showPrivateFollowSheet
-        ? context.t('profile.private_follow_required')
+    final InlineSpan? privateFollowMessage = showPrivateFollowSheet
+        ? TextSpan(
+            children: [
+              TextSpan(
+                text: context.t('profile.private_follow_required_prefix'),
+              ),
+              TextSpan(
+                text: context.t(
+                  'profile.private_follow_required_view_count',
+                  params: {'count': privateChaputCount.toString()},
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              TextSpan(
+                text: context.t('profile.private_follow_required_middle'),
+              ),
+              TextSpan(
+                text: context.t('profile.private_follow_required_bind'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              TextSpan(
+                text: context.t('profile.private_follow_required_suffix'),
+              ),
+            ],
+          )
         : null;
 
     if (showEmptyChaputSheet || showPrivateFollowSheet) {
@@ -4971,8 +5011,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                     min: 0,
                                   ),
                               child: EmptyChaputSheet(
-                                message:
-                                    privateFollowMessage ?? emptyChaputMessage!,
+                                message: emptyChaputMessage ?? '',
+                                messageSpan: privateFollowMessage,
                                 height:
                                     (chaputSheetAvailableHeight *
                                         _chaputSheetMin) +
@@ -5248,162 +5288,200 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     ),
 
                     // BUTON
-                    Positioned(
-                      right: 14,
-                      bottom: (chaputThreads.isNotEmpty
-                          ? (chaputSheetAvailableHeight * _chaputSheetExtent +
-                          chaputSheetOuterOffset +
-                          10)
-                          : ((showEmptyChaputSheet || showPrivateFollowSheet)
-                          ? (chaputSheetAvailableHeight *
-                          _chaputSheetMin +
-                          context.responsive
-                              .bottomSheetInnerPadding(min: 0) +
-                          chaputSheetOuterOffset +
-                          14)
-                          : 14)),
-                      child: SafeArea(
-                        top: false,
-                        bottom:
-                            !(showEmptyChaputSheet && chaputThreads.isEmpty),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 160),
-                          child:
-                              (_composerOpen ||
-                                  (_silhouetteMode && !showPrivateFollowSheet) ||
-                                  isMe ||
-                                  _chaputThreadCreated ||
-                                  hasOurThread ||
-                                  (chaputThreads.isNotEmpty &&
-                                      _chaputSheetExtent > _chaputSheetMin + 0.01))
-                              ? const SizedBox.shrink()
-                              : IgnorePointer(
-                                  ignoring: !_threeReady || _reviveFlowBusy || _uiFollowLoading,
-                                  child: BlackGlass(
-                                    radius: 16,
-                                    blur: 10,
-                                    opacity: 0.55,
-                                    borderOpacity: 0.12,
-                                    child: Material(
-                                      type: MaterialType.transparency,
-                                      child: InkWell(
-                                        onTap:
-                                        ((_silhouetteMode && !showPrivateFollowSheet) || _composerOpen)
-                                            ? null
-                                            : () async {
-                                              if (showPrivateFollowSheet) {
-                                                if (isBlocked || followButtonDisabled) return;
+                    ValueListenableBuilder<double>(
+                      valueListenable: _chaputSheetExtentListenable,
+                      builder: (context, chaputSheetExtent, _) => Positioned(
+                        right: 14,
+                        bottom: (chaputThreads.isNotEmpty
+                            ? (chaputSheetAvailableHeight * chaputSheetExtent +
+                                  chaputSheetOuterOffset +
+                                  10)
+                            : ((showEmptyChaputSheet || showPrivateFollowSheet)
+                                  ? (chaputSheetAvailableHeight *
+                                            _chaputSheetMin +
+                                        context.responsive
+                                            .bottomSheetInnerPadding(min: 0) +
+                                        chaputSheetOuterOffset +
+                                        14)
+                                  : 14)),
+                        child: SafeArea(
+                          top: false,
+                          bottom:
+                              !(showEmptyChaputSheet && chaputThreads.isEmpty),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 160),
+                            child:
+                                (_composerOpen ||
+                                    (_silhouetteMode &&
+                                        !showPrivateFollowSheet) ||
+                                    isMe ||
+                                    _chaputThreadCreated ||
+                                    hasOurThread ||
+                                    (chaputThreads.isNotEmpty &&
+                                        chaputSheetExtent >
+                                            _chaputSheetMin +
+                                                _chaputSheetCollapsedTapTolerance))
+                                ? const SizedBox.shrink()
+                                : IgnorePointer(
+                                    ignoring:
+                                        !_threeReady ||
+                                        _reviveFlowBusy ||
+                                        _uiFollowLoading,
+                                    child: BlackGlass(
+                                      radius: 16,
+                                      blur: 10,
+                                      opacity: 0.55,
+                                      borderOpacity: 0.12,
+                                      child: Material(
+                                        type: MaterialType.transparency,
+                                        child: InkWell(
+                                          onTap:
+                                              ((_silhouetteMode &&
+                                                      !showPrivateFollowSheet) ||
+                                                  _composerOpen)
+                                              ? null
+                                              : () async {
+                                                  if (showPrivateFollowSheet) {
+                                                    if (isBlocked ||
+                                                        followButtonDisabled)
+                                                      return;
 
-                                                HapticFeedback.selectionClick();
+                                                    HapticFeedback.selectionClick();
 
-                                                setState(() {
-                                                  _uiFollowLoading = true;
-                                                  _uiRequestedFollow = true;
-                                                });
+                                                    setState(() {
+                                                      _uiFollowLoading = true;
+                                                      _uiRequestedFollow = true;
+                                                    });
 
-                                                try {
-                                                  final ctrl = ref.read(
-                                                    followControllerProvider(username).notifier,
-                                                  );
-                                                  await ctrl.follow();
-                                                } catch (error) {
-                                                  if (!mounted) return;
-                                                  setState(() => _uiRequestedFollow = null);
-                                                  _handleFollowActionError(error);
-                                                } finally {
-                                                  if (!mounted) return;
-                                                  setState(() => _uiFollowLoading = false);
-                                                }
-
-                                                return;
-                                              }
-                                                if (decisionHasArchived &&
-                                                    reviveThreadId.length ==
-                                                        32) {
-                                                  await _handleRevivePressed(
-                                                    threadIdHex: reviveThreadId,
-                                                    profileIdHex: profileIdHex,
-                                                    chaputArgs: chaputArgs,
-                                                    targetUser: targetLiteUser,
-                                                  );
-                                                  return;
-                                                }
-                                                if (showBindExhausted) {
-                                                  final purchase =
-                                                      await _openPaywall(
-                                                        feature:
-                                                            PaywallFeature.bind,
+                                                    try {
+                                                      final ctrl = ref.read(
+                                                        followControllerProvider(
+                                                          username,
+                                                        ).notifier,
                                                       );
-                                                  if (purchase != null) {
-                                                    final ok =
-                                                        await _verifyPurchaseAndApply(
-                                                          purchase,
-                                                        );
-                                                    if (ok) {
-                                                      _prepareComposer();
+                                                      await ctrl.follow();
+                                                    } catch (error) {
+                                                      if (!mounted) return;
+                                                      setState(
+                                                        () =>
+                                                            _uiRequestedFollow =
+                                                                null,
+                                                      );
+                                                      _handleFollowActionError(
+                                                        error,
+                                                      );
+                                                    } finally {
+                                                      if (!mounted) return;
+                                                      setState(
+                                                        () => _uiFollowLoading =
+                                                            false,
+                                                      );
                                                     }
+
+                                                    return;
                                                   }
-                                                  return;
-                                                }
-                                                await _handleBindPressed(
-                                                  profileId: profileIdHex,
-                                                );
-                                              },
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 10,
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                showPrivateFollowSheet
-                                                    ? (requestAlreadySent ? Icons.schedule_rounded : Icons.add_rounded)
-                                                    : decisionHasArchived
-                                                    ? Icons.restore
-                                                    : showBindExhausted
-                                                    ? Icons.lock_clock
-                                                    : (_decisionPath ==
-                                                              'NEED_AD'
-                                                          ? Icons.play_circle
-                                                          : Icons.draw),
-                                                size: 18,
-                                                color: AppColors.chaputWhite,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                showPrivateFollowSheet
-                                                    ? (requestAlreadySent
-                                                    ? context.t('profile.follow_request_sent')
-                                                    : context.t('profile.follow'))
-                                                    : decisionHasArchived
-                                                    ? context.t('profile.bind.restore_archive')
-                                                    : showBindExhausted
-                                                    ? context.t(
-                                                        'profile.bind.rights_exhausted',
-                                                      )
-                                                    : (_decisionPath ==
-                                                              'NEED_AD'
-                                                          ? context.t(
-                                                              'profile.bind.watch_ad',
-                                                            )
-                                                          : context.t(
-                                                              'profile.bind.start_one',
-                                                            )),
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w700,
+                                                  if (decisionHasArchived &&
+                                                      reviveThreadId.length ==
+                                                          32) {
+                                                    await _handleRevivePressed(
+                                                      threadIdHex:
+                                                          reviveThreadId,
+                                                      profileIdHex:
+                                                          profileIdHex,
+                                                      chaputArgs: chaputArgs,
+                                                      targetUser:
+                                                          targetLiteUser,
+                                                    );
+                                                    return;
+                                                  }
+                                                  if (showBindExhausted) {
+                                                    final purchase =
+                                                        await _openPaywall(
+                                                          feature:
+                                                              PaywallFeature
+                                                                  .bind,
+                                                        );
+                                                    if (purchase != null) {
+                                                      final ok =
+                                                          await _verifyPurchaseAndApply(
+                                                            purchase,
+                                                          );
+                                                      if (ok) {
+                                                        _prepareComposer();
+                                                      }
+                                                    }
+                                                    return;
+                                                  }
+                                                  await _handleBindPressed(
+                                                    profileId: profileIdHex,
+                                                  );
+                                                },
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 10,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  showPrivateFollowSheet
+                                                      ? (requestAlreadySent
+                                                            ? Icons
+                                                                  .schedule_rounded
+                                                            : Icons.add_rounded)
+                                                      : decisionHasArchived
+                                                      ? Icons.restore
+                                                      : showBindExhausted
+                                                      ? Icons.lock_clock
+                                                      : (_decisionPath ==
+                                                                'NEED_AD'
+                                                            ? Icons.play_circle
+                                                            : Icons.draw),
+                                                  size: 18,
                                                   color: AppColors.chaputWhite,
                                                 ),
-                                              ),
-                                            ],
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  showPrivateFollowSheet
+                                                      ? (requestAlreadySent
+                                                            ? context.t(
+                                                                'profile.follow_request_sent',
+                                                              )
+                                                            : context.t(
+                                                                'profile.follow',
+                                                              ))
+                                                      : decisionHasArchived
+                                                      ? context.t(
+                                                          'profile.bind.restore_archive',
+                                                        )
+                                                      : showBindExhausted
+                                                      ? context.t(
+                                                          'profile.bind.rights_exhausted',
+                                                        )
+                                                      : (_decisionPath ==
+                                                                'NEED_AD'
+                                                            ? context.t(
+                                                                'profile.bind.watch_ad',
+                                                              )
+                                                            : context.t(
+                                                                'profile.bind.start_one',
+                                                              )),
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                    color:
+                                                        AppColors.chaputWhite,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
+                          ),
                         ),
                       ),
                     ),

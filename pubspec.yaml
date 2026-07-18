@@ -53,7 +53,7 @@ dependencies:
   firebase_messaging: ^16.1.1
   flutter_local_notifications: ^20.0.0
   visibility_detector: ^0.4.0+2
-  google_mobile_ads: ^7.0.0
+  unity_levelplay_mediation: 9.2.0
   shimmer: ^3.0.0
   showcaseview: ^5.0.1
   purchases_flutter: ^10.1.0

@@ -6,12 +6,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/i18n/app_localizations.dart';
 import 'features/notifications/application/local_notification_service.dart';
 import 'features/profile/presentation/utils/tree_model_cache.dart';
+import 'features/ads/data/chaput_ad_provider.dart';
 import 'app.dart';
 import 'features/feedback/presentation/widgets/chaput_feedback_form.dart';
 
@@ -35,7 +35,7 @@ Future<void> main() async {
     await LocalNotificationService.instance.requestPermissions();
   }
 
-  await MobileAds.instance.initialize();
+  await ChaputAdProvider.initialize();
 
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 

@@ -7,6 +7,7 @@ import 'sheet_handle.dart';
 
 class EmptyChaputSheet extends StatelessWidget {
   final String message;
+  final InlineSpan? messageSpan;
   final double height;
   final String? actionLabel;
   final IconData? actionIcon;
@@ -19,6 +20,7 @@ class EmptyChaputSheet extends StatelessWidget {
   const EmptyChaputSheet({
     super.key,
     required this.message,
+    this.messageSpan,
     required this.height,
     this.actionLabel,
     this.actionIcon,
@@ -54,10 +56,10 @@ class EmptyChaputSheet extends StatelessWidget {
                 const SizedBox(height: 10),
                 Expanded(
                   child: Center(
-                    child: Text(
-                      message,
+                    child: Text.rich(
+                      messageSpan ?? TextSpan(text: message),
                       textAlign: TextAlign.center,
-                      maxLines: hasAction ? 3 : 2,
+                      maxLines: hasAction || messageSpan != null ? 3 : 2,
                       overflow: TextOverflow.fade,
                       style: TextStyle(
                         color: AppColors.chaputWhite.withOpacity(0.9),
@@ -90,10 +92,15 @@ class EmptyChaputSheet extends StatelessWidget {
                           : Icon(actionIcon ?? Icons.arrow_forward_rounded),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
-                        backgroundColor: AppColors.chaputWhite.withOpacity(0.10),
-                        foregroundColor: actionForegroundColor ?? AppColors.chaputWhite,
-                        disabledBackgroundColor: AppColors.chaputWhite.withOpacity(0.06),
-                        disabledForegroundColor: AppColors.chaputWhite.withOpacity(0.55),
+                        backgroundColor: AppColors.chaputWhite.withOpacity(
+                          0.10,
+                        ),
+                        foregroundColor:
+                            actionForegroundColor ?? AppColors.chaputWhite,
+                        disabledBackgroundColor: AppColors.chaputWhite
+                            .withOpacity(0.06),
+                        disabledForegroundColor: AppColors.chaputWhite
+                            .withOpacity(0.55),
                         side: BorderSide(
                           color: AppColors.chaputWhite.withOpacity(0.22),
                           width: 1,

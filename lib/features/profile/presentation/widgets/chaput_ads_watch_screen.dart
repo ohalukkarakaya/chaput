@@ -1,12 +1,11 @@
-import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:unity_levelplay_mediation/unity_levelplay_mediation.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/config/env.dart';
 import '../../../../core/i18n/app_localizations.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
+import '../../../ads/data/chaput_ad_provider.dart';
 
 class ChaputAdsWatchScreen extends StatefulWidget {
   const ChaputAdsWatchScreen({
@@ -16,22 +15,28 @@ class ChaputAdsWatchScreen extends StatefulWidget {
   });
 
   final int requiredAds;
-  final Future<bool> Function() onComplete;
+  final Future<bool> Function(ChaputAdNetwork network) onComplete;
 
   @override
   State<ChaputAdsWatchScreen> createState() => _ChaputAdsWatchScreenState();
 }
 
-class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
+class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen>
+    implements LevelPlayRewardedAdListener {
   int _watched = 0;
   bool _watching = false;
   bool _canceled = false;
-  String? _error;
-  RewardedAd? _rewardedAd;
   bool _loading = false;
   bool _earnedThisAd = false;
+  bool _attemptSettled = false;
+  bool _completing = false;
+  String? _error;
+  LevelPlayRewardedAd? _rewardedAd;
+  Timer? _loadTimeout;
+  Timer? _displayTimeout;
 
-  int get _remaining => (widget.requiredAds - _watched).clamp(0, widget.requiredAds);
+  int get _remaining =>
+      (widget.requiredAds - _watched).clamp(0, widget.requiredAds).toInt();
 
   @override
   void initState() {
@@ -40,102 +45,182 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
   }
 
   Future<void> _autoStart() async {
-    if (_watching || _remaining == 0 || _loading) return;
+    if (_watching || _loading || _completing || _remaining == 0 || _canceled) {
+      return;
+    }
     setState(() {
       _watching = true;
+      _loading = true;
       _error = null;
+      _earnedThisAd = false;
+      _attemptSettled = false;
     });
-    await _loadAndShow();
+
+    final network = await ChaputAdProvider.resolveNetwork();
+    if (!mounted || _canceled) return;
+    if (network == null) {
+      _creditUnavailableAttempt();
+      return;
+    }
+
+    final ad = LevelPlayRewardedAd(adUnitId: ChaputAdProvider.rewardedAdUnitId);
+    _rewardedAd = ad;
+    ad.setListener(this);
+    _loadTimeout = Timer(
+      const Duration(seconds: 12),
+      _creditUnavailableAttempt,
+    );
+    try {
+      await ad.loadAd();
+    } catch (_) {
+      _creditUnavailableAttempt();
+    }
   }
 
-  Future<void> _loadAndShow() async {
-    if (!mounted || _canceled || _remaining == 0) return;
-    if (_loading) return;
-    setState(() => _loading = true);
-    final adUnitId = Env.rewardedAdUnitId(isIOS: Platform.isIOS);
-    RewardedAd.load(
-      adUnitId: adUnitId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewardedAd = ad;
-          if (!mounted) {
-            ad.dispose();
-            return;
-          }
-          setState(() => _loading = false);
-          _showAd(ad);
-        },
-        onAdFailedToLoad: (err) {
-          if (!mounted) return;
-          setState(() {
-            _loading = false;
-            _watching = false;
-            _error = context.t('ads.load_failed');
-          });
-        },
-      ),
-    );
+  Future<void> _showRewarded(LevelPlayRewardedAd ad) async {
+    if (!mounted || _canceled || !identical(_rewardedAd, ad)) return;
+    try {
+      if (!await ad.isAdReady()) {
+        _creditUnavailableAttempt();
+        return;
+      }
+      _displayTimeout = Timer(
+        const Duration(seconds: 8),
+        _creditUnavailableAttempt,
+      );
+      await ad.showAd();
+    } catch (_) {
+      _creditUnavailableAttempt();
+    }
+  }
+
+  void _creditUnavailableAttempt() {
+    if (!mounted || _canceled || _attemptSettled) return;
+    _attemptSettled = true;
+    _disposeRewardedAd();
+    setState(() {
+      _watched += 1;
+      _loading = false;
+      _watching = false;
+    });
+    if (_remaining > 0) {
+      unawaited(_autoStart());
+    } else {
+      unawaited(_finishRewards());
+    }
+  }
+
+  void _creditCompletedAttempt() {
+    if (!mounted || _canceled || _attemptSettled) return;
+    _attemptSettled = true;
+    _disposeRewardedAd();
+    setState(() {
+      _watched += 1;
+      _loading = false;
+      _watching = false;
+    });
+    if (_remaining > 0) {
+      unawaited(_autoStart());
+    } else {
+      unawaited(_finishRewards());
+    }
+  }
+
+  void _adClosedWithoutReward() {
+    if (!mounted || _canceled || _attemptSettled) return;
+    _attemptSettled = true;
+    _disposeRewardedAd();
+    setState(() {
+      _loading = false;
+      _watching = false;
+      _error = context.t('ads.show_failed');
+    });
+  }
+
+  void _disposeRewardedAd() {
+    _loadTimeout?.cancel();
+    _loadTimeout = null;
+    _displayTimeout?.cancel();
+    _displayTimeout = null;
+    final ad = _rewardedAd;
+    _rewardedAd = null;
+    if (ad != null) {
+      unawaited(ad.dispose());
+    }
   }
 
   Future<void> _finishRewards() async {
-    if (!mounted) return;
+    if (!mounted || _completing || _canceled) return;
+    _completing = true;
     setState(() => _watching = false);
-    final ok = await widget.onComplete();
+    final ok = await widget.onComplete(ChaputAdNetwork.levelPlay);
     if (!mounted) return;
     if (!ok) {
-      setState(() => _error = context.t('ads.reward_verify_failed'));
+      setState(() {
+        _completing = false;
+        _error = context.t('ads.reward_verify_failed');
+      });
       return;
     }
     Navigator.pop(context, true);
   }
 
-  void _showAd(RewardedAd ad) {
-    if (!mounted || _canceled) {
-      ad.dispose();
-      return;
+  @override
+  void onAdLoaded(LevelPlayAdInfo adInfo) {
+    final ad = _rewardedAd;
+    if (!mounted || _canceled || ad == null) return;
+    _loadTimeout?.cancel();
+    _loadTimeout = null;
+    setState(() => _loading = false);
+    unawaited(_showRewarded(ad));
+  }
+
+  @override
+  void onAdLoadFailed(LevelPlayAdError error) {
+    _creditUnavailableAttempt();
+  }
+
+  @override
+  void onAdDisplayed(LevelPlayAdInfo adInfo) {
+    _displayTimeout?.cancel();
+    _displayTimeout = null;
+  }
+
+  @override
+  void onAdDisplayFailed(LevelPlayAdError error, LevelPlayAdInfo adInfo) {
+    _creditUnavailableAttempt();
+  }
+
+  @override
+  void onAdClosed(LevelPlayAdInfo adInfo) {
+    if (_earnedThisAd) {
+      _creditCompletedAttempt();
+    } else {
+      _adClosedWithoutReward();
     }
-    _earnedThisAd = false;
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        if (!mounted) return;
-        if (_canceled) {
-          setState(() => _watching = false);
-          return;
-        }
-        if (_earnedThisAd) {
-          setState(() => _watched += 1);
-        }
-        if (_remaining > 0) {
-          _loadAndShow();
-        } else {
-          _finishRewards();
-        }
-      },
-      onAdFailedToShowFullScreenContent: (ad, err) {
-        ad.dispose();
-        if (!mounted) return;
-        setState(() {
-          _watching = false;
-          _error = context.t('ads.show_failed');
-        });
-      },
-    );
-    ad.show(onUserEarnedReward: (_, __) {
-      _earnedThisAd = true;
-    });
+  }
+
+  @override
+  void onAdClicked(LevelPlayAdInfo adInfo) {}
+
+  @override
+  void onAdInfoChanged(LevelPlayAdInfo adInfo) {}
+
+  @override
+  void onAdRewarded(LevelPlayReward reward, LevelPlayAdInfo adInfo) {
+    _earnedThisAd = true;
   }
 
   @override
   void dispose() {
-    _rewardedAd?.dispose();
+    _disposeRewardedAd();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final retryable = !_watching && !_loading && !_completing && _remaining > 0;
 
     return Scaffold(
       backgroundColor: AppColors.chaputBlack,
@@ -169,7 +254,9 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.chaputWhite.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.chaputWhite.withOpacity(0.12)),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withOpacity(0.12),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,9 +267,7 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                           child: Text(
                             context.t(
                               'ads.watched_progress',
-                              params: {
-                                'count': _watched.toString(),
-                              },
+                              params: {'count': _watched.toString()},
                             ),
                             style: const TextStyle(
                               color: AppColors.chaputWhite,
@@ -191,13 +276,15 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                             ),
                           ),
                         ),
-                        if (_watching)
+                        if (_watching || _loading || _completing)
                           const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.chaputWhite),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.chaputWhite,
+                              ),
                             ),
                           ),
                       ],
@@ -206,9 +293,13 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(999),
                       child: LinearProgressIndicator(
-                        value: widget.requiredAds == 0 ? 0 : _watched / widget.requiredAds,
+                        value: widget.requiredAds == 0
+                            ? 0
+                            : _watched / widget.requiredAds,
                         minHeight: 6,
-                        backgroundColor: AppColors.chaputWhite.withOpacity(0.12),
+                        backgroundColor: AppColors.chaputWhite.withOpacity(
+                          0.12,
+                        ),
                         color: AppColors.chaputWhite,
                       ),
                     ),
@@ -230,16 +321,20 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: null,
+                  onPressed: retryable ? _autoStart : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.chaputWhite,
                     foregroundColor: AppColors.chaputBlack,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   child: Text(
                     _remaining == 0
                         ? context.t('ads.completed')
-                        : (_loading ? context.t('ads.loading') : context.t('ads.watching')),
+                        : (_loading || _watching
+                              ? context.t('ads.watching')
+                              : context.t('ads.watch_title')),
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -255,7 +350,10 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen> {
                   },
                   child: Text(
                     context.t('common.cancel'),
-                    style: const TextStyle(color: AppColors.chaputWhite70, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: AppColors.chaputWhite70,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
