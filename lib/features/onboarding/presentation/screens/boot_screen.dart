@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/attribution/chaput_attribution_service.dart';
 import '../../../../core/deep_links/deep_link_state.dart';
 import '../../../../core/device/device_id_service.dart';
 import '../../../../core/review/app_review_service.dart';
@@ -149,6 +152,11 @@ class _BootScreenState extends ConsumerState<BootScreen>
               .read(appReviewServiceProvider)
               .recordAppOpenForSession(userId);
         }
+        unawaited(
+          ref
+              .read(chaputAttributionServiceProvider)
+              .activateAfterAuthentication(),
+        );
         try {
           await ref
               .read(notificationApiProvider)

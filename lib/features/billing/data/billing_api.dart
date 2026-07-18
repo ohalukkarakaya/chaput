@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
 
+import '../../../core/attribution/chaput_attribution_service.dart';
 import '../domain/billing_verify_result.dart';
 
 class BillingApi {
@@ -51,7 +53,18 @@ class BillingApi {
     final data = res.data;
     if (data is Map<String, dynamic>) {
       if (data['ok'] == true) {
-        return BillingVerifyResult.fromJson(data);
+        final result = BillingVerifyResult.fromJson(data);
+        unawaited(
+          ChaputAttributionService.recordVerifiedPurchase(
+            ChaputVerifiedPurchaseEvent(
+              transactionId: result.transactionId,
+              productId: result.productId,
+              currency: result.currency,
+              value: result.value,
+            ),
+          ),
+        );
+        return result;
       }
       throw Exception(data['error'] ?? 'verify_failed');
     }

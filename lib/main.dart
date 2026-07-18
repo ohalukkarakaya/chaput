@@ -13,6 +13,7 @@ import 'features/notifications/application/local_notification_service.dart';
 import 'features/profile/presentation/utils/tree_model_cache.dart';
 import 'features/ads/data/chaput_ad_provider.dart';
 import 'app.dart';
+import 'core/attribution/chaput_attribution_service.dart';
 import 'features/feedback/presentation/widgets/chaput_feedback_form.dart';
 
 Future<void> main() async {
@@ -23,6 +24,7 @@ Future<void> main() async {
 
   if (enableNotifications) {
     await Firebase.initializeApp();
+    await ChaputAttributionService.enableAnalyticsForIos();
     await FirebaseMessaging.instance.requestPermission();
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(

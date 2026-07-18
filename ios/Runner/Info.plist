@@ -32,13 +32,41 @@
 				<string>com.goktigin.chaput</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>fb886339164066110</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb886339164066110</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
+	<key>FacebookAppID</key>
+	<string>886339164066110</string>
+	<key>FacebookClientToken</key>
+	<string>3185a6e15855a00d9b5fa71e5659333f</string>
+	<key>FacebookDisplayName</key>
+	<string>Chaput</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<true/>
+	<key>FacebookAutoInitEnabled</key>
+	<true/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
 	<key>FlutterDeepLinkingEnabled</key>
 	<false/>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Chaput uses device information to measure relevant advertising and improve the app. Your choice will not affect core features.</string>
+	<key>TikTokBusinessAppID</key>
+    <string>6777180189</string>
+    <key>TikTokAppID</key>
+    <string>7663786815312216084</string>
+    <key>TikTokAppEventsAccessToken</key>
+    <string>TTcrG8S5Sr0NHmCAbRuofMetKNfYgdvc</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>

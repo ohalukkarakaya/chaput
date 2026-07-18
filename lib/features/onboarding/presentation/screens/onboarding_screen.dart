@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'dart:math' as math;
 
@@ -5,6 +6,7 @@ import 'package:chaput/core/i18n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/attribution/chaput_attribution_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -299,6 +301,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             .read(appReviewServiceProvider)
             .recordAppOpenForSession(userId);
       }
+      unawaited(ref.read(chaputAttributionServiceProvider).recordLogin());
       if (!mounted) return;
       _goAfterAuthentication();
     } on DioException catch (e) {
@@ -379,6 +382,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             .read(appReviewServiceProvider)
             .recordAppOpenForSession(userId);
       }
+      unawaited(ref.read(chaputAttributionServiceProvider).recordSignUp());
       if (!mounted) return;
       _goAfterAuthentication();
     } on DioException catch (e) {

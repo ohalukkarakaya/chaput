@@ -2,7 +2,7 @@ name: chaput
 description: "Chaput App"
 publish_to: 'none'
 
-version: 1.0.0+41
+version: 1.0.1+41
 
 environment:
   sdk: ^3.8.1
@@ -50,6 +50,7 @@ dependencies:
   image: ^4.7.2
   web_socket_channel: ^3.0.3
   firebase_core: ^4.4.0
+  firebase_analytics: ^12.0.0
   firebase_messaging: ^16.1.1
   flutter_local_notifications: ^20.0.0
   visibility_detector: ^0.4.0+2

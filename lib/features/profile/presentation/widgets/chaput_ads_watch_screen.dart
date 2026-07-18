@@ -88,7 +88,7 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen>
         const Duration(seconds: 8),
         _creditUnavailableAttempt,
       );
-      await ad.showAd();
+      await ad.showAd(placementName: ChaputAdProvider.rewardedPlacementName);
     } catch (_) {
       _creditUnavailableAttempt();
     }
@@ -252,10 +252,10 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.chaputWhite.withOpacity(0.08),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: AppColors.chaputWhite.withOpacity(0.12),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.12),
                   ),
                 ),
                 child: Column(
@@ -297,8 +297,8 @@ class _ChaputAdsWatchScreenState extends State<ChaputAdsWatchScreen>
                             ? 0
                             : _watched / widget.requiredAds,
                         minHeight: 6,
-                        backgroundColor: AppColors.chaputWhite.withOpacity(
-                          0.12,
+                        backgroundColor: AppColors.chaputWhite.withValues(
+                          alpha: 0.12,
                         ),
                         color: AppColors.chaputWhite,
                       ),

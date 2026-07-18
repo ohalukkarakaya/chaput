@@ -27,6 +27,9 @@ class ChaputAdProvider {
       ? Env.iosLevelPlayRewardedAdUnitId
       : Env.androidLevelPlayRewardedAdUnitId;
 
+  static String get rewardedPlacementName =>
+      Platform.isIOS ? Env.iosLevelPlayRewardedPlacementName : '';
+
   static String get nativePlacementName => Platform.isIOS
       ? Env.iosLevelPlayNativePlacementName
       : Env.androidLevelPlayNativePlacementName;
