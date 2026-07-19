@@ -23,6 +23,7 @@ import '../../../me/application/me_controller.dart';
 import '../../../notifications/application/notification_badge_service.dart';
 import '../../../notifications/application/notification_count_controller.dart';
 import '../../../notifications/data/notification_api_provider.dart';
+import '../../../onboarding/application/onboarding_permission_coordinator.dart';
 import '../../../../chaput/data/chaput_socket.dart';
 import '../../../notifications/application/push_token_registrar.dart';
 import '../../../user_search/presentation/search_overlay.dart';
@@ -267,6 +268,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     if (!mounted || _notificationsBooted) return;
     if (ref.read(meControllerProvider).valueOrNull == null) return;
     _notificationsBooted = true;
+    await OnboardingPermissionCoordinator.requestWithChaputPrompt(context);
+    if (!mounted) return;
     await ref.read(chaputSocketProvider).resumeFromBackground();
     _socketSub ??= ref
         .read(chaputSocketProvider)

@@ -14,9 +14,13 @@ class OnboardingPermissionCoordinator {
   static bool _running = false;
   static bool _evaluatedThisSession = false;
 
-  static Future<void> requestWhenOnboardingIsVisible(
-    BuildContext context,
-  ) async {
+  static Future<void> requestWhenOnboardingIsVisible(BuildContext context) {
+    return requestWithChaputPrompt(context);
+  }
+
+  /// Uses the Chaput consent sheet before any native notification prompt.
+  /// This can safely be called from every authenticated entry point.
+  static Future<void> requestWithChaputPrompt(BuildContext context) async {
     if (_running || _evaluatedThisSession || !context.mounted) return;
     _running = true;
 
@@ -50,6 +54,11 @@ class OnboardingPermissionCoordinator {
       cancelLabel: context.t('permissions.not_now'),
     );
     if (!accepted) return;
+
+    // Let the Chaput sheet finish dismissing before iOS/Android presents the
+    // native permission dialog. Otherwise both dialogs can appear stacked.
+    await Future<void>.delayed(const Duration(milliseconds: 360));
+    if (!context.mounted) return;
 
     await FirebaseMessaging.instance.requestPermission(
       alert: true,

@@ -84,9 +84,13 @@ Future<bool> showChaputActionPromptSheet(
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        child: Text(
-                          cancelLabel,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            cancelLabel,
+                            maxLines: 1,
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
                         ),
                       ),
                     ),
@@ -105,9 +109,13 @@ Future<bool> showChaputActionPromptSheet(
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        child: Text(
-                          confirmLabel,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            confirmLabel,
+                            maxLines: 1,
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
                         ),
                       ),
                     ),
