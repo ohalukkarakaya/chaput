@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:feedback/feedback.dart';
@@ -11,35 +13,15 @@ import 'core/constants/app_colors.dart';
 import 'core/i18n/app_localizations.dart';
 import 'features/notifications/application/local_notification_service.dart';
 import 'features/profile/presentation/utils/tree_model_cache.dart';
-import 'features/ads/data/chaput_ad_provider.dart';
 import 'app.dart';
 import 'core/attribution/chaput_attribution_service.dart';
 import 'features/feedback/presentation/widgets/chaput_feedback_form.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final enableNotifications =
       defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS;
-
-  if (enableNotifications) {
-    await Firebase.initializeApp();
-    await ChaputAttributionService.enableAnalyticsForIos();
-    await FirebaseMessaging.instance.requestPermission();
-    await FirebaseMessaging.instance
-        .setForegroundNotificationPresentationOptions(
-          alert: false,
-          badge: false,
-          sound: false,
-        );
-    FirebaseMessaging.onMessage.listen((_) {});
-    await LocalNotificationService.instance.init();
-    await LocalNotificationService.instance.requestPermissions();
-  }
-
-  await ChaputAdProvider.initialize();
-
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   runApp(
     ProviderScope(
@@ -80,6 +62,39 @@ Future<void> main() async {
   );
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    TreeModelCache.instance.warmUpAll();
+    // Do not wait on a platform channel before the first frame. If an OEM
+    // channel stalls, the native launch screen must still hand over to Flutter.
+    unawaited(
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
+    );
+
+    if (enableNotifications) {
+      unawaited(_initializePostLaunchServices());
+    }
+
+    // Tree preloading is useful, but must never compete with the boot route.
+    Future<void>.delayed(const Duration(seconds: 1), () {
+      unawaited(TreeModelCache.instance.warmUpAll());
+    });
   });
+}
+
+Future<void> _initializePostLaunchServices() async {
+  try {
+    // Firebase and notification plumbing are intentionally initialized after
+    // the first frame. A slow or unavailable service must never keep the
+    // native splash screen on-screen or block boot authentication.
+    await Firebase.initializeApp().timeout(const Duration(seconds: 4));
+    await ChaputAttributionService.enableAnalyticsForIos();
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: false,
+          badge: false,
+          sound: false,
+        );
+    FirebaseMessaging.onMessage.listen((_) {});
+    await LocalNotificationService.instance.init();
+  } catch (error) {
+    debugPrint('Post-launch service initialization failed: $error');
+  }
 }

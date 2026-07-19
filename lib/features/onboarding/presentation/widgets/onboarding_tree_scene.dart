@@ -133,11 +133,70 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
         _threeEpoch == epoch;
   }
 
+  void _disposeSceneResources(three.Object3D? root) {
+    if (root == null) return;
+
+    final disposedGeometries = Set<Object>.identity();
+    final disposedMaterials = Set<Object>.identity();
+
+    void disposeMaterial(dynamic material) {
+      if (material == null) return;
+      if (material is Iterable) {
+        for (final item in material) {
+          disposeMaterial(item);
+        }
+        return;
+      }
+      if (material is! Object) return;
+      final materialObject = material;
+      if (!disposedMaterials.add(materialObject)) return;
+      try {
+        (material as dynamic).dispose();
+      } catch (_) {}
+    }
+
+    root.traverse((object) {
+      if (object is! three.Mesh) return;
+      final geometry = object.geometry;
+      if (geometry != null && disposedGeometries.add(geometry)) {
+        try {
+          geometry.dispose();
+        } catch (_) {}
+      }
+      disposeMaterial(object.material);
+    });
+  }
+
+  void _disposeThreeRef(three.ThreeJS threeJsRef) {
+    // Scene is initialized asynchronously by the native renderer. It may not
+    // exist yet when the onboarding page changes or is disposed.
+    try {
+      _disposeSceneResources(threeJsRef.scene);
+    } catch (_) {}
+
+    try {
+      threeJsRef.dispose();
+      return;
+    } catch (_) {
+      try {
+        threeJsRef.ticker?.dispose();
+      } catch (_) {}
+      try {
+        threeJsRef.renderer?.dispose();
+      } catch (_) {}
+      try {
+        threeJsRef.renderTarget?.dispose();
+      } catch (_) {}
+      try {
+        threeJsRef.angle?.dispose([threeJsRef.texture]);
+      } catch (_) {}
+    }
+  }
+
   void _disposeThree() {
     _threeEpoch++;
-    try {
-      _threeJs?.dispose();
-    } catch (_) {}
+    final threeJs = _threeJs;
+    if (threeJs != null) _disposeThreeRef(threeJs);
     _threeJs = null;
     _treeGroup = null;
     _pageAnchors.clear();
@@ -148,7 +207,7 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
 
   void _scheduleThreeCreation(TreePreset preset) {
     _initTimer?.cancel();
-    _initTimer = Timer(const Duration(milliseconds: 320), () {
+    _initTimer = Timer(const Duration(milliseconds: 32), () {
       if (!mounted || _disposed) return;
       _createThree(preset);
     });
@@ -180,26 +239,39 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     _disposeThree();
     final epoch = _threeEpoch;
 
-    late final three.ThreeJS js;
-    js = three.ThreeJS(
-      setup: () => _setup(js, preset, epoch),
-      onSetupComplete: () {
-        if (!_isCurrentThree(js, epoch)) {
-          try {
-            js.dispose();
-          } catch (_) {}
-          return;
-        }
-        setState(() => _ready = true);
-        _applyRenderPause();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_ready) return;
-          _pickNewRandomAnchorAndSnap();
-        });
-      },
-    );
+    // Unmount the previous renderer for one frame before creating the next
+    // native surface. This keeps GLB materials stable during fast page moves.
+    if (mounted) {
+      setState(() {});
+    }
+    _initTimer?.cancel();
+    _initTimer = Timer(const Duration(milliseconds: 32), () {
+      if (!mounted || _disposed || epoch != _threeEpoch) return;
 
-    setState(() => _threeJs = js);
+      late final three.ThreeJS js;
+      js = three.ThreeJS(
+        settings: three.Settings(screenResolution: 1.0),
+        setup: () => _setup(js, preset, epoch),
+        onSetupComplete: () {
+          if (!_isCurrentThree(js, epoch)) {
+            _disposeThreeRef(js);
+            return;
+          }
+          setState(() => _ready = true);
+          _applyRenderPause();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !_ready) return;
+            _pickNewRandomAnchorAndSnap();
+          });
+        },
+      );
+
+      if (!mounted || _disposed || epoch != _threeEpoch) {
+        _disposeThreeRef(js);
+        return;
+      }
+      setState(() => _threeJs = js);
+    });
   }
 
   Future<void> _setup(three.ThreeJS js, TreePreset preset, int epoch) async {
@@ -229,16 +301,12 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       dir.shadow!.camera?.bottom = -10;
       js.scene.add(dir);
 
-      await TreeModelCache.instance.ensureWarm(preset.id);
-      if (!_isCurrentThree(js, epoch)) return;
+      final tree = await TreeModelCache.instance.loadFreshScene(preset.id);
+      if (!_isCurrentThree(js, epoch)) {
+        _disposeSceneResources(tree);
+        return;
+      }
 
-      final loader = three.GLTFLoader(flipY: true)
-        ..setPath('assets/tree_models/');
-      final gltf = await loader.fromAsset(preset.assetPath);
-      if (gltf == null) throw Exception('GLB null (${preset.assetPath})');
-      if (!_isCurrentThree(js, epoch)) return;
-
-      final tree = gltf.scene;
       tree.updateMatrixWorld(true);
       final b1 = computeObjectBounds(tree);
       final size1 = sizeOfBounds(b1);
@@ -597,7 +665,12 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
         fit: StackFit.expand,
         children: [
           if (js != null)
-            RepaintBoundary(child: SizedBox.expand(child: js.build())),
+            KeyedSubtree(
+              key: ValueKey(
+                'onboarding-tree-${_loadedPresetId ?? ''}-$_threeEpoch',
+              ),
+              child: RepaintBoundary(child: SizedBox.expand(child: js.build())),
+            ),
           if (!_ready && _error == null)
             IgnorePointer(
               child: Center(

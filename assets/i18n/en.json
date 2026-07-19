@@ -483,5 +483,15 @@
   "onboarding.slide8_subtitle": "Only participants can send messages in a conversation.\n\nOther users can read conversations and react to messages.",
   "onboarding.slide9_title": "🌳 Get to Know People Through Their Conversations",
   "onboarding.slide9_subtitle": "Profile photos don't always tell the whole story.\n\nDiscover people through the conversations they have with others.",
-  "feedback.sheet_subtitle": "Draw on the screenshot and add a short note."
+  "feedback.sheet_subtitle": "Draw on the screenshot and add a short note.",
+  "profile.private_follow_required_zero_prefix": "This account is private. To ",
+  "external_link.title": "You are leaving Chaput",
+  "external_link.body": "This link will open outside Chaput. Do you want to continue?",
+  "permissions.notifications_title": "Stay in the loop",
+  "permissions.notifications_body": "Allow notifications for replies, follow requests, and updates that matter to you.",
+  "permissions.notifications_confirm": "Allow notifications",
+  "permissions.tracking_title": "Help improve Chaput",
+  "permissions.tracking_body": "Allow tracking so we can understand which campaigns bring people to Chaput and improve the experience. Your choice will not affect core features.",
+  "permissions.tracking_confirm": "Allow tracking",
+  "permissions.not_now": "Not now"
 }

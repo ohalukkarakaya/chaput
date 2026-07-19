@@ -24,6 +24,7 @@ import '../../../../core/ui/widgets/email_cta_form.dart';
 import '../../../auth/data/auth_api.dart';
 import '../../../me/application/me_controller.dart';
 import '../../application/onboarding_tree_preload.dart';
+import '../../application/onboarding_permission_coordinator.dart';
 import '../../data/internal_users_api.dart';
 import '../widgets/onboarding_tree_scene.dart';
 import '../../presentation/widgets/signup_sheet.dart';
@@ -58,6 +59,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _emailController.addListener(_handleEmailChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(onboardingTreePreloadProvider).prepareRandom();
+      Future<void>.delayed(const Duration(milliseconds: 900), () {
+        if (!mounted) return;
+        unawaited(
+          OnboardingPermissionCoordinator.requestWhenOnboardingIsVisible(
+            context,
+          ),
+        );
+      });
     });
   }
 

@@ -481,5 +481,15 @@
   "feedback.submit_success": "Takk! Rapporten din er sendt.",
   "feedback.submit_failed": "Kunne ikke sende rapporten. Prøv igjen.",
   "settings.row_feedback": "Rapporter et problem",
-  "settings.row_feedback_sub": "Send et skjermbilde og notatene dine til Chaput-teamet"
+  "settings.row_feedback_sub": "Send et skjermbilde og notatene dine til Chaput-teamet",
+  "profile.private_follow_required_zero_prefix": "Denne kontoen er privat. For å ",
+  "external_link.title": "Du forlater Chaput",
+  "external_link.body": "Denne lenken åpnes utenfor Chaput. Vil du fortsette?",
+  "permissions.notifications_title": "Hold deg oppdatert",
+  "permissions.notifications_body": "Tillat varsler om svar, følgeforespørsler og viktige oppdateringer.",
+  "permissions.notifications_confirm": "Tillat varsler",
+  "permissions.tracking_title": "Hjelp oss med å forbedre Chaput",
+  "permissions.tracking_body": "Tillat sporing slik at vi kan forstå hvilke kampanjer som bringer folk til Chaput og forbedre opplevelsen. Valget ditt påvirker ikke kjernefunksjonene.",
+  "permissions.tracking_confirm": "Tillat sporing",
+  "permissions.not_now": "Ikke nå"
 }

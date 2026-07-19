@@ -260,6 +260,11 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
+                    cursorColor: Colors.white,
+                    cursorErrorColor: Colors.white,
+                    cursorWidth: 2,
+                    cursorHeight: 18,
+                    cursorRadius: const Radius.circular(1),
                     decoration: InputDecoration(
                       hintText: isWhisper
                           ? context.t('chat.whisper_hint')

@@ -481,5 +481,15 @@
   "feedback.submit_success": "Danke! Deine Meldung wurde gesendet.",
   "feedback.submit_failed": "Die Meldung konnte nicht gesendet werden. Bitte versuche es erneut.",
   "settings.row_feedback": "Problem melden",
-  "settings.row_feedback_sub": "Sende einen Screenshot und deine Notizen an das Chaput-Team"
+  "settings.row_feedback_sub": "Sende einen Screenshot und deine Notizen an das Chaput-Team",
+  "profile.private_follow_required_zero_prefix": "Dieses Konto ist privat. Um ",
+  "external_link.title": "Du verlässt Chaput",
+  "external_link.body": "Dieser Link wird außerhalb von Chaput geöffnet. Möchtest du fortfahren?",
+  "permissions.notifications_title": "Bleib auf dem Laufenden",
+  "permissions.notifications_body": "Erlaube Benachrichtigungen für Antworten, Follow-Anfragen und wichtige Updates.",
+  "permissions.notifications_confirm": "Benachrichtigungen erlauben",
+  "permissions.tracking_title": "Hilf uns, Chaput zu verbessern",
+  "permissions.tracking_body": "Erlaube Tracking, damit wir verstehen, welche Kampagnen Menschen zu Chaput bringen und das Erlebnis verbessern können. Deine Wahl beeinflusst die Kernfunktionen nicht.",
+  "permissions.tracking_confirm": "Tracking erlauben",
+  "permissions.not_now": "Jetzt nicht"
 }

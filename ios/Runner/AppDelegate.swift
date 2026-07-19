@@ -96,6 +96,8 @@ import UserNotifications
         return
       }
       switch call.method {
+      case "trackingAuthorizationStatus":
+        result(self.currentTrackingAuthorizationStatus().rawValue)
       case "requestTrackingAuthorization":
         self.requestTrackingAuthorization(result)
       case "appleSearchAdsToken":
@@ -202,7 +204,7 @@ import UserNotifications
     }
 
     switch eventName {
-    case login:
+    case "login":
       AppEvents.shared.logEvent(
           AppEvents.Name("user_login"),
           parameters: [

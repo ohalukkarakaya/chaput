@@ -481,5 +481,15 @@
   "feedback.submit_success": "Tak! Din rapport er blevet sendt.",
   "feedback.submit_failed": "Rapporten kunne ikke sendes. Prøv igen.",
   "settings.row_feedback": "Rapportér et problem",
-  "settings.row_feedback_sub": "Send et skærmbillede og dine noter til Chaput-teamet"
+  "settings.row_feedback_sub": "Send et skærmbillede og dine noter til Chaput-teamet",
+  "profile.private_follow_required_zero_prefix": "Denne konto er privat. For at ",
+  "external_link.title": "Du forlader Chaput",
+  "external_link.body": "Dette link åbnes uden for Chaput. Vil du fortsætte?",
+  "permissions.notifications_title": "Hold dig opdateret",
+  "permissions.notifications_body": "Tillad notifikationer om svar, følgeanmodninger og vigtige opdateringer.",
+  "permissions.notifications_confirm": "Tillad notifikationer",
+  "permissions.tracking_title": "Hjælp os med at forbedre Chaput",
+  "permissions.tracking_body": "Tillad sporing, så vi kan forstå, hvilke kampagner der bringer mennesker til Chaput, og forbedre oplevelsen. Dit valg påvirker ikke kernefunktionerne.",
+  "permissions.tracking_confirm": "Tillad sporing",
+  "permissions.not_now": "Ikke nu"
 }

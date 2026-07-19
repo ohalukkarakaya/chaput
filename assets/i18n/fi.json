@@ -481,5 +481,15 @@
   "feedback.submit_success": "Kiitos! Ilmoituksesi on lähetetty.",
   "feedback.submit_failed": "Ilmoituksen lähettäminen epäonnistui. Yritä uudelleen.",
   "settings.row_feedback": "Ilmoita ongelmasta",
-  "settings.row_feedback_sub": "Lähetä kuvakaappaus ja muistiinpanosi Chaput-tiimille"
+  "settings.row_feedback_sub": "Lähetä kuvakaappaus ja muistiinpanosi Chaput-tiimille",
+  "profile.private_follow_required_zero_prefix": "Tämä tili on yksityinen. Jotta voit ",
+  "external_link.title": "Olet poistumassa Chaputista",
+  "external_link.body": "Tämä linkki avataan Chaputin ulkopuolella. Haluatko jatkaa?",
+  "permissions.notifications_title": "Pysy ajan tasalla",
+  "permissions.notifications_body": "Salli ilmoitukset vastauksista, seuraamispyynnöistä ja sinulle tärkeistä päivityksistä.",
+  "permissions.notifications_confirm": "Salli ilmoitukset",
+  "permissions.tracking_title": "Auta meitä parantamaan Chaputia",
+  "permissions.tracking_body": "Salli seuranta, jotta ymmärrämme, mitkä kampanjat tuovat ihmisiä Chaputiin, ja voimme parantaa käyttökokemusta. Valintasi ei vaikuta ydintoimintoihin.",
+  "permissions.tracking_confirm": "Salli seuranta",
+  "permissions.not_now": "Ei nyt"
 }

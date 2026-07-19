@@ -140,6 +140,11 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                       color: AppColors.chaputWhite,
                       fontSize: 16,
                     ),
+                    cursorColor: Colors.white,
+                    cursorErrorColor: Colors.white,
+                    cursorWidth: 2,
+                    cursorHeight: 20,
+                    cursorRadius: const Radius.circular(1),
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: context.t('chat.message_hint'),

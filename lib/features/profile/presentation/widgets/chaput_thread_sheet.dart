@@ -12,6 +12,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/share/chaput_share_links.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
+import '../../../../core/ui/widgets/chaput_link_text.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../feedback/presentation/feedback_launcher.dart';
@@ -2252,7 +2253,7 @@ class _MessageBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-              Text(
+              ChaputLinkText(
                 displayText,
                 style: TextStyle(
                   color: isWhisperHidden
@@ -2261,6 +2262,7 @@ class _MessageBubble extends StatelessWidget {
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
+                maxLines: null,
               ),
               if (hasLikes || timeText != null)
                 Padding(

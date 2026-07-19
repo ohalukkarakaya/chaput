@@ -483,5 +483,15 @@
   "onboarding.slide8_subtitle": "Sohbetlere yalnızca katılımcılar mesaj gönderebilir.\n\nDiğer kullanıcılar ise sohbetleri okuyabilir ve mesajlara tepki verebilir.",
   "onboarding.slide9_title": "🌳 İnsanları Konuşmalarından Tanı",
   "onboarding.slide9_subtitle": "Profil fotoğrafları her zaman her şeyi anlatmaz.\n\nİnsanları, başkalarıyla kurdukları sohbetler üzerinden keşfet.",
-  "feedback.sheet_subtitle": "Ekran görüntüsüne çizim yapabilir, kısa bir not ekleyebilirsin."
+  "feedback.sheet_subtitle": "Ekran görüntüsüne çizim yapabilir, kısa bir not ekleyebilirsin.",
+  "profile.private_follow_required_zero_prefix": "Bu hesap gizlidir. ",
+  "external_link.title": "Chaput'tan ayrılıyorsun",
+  "external_link.body": "Bu bağlantı Chaput dışındaki bir uygulamada veya webde açılacak. Devam etmek istiyor musun?",
+  "permissions.notifications_title": "Haberdar ol",
+  "permissions.notifications_body": "Yanıtlar, takip istekleri ve senin için önemli güncellemeler için bildirimlere izin ver.",
+  "permissions.notifications_confirm": "Bildirimlere izin ver",
+  "permissions.tracking_title": "Chaput'u geliştirmemize yardımcı ol",
+  "permissions.tracking_body": "Hangi kampanyaların Chaput'a kullanıcı getirdiğini anlamamıza ve deneyimi geliştirmemize izin ver. Tercihin temel özellikleri etkilemez.",
+  "permissions.tracking_confirm": "İzlemeye izin ver",
+  "permissions.not_now": "Şimdi değil"
 }

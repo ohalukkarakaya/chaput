@@ -522,13 +522,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   String? _dateLabel(DateTime? dt) {
     if (dt == null) return null;
+    final local = dt.toLocal();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final date = DateTime(dt.year, dt.month, dt.day);
+    final date = DateTime(local.year, local.month, local.day);
     final diff = today.difference(date).inDays;
     if (diff == 0) return context.t('common.today');
     if (diff == 1) return context.t('common.yesterday');
-    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+    return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}.${local.year}';
   }
 }
 
@@ -797,30 +798,26 @@ class _NotificationRow extends StatelessWidget {
   }
 
   static String _timeAgo(BuildContext context, DateTime dt) {
+    final local = dt.toLocal();
     final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inSeconds < 60) {
-      return context.t(
-        'time.seconds',
-        params: {'count': diff.inSeconds.toString()},
-      );
+    final diff = now.difference(local);
+    final seconds = diff.isNegative ? 0 : diff.inSeconds;
+    if (seconds < 60) {
+      return context.t('time.seconds', params: {'count': seconds.toString()});
     }
-    if (diff.inMinutes < 60) {
-      return context.t(
-        'time.minutes',
-        params: {'count': diff.inMinutes.toString()},
-      );
+    final minutes = seconds ~/ 60;
+    if (minutes < 60) {
+      return context.t('time.minutes', params: {'count': minutes.toString()});
     }
-    if (diff.inHours < 24) {
-      return context.t(
-        'time.hours',
-        params: {'count': diff.inHours.toString()},
-      );
+    final hours = minutes ~/ 60;
+    if (hours < 24) {
+      return context.t('time.hours', params: {'count': hours.toString()});
     }
-    if (diff.inDays < 7) {
-      return context.t('time.days', params: {'count': diff.inDays.toString()});
+    final days = hours ~/ 24;
+    if (days < 7) {
+      return context.t('time.days', params: {'count': days.toString()});
     }
-    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+    return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}.${local.year}';
   }
 }
 

@@ -59,9 +59,8 @@ class ChaputAttributionService {
   Future<void> activateAfterAuthentication() async {
     if (!Platform.isIOS || _appleSearchAdsSubmitted) return;
 
-    // ATT is requested, but its result does not block AdServices attribution.
-    await _requestTrackingAuthorization();
-
+    // Apple AdServices attribution is not gated by ATT. ATT is requested only
+    // from the post-onboarding consent flow, after the app UI is visible.
     final token = await _appleSearchAdsToken();
     if (token == null || token.isEmpty) return;
 
@@ -183,7 +182,15 @@ class ChaputAttributionService {
     }
   }
 
-  Future<int?> _requestTrackingAuthorization() async {
+  static Future<int?> trackingAuthorizationStatus() async {
+    try {
+      return await _channel.invokeMethod<int>('trackingAuthorizationStatus');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<int?> requestTrackingAuthorization() async {
     try {
       return await _channel.invokeMethod<int>(
         'requestTrackingAuthorization',

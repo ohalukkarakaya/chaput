@@ -28,7 +28,6 @@ import '../../../../core/storage/tutorial_storage.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../../core/ux/chaput_sound_service.dart';
 import '../../../billing/data/billing_api_provider.dart';
-import '../../../ads/data/chaput_ad_provider.dart';
 import '../../../billing/domain/billing_verify_result.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../reports/data/reports_api.dart';
@@ -48,8 +47,6 @@ import '../profile_composer_visibility.dart';
 import '../utils/profile_tree_bounds.dart';
 import '../utils/tree_model_cache.dart';
 import '../widgets/black_glass.dart';
-import '../widgets/chaput_ad_offer_sheet.dart';
-import '../widgets/chaput_ads_watch_screen.dart';
 import '../widgets/chaput_composer_bar.dart';
 import '../widgets/chaput_composer_options_sheet.dart';
 import '../widgets/chaput_paywall_sheet.dart';
@@ -87,6 +84,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   OverlayEntry? _toastEntry;
   bool _toastShowing = false;
   bool _isDisposed = false;
+  bool _rebuildTreeAfterResume = false;
+  bool _treeSuspendedForCoveredRoute = false;
 
   static const List<String> _emptyChaputMessageKeysOther = [
     'profile.empty_chaput_1',
@@ -195,6 +194,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   String? _lastTreeId;
   String? _lastProfileUserId;
   int _threeLoadEpoch = 0;
+  int _threeSurfaceGeneration = 0;
+  Timer? _threeCreateTimer;
+  String? _pendingThreeTreeId;
 
   three.Group? _treeGroup;
   three.Mesh? _ground;
@@ -840,21 +842,102 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void didPushNext() {
     _stopTypingSound();
     _resetChaputSwipeFeedback();
+    _suspendTreeForCoveredRoute();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _syncTypingSound();
+      if (_rebuildTreeAfterResume && !_treeSuspendedForCoveredRoute) {
+        _rebuildTreeAfterResume = false;
+        _recreateTreeAfterRendererPause();
+      }
     } else {
       _stopTypingSound();
       _resetChaputSwipeFeedback();
+      if (state == AppLifecycleState.paused ||
+          state == AppLifecycleState.detached) {
+        // iOS can discard the ANGLE/Metal texture context while the app is
+        // backgrounded. Rebuild only after a real background transition.
+        _rebuildTreeAfterResume =
+            _threeJs != null && !_treeSuspendedForCoveredRoute;
+      }
     }
+  }
+
+  void _recreateTreeAfterRendererPause() {
+    if (!mounted || _isDisposed || _treeSuspendedForCoveredRoute) return;
+    final treeId = ref.read(profileControllerProvider(widget.userId)).treeId;
+    if (treeId == null || treeId.isEmpty) return;
+
+    _disposeThree();
+    _lastTreeId = null;
+    _threeError = null;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isDisposed) return;
+      _createThreeIfNeeded(treeId);
+    });
+  }
+
+  void _suspendTreeForCoveredRoute() {
+    _treeSuspendedForCoveredRoute = true;
+    final js = _threeJs;
+
+    // A profile remains mounted beneath the next profile route. Pause its
+    // native renderer so only the visible profile owns an ANGLE surface.
+    if (js == null) {
+      if (_pendingThreeTreeId != null) {
+        _disposeThree();
+        _lastTreeId = null;
+        _threeError = null;
+        if (mounted) setState(() {});
+      }
+      return;
+    }
+
+    js.pause = true;
+    try {
+      js.ticker?.stop(canceled: false);
+    } catch (_) {}
+  }
+
+  void _resumeTreeAfterCoveredRoute() {
+    if (!_treeSuspendedForCoveredRoute || !mounted || _isDisposed) return;
+    _treeSuspendedForCoveredRoute = false;
+
+    final js = _threeJs;
+    if (js != null && _threeReady) {
+      js.pause = false;
+      try {
+        final ticker = js.ticker;
+        if (ticker != null && !ticker.isActive) ticker.start();
+      } catch (_) {}
+      return;
+    }
+
+    // A surface whose setup finished while this route was covered never
+    // reached a usable frame. Recreate it instead of resuming an incomplete
+    // ANGLE scene with stale GPU resources.
+    if (js != null) {
+      _disposeThree();
+      if (mounted) setState(() {});
+    }
+
+    _lastTreeId = null;
+    final treeId = ref.read(profileControllerProvider(widget.userId)).treeId;
+    if (treeId == null || treeId.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isDisposed || _treeSuspendedForCoveredRoute) return;
+      _createThreeIfNeeded(treeId);
+    });
   }
 
   @override
   void didPopNext() {
     _syncTypingSound();
+    _resumeTreeAfterCoveredRoute();
     if (!mounted || !_reloadOnPopNext) return;
     _reloadOnPopNext = false;
     _navToOtherProfile = false;
@@ -881,6 +964,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     if (oldWidget.userId != widget.userId) {
       _resetChaputSwipeFeedback();
+      _treeSuspendedForCoveredRoute = false;
       _disposeThree(); // user değiştiyse 3D sıfırla
       _lastTreeId = null;
       _threeError = null;
@@ -1039,17 +1123,92 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         identical(_threeJs, threeJsRef);
   }
 
-  void _disposeThreeRef(three.ThreeJS threeJsRef) {
-    try {
-      threeJsRef.dispose();
-    } catch (_) {}
+  void _disposeSceneResources(
+    three.Object3D? root, {
+    Iterable<dynamic> extraMaterials = const <dynamic>[],
+  }) {
+    final disposedGeometries = Set<Object>.identity();
+    final disposedMaterials = Set<Object>.identity();
+
+    void disposeMaterial(dynamic material) {
+      if (material == null) return;
+      if (material is Iterable) {
+        for (final item in material) {
+          disposeMaterial(item);
+        }
+        return;
+      }
+      if (material is! Object) return;
+      final materialObject = material;
+      if (!disposedMaterials.add(materialObject)) return;
+      try {
+        (material as dynamic).dispose();
+      } catch (_) {}
+    }
+
+    root?.traverse((object) {
+      if (object is! three.Mesh) return;
+      final geometry = object.geometry;
+      if (geometry != null && disposedGeometries.add(geometry)) {
+        try {
+          geometry.dispose();
+        } catch (_) {}
+      }
+      disposeMaterial(object.material);
+    });
+
+    for (final material in extraMaterials) {
+      disposeMaterial(material);
+    }
   }
 
-  void _disposeThree() {
-    _threeLoadEpoch++;
+  void _disposeThreeRef(
+    three.ThreeJS threeJsRef, {
+    Iterable<dynamic> extraMaterials = const <dynamic>[],
+  }) {
+    // ThreeJS declares scene/camera as late fields. A route can disappear
+    // while the platform view is still initializing, so guard every access.
     try {
-      _threeJs?.dispose();
-    } catch (_) {}
+      _disposeSceneResources(threeJsRef.scene, extraMaterials: extraMaterials);
+    } catch (_) {
+      _disposeSceneResources(null, extraMaterials: extraMaterials);
+    }
+
+    try {
+      threeJsRef.dispose();
+      return;
+    } catch (_) {
+      // If ThreeJS.dispose exits before its native cleanup because setup did
+      // not finish, release each independent resource best-effort.
+      try {
+        threeJsRef.ticker?.dispose();
+      } catch (_) {}
+      try {
+        threeJsRef.renderer?.dispose();
+      } catch (_) {}
+      try {
+        threeJsRef.renderTarget?.dispose();
+      } catch (_) {}
+      try {
+        threeJsRef.angle?.dispose([threeJsRef.texture]);
+      } catch (_) {}
+    }
+  }
+
+  void _disposeThree({bool cancelPending = true}) {
+    if (cancelPending) {
+      _threeCreateTimer?.cancel();
+      _threeCreateTimer = null;
+      _pendingThreeTreeId = null;
+    }
+    _threeLoadEpoch++;
+    _threeSurfaceGeneration++;
+    final threeJs = _threeJs;
+    if (threeJs != null) {
+      _disposeThreeRef(threeJs, extraMaterials: _origMaterials.values);
+    } else {
+      _disposeSceneResources(null, extraMaterials: _origMaterials.values);
+    }
     _threeJs = null;
     _treeGroup = null;
     _ground = null;
@@ -1059,30 +1218,72 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _createThreeIfNeeded(String treeId) {
-    if (_lastTreeId == treeId && _threeJs != null) return;
+    if (_treeSuspendedForCoveredRoute) return;
+    if (_lastTreeId == treeId &&
+        (_threeJs != null || _pendingThreeTreeId == treeId)) {
+      return;
+    }
 
     _lastTreeId = treeId;
     _threeError = null;
     _threeReady = false;
 
-    _disposeThree();
+    // Give ANGLE one frame to release the old surface before creating the
+    // next renderer. Two active renderers at once can produce black or split
+    // GLB materials on iOS devices.
+    _disposeThree(cancelPending: false);
+    _threeCreateTimer?.cancel();
+    _pendingThreeTreeId = treeId;
     final epoch = _threeLoadEpoch;
 
-    late final three.ThreeJS js;
-    js = three.ThreeJS(
-      setup: () => _setup(threeJsRef: js, treeId: treeId, epoch: epoch),
-      onSetupComplete: () {
-        if (!_isCurrentThreeRequest(js, epoch)) {
-          _disposeThreeRef(js);
-          return;
-        }
-        setState(() => _threeReady = true);
-        _applyPendingThreadFocus();
-      },
-    );
+    // Physically unmount the old platform view before constructing its
+    // replacement. Keeping both renderers alive even briefly can corrupt GLB
+    // material/texture state on iOS ANGLE.
+    if (mounted) {
+      setState(() {});
+    }
 
-    setState(() {
-      _threeJs = js;
+    _threeCreateTimer = Timer(const Duration(milliseconds: 32), () {
+      _threeCreateTimer = null;
+      if (!mounted ||
+          _isDisposed ||
+          epoch != _threeLoadEpoch ||
+          _pendingThreeTreeId != treeId) {
+        return;
+      }
+
+      late final three.ThreeJS js;
+      js = three.ThreeJS(
+        // Keep the renderer inside a predictable mobile GPU budget. At 1.5x
+        // this scene can allocate multiple large colour and shadow buffers
+        // while another profile surface is being released by ANGLE.
+        settings: three.Settings(screenResolution: 1.0),
+        setup: () => _setup(threeJsRef: js, treeId: treeId, epoch: epoch),
+        onSetupComplete: () {
+          if (!_isCurrentThreeRequest(js, epoch)) {
+            _disposeThreeRef(js);
+            return;
+          }
+          if (_treeSuspendedForCoveredRoute) {
+            js.pause = true;
+            try {
+              js.ticker?.stop(canceled: false);
+            } catch (_) {}
+            return;
+          }
+          setState(() => _threeReady = true);
+          _applyPendingThreadFocus();
+        },
+      );
+
+      _pendingThreeTreeId = null;
+      if (!mounted || _isDisposed || epoch != _threeLoadEpoch) {
+        _disposeThreeRef(js);
+        return;
+      }
+      setState(() {
+        _threeJs = js;
+      });
     });
   }
 
@@ -1133,8 +1334,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       dir.position.setValues(2.5, 6.0, 3.5);
       dir.castShadow = true;
 
-      dir.shadow!.mapSize.width = 2048;
-      dir.shadow!.mapSize.height = 2048;
+      dir.shadow!.mapSize.width = 1024;
+      dir.shadow!.mapSize.height = 1024;
 
       dir.shadow!.camera?.near = 0.2;
       dir.shadow!.camera?.far = 80;
@@ -1147,6 +1348,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       final tree = await TreeModelCache.instance.loadFreshScene(treeId);
       if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
+        _disposeSceneResources(tree);
         _disposeThreeRef(threeJsRef);
         return;
       }
@@ -1193,6 +1395,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _groundY = 0.0;
 
       if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
+        _disposeSceneResources(tree);
         _disposeThreeRef(threeJsRef);
         return;
       }
@@ -1970,57 +2173,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return res == true;
   }
 
-  Future<bool> _openAdOfferSheet({
-    required int requiredAds,
-    required bool canWatch,
-  }) async {
-    final res = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: AppColors.chaputTransparent,
-      isScrollControlled: true,
-      builder: (_) =>
-          ChaputAdOfferSheet(requiredAds: requiredAds, canWatch: canWatch),
-    );
-    return res == true;
-  }
-
-  Future<bool> _openAdsWatchScreen({required int requiredAds}) async {
-    if (_decisionProfileId == null) return false;
-    final api = ref.read(chaputApiProvider);
-    final res = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => ChaputAdsWatchScreen(
-          requiredAds: requiredAds,
-          onComplete: (network) async {
-            try {
-              final sessionId = await api.startAdRewardSession(
-                network: network.wireValue,
-                requiredAds: requiredAds,
-              );
-              if (sessionId.isEmpty) return false;
-              final claim = await api.claimAdReward(
-                sessionId: sessionId,
-                watchedCount: requiredAds,
-              );
-              final decisionNotifier = ref.read(
-                chaputDecisionControllerProvider(_decisionProfileId!).notifier,
-              );
-              decisionNotifier.applyAdRewardClaimed(
-                watchedToday: claim.watchedToday,
-                canWatch: claim.canWatch,
-              );
-              unawaited(decisionNotifier.fetchDecision());
-              return true;
-            } catch (_) {
-              return false;
-            }
-          },
-        ),
-      ),
-    );
-    return res == true;
-  }
-
   void _prepareComposer() {
     _pickNewRandomAnchorAndSnap(); // random anchor + snap
     _openComposer();
@@ -2558,9 +2710,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               : (targetIndex < currentThreads.length
                     ? targetIndex
                     : currentThreads.length - 1);
-          final showNativeAds =
-              _isFreePlan(_planType.toUpperCase()) &&
-              ChaputNativeAdCard.isAvailable;
+          // Native placements are intentionally disabled for now. Keep the
+          // page-index plumbing so the placement can be restored safely.
+          const showNativeAds = false;
           final targetThread = currentThreads[safeIndex];
           if (_chaputPageCtrl.hasClients) {
             final pageIdx = _pageIndexForThreadIndex(
@@ -2735,7 +2887,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final isPro = _planType == 'PRO';
     final hasNormalCredit = _creditNormal > 0;
-    final adsAvailable = _adsCanWatch && _adsNextRewardIn > 0;
 
     if (_decisionPath == 'CAN_START' || isPro || hasNormalCredit) {
       _prepareComposer();
@@ -2758,17 +2909,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       return;
     }
 
-    if (!adsAvailable) return;
-    final accepted = await _openAdOfferSheet(
-      requiredAds: _adsNextRewardIn,
-      canWatch: _adsCanWatch,
-    );
-    if (!accepted) return;
-
-    final ok = await _openAdsWatchScreen(requiredAds: _adsNextRewardIn);
-    if (!ok) return;
-
-    _prepareComposer();
+    // Rewarded-ad continuation is intentionally disabled. A free user whose
+    // daily entitlement is exhausted is offered the existing paywall above.
   }
 
   Future<PaywallPurchase?> _openPaywall({
@@ -3525,15 +3667,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             profilePhotoKey: me.user.profilePhotoKey,
             profilePhotoUrl: me.user.profilePhotoUrl,
           );
-    final viewerPlan = (me?.subscription.plan ?? _planType).toUpperCase();
-    final showNativeAds =
-        _isFreePlan(viewerPlan) && ChaputNativeAdCard.isAvailable;
-    if (showNativeAds && !_nativeAdPreloaded) {
-      _nativeAdPreloaded = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ChaputNativeAdCard.preload();
-      });
-    }
+    // Ads remain represented in the backend decision model, but no placement
+    // is rendered while advertising is disabled in the mobile product.
+    const showNativeAds = false;
 
     final profileIdHex = _resolveProfileId(st.profileJson, userId);
     final bool decisionAllowed =
@@ -3635,7 +3771,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final bool isProPlan = _planType == 'PRO';
     final bool hasNormalCredit = _creditNormal > 0;
-    final bool adsAvailable = _adsCanWatch && _adsNextRewardIn > 0;
     final bool canStartNow = decisionPath == 'CAN_START';
     final bool rawDecisionHasArchived =
         decisionHasThread && decisionThreadState == 'ARCHIVED';
@@ -3654,8 +3789,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         !decisionHasThread &&
         !canStartNow &&
         !isProPlan &&
-        !hasNormalCredit &&
-        !adsAvailable;
+        !hasNormalCredit;
 
     final bool chaputAllowed =
         profileIdHex.length == 32 &&
@@ -3696,22 +3830,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             )],
           )
         : null;
+    String compactChaputCount(int value) {
+      if (value < 1000) return value.toString();
+      final scaled = value / 1000;
+      final text = scaled >= 10
+          ? scaled.toStringAsFixed(0)
+          : scaled.toStringAsFixed(1);
+      return '${text.endsWith('.0') ? text.substring(0, text.length - 2) : text}K';
+    }
+
     final InlineSpan? privateFollowMessage = showPrivateFollowSheet
         ? TextSpan(
             children: [
               TextSpan(
-                text: context.t('profile.private_follow_required_prefix'),
-              ),
-              TextSpan(
                 text: context.t(
-                  'profile.private_follow_required_view_count',
-                  params: {'count': privateChaputCount.toString()},
+                  privateChaputCount > 0
+                      ? 'profile.private_follow_required_prefix'
+                      : 'profile.private_follow_required_zero_prefix',
                 ),
-                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              TextSpan(
-                text: context.t('profile.private_follow_required_middle'),
-              ),
+              if (privateChaputCount > 0) ...[
+                TextSpan(
+                  text: context.t(
+                    'profile.private_follow_required_view_count',
+                    params: {'count': compactChaputCount(privateChaputCount)},
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                TextSpan(
+                  text: context.t('profile.private_follow_required_middle'),
+                ),
+              ],
               TextSpan(
                 text: context.t('profile.private_follow_required_bind'),
                 style: const TextStyle(fontWeight: FontWeight.w800),
@@ -4219,8 +4368,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     Positioned.fill(
                       child: (_threeJs == null || _navToOtherProfile)
                           ? const SizedBox.shrink()
-                          : RepaintBoundary(
-                              child: SizedBox.expand(child: _threeJs!.build()),
+                          : KeyedSubtree(
+                              key: ValueKey(
+                                'profile-tree-$_threeSurfaceGeneration-${_lastTreeId ?? ''}',
+                              ),
+                              child: RepaintBoundary(
+                                child: SizedBox.expand(
+                                  child: _threeJs!.build(),
+                                ),
+                              ),
                             ),
                     ),
 
@@ -5432,12 +5588,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                             : Icons.add_rounded)
                                                       : decisionHasArchived
                                                       ? Icons.restore
-                                                      : showBindExhausted
-                                                      ? Icons.lock_clock
-                                                      : (_decisionPath ==
-                                                                'NEED_AD'
-                                                            ? Icons.play_circle
-                                                            : Icons.draw),
+                                                      : Icons.draw,
                                                   size: 18,
                                                   color: AppColors.chaputWhite,
                                                 ),
@@ -5455,18 +5606,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                       ? context.t(
                                                           'profile.bind.restore_archive',
                                                         )
-                                                      : showBindExhausted
-                                                      ? context.t(
-                                                          'profile.bind.rights_exhausted',
-                                                        )
-                                                      : (_decisionPath ==
-                                                                'NEED_AD'
-                                                            ? context.t(
-                                                                'profile.bind.watch_ad',
-                                                              )
-                                                            : context.t(
-                                                                'profile.bind.start_one',
-                                                              )),
+                                                      : context.t(
+                                                          'profile.bind.start_one',
+                                                        ),
                                                   style: const TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w700,
