@@ -129,7 +129,7 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                     focusNode: widget.focusNode,
                     inputFormatters: const [
                       SafeTextInputFormatter(
-                        maxLength: 2000,
+                        maxLength: kInitialChaputMessageMaxLength,
                         allowNewlines: false,
                       ),
                     ],

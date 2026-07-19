@@ -28,11 +28,12 @@ class PushTokenRegistrar {
     final messaging = FirebaseMessaging.instance;
     try {
       final settings = await messaging.getNotificationSettings();
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      if (settings.authorizationStatus == AuthorizationStatus.denied ||
+          settings.authorizationStatus == AuthorizationStatus.notDetermined) {
         return;
       }
     } catch (_) {
-      // Some platforms may not expose notification settings consistently.
+      return;
     }
     try {
       if (Platform.isIOS) {

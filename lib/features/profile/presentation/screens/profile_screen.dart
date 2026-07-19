@@ -2548,7 +2548,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       return;
     }
-    final text = cleanUserTextForSubmit(_msgCtrl.text, maxLength: 2000);
+    final text = cleanUserTextForSubmit(
+      _msgCtrl.text,
+      maxLength: kInitialChaputMessageMaxLength,
+    );
     if (text.isEmpty) {
       _showGlassToast(
         context.t('profile.toast.enter_message'),

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 
+const int kInitialChaputMessageMaxLength = 500;
+
 final RegExp _blockedTextCharsRe = RegExp(
   r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\u061C\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]',
   unicode: true,
