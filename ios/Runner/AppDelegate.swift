@@ -202,6 +202,19 @@ import UserNotifications
     }
 
     switch eventName {
+    case login:
+      AppEvents.shared.logEvent(
+          AppEvents.Name("user_login"),
+          parameters: [
+            AppEvents.ParameterName("login_method"): "email"
+          ]
+        )
+
+        if isTikTokConfigured {
+            TikTokBusiness.trackTTEvent(
+              TikTokBaseEvent(eventName: TTEventName.login.rawValue)
+            )
+          }
     case "signup":
       AppEvents.shared.logEvent(.completedRegistration)
       if isTikTokConfigured {
