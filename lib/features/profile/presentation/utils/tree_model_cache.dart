@@ -1,23 +1,31 @@
-import 'package:flutter/services.dart';
 import 'package:three_js/three_js.dart' as three;
+import 'package:three_js_core_loaders/three_js_core_loaders.dart';
 
 import '../../domain/tree_catalog.dart';
 
 class TreeModelCache {
-  TreeModelCache._();
+  TreeModelCache._() {
+    // Keep the loader's decoded asset data reusable, but create a fresh scene
+    // for every native renderer. This is the stable path used by the tree
+    // scenes before the raw-byte decoder was introduced.
+    Cache.enabled = true;
+  }
 
   static final TreeModelCache instance = TreeModelCache._();
 
-  final Map<String, Future<Uint8List>> _assetBytes = {};
-  Future<void> _decodeTail = Future<void>.value();
+  final FileLoader _loader = FileLoader()..setPath('assets/tree_models/');
+  final Map<String, Future<void>> _assetWarmups = {};
   bool _warming = false;
 
   Future<void> warmUpAll() async {
     if (_warming) return;
     _warming = true;
+
     try {
+      // Keep the original incremental warm-up so the native loader is never
+      // asked to decode several GLB assets concurrently.
       for (final preset in TreeCatalog.all) {
-        await _loadAssetBytes(preset.assetPath);
+        await _warmAsset(preset.assetPath);
         await Future<void>.delayed(const Duration(milliseconds: 16));
       }
     } finally {
@@ -27,37 +35,26 @@ class TreeModelCache {
 
   Future<void> ensureWarm(String treeId) async {
     final preset = TreeCatalog.resolve(treeId);
-    await _loadAssetBytes(preset.assetPath);
+    await _warmAsset(preset.assetPath);
   }
 
   Future<three.Object3D> loadFreshScene(String treeId) async {
     final preset = TreeCatalog.resolve(treeId);
-    final bytes = await _loadAssetBytes(preset.assetPath);
-    return _serializeDecode(() async {
-      // A GLTF loader may retain its input while it builds material/texture
-      // resources. Keep the cached asset immutable and give every renderer an
-      // isolated buffer, so an old scene cannot share loader state with the
-      // tree currently being displayed.
-      final loader = three.GLTFLoader(flipY: true);
-      final gltf = await loader.fromBytes(Uint8List.fromList(bytes));
-      final scene = gltf?.scene;
-      if (scene == null) throw Exception('GLB null (${preset.assetPath})');
-      return scene;
-    });
+    await _warmAsset(preset.assetPath);
+    final loader = three.GLTFLoader(flipY: true)
+      ..setPath('assets/tree_models/');
+    final gltf = await loader.fromAsset(preset.assetPath);
+    final scene = gltf?.scene;
+    if (scene == null) throw Exception('GLB null (${preset.assetPath})');
+    return scene;
   }
 
-  Future<Uint8List> _loadAssetBytes(String assetPath) {
-    return _assetBytes.putIfAbsent(assetPath, () async {
-      final data = await rootBundle.load('assets/tree_models/$assetPath');
-      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+  Future<void> _warmAsset(String assetPath) {
+    return _assetWarmups.putIfAbsent(assetPath, () async {
+      final file = await _loader.fromAsset(assetPath);
+      if (file == null) {
+        throw Exception('GLB null ($assetPath)');
+      }
     });
-  }
-
-  /// GLB decoding touches shared Three/ANGLE state. Serialising it avoids
-  /// transient texture/material corruption while a profile is changing.
-  Future<T> _serializeDecode<T>(Future<T> Function() decode) {
-    final scheduled = _decodeTail.then<T>((_) => decode());
-    _decodeTail = scheduled.then<void>((_) {}, onError: (_, __) {});
-    return scheduled;
   }
 }

@@ -133,47 +133,9 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
         _threeEpoch == epoch;
   }
 
-  void _disposeSceneResources(three.Object3D? root) {
-    if (root == null) return;
-
-    final disposedGeometries = Set<Object>.identity();
-    final disposedMaterials = Set<Object>.identity();
-
-    void disposeMaterial(dynamic material) {
-      if (material == null) return;
-      if (material is Iterable) {
-        for (final item in material) {
-          disposeMaterial(item);
-        }
-        return;
-      }
-      if (material is! Object) return;
-      final materialObject = material;
-      if (!disposedMaterials.add(materialObject)) return;
-      try {
-        (material as dynamic).dispose();
-      } catch (_) {}
-    }
-
-    root.traverse((object) {
-      if (object is! three.Mesh) return;
-      final geometry = object.geometry;
-      if (geometry != null && disposedGeometries.add(geometry)) {
-        try {
-          geometry.dispose();
-        } catch (_) {}
-      }
-      disposeMaterial(object.material);
-    });
-  }
-
   void _disposeThreeRef(three.ThreeJS threeJsRef) {
     // Scene is initialized asynchronously by the native renderer. It may not
     // exist yet when the onboarding page changes or is disposed.
-    try {
-      _disposeSceneResources(threeJsRef.scene);
-    } catch (_) {}
-
     try {
       threeJsRef.dispose();
       return;
@@ -207,7 +169,10 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
 
   void _scheduleThreeCreation(TreePreset preset) {
     _initTimer?.cancel();
-    _initTimer = Timer(const Duration(milliseconds: 32), () {
+    unawaited(TreeModelCache.instance.ensureWarm(preset.id));
+    // Let the native surface settle before the first GLB is attached. The
+    // models are warmed in the background during app startup.
+    _initTimer = Timer(const Duration(milliseconds: 320), () {
       if (!mounted || _disposed) return;
       _createThree(preset);
     });
@@ -239,39 +204,37 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
     _disposeThree();
     final epoch = _threeEpoch;
 
-    // Unmount the previous renderer for one frame before creating the next
-    // native surface. This keeps GLB materials stable during fast page moves.
+    // The previous surface is already disposed before this method runs. Keep
+    // the state update so Flutter removes it before the replacement is added.
     if (mounted) {
       setState(() {});
     }
-    _initTimer?.cancel();
-    _initTimer = Timer(const Duration(milliseconds: 32), () {
-      if (!mounted || _disposed || epoch != _threeEpoch) return;
+    if (!mounted || _disposed || epoch != _threeEpoch) return;
 
-      late final three.ThreeJS js;
-      js = three.ThreeJS(
-        settings: three.Settings(screenResolution: 1.0),
-        setup: () => _setup(js, preset, epoch),
-        onSetupComplete: () {
-          if (!_isCurrentThree(js, epoch)) {
-            _disposeThreeRef(js);
-            return;
-          }
-          setState(() => _ready = true);
-          _applyRenderPause();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted || !_ready) return;
-            _pickNewRandomAnchorAndSnap();
-          });
-        },
-      );
+    late final three.ThreeJS js;
+    js = three.ThreeJS(
+      // Let ThreeJS use the device pixel ratio. The previous 1.0 override
+      // downsampled every tree and made the models visibly pixelated.
+      setup: () => _setup(js, preset, epoch),
+      onSetupComplete: () {
+        if (!_isCurrentThree(js, epoch)) {
+          _disposeThreeRef(js);
+          return;
+        }
+        setState(() => _ready = true);
+        _applyRenderPause();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_ready) return;
+          _pickNewRandomAnchorAndSnap();
+        });
+      },
+    );
 
-      if (!mounted || _disposed || epoch != _threeEpoch) {
-        _disposeThreeRef(js);
-        return;
-      }
-      setState(() => _threeJs = js);
-    });
+    if (!mounted || _disposed || epoch != _threeEpoch) {
+      _disposeThreeRef(js);
+      return;
+    }
+    setState(() => _threeJs = js);
   }
 
   Future<void> _setup(three.ThreeJS js, TreePreset preset, int epoch) async {
@@ -291,6 +254,9 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
       final dir = three.DirectionalLight(AppColors.chaputWhiteHex, 0.95);
       dir.position.setValues(2.5, 6.0, 3.5);
       dir.castShadow = true;
+      // This scene has always used a 1024px shadow map. Rendering at the
+      // device pixel ratio preserves visual detail; a larger map here only
+      // adds startup and GPU pressure on the onboarding screen.
       dir.shadow!.mapSize.width = 1024;
       dir.shadow!.mapSize.height = 1024;
       dir.shadow!.camera?.near = 0.2;
@@ -303,7 +269,6 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
 
       final tree = await TreeModelCache.instance.loadFreshScene(preset.id);
       if (!_isCurrentThree(js, epoch)) {
-        _disposeSceneResources(tree);
         return;
       }
 

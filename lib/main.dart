@@ -72,10 +72,9 @@ void main() {
       unawaited(_initializePostLaunchServices());
     }
 
-    // Tree preloading is useful, but must never compete with the boot route.
-    Future<void>.delayed(const Duration(seconds: 1), () {
-      unawaited(TreeModelCache.instance.warmUpAll());
-    });
+    // Tree bytes are small and loading them here does not block the first
+    // frame. This keeps the first profile/onboarding tree off the disk path.
+    unawaited(TreeModelCache.instance.warmUpAll());
   });
 }
 

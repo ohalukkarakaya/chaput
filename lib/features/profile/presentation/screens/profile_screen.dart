@@ -883,24 +883,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _suspendTreeForCoveredRoute() {
     _treeSuspendedForCoveredRoute = true;
-    final js = _threeJs;
 
-    // A profile remains mounted beneath the next profile route. Pause its
-    // native renderer so only the visible profile owns an ANGLE surface.
-    if (js == null) {
-      if (_pendingThreeTreeId != null) {
-        _disposeThree();
-        _lastTreeId = null;
-        _threeError = null;
-        if (mounted) setState(() {});
-      }
-      return;
-    }
-
-    js.pause = true;
-    try {
-      js.ticker?.stop(canceled: false);
-    } catch (_) {}
+    // A covered profile remains in the navigation stack. Pausing its ticker
+    // still leaves a native ANGLE surface alive beneath the next profile,
+    // which can corrupt GLB textures/materials on iOS. Unmount it completely;
+    // cached model bytes make the recreation on return fast.
+    _disposeThree();
+    _lastTreeId = null;
+    _threeError = null;
+    if (mounted) setState(() {});
   }
 
   void _resumeTreeAfterCoveredRoute() {
@@ -1123,57 +1114,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         identical(_threeJs, threeJsRef);
   }
 
-  void _disposeSceneResources(
-    three.Object3D? root, {
-    Iterable<dynamic> extraMaterials = const <dynamic>[],
-  }) {
-    final disposedGeometries = Set<Object>.identity();
-    final disposedMaterials = Set<Object>.identity();
-
-    void disposeMaterial(dynamic material) {
-      if (material == null) return;
-      if (material is Iterable) {
-        for (final item in material) {
-          disposeMaterial(item);
-        }
-        return;
-      }
-      if (material is! Object) return;
-      final materialObject = material;
-      if (!disposedMaterials.add(materialObject)) return;
-      try {
-        (material as dynamic).dispose();
-      } catch (_) {}
-    }
-
-    root?.traverse((object) {
-      if (object is! three.Mesh) return;
-      final geometry = object.geometry;
-      if (geometry != null && disposedGeometries.add(geometry)) {
-        try {
-          geometry.dispose();
-        } catch (_) {}
-      }
-      disposeMaterial(object.material);
-    });
-
-    for (final material in extraMaterials) {
-      disposeMaterial(material);
-    }
-  }
-
-  void _disposeThreeRef(
-    three.ThreeJS threeJsRef, {
-    Iterable<dynamic> extraMaterials = const <dynamic>[],
-  }) {
+  void _disposeThreeRef(three.ThreeJS threeJsRef) {
     // ThreeJS declares scene/camera as late fields. A route can disappear
     // while the platform view is still initializing, so guard every access.
-    try {
-      _disposeSceneResources(threeJsRef.scene, extraMaterials: extraMaterials);
-    } catch (_) {
-      _disposeSceneResources(null, extraMaterials: extraMaterials);
-    }
-
     try {
       threeJsRef.dispose();
       return;
@@ -1205,9 +1148,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _threeSurfaceGeneration++;
     final threeJs = _threeJs;
     if (threeJs != null) {
-      _disposeThreeRef(threeJs, extraMaterials: _origMaterials.values);
-    } else {
-      _disposeSceneResources(null, extraMaterials: _origMaterials.values);
+      _disposeThreeRef(threeJs);
     }
     _threeJs = null;
     _treeGroup = null;
@@ -1235,6 +1176,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _threeCreateTimer?.cancel();
     _pendingThreeTreeId = treeId;
     final epoch = _threeLoadEpoch;
+    unawaited(TreeModelCache.instance.ensureWarm(treeId));
 
     // Physically unmount the old platform view before constructing its
     // replacement. Keeping both renderers alive even briefly can corrupt GLB
@@ -1243,7 +1185,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       setState(() {});
     }
 
-    _threeCreateTimer = Timer(const Duration(milliseconds: 32), () {
+    _threeCreateTimer = Timer(const Duration(milliseconds: 16), () {
       _threeCreateTimer = null;
       if (!mounted ||
           _isDisposed ||
@@ -1254,10 +1196,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       late final three.ThreeJS js;
       js = three.ThreeJS(
-        // Keep the renderer inside a predictable mobile GPU budget. At 1.5x
-        // this scene can allocate multiple large colour and shadow buffers
-        // while another profile surface is being released by ANGLE.
-        settings: three.Settings(screenResolution: 1.0),
+        // Use native device pixel density. The old 1.0 multiplier visibly
+        // downsampled the tree on high-density displays.
         setup: () => _setup(threeJsRef: js, treeId: treeId, epoch: epoch),
         onSetupComplete: () {
           if (!_isCurrentThreeRequest(js, epoch)) {
@@ -1334,8 +1274,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       dir.position.setValues(2.5, 6.0, 3.5);
       dir.castShadow = true;
 
-      dir.shadow!.mapSize.width = 1024;
-      dir.shadow!.mapSize.height = 1024;
+      dir.shadow!.mapSize.width = 2048;
+      dir.shadow!.mapSize.height = 2048;
 
       dir.shadow!.camera?.near = 0.2;
       dir.shadow!.camera?.far = 80;
@@ -1348,7 +1288,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       final tree = await TreeModelCache.instance.loadFreshScene(treeId);
       if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
-        _disposeSceneResources(tree);
         _disposeThreeRef(threeJsRef);
         return;
       }
@@ -1395,7 +1334,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _groundY = 0.0;
 
       if (!_isCurrentThreeRequest(threeJsRef, epoch)) {
-        _disposeSceneResources(tree);
         _disposeThreeRef(threeJsRef);
         return;
       }
@@ -4896,6 +4834,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                                           // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
                                                                           await ctrl
                                                                               .follow();
+                                                                          unawaited(
+                                                                            ChaputSoundService.instance.play(
+                                                                              ChaputSoundEffect.refreshRecommendedUser,
+                                                                            ),
+                                                                          );
                                                                         } catch (
                                                                           error
                                                                         ) {
@@ -5516,6 +5459,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                         ).notifier,
                                                       );
                                                       await ctrl.follow();
+                                                      unawaited(
+                                                        ChaputSoundService
+                                                            .instance
+                                                            .play(
+                                                              ChaputSoundEffect
+                                                                  .refreshRecommendedUser,
+                                                            ),
+                                                      );
                                                     } catch (error) {
                                                       if (!mounted) return;
                                                       setState(
