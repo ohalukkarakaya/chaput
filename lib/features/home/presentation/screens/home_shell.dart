@@ -683,7 +683,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                 ),
 
                                 const SizedBox(height: 14),
-                                _RecommendedUsersRail(showcaseKey: _recoShowcaseKey),
+                                _RecommendedUsersRail(
+                                  showcaseKey: _recoShowcaseKey,
+                                ),
                               ],
                             ),
                           ),
@@ -915,14 +917,10 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
             clipBehavior: Clip.none,
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.zero,
-            itemCount: visibleItems.length + 2,
+            itemCount: visibleItems.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              if (index == 0 || index == visibleItems.length + 1) {
-                return const SizedBox(width: 5);
-              }
-
-              final user = visibleItems[index - 1];
+              final user = visibleItems[index];
               final username = user.username;
               final followState = (username == null || username.isEmpty)
                   ? const FollowIdle()
@@ -1106,7 +1104,7 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
                 ),
               );
 
-              if (index == 1) {
+              if (index == 0) {
                 return Showcase.withWidget(
                   key: widget.showcaseKey,
                   targetPadding: EdgeInsets.zero,
@@ -1120,7 +1118,10 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
                   container: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 320),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.chaputBlack.withOpacity(0.92),
                         borderRadius: BorderRadius.circular(14),
