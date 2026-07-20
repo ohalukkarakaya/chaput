@@ -258,7 +258,10 @@ class ChaputThreadSheet extends ConsumerWidget {
                                 title: ctx.t('showcase.chaput_swipe_title'),
                                 body: ctx.t('showcase.chaput_swipe_body'),
                                 onTap: onSwipeTutorialTap,
-                                preview: const _ChaputSwipePreview(),
+                                preview: const TickerMode(
+                                  enabled: true,
+                                  child: _ChaputSwipePreview(),
+                                ),
                               ),
                               child: child,
                             );
@@ -349,12 +352,10 @@ class ChaputTutorialCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (preview != null) ...[
-                    preview!,
-                    const SizedBox(height: 10),
-                  ],
                   Text(
                     title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -364,12 +365,18 @@ class ChaputTutorialCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     body,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12.5,
                       height: 1.3,
                       color: AppColors.chaputWhite.withValues(alpha: 0.9),
                     ),
                   ),
+                  if (preview != null) ...[
+                    const SizedBox(height: 12),
+                    preview!,
+                  ],
                 ],
               ),
             ),
@@ -396,7 +403,7 @@ class _ChaputSwipePreviewState extends State<_ChaputSwipePreview>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1450),
+      duration: const Duration(milliseconds: 1500),
     )..repeat();
   }
 
@@ -422,38 +429,49 @@ class _ChaputSwipePreviewState extends State<_ChaputSwipePreview>
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, _) {
-            final t = Curves.easeInOutCubic.transform(_controller.value);
-            final opacity = switch (_controller.value) {
-              < 0.12 => _controller.value / 0.12,
-              > 0.88 => (1 - _controller.value) / 0.12,
-              _ => 1.0,
-            };
+            const travelEnd = 0.78;
+            final phase = _controller.value;
+            final travel = (phase / travelEnd).clamp(0.0, 1.0);
+            final t = Curves.easeInOutCubic.transform(travel);
+            final opacity = phase <= travelEnd
+                ? 1.0
+                : (1.0 - ((phase - travelEnd) / (1.0 - travelEnd))).clamp(
+                    0.0,
+                    1.0,
+                  );
 
             return Stack(
               alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 Container(
                   height: 1.5,
                   margin: const EdgeInsets.symmetric(horizontal: 34),
                   color: AppColors.chaputWhite.withValues(alpha: 0.12),
                 ),
-                Align(
-                  alignment: Alignment.lerp(
-                    const Alignment(0.82, 0),
-                    const Alignment(-0.82, 0),
-                    t,
-                  )!,
-                  child: Opacity(
-                    opacity: opacity.clamp(0.0, 1.0),
+                Opacity(
+                  opacity: opacity,
+                  child: Align(
+                    alignment: Alignment.lerp(
+                      const Alignment(0.82, 0),
+                      const Alignment(-0.82, 0),
+                      t,
+                    )!,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: 26,
+                      height: 26,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.chaputWhite,
+                        color: AppColors.chaputWhite.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: AppColors.chaputWhite.withValues(alpha: 0.9),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.chaputWhite.withValues(alpha: 0.3),
+                            color: AppColors.chaputWhite.withValues(
+                              alpha: 0.28,
+                            ),
                             blurRadius: 12,
                             spreadRadius: 2,
                           ),
