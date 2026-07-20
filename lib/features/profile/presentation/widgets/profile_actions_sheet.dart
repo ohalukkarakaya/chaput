@@ -24,28 +24,35 @@ class ProfileActionsButton extends StatelessWidget {
     required this.username,
     required this.userId,
     required this.iRestrictedHim,
+    this.onSheetVisibilityChanged,
   });
 
   final String username;
   final String userId;
   final bool iRestrictedHim;
+  final ValueChanged<bool>? onSheetVisibilityChanged;
 
   @override
   Widget build(BuildContext context) {
     return InkResponse(
       radius: 20,
-      onTap: () {
+      onTap: () async {
         HapticFeedback.selectionClick();
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: AppColors.chaputTransparent,
-          builder: (_) => ProfileActionsSheet(
-            hostContext: context,
-            username: username,
-            userId: userId,
-            iRestrictedHim: iRestrictedHim,
-          ),
-        );
+        onSheetVisibilityChanged?.call(true);
+        try {
+          await showModalBottomSheet<void>(
+            context: context,
+            backgroundColor: AppColors.chaputTransparent,
+            builder: (_) => ProfileActionsSheet(
+              hostContext: context,
+              username: username,
+              userId: userId,
+              iRestrictedHim: iRestrictedHim,
+            ),
+          );
+        } finally {
+          onSheetVisibilityChanged?.call(false);
+        }
       },
       child: Container(
         width: 36,

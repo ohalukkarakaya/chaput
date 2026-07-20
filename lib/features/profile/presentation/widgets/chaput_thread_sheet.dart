@@ -55,6 +55,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.replyOverlay,
     required this.whisperCredits,
     required this.onReplyMessage,
+    this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
   });
 
@@ -95,6 +96,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   final int whisperCredits;
   final void Function(ChaputThreadItem thread, ChaputMessage message)
   onReplyMessage;
+  final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
 
   @override
@@ -198,6 +200,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                           whisperCredits: whisperCredits,
                           onReplyMessage: onReplyMessage,
                           typingUsersByThread: typingUsersByThread,
+                          onReplyJumpStarted: onReplyJumpStarted,
                           onInitialMessageRevealed: onInitialMessageRevealed,
                         );
 
@@ -329,6 +332,7 @@ class _SheetPage extends StatelessWidget {
     required this.whisperCredits,
     required this.onReplyMessage,
     required this.typingUsersByThread,
+    this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
   });
 
@@ -361,6 +365,7 @@ class _SheetPage extends StatelessWidget {
   final void Function(ChaputThreadItem thread, ChaputMessage message)
   onReplyMessage;
   final Map<String, List<LiteUser>> typingUsersByThread;
+  final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
 
   @override
@@ -427,7 +432,9 @@ class _SheetPage extends StatelessWidget {
                                     thread.sharePathSegment,
                                   ),
                                   canArchiveThread:
-                                      isParticipant && thread.state == 'OPEN',
+                                      isParticipant &&
+                                      (thread.state == 'OPEN' ||
+                                          thread.state == 'PENDING'),
                                   canReportThread: isParticipant,
                                   canShareThread: profileUsername.isNotEmpty,
                                   compact: true,
@@ -475,6 +482,7 @@ class _SheetPage extends StatelessWidget {
                             typingUsers:
                                 typingUsersByThread[thread.threadId] ??
                                 const [],
+                            onReplyJumpStarted: onReplyJumpStarted,
                             onInitialMessageRevealed: onInitialMessageRevealed,
                           ),
                         ),
@@ -511,6 +519,7 @@ class _ThreadPage extends ConsumerWidget {
     required this.whisperCredits,
     required this.onReplyMessage,
     required this.typingUsers,
+    this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
   });
 
@@ -542,6 +551,7 @@ class _ThreadPage extends ConsumerWidget {
   final void Function(ChaputThreadItem thread, ChaputMessage message)
   onReplyMessage;
   final List<LiteUser> typingUsers;
+  final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
 
   @override
@@ -565,7 +575,8 @@ class _ThreadPage extends ConsumerWidget {
         ? null
         : otherUser?.username;
     final canReply = isParticipant && (!isPending || !viewerIsStarter);
-    final canArchiveThread = isParticipant && thread.state == 'OPEN';
+    final canArchiveThread =
+        isParticipant && (thread.state == 'OPEN' || thread.state == 'PENDING');
     final canReportThread = isParticipant;
 
     return LayoutBuilder(
@@ -683,6 +694,7 @@ class _ThreadPage extends ConsumerWidget {
                     onLoadUntilMessage: (messageId) => ref
                         .read(chaputMessagesControllerProvider(args).notifier)
                         .loadUntilMessage(messageId),
+                    onReplyJumpStarted: onReplyJumpStarted,
                     onInitialMessageRevealed: onInitialMessageRevealed,
                   ),
                 ),
@@ -1372,6 +1384,7 @@ class _MessagesList extends StatefulWidget {
     required this.onToggleLike,
     required this.onLoadMore,
     required this.onLoadUntilMessage,
+    this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
   });
 
@@ -1390,6 +1403,7 @@ class _MessagesList extends StatefulWidget {
   final void Function(ChaputMessage message, bool like) onToggleLike;
   final Future<void> Function() onLoadMore;
   final Future<bool> Function(String messageId) onLoadUntilMessage;
+  final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
 
   @override
@@ -1689,7 +1703,10 @@ class _MessagesListState extends State<_MessagesList> {
         onReportMessage: widget.onReportMessage,
         onToggleLike: widget.onToggleLike,
         onShowLikes: (m) => _openLikesFocus(m, isMine, widget.isParticipant),
-        onReplyTap: _jumpToMessage,
+        onReplyTap: (messageId) {
+          widget.onReplyJumpStarted?.call();
+          _jumpToMessage(messageId);
+        },
         messageKeyFor: _keyForMessage,
         scrollController: _scrollController,
         groupKey: groupKey,

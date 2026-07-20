@@ -116,8 +116,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   final GlobalKey _profileMenuShowcaseKey = GlobalKey();
   final GlobalKey _settingsShowcaseKey = GlobalKey();
+  final GlobalKey _profileCloseShowcaseKey = GlobalKey();
+  final GlobalKey _chaputSheetShowcaseKey = GlobalKey();
+  final GlobalKey _chaputThreadSwipeShowcaseKey = GlobalKey();
   bool _profileShowcaseScheduled = false;
   bool _settingsShowcaseScheduled = false;
+  bool _chaputShowcaseScheduled = false;
+  bool _profileActionsSheetOpen = false;
+  DateTime? _suppressChaputSwipeSoundUntil;
 
   bool _pendingTreeModeShift = false;
   bool _treeModeShiftDoneThisGesture = false;
@@ -552,7 +558,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _chaputSwipeFeedbackProgress = progress;
     if (!_chaputSwipeSoundPlayed) {
       _chaputSwipeSoundPlayed = true;
-      unawaited(ChaputSoundService.instance.play(ChaputSoundEffect.cardSwipe));
+      final suppressSwipeSound =
+          _suppressChaputSwipeSoundUntil?.isAfter(DateTime.now()) ?? false;
+      if (!suppressSwipeSound) {
+        unawaited(
+          ChaputSoundService.instance.play(ChaputSoundEffect.cardSwipe),
+        );
+      }
     }
     _scheduleChaputSwipeFeedbackIdle();
 
@@ -569,6 +581,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     _chaputHapticTargetPageIndex = targetPageIndex;
     HapticFeedback.selectionClick();
+  }
+
+  void _suppressNextChaputSwipeSound([
+    Duration duration = const Duration(milliseconds: 700),
+  ]) {
+    _suppressChaputSwipeSoundUntil = DateTime.now().add(duration);
   }
 
   DateTime? _parseSocketTime(dynamic v) {
@@ -840,9 +858,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   void didPushNext() {
+    if (_profileActionsSheetOpen) return;
     _stopTypingSound();
     _resetChaputSwipeFeedback();
-    _suspendTreeForCoveredRoute();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _profileActionsSheetOpen) return;
+      _suspendTreeForCoveredRoute();
+    });
+  }
+
+  void _setProfileActionsSheetOpen(bool value) {
+    if (_profileActionsSheetOpen == value) return;
+    _profileActionsSheetOpen = value;
   }
 
   @override
@@ -1051,15 +1078,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     String viewerId,
   ) async {
     final storage = ref.read(tutorialStorageProvider);
-    final shouldShow = await storage.shouldShow(viewerId, 'profile_settings');
-    if (!shouldShow || !mounted) return;
+    final shouldShowSettings = await storage.shouldShow(
+      viewerId,
+      'profile_settings',
+    );
+    final shouldShowClose = await storage.shouldShow(viewerId, 'profile_close');
+    if ((!shouldShowSettings && !shouldShowClose) || !mounted) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Future.delayed(const Duration(milliseconds: 120), () {
         if (!mounted) return;
-        ShowCaseWidget.of(context).startShowCase([_settingsShowcaseKey]);
-        storage.markShown(viewerId, 'profile_settings');
+        final keys = <GlobalKey>[];
+        if (shouldShowSettings) keys.add(_settingsShowcaseKey);
+        if (shouldShowClose) keys.add(_profileCloseShowcaseKey);
+        if (keys.isEmpty) return;
+        ShowCaseWidget.of(context).startShowCase(keys);
+        if (shouldShowSettings) {
+          unawaited(storage.markShown(viewerId, 'profile_settings'));
+        }
+        if (shouldShowClose) {
+          unawaited(storage.markShown(viewerId, 'profile_close'));
+        }
+      });
+    });
+  }
+
+  Future<void> _scheduleChaputShowcase(
+    BuildContext context,
+    String viewerId, {
+    required bool hasMultipleThreads,
+  }) async {
+    final storage = ref.read(tutorialStorageProvider);
+    final shouldShowSheet = await storage.shouldShow(viewerId, 'chaput_sheet');
+    final shouldShowSwipe =
+        hasMultipleThreads &&
+        await storage.shouldShow(viewerId, 'chaput_thread_swipe');
+    if ((!shouldShowSheet && !shouldShowSwipe) || !mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Future.delayed(const Duration(milliseconds: 160), () {
+        if (!mounted) return;
+        final keys = <GlobalKey>[];
+        if (shouldShowSheet) keys.add(_chaputSheetShowcaseKey);
+        if (shouldShowSwipe) keys.add(_chaputThreadSwipeShowcaseKey);
+        if (keys.isEmpty) return;
+        ShowCaseWidget.of(context).startShowCase(keys);
+        if (shouldShowSheet) {
+          unawaited(storage.markShown(viewerId, 'chaput_sheet'));
+        }
+        if (shouldShowSwipe) {
+          unawaited(storage.markShown(viewerId, 'chaput_thread_swipe'));
+        }
       });
     });
   }
@@ -1104,6 +1175,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildChaputThreadShowcaseWrapper(
+    BuildContext context, {
+    required bool hasMultipleThreads,
+    required Widget child,
+  }) {
+    final sheetTarget = Showcase.withWidget(
+      key: _chaputSheetShowcaseKey,
+      targetShapeBorder: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      tooltipPosition: TooltipPosition.top,
+      toolTipMargin: 12,
+      targetTooltipGap: 14,
+      container: _buildShowcaseCard(
+        context,
+        context.t('showcase.chaput_sheet_title'),
+        context.t('showcase.chaput_sheet_body'),
+      ),
+      child: child,
+    );
+
+    if (!hasMultipleThreads) return sheetTarget;
+
+    return Showcase.withWidget(
+      key: _chaputThreadSwipeShowcaseKey,
+      targetShapeBorder: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      tooltipPosition: TooltipPosition.top,
+      toolTipMargin: 12,
+      targetTooltipGap: 14,
+      container: _buildShowcaseCard(
+        context,
+        context.t('showcase.chaput_swipe_title'),
+        context.t('showcase.chaput_swipe_body'),
+      ),
+      child: sheetTarget,
     );
   }
 
@@ -4032,6 +4143,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             _settingsShowcaseScheduled = true;
             _scheduleSettingsShowcase(showcaseContext, viewerId);
           }
+
+          if (chaputThreads.isNotEmpty &&
+              !showProfileComposer &&
+              !_silhouetteMode &&
+              !_chaputShowcaseScheduled) {
+            _chaputShowcaseScheduled = true;
+            _scheduleChaputShowcase(
+              showcaseContext,
+              viewerId,
+              hasMultipleThreads: chaputThreads.length > 1,
+            );
+          }
         }
 
         final Widget? threadSheetChild =
@@ -4269,6 +4392,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           : 0.0,
                       whisperCredits: creditsWhisper,
                       onReplyMessage: _handleReplyRequested,
+                      onReplyJumpStarted: _suppressNextChaputSwipeSound,
                       onInitialMessageRevealed: _handleInitialMessageRevealed,
                     );
                   },
@@ -4999,6 +5123,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                               userId: userId,
                                                               iRestrictedHim:
                                                                   effectiveIRestrictedHim,
+                                                              onSheetVisibilityChanged:
+                                                                  _setProfileActionsSheetOpen,
                                                             ),
                                                           ],
                                                         ),
@@ -5087,7 +5213,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                   duration: const Duration(milliseconds: 100),
                                   curve: Curves.easeOut,
                                   opacity: _isInteracting ? 0 : 1,
-                                  child: threadSheetChild,
+                                  child: _buildChaputThreadShowcaseWrapper(
+                                    showcaseContext,
+                                    hasMultipleThreads:
+                                        chaputThreads.length > 1,
+                                    child: threadSheetChild,
+                                  ),
                                 ),
                               ),
                             ),
