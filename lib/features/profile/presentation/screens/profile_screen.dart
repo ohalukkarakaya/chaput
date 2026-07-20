@@ -922,6 +922,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
+  Future<T?> _pushTreePreservingRoute<T>(
+    Future<T?> Function() pushRoute,
+  ) async {
+    _stopTypingSound();
+    _resetChaputSwipeFeedback();
+    try {
+      return await _showTreePreservingOverlay<T>(pushRoute);
+    } finally {
+      if (mounted) _syncTypingSound();
+    }
+  }
+
+  void _openFollowListPreservingTree({
+    required String username,
+    required FollowListKind kind,
+    required bool isMe,
+    required String title,
+  }) {
+    unawaited(
+      _pushTreePreservingRoute<void>(
+        () => Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => FollowListScreen(
+              username: username,
+              kind: kind,
+              isMe: isMe,
+              title: title,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSettingsPreservingTree() {
+    unawaited(
+      _pushTreePreservingRoute<void>(() => context.push<void>(Routes.settings)),
+    );
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -4910,21 +4950,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                                       );
                                                                       return;
                                                                     }
-                                                                    Navigator.of(
-                                                                      context,
-                                                                    ).push(
-                                                                      MaterialPageRoute(
-                                                                        builder: (_) => FollowListScreen(
-                                                                          username:
-                                                                              username,
-                                                                          kind:
-                                                                              FollowListKind.followers,
-                                                                          isMe:
-                                                                              isMe,
-                                                                          title: context.t(
-                                                                            'profile.followers_title',
-                                                                          ),
-                                                                        ),
+                                                                    _openFollowListPreservingTree(
+                                                                      username:
+                                                                          username,
+                                                                      kind: FollowListKind
+                                                                          .followers,
+                                                                      isMe:
+                                                                          isMe,
+                                                                      title: context.t(
+                                                                        'profile.followers_title',
                                                                       ),
                                                                     );
                                                                   },
@@ -4953,21 +4987,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                                       );
                                                                       return;
                                                                     }
-                                                                    Navigator.of(
-                                                                      context,
-                                                                    ).push(
-                                                                      MaterialPageRoute(
-                                                                        builder: (_) => FollowListScreen(
-                                                                          username:
-                                                                              username,
-                                                                          kind:
-                                                                              FollowListKind.following,
-                                                                          isMe:
-                                                                              isMe,
-                                                                          title: context.t(
-                                                                            'profile.following_title',
-                                                                          ),
-                                                                        ),
+                                                                    _openFollowListPreservingTree(
+                                                                      username:
+                                                                          username,
+                                                                      kind: FollowListKind
+                                                                          .following,
+                                                                      isMe:
+                                                                          isMe,
+                                                                      title: context.t(
+                                                                        'profile.following_title',
                                                                       ),
                                                                     );
                                                                   },
@@ -5015,11 +5043,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                             },
                                                           ),
                                                           child: TextButton(
-                                                            onPressed: () {
-                                                              context.push(
-                                                                Routes.settings,
-                                                              );
-                                                            },
+                                                            onPressed:
+                                                                _openSettingsPreservingTree,
                                                             style: TextButton.styleFrom(
                                                               padding:
                                                                   const EdgeInsets.symmetric(
