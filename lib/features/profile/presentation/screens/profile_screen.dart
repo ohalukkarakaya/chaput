@@ -4461,6 +4461,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           _ProfileTutorialStep.chaputSwipe,
                         );
                       },
+                      onActionSheetVisibilityChanged:
+                          _setProfileActionsSheetOpen,
                     );
                   },
                 ),

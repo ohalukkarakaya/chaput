@@ -63,6 +63,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     this.activeThreadId,
     this.onSheetTutorialTap,
     this.onSwipeTutorialTap,
+    this.onActionSheetVisibilityChanged,
   });
 
   final List<ChaputThreadItem> threads;
@@ -109,6 +110,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   final String? activeThreadId;
   final VoidCallback? onSheetTutorialTap;
   final VoidCallback? onSwipeTutorialTap;
+  final ValueChanged<bool>? onActionSheetVisibilityChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -239,6 +241,8 @@ class ChaputThreadSheet extends ConsumerWidget {
                             typingUsersByThread: typingUsersByThread,
                             onReplyJumpStarted: onReplyJumpStarted,
                             onInitialMessageRevealed: onInitialMessageRevealed,
+                            onActionSheetVisibilityChanged:
+                                onActionSheetVisibilityChanged,
                           );
 
                           if (swipeShowcaseKey != null &&
@@ -403,7 +407,7 @@ class _ChaputSwipePreviewState extends State<_ChaputSwipePreview>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 2600),
     )..repeat();
   }
 
@@ -451,13 +455,16 @@ class _ChaputSwipePreviewPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    const travelEnd = 0.82;
+    const travelEnd = 0.62;
+    const fadeEnd = 0.74;
     final phase = animation.value;
     final travel = (phase / travelEnd).clamp(0.0, 1.0);
     final easedTravel = Curves.easeInOutCubic.transform(travel);
     final opacity = phase <= travelEnd
         ? 1.0
-        : (1.0 - ((phase - travelEnd) / (1.0 - travelEnd))).clamp(0.0, 1.0);
+        : phase < fadeEnd
+        ? (1.0 - ((phase - travelEnd) / (fadeEnd - travelEnd))).clamp(0.0, 1.0)
+        : 0.0;
 
     const radius = 13.0;
     final startX = size.width - horizontalInset - radius;
@@ -585,6 +592,7 @@ class _SheetPage extends StatelessWidget {
     required this.typingUsersByThread,
     this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
+    this.onActionSheetVisibilityChanged,
   });
 
   final ChaputThreadItem thread;
@@ -618,6 +626,7 @@ class _SheetPage extends StatelessWidget {
   final Map<String, List<LiteUser>> typingUsersByThread;
   final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
+  final ValueChanged<bool>? onActionSheetVisibilityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -689,6 +698,8 @@ class _SheetPage extends StatelessWidget {
                                   canReportThread: isParticipant,
                                   canShareThread: profileUsername.isNotEmpty,
                                   compact: true,
+                                  onActionSheetVisibilityChanged:
+                                      onActionSheetVisibilityChanged,
                                 ),
                               ),
                             ),
@@ -735,6 +746,8 @@ class _SheetPage extends StatelessWidget {
                                 const [],
                             onReplyJumpStarted: onReplyJumpStarted,
                             onInitialMessageRevealed: onInitialMessageRevealed,
+                            onActionSheetVisibilityChanged:
+                                onActionSheetVisibilityChanged,
                           ),
                         ),
                       ],
@@ -772,6 +785,7 @@ class _ThreadPage extends ConsumerWidget {
     required this.typingUsers,
     this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
+    this.onActionSheetVisibilityChanged,
   });
 
   final ChaputThreadItem thread;
@@ -804,6 +818,7 @@ class _ThreadPage extends ConsumerWidget {
   final List<LiteUser> typingUsers;
   final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
+  final ValueChanged<bool>? onActionSheetVisibilityChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -900,6 +915,8 @@ class _ThreadPage extends ConsumerWidget {
                   canReportThread: canReportThread,
                   canShareThread: profileUsername.isNotEmpty,
                   compact: false,
+                  onActionSheetVisibilityChanged:
+                      onActionSheetVisibilityChanged,
                 ),
               ),
               if (showMessages)
@@ -997,6 +1014,7 @@ class _ThreadHeader extends StatelessWidget {
     required this.onReportThread,
     required this.onShareThread,
     required this.canShareThread,
+    this.onActionSheetVisibilityChanged,
     this.compact = false,
   });
 
@@ -1018,6 +1036,7 @@ class _ThreadHeader extends StatelessWidget {
   final VoidCallback onReportThread;
   final VoidCallback onShareThread;
   final bool canShareThread;
+  final ValueChanged<bool>? onActionSheetVisibilityChanged;
   final bool compact;
 
   @override
@@ -1155,18 +1174,23 @@ class _ThreadHeader extends StatelessWidget {
           if (canArchiveThread || canReportThread || canShareThread) ...[
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () {
+              onTap: () async {
                 HapticFeedback.selectionClick();
-                _showThreadActions(
-                  context,
-                  hostContext: context,
-                  canShare: canShareThread,
-                  canArchive: canArchiveThread,
-                  canReport: canReportThread,
-                  onShare: onShareThread,
-                  onArchive: onArchiveThread,
-                  onReport: onReportThread,
-                );
+                onActionSheetVisibilityChanged?.call(true);
+                try {
+                  await _showThreadActions(
+                    context,
+                    hostContext: context,
+                    canShare: canShareThread,
+                    canArchive: canArchiveThread,
+                    canReport: canReportThread,
+                    onShare: onShareThread,
+                    onArchive: onArchiveThread,
+                    onReport: onReportThread,
+                  );
+                } finally {
+                  onActionSheetVisibilityChanged?.call(false);
+                }
               },
               child: Container(
                 width: 30,
@@ -1203,7 +1227,7 @@ void _shareThread(BuildContext context, String username, String threadSegment) {
   );
 }
 
-void _showThreadActions(
+Future<void> _showThreadActions(
   BuildContext context, {
   required BuildContext hostContext,
   required bool canShare,
@@ -1213,7 +1237,7 @@ void _showThreadActions(
   required VoidCallback onArchive,
   required VoidCallback onReport,
 }) {
-  showModalBottomSheet<void>(
+  return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
     builder: (_) => _ThreadActionSheet(
