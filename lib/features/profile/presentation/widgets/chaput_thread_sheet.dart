@@ -426,66 +426,69 @@ class _ChaputSwipePreviewState extends State<_ChaputSwipePreview>
             color: AppColors.chaputWhite.withValues(alpha: 0.08),
           ),
         ),
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            const travelEnd = 0.78;
-            final phase = _controller.value;
-            final travel = (phase / travelEnd).clamp(0.0, 1.0);
-            final t = Curves.easeInOutCubic.transform(travel);
-            final opacity = phase <= travelEnd
-                ? 1.0
-                : (1.0 - ((phase - travelEnd) / (1.0 - travelEnd))).clamp(
-                    0.0,
-                    1.0,
-                  );
-
-            return Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  height: 1.5,
-                  margin: const EdgeInsets.symmetric(horizontal: 34),
-                  color: AppColors.chaputWhite.withValues(alpha: 0.12),
-                ),
-                Opacity(
-                  opacity: opacity,
-                  child: Align(
-                    alignment: Alignment.lerp(
-                      const Alignment(0.82, 0),
-                      const Alignment(-0.82, 0),
-                      t,
-                    )!,
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.chaputWhite.withValues(alpha: 0.18),
-                        border: Border.all(
-                          color: AppColors.chaputWhite.withValues(alpha: 0.9),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.chaputWhite.withValues(
-                              alpha: 0.28,
-                            ),
-                            blurRadius: 12,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+        child: CustomPaint(painter: _ChaputSwipePreviewPainter(_controller)),
       ),
     );
+  }
+}
+
+class _ChaputSwipePreviewPainter extends CustomPainter {
+  _ChaputSwipePreviewPainter(this.animation) : super(repaint: animation);
+
+  final Animation<double> animation;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    const horizontalInset = 34.0;
+
+    canvas.drawLine(
+      Offset(horizontalInset, centerY),
+      Offset(size.width - horizontalInset, centerY),
+      Paint()
+        ..color = AppColors.chaputWhite.withValues(alpha: 0.12)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
+    );
+
+    const travelEnd = 0.82;
+    final phase = animation.value;
+    final travel = (phase / travelEnd).clamp(0.0, 1.0);
+    final easedTravel = Curves.easeInOutCubic.transform(travel);
+    final opacity = phase <= travelEnd
+        ? 1.0
+        : (1.0 - ((phase - travelEnd) / (1.0 - travelEnd))).clamp(0.0, 1.0);
+
+    const radius = 13.0;
+    final startX = size.width - horizontalInset - radius;
+    final endX = horizontalInset + radius;
+    final center = Offset(lerpDouble(startX, endX, easedTravel)!, centerY);
+
+    canvas.drawCircle(
+      center,
+      radius + 3,
+      Paint()
+        ..color = AppColors.chaputWhite.withValues(alpha: 0.22 * opacity)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()..color = AppColors.chaputWhite.withValues(alpha: 0.24 * opacity),
+    );
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..color = AppColors.chaputWhite.withValues(alpha: 0.95 * opacity),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChaputSwipePreviewPainter oldDelegate) {
+    return oldDelegate.animation != animation;
   }
 }
 
