@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 import '../../../../chaput/application/chaput_decision_controller.dart';
 import '../../../../chaput/application/chaput_messages_controller.dart';
@@ -57,6 +58,11 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.onReplyMessage,
     this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
+    this.sheetShowcaseKey,
+    this.swipeShowcaseKey,
+    this.activeThreadId,
+    this.onSheetTutorialTap,
+    this.onSwipeTutorialTap,
   });
 
   final List<ChaputThreadItem> threads;
@@ -98,13 +104,42 @@ class ChaputThreadSheet extends ConsumerWidget {
   onReplyMessage;
   final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
+  final GlobalKey? sheetShowcaseKey;
+  final GlobalKey? swipeShowcaseKey;
+  final String? activeThreadId;
+  final VoidCallback? onSheetTutorialTap;
+  final VoidCallback? onSwipeTutorialTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (threads.isEmpty) return const SizedBox.shrink();
     final entries = _ChaputPageEntries.build(threads, showNativeAds);
 
-    return NotificationListener<DraggableScrollableNotification>(
+    Widget wrapPullTutorial(BuildContext targetContext, Widget child) {
+      final showcaseKey = sheetShowcaseKey;
+      if (showcaseKey == null) return child;
+
+      return Showcase.withWidget(
+        key: showcaseKey,
+        targetPadding: EdgeInsets.zero,
+        targetBorderRadius: const BorderRadius.vertical(
+          top: Radius.circular(22),
+        ),
+        overlayColor: AppColors.chaputBlack,
+        overlayOpacity: 0.68,
+        tooltipPosition: TooltipPosition.top,
+        toolTipMargin: 16,
+        targetTooltipGap: 12,
+        container: ChaputTutorialCard(
+          title: targetContext.t('showcase.chaput_pull_title'),
+          body: targetContext.t('showcase.chaput_pull_body'),
+          onTap: onSheetTutorialTap,
+        ),
+        child: child,
+      );
+    }
+
+    final sheet = NotificationListener<DraggableScrollableNotification>(
       onNotification: (n) {
         onExtentChanged(n.extent);
         return false;
@@ -117,125 +152,320 @@ class ChaputThreadSheet extends ConsumerWidget {
         snapSizes: const [0.12, 0.33, 0.95],
         controller: sheetController,
         builder: (ctx, scrollCtrl) {
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: isCollapsed ? onCollapsedTap : null,
-            child: LayoutBuilder(
-              builder: (ctx, constraints) {
-                return SingleChildScrollView(
-                  controller: scrollCtrl,
-                  physics: const ClampingScrollPhysics(),
-                  child: SizedBox(
-                    height: constraints.maxHeight,
-                    child: PageView.builder(
-                      controller: pageController,
-                      onPageChanged: (index) {
-                        final entry = entries[index];
-                        onPageChanged(index, entry.thread);
-                      },
-                      itemCount: entries.length,
-                      itemBuilder: (ctx, index) {
-                        final entry = entries[index];
-                        if (entry.isAd) {
-                          return _ChaputNativeAdPage(
-                            key: ValueKey('native-ad-page-$index'),
-                            slotId: index,
-                            isActive: isAdPageActive,
-                          );
-                        }
-                        final thread = entry.thread!;
-                        final isParticipant =
-                            thread.userAId == viewerId ||
-                            thread.userBId == viewerId;
-                        final otherId = thread.userAId == ownerId
-                            ? thread.userBId
-                            : thread.userBId == ownerId
-                            ? thread.userAId
-                            : (thread.userAId == viewerId
-                                  ? thread.userBId
-                                  : thread.userAId);
-                        final ownerUser = usersById[ownerId];
-                        final rawOtherUser =
-                            usersById[otherId] ??
-                            (viewerUser != null && otherId == viewerUser!.id
-                                ? viewerUser
-                                : null);
-                        final isHiddenForViewer =
-                            thread.isHidden && !isParticipant;
-                        final otherUser = isHiddenForViewer
-                            ? LiteUser(
-                                id: otherId,
-                                username: null,
-                                fullName: ctx.t('chat.anonymous_user'),
-                                bio: null,
-                                defaultAvatar:
-                                    rawOtherUser?.defaultAvatar ??
-                                    ownerUser?.defaultAvatar ??
-                                    '',
-                                profilePhotoKey: null,
-                                profilePhotoUrl: null,
-                              )
-                            : rawOtherUser;
-
-                        final child = _SheetPage(
-                          thread: thread,
-                          ownerUser: ownerUser,
-                          otherUser: otherUser,
-                          viewerUser: viewerUser,
-                          viewerId: viewerId,
-                          isParticipant: isParticipant,
-                          profileId: profileId,
-                          profileUsername: profileUsername,
-                          initialThreadId: initialThreadId,
-                          initialMessageId: initialMessageId,
-                          onOpenProfile: onOpenProfile,
-                          onSendMessage: onSendMessage,
-                          onMakeHidden: onMakeHidden,
-                          onArchiveThread: onArchiveThread,
-                          onReportThread: onReportThread,
-                          onReportMessage: onReportMessage,
-                          canMakeHidden: canMakeHidden,
-                          onOpenWhisperPaywall: onOpenWhisperPaywall,
-                          replyOverlay: replyOverlay,
-                          whisperCredits: whisperCredits,
-                          onReplyMessage: onReplyMessage,
-                          typingUsersByThread: typingUsersByThread,
-                          onReplyJumpStarted: onReplyJumpStarted,
-                          onInitialMessageRevealed: onInitialMessageRevealed,
-                        );
-
-                        return AnimatedBuilder(
-                          animation: pageController,
-                          builder: (ctx, _) {
-                            double page = pageController.initialPage.toDouble();
-                            if (pageController.hasClients) {
-                              page =
-                                  pageController.page ??
-                                  pageController.initialPage.toDouble();
-                            }
-                            final delta = (page - index).abs().clamp(0.0, 1.0);
-                            final scale = 1.0 - (delta * 0.08);
-                            final animatedChild = entry.isAd
-                                ? Opacity(
-                                    opacity: 1.0 - (delta * 0.25),
-                                    child: child,
-                                  )
-                                : child;
-                            return Transform.scale(
-                              scale: scale,
-                              alignment: Alignment.bottomCenter,
-                              child: animatedChild,
+          return wrapPullTutorial(
+            ctx,
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: isCollapsed ? onCollapsedTap : null,
+              child: LayoutBuilder(
+                builder: (ctx, constraints) {
+                  return SingleChildScrollView(
+                    controller: scrollCtrl,
+                    physics: const ClampingScrollPhysics(),
+                    child: SizedBox(
+                      height: constraints.maxHeight,
+                      child: PageView.builder(
+                        controller: pageController,
+                        onPageChanged: (index) {
+                          final entry = entries[index];
+                          onPageChanged(index, entry.thread);
+                        },
+                        itemCount: entries.length,
+                        itemBuilder: (ctx, index) {
+                          final entry = entries[index];
+                          if (entry.isAd) {
+                            return _ChaputNativeAdPage(
+                              key: ValueKey('native-ad-page-$index'),
+                              slotId: index,
+                              isActive: isAdPageActive,
                             );
-                          },
-                        );
-                      },
+                          }
+                          final thread = entry.thread!;
+                          final isParticipant =
+                              thread.userAId == viewerId ||
+                              thread.userBId == viewerId;
+                          final otherId = thread.userAId == ownerId
+                              ? thread.userBId
+                              : thread.userBId == ownerId
+                              ? thread.userAId
+                              : (thread.userAId == viewerId
+                                    ? thread.userBId
+                                    : thread.userAId);
+                          final ownerUser = usersById[ownerId];
+                          final rawOtherUser =
+                              usersById[otherId] ??
+                              (viewerUser != null && otherId == viewerUser!.id
+                                  ? viewerUser
+                                  : null);
+                          final isHiddenForViewer =
+                              thread.isHidden && !isParticipant;
+                          final otherUser = isHiddenForViewer
+                              ? LiteUser(
+                                  id: otherId,
+                                  username: null,
+                                  fullName: ctx.t('chat.anonymous_user'),
+                                  bio: null,
+                                  defaultAvatar:
+                                      rawOtherUser?.defaultAvatar ??
+                                      ownerUser?.defaultAvatar ??
+                                      '',
+                                  profilePhotoKey: null,
+                                  profilePhotoUrl: null,
+                                )
+                              : rawOtherUser;
+
+                          Widget child = _SheetPage(
+                            thread: thread,
+                            ownerUser: ownerUser,
+                            otherUser: otherUser,
+                            viewerUser: viewerUser,
+                            viewerId: viewerId,
+                            isParticipant: isParticipant,
+                            profileId: profileId,
+                            profileUsername: profileUsername,
+                            initialThreadId: initialThreadId,
+                            initialMessageId: initialMessageId,
+                            onOpenProfile: onOpenProfile,
+                            onSendMessage: onSendMessage,
+                            onMakeHidden: onMakeHidden,
+                            onArchiveThread: onArchiveThread,
+                            onReportThread: onReportThread,
+                            onReportMessage: onReportMessage,
+                            canMakeHidden: canMakeHidden,
+                            onOpenWhisperPaywall: onOpenWhisperPaywall,
+                            replyOverlay: replyOverlay,
+                            whisperCredits: whisperCredits,
+                            onReplyMessage: onReplyMessage,
+                            typingUsersByThread: typingUsersByThread,
+                            onReplyJumpStarted: onReplyJumpStarted,
+                            onInitialMessageRevealed: onInitialMessageRevealed,
+                          );
+
+                          if (swipeShowcaseKey != null &&
+                              activeThreadId == thread.threadId) {
+                            child = Showcase.withWidget(
+                              key: swipeShowcaseKey!,
+                              targetPadding: EdgeInsets.zero,
+                              targetBorderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(22),
+                              ),
+                              overlayColor: AppColors.chaputBlack,
+                              overlayOpacity: 0.68,
+                              tooltipPosition: TooltipPosition.top,
+                              toolTipMargin: 16,
+                              targetTooltipGap: 12,
+                              container: ChaputTutorialCard(
+                                title: ctx.t('showcase.chaput_swipe_title'),
+                                body: ctx.t('showcase.chaput_swipe_body'),
+                                onTap: onSwipeTutorialTap,
+                                preview: const _ChaputSwipePreview(),
+                              ),
+                              child: child,
+                            );
+                          }
+
+                          return AnimatedBuilder(
+                            animation: pageController,
+                            builder: (ctx, _) {
+                              double page = pageController.initialPage
+                                  .toDouble();
+                              if (pageController.hasClients) {
+                                page =
+                                    pageController.page ??
+                                    pageController.initialPage.toDouble();
+                              }
+                              final delta = (page - index).abs().clamp(
+                                0.0,
+                                1.0,
+                              );
+                              final scale = 1.0 - (delta * 0.08);
+                              final animatedChild = entry.isAd
+                                  ? Opacity(
+                                      opacity: 1.0 - (delta * 0.25),
+                                      child: child,
+                                    )
+                                  : child;
+                              return Transform.scale(
+                                scale: scale,
+                                alignment: Alignment.bottomCenter,
+                                child: animatedChild,
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           );
         },
+      ),
+    );
+    return sheet;
+  }
+}
+
+class ChaputTutorialCard extends StatelessWidget {
+  const ChaputTutorialCard({
+    super.key,
+    required this.title,
+    required this.body,
+    this.onTap,
+    this.preview,
+  });
+
+  final String title;
+  final String body;
+  final VoidCallback? onTap;
+  final Widget? preview;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      minimum: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Material(
+          color: AppColors.chaputTransparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Ink(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.chaputBlack.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.chaputBlack.withValues(alpha: 0.28),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (preview != null) ...[
+                    preview!,
+                    const SizedBox(height: 10),
+                  ],
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.chaputWhite,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    body,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.3,
+                      color: AppColors.chaputWhite.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChaputSwipePreview extends StatefulWidget {
+  const _ChaputSwipePreview();
+
+  @override
+  State<_ChaputSwipePreview> createState() => _ChaputSwipePreviewState();
+}
+
+class _ChaputSwipePreviewState extends State<_ChaputSwipePreview>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1450),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 68,
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.chaputWhite.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.chaputWhite.withValues(alpha: 0.08),
+          ),
+        ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final t = Curves.easeInOutCubic.transform(_controller.value);
+            final opacity = switch (_controller.value) {
+              < 0.12 => _controller.value / 0.12,
+              > 0.88 => (1 - _controller.value) / 0.12,
+              _ => 1.0,
+            };
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  height: 1.5,
+                  margin: const EdgeInsets.symmetric(horizontal: 34),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.12),
+                ),
+                Align(
+                  alignment: Alignment.lerp(
+                    const Alignment(0.82, 0),
+                    const Alignment(-0.82, 0),
+                    t,
+                  )!,
+                  child: Opacity(
+                    opacity: opacity.clamp(0.0, 1.0),
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.chaputWhite,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.chaputWhite.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

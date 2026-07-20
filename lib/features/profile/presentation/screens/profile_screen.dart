@@ -79,6 +79,24 @@ class ProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
+enum _ProfileTutorialStep {
+  menuOpen,
+  settings,
+  menuClose,
+  chaputPull,
+  chaputSwipe,
+}
+
+extension on _ProfileTutorialStep {
+  String get storageKey => switch (this) {
+    _ProfileTutorialStep.menuOpen => 'profile_menu_open',
+    _ProfileTutorialStep.settings => 'profile_settings',
+    _ProfileTutorialStep.menuClose => 'profile_menu_close',
+    _ProfileTutorialStep.chaputPull => 'chaput_sheet_pull',
+    _ProfileTutorialStep.chaputSwipe => 'chaput_thread_swipe',
+  };
+}
+
 class _ProfileScreenState extends ConsumerState<ProfileScreen>
     with SingleTickerProviderStateMixin, RouteAware, WidgetsBindingObserver {
   OverlayEntry? _toastEntry;
@@ -119,9 +137,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   final GlobalKey _profileCloseShowcaseKey = GlobalKey();
   final GlobalKey _chaputSheetShowcaseKey = GlobalKey();
   final GlobalKey _chaputThreadSwipeShowcaseKey = GlobalKey();
-  bool _profileShowcaseScheduled = false;
-  bool _settingsShowcaseScheduled = false;
-  bool _chaputShowcaseScheduled = false;
+  _ProfileTutorialStep? _activeProfileTutorial;
+  bool _profileTutorialCheckQueued = false;
+  bool _profileTutorialCheckInFlight = false;
+  int _profileTutorialGeneration = 0;
+  String _profileTutorialViewerId = '';
+  String _profileTutorialProfileId = '';
+  bool _profileTutorialProfileReady = false;
+  bool _profileTutorialIsMe = false;
+  bool _profileTutorialChaputAllowed = false;
+  bool _profileTutorialThreadSheetVisible = false;
+  int _profileTutorialThreadCount = 0;
+  String? _profileTutorialActiveThreadId;
+  final Set<_ProfileTutorialStep> _completedProfileTutorials = {};
   bool _profileActionsSheetOpen = false;
   DateTime? _suppressChaputSwipeSoundUntil;
 
@@ -437,6 +465,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
+    _profileCardCtrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed ||
+          status == AnimationStatus.dismissed) {
+        _queueProfileTutorialCheck();
+      }
+    });
     _msgFocus.addListener(() {
       if (!_msgFocus.hasFocus) {
         _onComposerUnfocus();
@@ -1056,166 +1090,191 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
-  Future<void> _scheduleProfileShowcase(
-    BuildContext context,
-    String viewerId,
-  ) async {
-    final storage = ref.read(tutorialStorageProvider);
-    final shouldShow = await storage.shouldShow(viewerId, 'profile_follow');
-    if (!shouldShow || !mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Future.delayed(const Duration(milliseconds: 120), () {
-        if (!mounted) return;
-        ShowCaseWidget.of(context).startShowCase([_profileMenuShowcaseKey]);
-        storage.markShown(viewerId, 'profile_follow');
-      });
-    });
-  }
-
-  Future<void> _scheduleSettingsShowcase(
-    BuildContext context,
-    String viewerId,
-  ) async {
-    final storage = ref.read(tutorialStorageProvider);
-    final shouldShowSettings = await storage.shouldShow(
-      viewerId,
-      'profile_settings',
-    );
-    final shouldShowClose = await storage.shouldShow(viewerId, 'profile_close');
-    if ((!shouldShowSettings && !shouldShowClose) || !mounted) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Future.delayed(const Duration(milliseconds: 120), () {
-        if (!mounted) return;
-        final keys = <GlobalKey>[];
-        if (shouldShowSettings) keys.add(_settingsShowcaseKey);
-        if (shouldShowClose) keys.add(_profileCloseShowcaseKey);
-        if (keys.isEmpty) return;
-        ShowCaseWidget.of(context).startShowCase(keys);
-        if (shouldShowSettings) {
-          unawaited(storage.markShown(viewerId, 'profile_settings'));
-        }
-        if (shouldShowClose) {
-          unawaited(storage.markShown(viewerId, 'profile_close'));
-        }
-      });
-    });
-  }
-
-  Future<void> _scheduleChaputShowcase(
-    BuildContext context,
-    String viewerId, {
-    required bool hasMultipleThreads,
-  }) async {
-    final storage = ref.read(tutorialStorageProvider);
-    final shouldShowSheet = await storage.shouldShow(viewerId, 'chaput_sheet');
-    final shouldShowSwipe =
-        hasMultipleThreads &&
-        await storage.shouldShow(viewerId, 'chaput_thread_swipe');
-    if ((!shouldShowSheet && !shouldShowSwipe) || !mounted) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Future.delayed(const Duration(milliseconds: 160), () {
-        if (!mounted) return;
-        final keys = <GlobalKey>[];
-        if (shouldShowSheet) keys.add(_chaputSheetShowcaseKey);
-        if (shouldShowSwipe) keys.add(_chaputThreadSwipeShowcaseKey);
-        if (keys.isEmpty) return;
-        ShowCaseWidget.of(context).startShowCase(keys);
-        if (shouldShowSheet) {
-          unawaited(storage.markShown(viewerId, 'chaput_sheet'));
-        }
-        if (shouldShowSwipe) {
-          unawaited(storage.markShown(viewerId, 'chaput_thread_swipe'));
-        }
-      });
-    });
-  }
-
-  Widget _buildShowcaseCard(BuildContext context, String title, String body) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 260),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.chaputBlack.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.chaputBlack.withOpacity(0.25),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: AppColors.chaputWhite,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              body,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.3,
-                color: AppColors.chaputWhite.withOpacity(0.9),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChaputThreadShowcaseWrapper(
-    BuildContext context, {
-    required bool hasMultipleThreads,
-    required Widget child,
+  void _syncProfileTutorialState({
+    required String viewerId,
+    required String profileId,
+    required bool profileReady,
+    required bool isMe,
+    required bool chaputAllowed,
+    required bool threadSheetVisible,
+    required int threadCount,
+    required String? activeThreadId,
   }) {
-    final sheetTarget = Showcase.withWidget(
-      key: _chaputSheetShowcaseKey,
-      targetShapeBorder: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
-      tooltipPosition: TooltipPosition.top,
-      toolTipMargin: 12,
-      targetTooltipGap: 14,
-      container: _buildShowcaseCard(
-        context,
-        context.t('showcase.chaput_sheet_title'),
-        context.t('showcase.chaput_sheet_body'),
-      ),
-      child: child,
-    );
+    final viewerChanged = viewerId != _profileTutorialViewerId;
+    if (viewerChanged) {
+      _profileTutorialGeneration += 1;
+      _profileTutorialCheckInFlight = false;
+      _activeProfileTutorial = null;
+      _completedProfileTutorials.clear();
+    }
 
-    if (!hasMultipleThreads) return sheetTarget;
+    final changed =
+        viewerChanged ||
+        profileId != _profileTutorialProfileId ||
+        profileReady != _profileTutorialProfileReady ||
+        isMe != _profileTutorialIsMe ||
+        chaputAllowed != _profileTutorialChaputAllowed ||
+        threadSheetVisible != _profileTutorialThreadSheetVisible ||
+        threadCount != _profileTutorialThreadCount ||
+        activeThreadId != _profileTutorialActiveThreadId;
 
-    return Showcase.withWidget(
-      key: _chaputThreadSwipeShowcaseKey,
-      targetShapeBorder: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
-      tooltipPosition: TooltipPosition.top,
-      toolTipMargin: 12,
-      targetTooltipGap: 14,
-      container: _buildShowcaseCard(
-        context,
-        context.t('showcase.chaput_swipe_title'),
-        context.t('showcase.chaput_swipe_body'),
-      ),
-      child: sheetTarget,
-    );
+    _profileTutorialViewerId = viewerId;
+    _profileTutorialProfileId = profileId;
+    _profileTutorialProfileReady = profileReady;
+    _profileTutorialIsMe = isMe;
+    _profileTutorialChaputAllowed = chaputAllowed;
+    _profileTutorialThreadSheetVisible = threadSheetVisible;
+    _profileTutorialThreadCount = threadCount;
+    _profileTutorialActiveThreadId = activeThreadId;
+
+    if (changed) _queueProfileTutorialCheck();
+  }
+
+  void _queueProfileTutorialCheck() {
+    if (_profileTutorialCheckQueued || !mounted) return;
+    _profileTutorialCheckQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _profileTutorialCheckQueued = false;
+      if (!mounted) return;
+      unawaited(_tryStartNextProfileTutorial());
+    });
+  }
+
+  Future<void> _tryStartNextProfileTutorial() async {
+    if (_profileTutorialCheckInFlight ||
+        _activeProfileTutorial != null ||
+        !_profileTutorialProfileReady ||
+        _profileTutorialViewerId.isEmpty ||
+        _isProfileShowcaseRunning()) {
+      return;
+    }
+
+    _profileTutorialCheckInFlight = true;
+    final expectedGeneration = _profileTutorialGeneration;
+    final expectedViewerId = _profileTutorialViewerId;
+    final expectedProfileId = _profileTutorialProfileId;
+    final storage = ref.read(tutorialStorageProvider);
+
+    try {
+      for (final step in _ProfileTutorialStep.values) {
+        if (!_canShowProfileTutorial(step) ||
+            _completedProfileTutorials.contains(step)) {
+          continue;
+        }
+
+        final shouldShow = await storage.shouldShow(
+          expectedViewerId,
+          step.storageKey,
+        );
+        if (!mounted ||
+            expectedGeneration != _profileTutorialGeneration ||
+            expectedViewerId != _profileTutorialViewerId ||
+            expectedProfileId != _profileTutorialProfileId ||
+            _activeProfileTutorial != null ||
+            _isProfileShowcaseRunning()) {
+          return;
+        }
+        if (!shouldShow) continue;
+
+        // The UI may have changed while storage was being read. Re-check the
+        // live condition before showing a target that may no longer exist.
+        if (!_canShowProfileTutorial(step)) {
+          _queueProfileTutorialCheck();
+          return;
+        }
+
+        _activeProfileTutorial = step;
+        try {
+          ShowcaseView.get().startShowCase([_profileTutorialKey(step)]);
+        } catch (_) {
+          _activeProfileTutorial = null;
+          _queueProfileTutorialCheck();
+        }
+        return;
+      }
+    } finally {
+      if (expectedGeneration == _profileTutorialGeneration) {
+        _profileTutorialCheckInFlight = false;
+      }
+    }
+  }
+
+  bool _canShowProfileTutorial(_ProfileTutorialStep step) {
+    if (!_profileTutorialProfileReady) return false;
+
+    return switch (step) {
+      _ProfileTutorialStep.menuOpen => !_profileCardOpen,
+      _ProfileTutorialStep.settings =>
+        _profileCardOpen &&
+            _profileCardCtrl.status == AnimationStatus.completed &&
+            _profileTutorialIsMe,
+      _ProfileTutorialStep.menuClose =>
+        _profileCardOpen &&
+            _profileCardCtrl.status == AnimationStatus.completed,
+      _ProfileTutorialStep.chaputPull =>
+        !_profileCardOpen &&
+            _profileTutorialChaputAllowed &&
+            _profileTutorialThreadSheetVisible &&
+            _profileTutorialThreadCount >= 1,
+      _ProfileTutorialStep.chaputSwipe =>
+        !_profileCardOpen &&
+            _profileTutorialChaputAllowed &&
+            _profileTutorialThreadSheetVisible &&
+            _profileTutorialThreadCount >= 2 &&
+            (_profileTutorialActiveThreadId?.isNotEmpty ?? false),
+    };
+  }
+
+  GlobalKey _profileTutorialKey(_ProfileTutorialStep step) => switch (step) {
+    _ProfileTutorialStep.menuOpen => _profileMenuShowcaseKey,
+    _ProfileTutorialStep.settings => _settingsShowcaseKey,
+    _ProfileTutorialStep.menuClose => _profileCloseShowcaseKey,
+    _ProfileTutorialStep.chaputPull => _chaputSheetShowcaseKey,
+    _ProfileTutorialStep.chaputSwipe => _chaputThreadSwipeShowcaseKey,
+  };
+
+  _ProfileTutorialStep? _profileTutorialStepForKey(GlobalKey key) {
+    for (final step in _ProfileTutorialStep.values) {
+      if (_profileTutorialKey(step) == key) return step;
+    }
+    return null;
+  }
+
+  bool _isProfileShowcaseRunning() {
+    try {
+      return ShowcaseView.get().isShowcaseRunning;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _completeProfileTutorialFromCard(_ProfileTutorialStep step) {
+    if (_activeProfileTutorial != step) return;
+    try {
+      ShowcaseView.get().completed(_profileTutorialKey(step));
+    } catch (_) {}
+  }
+
+  void _handleProfileShowcaseComplete(int? _, GlobalKey key) {
+    final step = _profileTutorialStepForKey(key);
+    if (step == null || step != _activeProfileTutorial) return;
+
+    final viewerId = _profileTutorialViewerId;
+    _activeProfileTutorial = null;
+    _completedProfileTutorials.add(step);
+    if (viewerId.isNotEmpty) {
+      unawaited(
+        ref.read(tutorialStorageProvider).markShown(viewerId, step.storageKey),
+      );
+    }
+    _queueProfileTutorialCheck();
+  }
+
+  void _handleProfileShowcaseDismiss(GlobalKey? key) {
+    if (key == null ||
+        _profileTutorialStepForKey(key) == _activeProfileTutorial) {
+      _activeProfileTutorial = null;
+    }
   }
 
   bool _isCurrentThreeRequest(three.ThreeJS threeJsRef, int epoch) {
@@ -4121,8 +4180,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
 
     return ShowCaseWidget(
-      builder: (showcaseContext) {
-        final profileReadyForShowcase = userId.isNotEmpty && !st.isLoading;
+      onComplete: _handleProfileShowcaseComplete,
+      onDismiss: _handleProfileShowcaseDismiss,
+      builder: (_) {
         final mediaQuery = MediaQuery.of(context);
         final chaputSheetOuterOffset = context.responsive
             .bottomSheetOuterOffset();
@@ -4134,28 +4194,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   : mediaQuery.viewPadding.bottom)
             : 0.0;
 
-        if (viewerId.isNotEmpty && profileReadyForShowcase) {
-          if (!_profileShowcaseScheduled) {
-            _profileShowcaseScheduled = true;
-            _scheduleProfileShowcase(showcaseContext, viewerId);
-          }
-          if (isMe && _profileCardOpen && !_settingsShowcaseScheduled) {
-            _settingsShowcaseScheduled = true;
-            _scheduleSettingsShowcase(showcaseContext, viewerId);
-          }
-
-          if (chaputThreads.isNotEmpty &&
-              !showProfileComposer &&
-              !_silhouetteMode &&
-              !_chaputShowcaseScheduled) {
-            _chaputShowcaseScheduled = true;
-            _scheduleChaputShowcase(
-              showcaseContext,
-              viewerId,
-              hasMultipleThreads: chaputThreads.length > 1,
-            );
-          }
-        }
+        final threadSheetVisible =
+            chaputThreads.isNotEmpty &&
+            !showProfileComposer &&
+            !_silhouetteMode &&
+            !_isInteracting;
+        _syncProfileTutorialState(
+          viewerId: viewerId,
+          profileId: userId,
+          profileReady:
+              viewerId.isNotEmpty && userId.isNotEmpty && !showPageLoading,
+          isMe: isMe,
+          chaputAllowed: chaputAllowed,
+          threadSheetVisible: threadSheetVisible,
+          threadCount: chaputThreads.length,
+          activeThreadId: activeThread?.threadId,
+        );
 
         final Widget? threadSheetChild =
             chaputThreads.isNotEmpty && !showProfileComposer && !_silhouetteMode
@@ -4394,6 +4448,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       onReplyMessage: _handleReplyRequested,
                       onReplyJumpStarted: _suppressNextChaputSwipeSound,
                       onInitialMessageRevealed: _handleInitialMessageRevealed,
+                      sheetShowcaseKey: _chaputSheetShowcaseKey,
+                      swipeShowcaseKey: _chaputThreadSwipeShowcaseKey,
+                      activeThreadId: activeThread?.threadId,
+                      onSheetTutorialTap: () {
+                        _completeProfileTutorialFromCard(
+                          _ProfileTutorialStep.chaputPull,
+                        );
+                      },
+                      onSwipeTutorialTap: () {
+                        _completeProfileTutorialFromCard(
+                          _ProfileTutorialStep.chaputSwipe,
+                        );
+                      },
                     );
                   },
                 ),
@@ -4562,12 +4629,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 targetPadding: const EdgeInsets.all(6),
                                 targetShapeBorder: const CircleBorder(),
                                 tooltipPosition: TooltipPosition.bottom,
-                                toolTipMargin: 8,
-                                targetTooltipGap: 8,
-                                container: _buildShowcaseCard(
-                                  context,
-                                  context.t('showcase.profile_follow_title'),
-                                  context.t('showcase.profile_follow_body'),
+                                toolTipMargin: 16,
+                                targetTooltipGap: 12,
+                                container: ChaputTutorialCard(
+                                  title: context.t(
+                                    'showcase.profile_menu_open_title',
+                                  ),
+                                  body: context.t(
+                                    'showcase.profile_menu_open_body',
+                                  ),
+                                  onTap: () {
+                                    _completeProfileTutorialFromCard(
+                                      _ProfileTutorialStep.menuOpen,
+                                    );
+                                  },
                                 ),
                                 child: Material(
                                   color: AppColors.chaputWhite.withOpacity(
@@ -4675,33 +4750,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            InkWell(
-                                              onTap: _toggleProfileCard,
-                                              customBorder:
+                                            Showcase.withWidget(
+                                              key: _profileCloseShowcaseKey,
+                                              targetPadding:
+                                                  const EdgeInsets.all(6),
+                                              targetShapeBorder:
                                                   const CircleBorder(),
-                                              child: SizedBox(
-                                                width: 44,
-                                                height: 44,
-                                                child: ClipOval(
-                                                  child: (defaultAvatar != null)
-                                                      ? ChaputCircleAvatar(
-                                                          isDefaultAvatar:
-                                                              profilePhotoKey ==
-                                                                  null ||
-                                                              profilePhotoKey ==
-                                                                  "",
-                                                          imageUrl:
-                                                              profilePhotoUrl !=
-                                                                      null &&
-                                                                  profilePhotoUrl !=
-                                                                      ""
-                                                              ? profilePhotoUrl
-                                                              : defaultAvatar,
-                                                        )
-                                                      : const ColoredBox(
-                                                          color: AppColors
-                                                              .chaputTransparent,
-                                                        ),
+                                              tooltipPosition:
+                                                  TooltipPosition.bottom,
+                                              toolTipMargin: 16,
+                                              targetTooltipGap: 12,
+                                              container: ChaputTutorialCard(
+                                                title: context.t(
+                                                  'showcase.profile_menu_close_title',
+                                                ),
+                                                body: context.t(
+                                                  'showcase.profile_menu_close_body',
+                                                ),
+                                                onTap: () {
+                                                  _completeProfileTutorialFromCard(
+                                                    _ProfileTutorialStep
+                                                        .menuClose,
+                                                  );
+                                                },
+                                              ),
+                                              child: InkWell(
+                                                onTap: _toggleProfileCard,
+                                                customBorder:
+                                                    const CircleBorder(),
+                                                child: SizedBox(
+                                                  width: 44,
+                                                  height: 44,
+                                                  child: ClipOval(
+                                                    child:
+                                                        (defaultAvatar != null)
+                                                        ? ChaputCircleAvatar(
+                                                            isDefaultAvatar:
+                                                                profilePhotoKey ==
+                                                                    null ||
+                                                                profilePhotoKey ==
+                                                                    "",
+                                                            imageUrl:
+                                                                profilePhotoUrl !=
+                                                                        null &&
+                                                                    profilePhotoUrl !=
+                                                                        ""
+                                                                ? profilePhotoUrl
+                                                                : defaultAvatar,
+                                                          )
+                                                        : const ColoredBox(
+                                                            color: AppColors
+                                                                .chaputTransparent,
+                                                          ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
@@ -4873,16 +4974,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                           tooltipPosition:
                                                               TooltipPosition
                                                                   .top,
-                                                          toolTipMargin: 8,
-                                                          targetTooltipGap: 8,
-                                                          container: _buildShowcaseCard(
-                                                            context,
-                                                            context.t(
+                                                          toolTipMargin: 16,
+                                                          targetTooltipGap: 12,
+                                                          container: ChaputTutorialCard(
+                                                            title: context.t(
                                                               'showcase.profile_settings_title',
                                                             ),
-                                                            context.t(
+                                                            body: context.t(
                                                               'showcase.profile_settings_body',
                                                             ),
+                                                            onTap: () {
+                                                              _completeProfileTutorialFromCard(
+                                                                _ProfileTutorialStep
+                                                                    .settings,
+                                                              );
+                                                            },
                                                           ),
                                                           child: TextButton(
                                                             onPressed: () {
@@ -5213,12 +5319,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                   duration: const Duration(milliseconds: 100),
                                   curve: Curves.easeOut,
                                   opacity: _isInteracting ? 0 : 1,
-                                  child: _buildChaputThreadShowcaseWrapper(
-                                    showcaseContext,
-                                    hasMultipleThreads:
-                                        chaputThreads.length > 1,
-                                    child: threadSheetChild,
-                                  ),
+                                  child: threadSheetChild,
                                 ),
                               ),
                             ),

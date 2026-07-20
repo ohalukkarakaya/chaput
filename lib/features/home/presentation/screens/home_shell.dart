@@ -48,63 +48,151 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<ChaputSocketEvent>? _socketSub;
   final GlobalKey _recoShowcaseKey = GlobalKey();
-  bool _homeShowcaseScheduled = false;
+  String _homeTutorialUserId = '';
+  bool _homeTutorialCheckQueued = false;
+  bool _homeTutorialCheckInFlight = false;
+  bool _homeRecommendationTutorialActive = false;
+  bool _homeRecommendationDataSettled = false;
+  bool _homeRecommendationTargetReady = false;
+  bool _homeRecommendationCompletedInMemory = false;
+  bool _homeFeedbackTutorialActive = false;
+  bool _homeFeedbackCompletedInMemory = false;
   bool _notificationsBooted = false;
   bool _notificationsBootScheduled = false;
   bool _pendingDeepLinkOpenScheduled = false;
   bool _reviewPromptScheduled = false;
   bool _reviewPromptCheckInFlight = false;
 
-  Future<void> _scheduleHomeShowcase(
-    BuildContext context,
-    String userId,
-  ) async {
-    final storage = ref.read(tutorialStorageProvider);
+  void _syncHomeTutorialState({
+    required String userId,
+    required bool recommendationDataSettled,
+  }) {
+    final userChanged = userId != _homeTutorialUserId;
+    if (userChanged) {
+      _homeTutorialUserId = userId;
+      _homeTutorialCheckInFlight = false;
+      _homeRecommendationTutorialActive = false;
+      _homeRecommendationTargetReady = false;
+      _homeRecommendationCompletedInMemory = false;
+      _homeFeedbackTutorialActive = false;
+      _homeFeedbackCompletedInMemory = false;
+    }
 
-    final showRecommended = await storage.shouldShow(
-      userId,
-      'home_recommended',
-    );
+    final stateChanged =
+        userChanged ||
+        recommendationDataSettled != _homeRecommendationDataSettled;
+    _homeRecommendationDataSettled = recommendationDataSettled;
 
-    final showFeedback = await storage.shouldShow(
-      userId,
-      'home_feedback_gesture',
-    );
+    if (stateChanged) _queueHomeTutorialCheck();
+  }
 
-    if ((!showRecommended && !showFeedback) || !mounted) return;
+  void _setHomeRecommendationTargetReady({
+    required String userId,
+    required bool isReady,
+  }) {
+    if (!mounted ||
+        userId != _homeTutorialUserId ||
+        isReady == _homeRecommendationTargetReady) {
+      return;
+    }
 
+    _homeRecommendationTargetReady = isReady;
+    _queueHomeTutorialCheck();
+  }
+
+  void _queueHomeTutorialCheck() {
+    if (_homeTutorialCheckQueued || !mounted) return;
+    _homeTutorialCheckQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _homeTutorialCheckQueued = false;
       if (!mounted) return;
-
-      if (showRecommended) {
-        ShowCaseWidget.of(context).startShowCase([_recoShowcaseKey]);
-        unawaited(storage.markShown(userId, 'home_recommended'));
-        return;
-      }
-
-      if (showFeedback) {
-        unawaited(_maybeShowFeedbackTutorial(userId));
-      }
+      unawaited(_tryStartNextHomeTutorial());
     });
   }
 
-  Future<void> _maybeShowFeedbackTutorial(String userId) async {
-    if (!mounted) return;
+  Future<void> _tryStartNextHomeTutorial() async {
+    if (_homeTutorialCheckInFlight ||
+        _homeRecommendationTutorialActive ||
+        _homeFeedbackTutorialActive ||
+        _homeTutorialUserId.isEmpty ||
+        _isHomeShowcaseRunning()) {
+      return;
+    }
 
+    _homeTutorialCheckInFlight = true;
+    final expectedUserId = _homeTutorialUserId;
     final storage = ref.read(tutorialStorageProvider);
 
-    final showFeedback = await storage.shouldShow(
-      userId,
-      'home_feedback_gesture',
-    );
+    try {
+      final showRecommended =
+          !_homeRecommendationCompletedInMemory &&
+          await storage.shouldShow(expectedUserId, 'home_recommended');
+      if (!_isCurrentHomeTutorialUser(expectedUserId)) return;
 
-    if (!showFeedback || !mounted) return;
+      if (showRecommended) {
+        if (!_homeRecommendationDataSettled) return;
 
-    await _showFeedbackGestureTutorial();
+        if (_homeRecommendationTargetReady) {
+          _homeRecommendationTutorialActive = true;
+          try {
+            ShowcaseView.get().startShowCase([_recoShowcaseKey]);
+          } catch (_) {
+            _homeRecommendationTutorialActive = false;
+            _queueHomeTutorialCheck();
+            return;
+          }
+          _homeRecommendationCompletedInMemory = true;
+          await storage.markShown(expectedUserId, 'home_recommended');
+          return;
+        }
 
-    if (!mounted) return;
+        // The recommendation request completed without a card to target.
+        // Record this unavailable step and immediately continue in priority.
+        _homeRecommendationCompletedInMemory = true;
+        await storage.markShown(expectedUserId, 'home_recommended');
+        if (!_isCurrentHomeTutorialUser(expectedUserId)) return;
+      }
 
-    await storage.markShown(userId, 'home_feedback_gesture');
+      final showFeedback =
+          !_homeFeedbackCompletedInMemory &&
+          await storage.shouldShow(expectedUserId, 'home_feedback_gesture');
+      if (!showFeedback || !_isCurrentHomeTutorialUser(expectedUserId)) return;
+
+      _homeFeedbackTutorialActive = true;
+      await _showFeedbackGestureTutorial();
+      if (!_isCurrentHomeTutorialUser(expectedUserId)) return;
+
+      _homeFeedbackCompletedInMemory = true;
+      await storage.markShown(expectedUserId, 'home_feedback_gesture');
+    } finally {
+      if (_homeTutorialUserId == expectedUserId) {
+        _homeTutorialCheckInFlight = false;
+        _homeFeedbackTutorialActive = false;
+      }
+    }
+  }
+
+  bool _isCurrentHomeTutorialUser(String userId) {
+    return mounted && userId == _homeTutorialUserId;
+  }
+
+  bool _isHomeShowcaseRunning() {
+    try {
+      return ShowcaseView.get().isShowcaseRunning;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _handleHomeShowcaseFinished() {
+    _homeRecommendationTutorialActive = false;
+    _queueHomeTutorialCheck();
+  }
+
+  void _handleHomeShowcaseDismissed(GlobalKey? dismissedAt) {
+    if (dismissedAt == null || dismissedAt == _recoShowcaseKey) {
+      _homeRecommendationTutorialActive = false;
+    }
   }
 
   Future<void> _showFeedbackGestureTutorial() async {
@@ -127,7 +215,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: GestureDetector(
-                    onTap: () {},
+                    onTap: () => Navigator.of(context).maybePop(),
                     child: Container(
                       width: 292,
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -365,17 +453,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return ShowCaseWidget(
-      onFinish: () {
-        if (!mounted) return;
-
-        final userId =
-            ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
-
-        if (userId.isEmpty) return;
-
-        unawaited(_maybeShowFeedbackTutorial(userId));
-      },
-      builder: (showcaseContext) {
+      onFinish: _handleHomeShowcaseFinished,
+      onDismiss: _handleHomeShowcaseDismissed,
+      builder: (_) {
         final meState = ref.watch(meControllerProvider);
         final me = meState.valueOrNull;
         if (me == null) {
@@ -388,13 +468,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           );
         }
         final meId = me.user.userId;
+        final recommendationState = ref.watch(
+          recommendedUserControllerProvider,
+        );
+        _syncHomeTutorialState(
+          userId: meId,
+          recommendationDataSettled:
+              recommendationState.hasValue || recommendationState.hasError,
+        );
         _scheduleNotificationsBoot();
         if (ref.watch(pendingDeepLinkProvider) != null) {
           _schedulePendingDeepLinkOpen();
-        }
-        if (!_homeShowcaseScheduled && meId.isNotEmpty) {
-          _homeShowcaseScheduled = true;
-          _scheduleHomeShowcase(showcaseContext, meId);
         }
         if (!_reviewPromptScheduled &&
             !_reviewPromptCheckInFlight &&
@@ -685,6 +769,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                 const SizedBox(height: 14),
                                 _RecommendedUsersRail(
                                   showcaseKey: _recoShowcaseKey,
+                                  viewerId: meId,
+                                  onTargetReadyChanged: (isReady) {
+                                    _setHomeRecommendationTargetReady(
+                                      userId: meId,
+                                      isReady: isReady,
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -746,9 +837,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 }
 
 class _RecommendedUsersRail extends ConsumerStatefulWidget {
-  const _RecommendedUsersRail({required this.showcaseKey});
+  const _RecommendedUsersRail({
+    required this.showcaseKey,
+    required this.viewerId,
+    required this.onTargetReadyChanged,
+  });
 
   final GlobalKey showcaseKey;
+  final String viewerId;
+  final ValueChanged<bool> onTargetReadyChanged;
 
   @override
   ConsumerState<_RecommendedUsersRail> createState() =>
@@ -757,6 +854,33 @@ class _RecommendedUsersRail extends ConsumerStatefulWidget {
 
 class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
   final Set<String> _dismissedIds = <String>{};
+  bool? _reportedTargetReady;
+  int _targetReadyReportEpoch = 0;
+
+  @override
+  void didUpdateWidget(covariant _RecommendedUsersRail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.viewerId == widget.viewerId) return;
+    _dismissedIds.clear();
+    _reportedTargetReady = null;
+    _targetReadyReportEpoch += 1;
+  }
+
+  void _reportTargetReady(bool isReady) {
+    if (_reportedTargetReady == isReady) return;
+    _reportedTargetReady = isReady;
+    final epoch = ++_targetReadyReportEpoch;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || epoch != _targetReadyReportEpoch) return;
+      widget.onTargetReadyChanged(isReady);
+    });
+  }
+
+  @override
+  void dispose() {
+    _targetReadyReportEpoch += 1;
+    super.dispose();
+  }
 
   void _refreshRecommended() {
     HapticFeedback.selectionClick();
@@ -887,19 +1011,26 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
     final cardWidth = screenWidth < 390 ? screenWidth - 96 : 250.0;
 
     return recAsync.when(
-      loading: () => const _RecommendedUsersRailShimmer(),
-      error: (e, _) => _RecommendedUsersEmptyCard(
-        icon: Icons.error_outline_rounded,
-        message: context.t('home.reco_failed'),
-        actionLabel: context.t('common.retry'),
-        onActionTap: _refreshRecommended,
-      ),
+      loading: () {
+        _reportTargetReady(false);
+        return const _RecommendedUsersRailShimmer();
+      },
+      error: (e, _) {
+        _reportTargetReady(false);
+        return _RecommendedUsersEmptyCard(
+          icon: Icons.error_outline_rounded,
+          message: context.t('home.reco_failed'),
+          actionLabel: context.t('common.retry'),
+          onActionTap: _refreshRecommended,
+        );
+      },
       data: (items) {
         final visibleItems = items
             .where((u) => !_dismissedIds.contains(u.id))
             .toList(growable: false);
 
         if (visibleItems.isEmpty) {
+          _reportTargetReady(false);
           return _RecommendedUsersEmptyCard(
             icon: Icons.people_outline_rounded,
             message: context.t('home.reco_empty'),
@@ -910,6 +1041,8 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
             },
           );
         }
+
+        _reportTargetReady(true);
 
         return SizedBox(
           height: 154,
@@ -1115,39 +1248,47 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
                   tooltipPosition: TooltipPosition.bottom,
                   toolTipMargin: 8,
                   targetTooltipGap: 8,
-                  container: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 320),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.chaputBlack.withOpacity(0.92),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.t('showcase.home_reco_title'),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.chaputWhite,
+                  container: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      try {
+                        ShowcaseView.get().completed(widget.showcaseKey);
+                      } catch (_) {}
+                    },
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.chaputBlack.withOpacity(0.92),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.t('showcase.home_reco_title'),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.chaputWhite,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            context.t('showcase.home_reco_body'),
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              height: 1.3,
-                              color: AppColors.chaputWhite.withOpacity(0.9),
+                            const SizedBox(height: 4),
+                            Text(
+                              context.t('showcase.home_reco_body'),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                height: 1.3,
+                                color: AppColors.chaputWhite.withOpacity(0.9),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
