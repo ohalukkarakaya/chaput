@@ -964,6 +964,8 @@ class _ThreadPage extends ConsumerWidget {
                         .loadUntilMessage(messageId),
                     onReplyJumpStarted: onReplyJumpStarted,
                     onInitialMessageRevealed: onInitialMessageRevealed,
+                    onActionSheetVisibilityChanged:
+                        onActionSheetVisibilityChanged,
                   ),
                 ),
               if (pendingWidget != null)
@@ -1252,7 +1254,7 @@ Future<void> _showThreadActions(
   );
 }
 
-void _showMessageActions(
+Future<void> _showMessageActions(
   BuildContext context, {
   required ChaputMessage message,
   required bool canReply,
@@ -1262,7 +1264,7 @@ void _showMessageActions(
   required VoidCallback onShowLikes,
   required VoidCallback onReport,
 }) {
-  showModalBottomSheet<void>(
+  return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
     builder: (_) => _MessageActionSheet(
@@ -1661,6 +1663,7 @@ class _MessagesList extends StatefulWidget {
     required this.onLoadUntilMessage,
     this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
+    this.onActionSheetVisibilityChanged,
   });
 
   final ChaputMessagesState state;
@@ -1680,6 +1683,7 @@ class _MessagesList extends StatefulWidget {
   final Future<bool> Function(String messageId) onLoadUntilMessage;
   final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
+  final ValueChanged<bool>? onActionSheetVisibilityChanged;
 
   @override
   State<_MessagesList> createState() => _MessagesListState();
@@ -1895,24 +1899,34 @@ class _MessagesListState extends State<_MessagesList> {
     );
   }
 
-  void _openLikesFocus(ChaputMessage message, bool isMine, bool isParticipant) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: context.t('chat.likes_label'),
-      barrierColor: AppColors.chaputBlack.withOpacity(0.35),
-      transitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (ctx, a1, a2) {
-        return _MessageLikesDialog(
-          message: message,
-          isMine: isMine,
-          isParticipant: isParticipant,
-        );
-      },
-      transitionBuilder: (ctx, anim, sec, child) {
-        return Opacity(opacity: anim.value, child: child);
-      },
-    );
+  Future<void> _openLikesFocus(
+    ChaputMessage message,
+    bool isMine,
+    bool isParticipant,
+  ) async {
+    final onVisibilityChanged = widget.onActionSheetVisibilityChanged;
+    onVisibilityChanged?.call(true);
+    try {
+      await showGeneralDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: context.t('chat.likes_label'),
+        barrierColor: AppColors.chaputBlack.withOpacity(0.35),
+        transitionDuration: const Duration(milliseconds: 180),
+        pageBuilder: (ctx, a1, a2) {
+          return _MessageLikesDialog(
+            message: message,
+            isMine: isMine,
+            isParticipant: isParticipant,
+          );
+        },
+        transitionBuilder: (ctx, anim, sec, child) {
+          return Opacity(opacity: anim.value, child: child);
+        },
+      );
+    } finally {
+      onVisibilityChanged?.call(false);
+    }
   }
 
   @override
@@ -1977,7 +1991,9 @@ class _MessagesListState extends State<_MessagesList> {
         onReply: widget.onReply,
         onReportMessage: widget.onReportMessage,
         onToggleLike: widget.onToggleLike,
-        onShowLikes: (m) => _openLikesFocus(m, isMine, widget.isParticipant),
+        onShowLikes: (m) {
+          unawaited(_openLikesFocus(m, isMine, widget.isParticipant));
+        },
         onReplyTap: (messageId) {
           widget.onReplyJumpStarted?.call();
           _jumpToMessage(messageId);
@@ -1986,6 +2002,7 @@ class _MessagesListState extends State<_MessagesList> {
         scrollController: _scrollController,
         groupKey: groupKey,
         contentKey: contentKey,
+        onActionSheetVisibilityChanged: widget.onActionSheetVisibilityChanged,
       );
     }
 
@@ -2145,6 +2162,7 @@ class _MessageGroupBubble extends StatelessWidget {
     required this.scrollController,
     required this.groupKey,
     required this.contentKey,
+    this.onActionSheetVisibilityChanged,
   });
 
   final _MessageGroup group;
@@ -2164,6 +2182,7 @@ class _MessageGroupBubble extends StatelessWidget {
   final ScrollController scrollController;
   final GlobalKey groupKey;
   final GlobalKey contentKey;
+  final ValueChanged<bool>? onActionSheetVisibilityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2189,6 +2208,7 @@ class _MessageGroupBubble extends StatelessWidget {
               onToggleLike: onToggleLike,
               onShowLikes: onShowLikes,
               onReplyTap: onReplyTap,
+              onActionSheetVisibilityChanged: onActionSheetVisibilityChanged,
             ),
         ],
       ),
@@ -2399,6 +2419,7 @@ class _MessageBubble extends StatelessWidget {
     required this.onShowLikes,
     required this.onReplyTap,
     this.enableActions = true,
+    this.onActionSheetVisibilityChanged,
   });
 
   final ChaputMessage message;
@@ -2413,6 +2434,7 @@ class _MessageBubble extends StatelessWidget {
   final ValueChanged<ChaputMessage> onShowLikes;
   final ValueChanged<String> onReplyTap;
   final bool enableActions;
+  final ValueChanged<bool>? onActionSheetVisibilityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2616,16 +2638,23 @@ class _MessageBubble extends StatelessWidget {
     if (enableActions) {
       child = GestureDetector(
         onDoubleTap: () => onToggleLike(message, !message.likedByMe),
-        onLongPress: () => _showMessageActions(
-          context,
-          message: message,
-          canReply: canReply,
-          canShowLikes: hasLikes,
-          canReport: isParticipant && !isMine,
-          onReply: () => onReply(message),
-          onShowLikes: () => onShowLikes(message),
-          onReport: () => onReportMessage(message),
-        ),
+        onLongPress: () async {
+          onActionSheetVisibilityChanged?.call(true);
+          try {
+            await _showMessageActions(
+              context,
+              message: message,
+              canReply: canReply,
+              canShowLikes: hasLikes,
+              canReport: isParticipant && !isMine,
+              onReply: () => onReply(message),
+              onShowLikes: () => onShowLikes(message),
+              onReport: () => onReportMessage(message),
+            );
+          } finally {
+            onActionSheetVisibilityChanged?.call(false);
+          }
+        },
         child: child,
       );
     }

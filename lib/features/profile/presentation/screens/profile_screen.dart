@@ -150,7 +150,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   int _profileTutorialThreadCount = 0;
   String? _profileTutorialActiveThreadId;
   final Set<_ProfileTutorialStep> _completedProfileTutorials = {};
-  bool _profileActionsSheetOpen = false;
+  int _treePreservingOverlayDepth = 0;
   DateTime? _suppressChaputSwipeSoundUntil;
 
   bool _pendingTreeModeShift = false;
@@ -892,18 +892,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   void didPushNext() {
-    if (_profileActionsSheetOpen) return;
+    if (_treePreservingOverlayDepth > 0) return;
     _stopTypingSound();
     _resetChaputSwipeFeedback();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _profileActionsSheetOpen) return;
+      if (!mounted || _treePreservingOverlayDepth > 0) return;
       _suspendTreeForCoveredRoute();
     });
   }
 
-  void _setProfileActionsSheetOpen(bool value) {
-    if (_profileActionsSheetOpen == value) return;
-    _profileActionsSheetOpen = value;
+  void _setTreePreservingOverlayVisible(bool visible) {
+    if (visible) {
+      _treePreservingOverlayDepth += 1;
+      return;
+    }
+    if (_treePreservingOverlayDepth > 0) {
+      _treePreservingOverlayDepth -= 1;
+    }
+  }
+
+  Future<T?> _showTreePreservingOverlay<T>(
+    Future<T?> Function() showOverlay,
+  ) async {
+    _setTreePreservingOverlayVisible(true);
+    try {
+      return await showOverlay();
+    } finally {
+      _setTreePreservingOverlayVisible(false);
+    }
   }
 
   @override
@@ -1944,7 +1960,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     FocusScope.of(context).unfocus();
   }
 
-  void _openComposerOptionsSheet() {
+  Future<void> _openComposerOptionsSheet() async {
     // Klavye açıkken sheet görünür alanı aşmasın diye kb’yi alıyoruz
     final kb = context.responsive.keyboardInset;
     if (kb > 0 &&
@@ -1960,58 +1976,60 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       });
     }
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.chaputTransparent,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        final responsive = sheetContext.responsive;
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 12,
-            right: 12,
-            // sheet’i klavyenin üstüne "oturt"
-            bottom: responsive.bottomFixedOffset(base: 10),
-          ),
-          child: ComposerOptionsSheet(
-            anonEnabled: _anonMode,
-            highlightEnabled: _highlightMode,
+    await _showTreePreservingOverlay<void>(
+      () => showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: AppColors.chaputTransparent,
+        isScrollControlled: true,
+        builder: (sheetContext) {
+          final responsive = sheetContext.responsive;
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 12,
+              right: 12,
+              // sheet’i klavyenin üstüne "oturt"
+              bottom: responsive.bottomFixedOffset(base: 10),
+            ),
+            child: ComposerOptionsSheet(
+              anonEnabled: _anonMode,
+              highlightEnabled: _highlightMode,
 
-            onToggleAnon: (v) {
-              if (!canHideCredentials && v == true) {
+              onToggleAnon: (v) {
+                if (!canHideCredentials && v == true) {
+                  Navigator.pop(context);
+                  _openHiddenPaywall();
+                  return;
+                }
+                setState(() => _anonMode = v);
                 Navigator.pop(context);
-                _openHiddenPaywall();
-                return;
-              }
-              setState(() => _anonMode = v);
-              Navigator.pop(context);
-            },
+              },
 
-            onToggleHighlight: (v) {
-              if (!canBoost && v == true) {
+              onToggleHighlight: (v) {
+                if (!canBoost && v == true) {
+                  Navigator.pop(context);
+                  _openBoostPaywall();
+                  return;
+                }
+                setState(() => _highlightMode = v);
                 Navigator.pop(context);
-                _openBoostPaywall();
-                return;
-              }
-              setState(() => _highlightMode = v);
-              Navigator.pop(context);
-            },
+              },
 
-            onPaywallAnon: canHideCredentials
-                ? null
-                : () {
-                    Navigator.pop(context);
-                    _openHiddenPaywall();
-                  },
-            onPaywallBoost: canBoost
-                ? null
-                : () {
-                    Navigator.pop(context);
-                    _openBoostPaywall();
-                  },
-          ),
-        );
-      },
+              onPaywallAnon: canHideCredentials
+                  ? null
+                  : () {
+                      Navigator.pop(context);
+                      _openHiddenPaywall();
+                    },
+              onPaywallBoost: canBoost
+                  ? null
+                  : () {
+                      Navigator.pop(context);
+                      _openBoostPaywall();
+                    },
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -2272,11 +2290,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final untilText = expiresAt != null
         ? expiresAt.toLocal().toString().split('.').first
         : null;
-    final res = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: AppColors.chaputTransparent,
-      isScrollControlled: true,
-      builder: (_) => SubscriptionReplaceSheet(untilText: untilText),
+    final res = await _showTreePreservingOverlay<bool>(
+      () => showModalBottomSheet<bool>(
+        context: context,
+        backgroundColor: AppColors.chaputTransparent,
+        isScrollControlled: true,
+        builder: (_) => SubscriptionReplaceSheet(untilText: untilText),
+      ),
     );
     return res == true;
   }
@@ -2636,9 +2656,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       return;
     }
 
-    final draft = await showReportContentSheet(
-      context,
-      targetType: ReportTargetType.chaput,
+    final draft = await _showTreePreservingOverlay<ReportContentDraft>(
+      () =>
+          showReportContentSheet(context, targetType: ReportTargetType.chaput),
     );
     if (draft == null) return;
 
@@ -2674,9 +2694,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       return;
     }
 
-    final draft = await showReportContentSheet(
-      context,
-      targetType: ReportTargetType.message,
+    final draft = await _showTreePreservingOverlay<ReportContentDraft>(
+      () =>
+          showReportContentSheet(context, targetType: ReportTargetType.message),
     );
     if (draft == null) return;
 
@@ -3034,19 +3054,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ? _planType
         : (subPlan ?? _planType);
     final effectivePlanPeriod = _planPeriod;
-    return showModalBottomSheet<PaywallPurchase>(
-      context: context,
-      backgroundColor: AppColors.chaputTransparent,
-      isScrollControlled: true,
-      useSafeArea: false,
-      builder: (_) => FakePaywallSheet(
-        feature: feature,
-        planType: effectivePlanType,
-        planPeriod: effectivePlanPeriod,
-        appUserId: me?.user.userId,
-        reviveTarget: reviveTarget,
-        onPurchaseProduct: _purchaseWithRevenueCat,
-        onRestorePurchases: _restorePurchasesWithRevenueCat,
+    return _showTreePreservingOverlay<PaywallPurchase>(
+      () => showModalBottomSheet<PaywallPurchase>(
+        context: context,
+        backgroundColor: AppColors.chaputTransparent,
+        isScrollControlled: true,
+        useSafeArea: false,
+        builder: (_) => FakePaywallSheet(
+          feature: feature,
+          planType: effectivePlanType,
+          planPeriod: effectivePlanPeriod,
+          appUserId: me?.user.userId,
+          reviveTarget: reviveTarget,
+          onPurchaseProduct: _purchaseWithRevenueCat,
+          onRestorePurchases: _restorePurchasesWithRevenueCat,
+        ),
       ),
     );
   }
@@ -4462,7 +4484,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         );
                       },
                       onActionSheetVisibilityChanged:
-                          _setProfileActionsSheetOpen,
+                          _setTreePreservingOverlayVisible,
                     );
                   },
                 ),
@@ -5232,7 +5254,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                               iRestrictedHim:
                                                                   effectiveIRestrictedHim,
                                                               onSheetVisibilityChanged:
-                                                                  _setProfileActionsSheetOpen,
+                                                                  _setTreePreservingOverlayVisible,
                                                             ),
                                                           ],
                                                         ),
