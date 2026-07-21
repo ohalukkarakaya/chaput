@@ -563,91 +563,103 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                                     CrossAxisAlignment.start,
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        context.t(
-                                                          'home.welcome',
-                                                        ),
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w300,
-                                                          color: AppColors
-                                                              .chaputBlack
-                                                              .withOpacity(
-                                                                0.55,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                      InkWell(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12,
+                                                  SizedBox(
+                                                    width: double.infinity,
+                                                    child: InkWell(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      onTap: () {
+                                                        HapticFeedback.selectionClick();
+                                                        context.push(
+                                                          Routes.notifications,
+                                                        );
+                                                      },
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.fromLTRB(
+                                                              0,
+                                                              3,
+                                                              8,
+                                                              3,
                                                             ),
-                                                        onTap: () =>
-                                                            context.push(
-                                                              Routes
-                                                                  .notifications,
-                                                            ),
-                                                        child: Stack(
-                                                          clipBehavior:
-                                                              Clip.none,
+                                                        child: Row(
                                                           children: [
-                                                            Icon(
-                                                              Icons
-                                                                  .keyboard_arrow_down,
-                                                              size: 18,
-                                                              color: AppColors
-                                                                  .chaputBlack
-                                                                  .withOpacity(
-                                                                    0.6,
-                                                                  ),
+                                                            Text(
+                                                              context.t(
+                                                                'home.welcome',
+                                                              ),
+                                                              style: TextStyle(
+                                                                fontSize: 13,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w300,
+                                                                color: AppColors
+                                                                    .chaputBlack
+                                                                    .withOpacity(
+                                                                      0.55,
+                                                                    ),
+                                                              ),
                                                             ),
-                                                            if (unread > 0)
-                                                              Positioned(
-                                                                right: -6,
-                                                                top: -6,
-                                                                child: Container(
-                                                                  padding:
-                                                                      const EdgeInsets.symmetric(
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            Stack(
+                                                              clipBehavior:
+                                                                  Clip.none,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons
+                                                                      .keyboard_arrow_down,
+                                                                  size: 18,
+                                                                  color: AppColors
+                                                                      .chaputBlack
+                                                                      .withOpacity(
+                                                                        0.6,
+                                                                      ),
+                                                                ),
+                                                                if (unread > 0)
+                                                                  Positioned(
+                                                                    right: -6,
+                                                                    top: -6,
+                                                                    child: Container(
+                                                                      padding: const EdgeInsets.symmetric(
                                                                         horizontal:
                                                                             5,
                                                                         vertical:
                                                                             2,
                                                                       ),
-                                                                  decoration: BoxDecoration(
-                                                                    color: AppColors
-                                                                        .chaputBlack,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          10,
+                                                                      decoration: BoxDecoration(
+                                                                        color: AppColors
+                                                                            .chaputBlack,
+                                                                        borderRadius:
+                                                                            BorderRadius.circular(
+                                                                              10,
+                                                                            ),
+                                                                      ),
+                                                                      child: Text(
+                                                                        unread >
+                                                                                99
+                                                                            ? '99+'
+                                                                            : unread.toString(),
+                                                                        style: const TextStyle(
+                                                                          fontSize:
+                                                                              10,
+                                                                          fontWeight:
+                                                                              FontWeight.w800,
+                                                                          color:
+                                                                              AppColors.chaputWhite,
                                                                         ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    unread > 99
-                                                                        ? '99+'
-                                                                        : unread
-                                                                              .toString(),
-                                                                    style: const TextStyle(
-                                                                      fontSize:
-                                                                          10,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w800,
-                                                                      color: AppColors
-                                                                          .chaputWhite,
+                                                                      ),
                                                                     ),
                                                                   ),
-                                                                ),
-                                                              ),
+                                                              ],
+                                                            ),
                                                           ],
                                                         ),
                                                       ),
-                                                    ],
+                                                    ),
                                                   ),
                                                   Text(
                                                     fullName.isEmpty
