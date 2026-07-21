@@ -988,6 +988,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final treeId = ref.read(profileControllerProvider(widget.userId)).treeId;
     if (treeId == null || treeId.isEmpty) return;
 
+    // Rebuilding the renderer resets the scene's focus anchor. Make the
+    // current thread eligible for the normal focus pipeline again so build()
+    // queues it until the replacement Threejs scene is ready.
+    if (_focusAnchor != null && _focusedThreadId != null) {
+      _focusedThreadId = null;
+    }
+
     _disposeThree();
     _lastTreeId = null;
     _threeError = null;
