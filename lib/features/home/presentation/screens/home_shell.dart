@@ -698,11 +698,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                             final user = me.user;
 
                                             return GestureDetector(
-                                              onTap: () async => context.push(
-                                                await Routes.profile(
-                                                  user.userId,
-                                                ),
-                                              ),
+                                              onTap: () async {
+                                                HapticFeedback.selectionClick();
+                                                final route =
+                                                    await Routes.profile(
+                                                      user.userId,
+                                                    );
+                                                if (!context.mounted) return;
+                                                context.push(route);
+                                              },
                                               child: ChaputCircleAvatar(
                                                 width: 42,
                                                 height: 42,
@@ -1102,8 +1106,12 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
                       children: [
                         InkWell(
                           borderRadius: BorderRadius.circular(16),
-                          onTap: () async =>
-                              context.push(await Routes.profile(user.id)),
+                          onTap: () async {
+                            HapticFeedback.selectionClick();
+                            final route = await Routes.profile(user.id);
+                            if (!context.mounted) return;
+                            context.push(route);
+                          },
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
