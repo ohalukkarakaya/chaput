@@ -4,7 +4,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
+import '../../profile/application/profile_visit_history_controller.dart';
+import '../../profile/domain/profile_preview.dart';
+import '../../profile/presentation/widgets/profile_avatar_hero.dart';
+import '../../recommended_users/presentation/widgets/recommended_user_card.dart';
+import '../domain/user_search_models.dart';
 import '../application/user_search_controller.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
@@ -26,6 +30,7 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   final _scroll = ScrollController();
+  final Set<String> _dismissedDiscoverIds = <String>{};
 
   Timer? _debounce;
 
@@ -102,9 +107,32 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
     });
   }
 
+  Future<void> _openProfile(ProfilePreview preview) async {
+    final id = preview.id;
+    if (id.isEmpty) return;
+
+    ref.read(profileVisitHistoryProvider.notifier).record(preview);
+    final route = ModalRoute.of(context);
+    final profileRoute = await Routes.profile(id);
+    if (!mounted) return;
+
+    await context.push(profileRoute, extra: {profilePreviewExtraKey: preview});
+
+    if (!mounted) return;
+    if (route?.isCurrent == true && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _dismissDiscoverUser(String id) {
+    if (id.isEmpty) return;
+    setState(() => _dismissedDiscoverIds.add(id));
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(userSearchControllerProvider);
+    final visitHistory = ref.watch(profileVisitHistoryProvider);
 
     return Scaffold(
       backgroundColor: AppColors.chaputTransparent,
@@ -177,7 +205,14 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
                 const SizedBox(height: 12),
 
                 Expanded(
-                  child: _ResultsList(state: state, scroll: _scroll),
+                  child: _ResultsList(
+                    state: state,
+                    scroll: _scroll,
+                    visitHistory: visitHistory,
+                    dismissedDiscoverIds: _dismissedDiscoverIds,
+                    onOpenProfile: _openProfile,
+                    onDismissDiscoverUser: _dismissDiscoverUser,
+                  ),
                 ),
               ],
             ),
@@ -191,8 +226,19 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
 class _ResultsList extends StatelessWidget {
   final UserSearchState state;
   final ScrollController scroll;
+  final List<ProfilePreview> visitHistory;
+  final Set<String> dismissedDiscoverIds;
+  final Future<void> Function(ProfilePreview preview) onOpenProfile;
+  final ValueChanged<String> onDismissDiscoverUser;
 
-  const _ResultsList({required this.state, required this.scroll});
+  const _ResultsList({
+    required this.state,
+    required this.scroll,
+    required this.visitHistory,
+    required this.dismissedDiscoverIds,
+    required this.onOpenProfile,
+    required this.onDismissDiscoverUser,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -265,17 +311,59 @@ class _ResultsList extends StatelessWidget {
       );
     }
 
+    final isDiscover =
+        state.mode == UserSearchMode.discover && state.query.trim().isEmpty;
+    final topProfiles = isDiscover
+        ? _topDiscoverProfiles(state.items, visitHistory, dismissedDiscoverIds)
+        : const <ProfilePreview>[];
+    final topProfileIds = {for (final profile in topProfiles) profile.id};
+    final listItems = isDiscover
+        ? state.items
+              .where(
+                (item) =>
+                    !topProfileIds.contains(item.id) &&
+                    !dismissedDiscoverIds.contains(item.id),
+              )
+              .toList(growable: false)
+        : state.items;
+    final hasTopRail = topProfiles.isNotEmpty;
+    final leadingCount = hasTopRail ? 1 : 0;
+
     return ListView.builder(
       controller: scroll,
-      padding: EdgeInsets.fromLTRB(
-        16,
-        0,
-        16,
-        16
-      ),
-      itemCount: state.items.length + 1,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      itemCount: leadingCount + listItems.length + 1,
       itemBuilder: (context, i) {
-        if (i == state.items.length) {
+        if (hasTopRail && i == 0) {
+          final screenWidth = MediaQuery.sizeOf(context).width;
+          final cardWidth = screenWidth < 390 ? screenWidth - 96 : 250.0;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: SizedBox(
+              height: 154,
+              child: ListView.separated(
+                clipBehavior: Clip.none,
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.zero,
+                itemCount: topProfiles.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final profile = topProfiles[index];
+                  return RecommendedUserCard(
+                    user: profile,
+                    width: cardWidth,
+                    onDismiss: onDismissDiscoverUser,
+                    onOpenProfile: onOpenProfile,
+                  );
+                },
+              ),
+            ),
+          );
+        }
+
+        final listIndex = i - leadingCount;
+        if (listIndex == listItems.length) {
           return state.isLoadingMore
               ? Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -288,14 +376,12 @@ class _ResultsList extends StatelessWidget {
               : SizedBox(height: 40);
         }
 
-        final u = state.items[i];
+        final u = listItems[listIndex];
+        final preview = _previewFromSearchItem(u);
 
         return InkWell(
           onTap: () async {
-            final id = u.id;
-            if (id.isEmpty) return;
-            Navigator.of(context).pop();
-            context.push(await Routes.profile(id));
+            await onOpenProfile(preview);
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
@@ -308,14 +394,7 @@ class _ResultsList extends StatelessWidget {
             child: Row(
               children: [
                 // Avatar
-                ChaputCircleAvatar(
-                  isDefaultAvatar: u.profilePhotoKey == null,
-                  imageUrl: u.profilePhotoUrl ?? u.defaultAvatar,
-                  width: 42,
-                  height: 42,
-                  radius: 999,
-                  borderWidth: 2,
-                ),
+                ProfileAvatarHero(preview: preview, width: 42, height: 42),
                 const SizedBox(width: 12),
 
                 Expanded(
@@ -344,6 +423,26 @@ class _ResultsList extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (isDiscover) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => onDismissDiscoverUser(u.id),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: AppColors.chaputBlack.withOpacity(0.06),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 17,
+                        color: AppColors.chaputBlack.withOpacity(0.68),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -351,4 +450,34 @@ class _ResultsList extends StatelessWidget {
       },
     );
   }
+}
+
+List<ProfilePreview> _topDiscoverProfiles(
+  List<UserSearchItem> items,
+  List<ProfilePreview> visitHistory,
+  Set<String> dismissedIds,
+) {
+  if (visitHistory.isNotEmpty) {
+    return visitHistory
+        .take(5)
+        .where((item) => !dismissedIds.contains(item.id))
+        .toList(growable: false);
+  }
+  return items
+      .take(5)
+      .where((item) => !dismissedIds.contains(item.id))
+      .map(_previewFromSearchItem)
+      .toList(growable: false);
+}
+
+ProfilePreview _previewFromSearchItem(UserSearchItem user) {
+  return ProfilePreview(
+    id: user.id,
+    username: user.username,
+    fullName: user.fullName,
+    defaultAvatar: user.defaultAvatar,
+    profilePhotoKey: user.profilePhotoKey,
+    profilePhotoUrl: user.profilePhotoUrl,
+    isPublic: user.isPublic,
+  );
 }

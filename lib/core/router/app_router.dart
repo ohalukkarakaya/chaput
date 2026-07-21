@@ -10,6 +10,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_username_redirect_screen.dart';
+import '../../features/profile/domain/profile_preview.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../legal/legal_documents.dart';
@@ -90,6 +91,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final userId = state.pathParameters['userId']!;
           String? initialThreadId;
           String? initialMessageId;
+          ProfilePreview? initialProfilePreview;
           final extra = state.extra;
           if (extra is Map) {
             final threadId = extra['threadId'];
@@ -99,6 +101,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             final messageId = extra['messageId'];
             if (messageId is String && messageId.isNotEmpty) {
               initialMessageId = messageId;
+            }
+            final preview = extra[profilePreviewExtraKey];
+            if (preview is ProfilePreview && preview.id == userId) {
+              initialProfilePreview = preview;
             }
           }
           final query = state.uri.queryParameters;
@@ -119,6 +125,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             userId: userId,
             initialThreadId: initialThreadId,
             initialMessageId: initialMessageId,
+            initialProfilePreview: initialProfilePreview,
           );
         },
       ),

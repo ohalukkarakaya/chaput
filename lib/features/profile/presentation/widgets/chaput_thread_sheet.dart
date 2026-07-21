@@ -58,6 +58,7 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.onReplyMessage,
     this.onReplyJumpStarted,
     this.onInitialMessageRevealed,
+    this.onPageUserScrollChanged,
     this.sheetShowcaseKey,
     this.swipeShowcaseKey,
     this.activeThreadId,
@@ -105,6 +106,7 @@ class ChaputThreadSheet extends ConsumerWidget {
   onReplyMessage;
   final VoidCallback? onReplyJumpStarted;
   final ValueChanged<String>? onInitialMessageRevealed;
+  final ValueChanged<bool>? onPageUserScrollChanged;
   final GlobalKey? sheetShowcaseKey;
   final GlobalKey? swipeShowcaseKey;
   final String? activeThreadId;
@@ -166,140 +168,159 @@ class ChaputThreadSheet extends ConsumerWidget {
                     physics: const ClampingScrollPhysics(),
                     child: SizedBox(
                       height: constraints.maxHeight,
-                      child: PageView.builder(
-                        controller: pageController,
-                        onPageChanged: (index) {
-                          final entry = entries[index];
-                          onPageChanged(index, entry.thread);
-                        },
-                        itemCount: entries.length,
-                        itemBuilder: (ctx, index) {
-                          final entry = entries[index];
-                          if (entry.isAd) {
-                            return _ChaputNativeAdPage(
-                              key: ValueKey('native-ad-page-$index'),
-                              slotId: index,
-                              isActive: isAdPageActive,
-                            );
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          if (notification.metrics.axis != Axis.horizontal) {
+                            return false;
                           }
-                          final thread = entry.thread!;
-                          final isParticipant =
-                              thread.userAId == viewerId ||
-                              thread.userBId == viewerId;
-                          final otherId = thread.userAId == ownerId
-                              ? thread.userBId
-                              : thread.userBId == ownerId
-                              ? thread.userAId
-                              : (thread.userAId == viewerId
-                                    ? thread.userBId
-                                    : thread.userAId);
-                          final ownerUser = usersById[ownerId];
-                          final rawOtherUser =
-                              usersById[otherId] ??
-                              (viewerUser != null && otherId == viewerUser!.id
-                                  ? viewerUser
-                                  : null);
-                          final isHiddenForViewer =
-                              thread.isHidden && !isParticipant;
-                          final otherUser = isHiddenForViewer
-                              ? LiteUser(
-                                  id: otherId,
-                                  username: null,
-                                  fullName: ctx.t('chat.anonymous_user'),
-                                  bio: null,
-                                  defaultAvatar:
-                                      rawOtherUser?.defaultAvatar ??
-                                      ownerUser?.defaultAvatar ??
-                                      '',
-                                  profilePhotoKey: null,
-                                  profilePhotoUrl: null,
-                                )
-                              : rawOtherUser;
+                          if (notification is ScrollStartNotification) {
+                            onPageUserScrollChanged?.call(
+                              notification.dragDetails != null,
+                            );
+                          } else if (notification is ScrollUpdateNotification &&
+                              notification.dragDetails != null) {
+                            onPageUserScrollChanged?.call(true);
+                          } else if (notification is ScrollEndNotification) {
+                            onPageUserScrollChanged?.call(false);
+                          }
+                          return false;
+                        },
+                        child: PageView.builder(
+                          controller: pageController,
+                          onPageChanged: (index) {
+                            final entry = entries[index];
+                            onPageChanged(index, entry.thread);
+                          },
+                          itemCount: entries.length,
+                          itemBuilder: (ctx, index) {
+                            final entry = entries[index];
+                            if (entry.isAd) {
+                              return _ChaputNativeAdPage(
+                                key: ValueKey('native-ad-page-$index'),
+                                slotId: index,
+                                isActive: isAdPageActive,
+                              );
+                            }
+                            final thread = entry.thread!;
+                            final isParticipant =
+                                thread.userAId == viewerId ||
+                                thread.userBId == viewerId;
+                            final otherId = thread.userAId == ownerId
+                                ? thread.userBId
+                                : thread.userBId == ownerId
+                                ? thread.userAId
+                                : (thread.userAId == viewerId
+                                      ? thread.userBId
+                                      : thread.userAId);
+                            final ownerUser = usersById[ownerId];
+                            final rawOtherUser =
+                                usersById[otherId] ??
+                                (viewerUser != null && otherId == viewerUser!.id
+                                    ? viewerUser
+                                    : null);
+                            final isHiddenForViewer =
+                                thread.isHidden && !isParticipant;
+                            final otherUser = isHiddenForViewer
+                                ? LiteUser(
+                                    id: otherId,
+                                    username: null,
+                                    fullName: ctx.t('chat.anonymous_user'),
+                                    bio: null,
+                                    defaultAvatar:
+                                        rawOtherUser?.defaultAvatar ??
+                                        ownerUser?.defaultAvatar ??
+                                        '',
+                                    profilePhotoKey: null,
+                                    profilePhotoUrl: null,
+                                  )
+                                : rawOtherUser;
 
-                          Widget child = _SheetPage(
-                            thread: thread,
-                            ownerUser: ownerUser,
-                            otherUser: otherUser,
-                            viewerUser: viewerUser,
-                            viewerId: viewerId,
-                            isParticipant: isParticipant,
-                            profileId: profileId,
-                            profileUsername: profileUsername,
-                            initialThreadId: initialThreadId,
-                            initialMessageId: initialMessageId,
-                            onOpenProfile: onOpenProfile,
-                            onSendMessage: onSendMessage,
-                            onMakeHidden: onMakeHidden,
-                            onArchiveThread: onArchiveThread,
-                            onReportThread: onReportThread,
-                            onReportMessage: onReportMessage,
-                            canMakeHidden: canMakeHidden,
-                            onOpenWhisperPaywall: onOpenWhisperPaywall,
-                            replyOverlay: replyOverlay,
-                            whisperCredits: whisperCredits,
-                            onReplyMessage: onReplyMessage,
-                            typingUsersByThread: typingUsersByThread,
-                            onReplyJumpStarted: onReplyJumpStarted,
-                            onInitialMessageRevealed: onInitialMessageRevealed,
-                            onActionSheetVisibilityChanged:
-                                onActionSheetVisibilityChanged,
-                          );
+                            Widget child = _SheetPage(
+                              thread: thread,
+                              ownerUser: ownerUser,
+                              otherUser: otherUser,
+                              viewerUser: viewerUser,
+                              viewerId: viewerId,
+                              isParticipant: isParticipant,
+                              profileId: profileId,
+                              profileUsername: profileUsername,
+                              initialThreadId: initialThreadId,
+                              initialMessageId: initialMessageId,
+                              onOpenProfile: onOpenProfile,
+                              onSendMessage: onSendMessage,
+                              onMakeHidden: onMakeHidden,
+                              onArchiveThread: onArchiveThread,
+                              onReportThread: onReportThread,
+                              onReportMessage: onReportMessage,
+                              canMakeHidden: canMakeHidden,
+                              onOpenWhisperPaywall: onOpenWhisperPaywall,
+                              replyOverlay: replyOverlay,
+                              whisperCredits: whisperCredits,
+                              onReplyMessage: onReplyMessage,
+                              typingUsersByThread: typingUsersByThread,
+                              onReplyJumpStarted: onReplyJumpStarted,
+                              onInitialMessageRevealed:
+                                  onInitialMessageRevealed,
+                              onActionSheetVisibilityChanged:
+                                  onActionSheetVisibilityChanged,
+                            );
 
-                          if (swipeShowcaseKey != null &&
-                              activeThreadId == thread.threadId) {
-                            child = Showcase.withWidget(
-                              key: swipeShowcaseKey!,
-                              targetPadding: EdgeInsets.zero,
-                              targetBorderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(22),
-                              ),
-                              overlayColor: AppColors.chaputBlack,
-                              overlayOpacity: 0.68,
-                              tooltipPosition: TooltipPosition.top,
-                              toolTipMargin: 16,
-                              targetTooltipGap: 12,
-                              container: ChaputTutorialCard(
-                                title: ctx.t('showcase.chaput_swipe_title'),
-                                body: ctx.t('showcase.chaput_swipe_body'),
-                                onTap: onSwipeTutorialTap,
-                                preview: const TickerMode(
-                                  enabled: true,
-                                  child: _ChaputSwipePreview(),
+                            if (swipeShowcaseKey != null &&
+                                activeThreadId == thread.threadId) {
+                              child = Showcase.withWidget(
+                                key: swipeShowcaseKey!,
+                                targetPadding: EdgeInsets.zero,
+                                targetBorderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(22),
                                 ),
-                              ),
-                              child: child,
-                            );
-                          }
+                                overlayColor: AppColors.chaputBlack,
+                                overlayOpacity: 0.68,
+                                tooltipPosition: TooltipPosition.top,
+                                toolTipMargin: 16,
+                                targetTooltipGap: 12,
+                                container: ChaputTutorialCard(
+                                  title: ctx.t('showcase.chaput_swipe_title'),
+                                  body: ctx.t('showcase.chaput_swipe_body'),
+                                  onTap: onSwipeTutorialTap,
+                                  preview: const TickerMode(
+                                    enabled: true,
+                                    child: _ChaputSwipePreview(),
+                                  ),
+                                ),
+                                child: child,
+                              );
+                            }
 
-                          return AnimatedBuilder(
-                            animation: pageController,
-                            builder: (ctx, _) {
-                              double page = pageController.initialPage
-                                  .toDouble();
-                              if (pageController.hasClients) {
-                                page =
-                                    pageController.page ??
-                                    pageController.initialPage.toDouble();
-                              }
-                              final delta = (page - index).abs().clamp(
-                                0.0,
-                                1.0,
-                              );
-                              final scale = 1.0 - (delta * 0.08);
-                              final animatedChild = entry.isAd
-                                  ? Opacity(
-                                      opacity: 1.0 - (delta * 0.25),
-                                      child: child,
-                                    )
-                                  : child;
-                              return Transform.scale(
-                                scale: scale,
-                                alignment: Alignment.bottomCenter,
-                                child: animatedChild,
-                              );
-                            },
-                          );
-                        },
+                            return AnimatedBuilder(
+                              animation: pageController,
+                              builder: (ctx, _) {
+                                double page = pageController.initialPage
+                                    .toDouble();
+                                if (pageController.hasClients) {
+                                  page =
+                                      pageController.page ??
+                                      pageController.initialPage.toDouble();
+                                }
+                                final delta = (page - index).abs().clamp(
+                                  0.0,
+                                  1.0,
+                                );
+                                final scale = 1.0 - (delta * 0.08);
+                                final animatedChild = entry.isAd
+                                    ? Opacity(
+                                        opacity: 1.0 - (delta * 0.25),
+                                        child: child,
+                                      )
+                                    : child;
+                                return Transform.scale(
+                                  scale: scale,
+                                  alignment: Alignment.bottomCenter,
+                                  child: animatedChild,
+                                );
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
                   );

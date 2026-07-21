@@ -36,6 +36,7 @@ import '../../../revenuecat/data/revenue_cat_service.dart';
 import '../../../settings/data/account_api.dart';
 import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../user/domain/lite_user.dart';
+import '../../domain/profile_preview.dart';
 import '../../../social/application/follow_state.dart';
 import '../../../social/application/ui_restriction_override_provider.dart';
 import '../../../user/application/profile_controller.dart';
@@ -55,6 +56,7 @@ import '../widgets/glass_toast_overlay.dart';
 import '../widgets/empty_chaput_sheet.dart';
 import '../widgets/profile_actions_sheet.dart';
 import '../widgets/profile_stat_chip.dart';
+import '../widgets/profile_avatar_hero.dart';
 import '../widgets/tree_silhouette_shimmer.dart';
 import 'follow_list_screen.dart';
 import '../../../social/application/follow_list_controller.dart';
@@ -69,11 +71,13 @@ class ProfileScreen extends ConsumerStatefulWidget {
     required this.userId,
     this.initialThreadId,
     this.initialMessageId,
+    this.initialProfilePreview,
   });
 
   final String userId;
   final String? initialThreadId;
   final String? initialMessageId;
+  final ProfilePreview? initialProfilePreview;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -95,6 +99,12 @@ extension on _ProfileTutorialStep {
     _ProfileTutorialStep.chaputPull => 'chaput_sheet_pull',
     _ProfileTutorialStep.chaputSwipe => 'chaput_thread_swipe',
   };
+}
+
+String? _firstNonEmpty(String? primary, String? fallback) {
+  if (primary != null && primary.isNotEmpty) return primary;
+  if (fallback != null && fallback.isNotEmpty) return fallback;
+  return null;
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen>
@@ -313,6 +323,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   int? _chaputHapticTargetPageIndex;
   int? _chaputSwipeFeedbackFromPageIndex;
   bool _chaputSwipeSoundPlayed = false;
+  bool _chaputUserSwipeInProgress = false;
   double _chaputSwipeFeedbackProgress = 0;
   Timer? _chaputSwipeFeedbackCleanupTimer;
   int _chaputActiveIndex = 0;
@@ -552,6 +563,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _chaputSwipeFeedbackCleanupTimer = null;
     _chaputSwipeFeedbackFromPageIndex = null;
     _chaputSwipeSoundPlayed = false;
+    _chaputUserSwipeInProgress = false;
     _chaputSwipeFeedbackProgress = 0;
     _chaputHapticTargetPageIndex = null;
   }
@@ -590,7 +602,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final offsetFromBase = page - feedbackFromPage;
     final progress = offsetFromBase.abs().clamp(0, 1).toDouble();
     _chaputSwipeFeedbackProgress = progress;
-    if (!_chaputSwipeSoundPlayed) {
+    if (_chaputUserSwipeInProgress && !_chaputSwipeSoundPlayed) {
       _chaputSwipeSoundPlayed = true;
       final suppressSwipeSound =
           _suppressChaputSwipeSoundUntil?.isAfter(DateTime.now()) ?? false;
@@ -602,7 +614,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
     _scheduleChaputSwipeFeedbackIdle();
 
-    if (progress < _chaputSwipeHapticThreshold) {
+    if (!_chaputUserSwipeInProgress || progress < _chaputSwipeHapticThreshold) {
       _chaputHapticTargetPageIndex = null;
       return;
     }
@@ -621,6 +633,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     Duration duration = const Duration(milliseconds: 700),
   ]) {
     _suppressChaputSwipeSoundUntil = DateTime.now().add(duration);
+  }
+
+  void _setChaputUserSwipeInProgress(bool active) {
+    if (_chaputUserSwipeInProgress == active) return;
+    _chaputUserSwipeInProgress = active;
+    if (!active) _scheduleChaputSwipeFeedbackIdle();
   }
 
   DateTime? _parseSocketTime(dynamic v) {
@@ -3792,6 +3810,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
 
     final isPublic = _asBool(user?['is_public']);
+    final initialPreview = widget.initialProfilePreview;
+    final avatarPreview = ProfilePreview(
+      id: userId.isNotEmpty ? userId : widget.userId,
+      username: username.isNotEmpty ? username : initialPreview?.username,
+      fullName: fullName.isNotEmpty
+          ? fullName
+          : (initialPreview?.fullName ?? ''),
+      defaultAvatar:
+          _firstNonEmpty(
+            defaultAvatar?.toString(),
+            initialPreview?.defaultAvatar,
+          ) ??
+          '',
+      profilePhotoKey: _firstNonEmpty(
+        profilePhotoKey,
+        initialPreview?.profilePhotoKey,
+      ),
+      profilePhotoUrl: _firstNonEmpty(
+        profilePhotoUrl,
+        initialPreview?.profilePhotoUrl,
+      ),
+      isPublic: user == null ? (initialPreview?.isPublic ?? false) : isPublic,
+      requestPending: initialPreview?.requestPending ?? false,
+    );
+    final hasProfileAvatar = avatarPreview.avatarImageUrl.isNotEmpty;
     final isPrivateTarget = !isPublic;
     final privateChaputCount = _asNonNegativeInt(
       st.profileJson?['chaput_count'],
@@ -4517,6 +4560,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       onReplyMessage: _handleReplyRequested,
                       onReplyJumpStarted: _suppressNextChaputSwipeSound,
                       onInitialMessageRevealed: _handleInitialMessageRevealed,
+                      onPageUserScrollChanged: _setChaputUserSwipeInProgress,
                       sheetShowcaseKey: _chaputSheetShowcaseKey,
                       swipeShowcaseKey: _chaputThreadSwipeShowcaseKey,
                       activeThreadId: activeThread?.threadId,
@@ -4686,7 +4730,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       top: topInset + 10,
                       right: 14,
                       child: IgnorePointer(
-                        ignoring: _profileCardOpen, // kart açıkken tıklanmasın
+                        ignoring: _profileCardOpen || showPageLoading,
                         child: AnimatedOpacity(
                           duration: const Duration(milliseconds: 120),
                           opacity: _profileCardOpen
@@ -4728,16 +4772,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                       height: 44,
                                       child: Center(
                                         child: ClipOval(
-                                          child: (defaultAvatar != null)
-                                              ? ChaputCircleAvatar(
-                                                  isDefaultAvatar:
-                                                      profilePhotoKey == null ||
-                                                      profilePhotoKey == "",
-                                                  imageUrl:
-                                                      profilePhotoUrl != null &&
-                                                          profilePhotoUrl != ""
-                                                      ? profilePhotoUrl
-                                                      : defaultAvatar,
+                                          child: hasProfileAvatar
+                                              ? ProfileAvatarHero(
+                                                  preview: avatarPreview,
+                                                  width: 40,
+                                                  height: 40,
+                                                  borderWidth: 4,
+                                                  bgColor:
+                                                      AppColors.chaputWhite,
                                                 )
                                               : const ColoredBox(
                                                   color: AppColors

@@ -2,7 +2,7 @@ name: chaput
 description: "Chaput App"
 publish_to: 'none'
 
-version: 1.0.1+46
+version: 1.0.1+47
 
 environment:
   sdk: ^3.8.1
@@ -14,7 +14,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.8o
 
   # state
   flutter_riverpod: ^2.5.1

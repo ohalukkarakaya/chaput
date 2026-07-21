@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:ui' show ImageFilter, lerpDouble;
+import 'dart:ui' show lerpDouble;
 
-import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -26,15 +25,15 @@ import '../../../notifications/data/notification_api_provider.dart';
 import '../../../onboarding/application/onboarding_permission_coordinator.dart';
 import '../../../../chaput/data/chaput_socket.dart';
 import '../../../notifications/application/push_token_registrar.dart';
+import '../../../profile/domain/profile_preview.dart';
+import '../../../profile/presentation/widgets/profile_avatar_hero.dart';
 import '../../../user_search/presentation/search_overlay.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
 import '../../../recommended_users/domain/recommended_user.dart';
-import '../../../social/application/follow_controller.dart';
-import '../../../social/application/follow_state.dart';
+import '../../../recommended_users/presentation/widgets/recommended_user_card.dart';
 import '../../../../core/ui/widgets/glow_shimmer_card.dart';
 import '../../../../core/ui/widgets/share_bar.dart';
 import '../../../../core/ui/widgets/shimmer_skeleton.dart';
-import '../../../../core/ux/chaput_sound_service.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
 import '../widgets/app_review_prompt_sheet.dart';
 
@@ -708,6 +707,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                               );
                                             }
                                             final user = me.user;
+                                            final preview = ProfilePreview(
+                                              id: user.userId,
+                                              username: user.username.isEmpty
+                                                  ? null
+                                                  : user.username,
+                                              fullName: user.fullName,
+                                              defaultAvatar:
+                                                  user.defaultAvatar ?? '',
+                                              profilePhotoKey:
+                                                  user.profilePhotoKey,
+                                              profilePhotoUrl:
+                                                  user.profilePhotoUrl,
+                                              isPublic: true,
+                                            );
 
                                             return GestureDetector(
                                               onTap: () async {
@@ -717,20 +730,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                                       user.userId,
                                                     );
                                                 if (!context.mounted) return;
-                                                context.push(route);
+                                                context.push(
+                                                  route,
+                                                  extra: {
+                                                    profilePreviewExtraKey:
+                                                        preview,
+                                                  },
+                                                );
                                               },
-                                              child: ChaputCircleAvatar(
+                                              child: ProfileAvatarHero(
+                                                preview: preview,
                                                 width: 42,
                                                 height: 42,
-                                                radius: 999,
-                                                borderWidth: 2,
-                                                bgColor: AppColors.chaputBlack,
-                                                isDefaultAvatar:
-                                                    user.profilePhotoUrl ==
-                                                    null,
-                                                imageUrl:
-                                                    user.profilePhotoUrl ??
-                                                    user.defaultAvatar!,
                                               ),
                                             );
                                           },
@@ -904,120 +915,7 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
   }
 
   void _dismissCard(String id) {
-    HapticFeedback.selectionClick();
     setState(() => _dismissedIds.add(id));
-  }
-
-  void _showGlassToast(
-    BuildContext context,
-    String message, {
-    IconData icon = Icons.hourglass_top_rounded,
-  }) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          elevation: 0,
-          backgroundColor: AppColors.chaputTransparent,
-          margin: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-          duration: const Duration(seconds: 3),
-          content: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.chaputBlack.withOpacity(0.78),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: AppColors.chaputWhite.withOpacity(0.12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(icon, color: AppColors.chaputWhite, size: 18),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        message,
-                        style: const TextStyle(
-                          color: AppColors.chaputWhite,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-  }
-
-  Future<void> _handleFollowTap(
-    RecommendedUser user,
-    FollowState followState,
-  ) async {
-    final username = user.username;
-    if (username == null || username.isEmpty) return;
-    final rateLimitedMessage = this.context.t('profile.follow_rate_limited');
-    final recoFailedMessage = this.context.t('home.reco_failed');
-
-    final isFollowing =
-        followState is FollowIdle && followState.isFollowing == true;
-    final requestPending =
-        (followState is FollowIdle && followState.requestPending == true) ||
-        user.requestPending;
-    if (requestPending && !isFollowing) {
-      return;
-    }
-
-    HapticFeedback.selectionClick();
-    if (!isFollowing) {
-      unawaited(
-        ChaputSoundService.instance.play(
-          ChaputSoundEffect.refreshRecommendedUser,
-        ),
-      );
-    }
-
-    try {
-      final ctrl = ref.read(followControllerProvider(username).notifier);
-      if (isFollowing) {
-        await ctrl.unfollow();
-        return;
-      }
-
-      await ctrl.follow();
-      final latestState = ref.read(followControllerProvider(username));
-      if (user.isPublic &&
-          latestState is FollowIdle &&
-          latestState.isFollowing == true &&
-          mounted) {
-        setState(() => _dismissedIds.add(user.id));
-      }
-    } on FollowActionException catch (e) {
-      if (!mounted) return;
-      if (e.code == 'follow_request_rate_limited') {
-        _showGlassToast(this.context, rateLimitedMessage);
-      } else {
-        _showGlassToast(
-          this.context,
-          recoFailedMessage,
-          icon: Icons.error_outline_rounded,
-        );
-      }
-    }
   }
 
   @override
@@ -1070,191 +968,10 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final user = visibleItems[index];
-              final username = user.username;
-              final followState = (username == null || username.isEmpty)
-                  ? const FollowIdle()
-                  : ref.watch(followControllerProvider(username));
-              final isLoading = followState is FollowLoading;
-              final isFollowing =
-                  followState is FollowIdle && followState.isFollowing == true;
-              final requestPending =
-                  (followState is FollowIdle &&
-                      followState.requestPending == true) ||
-                  user.requestPending;
-              final canTapAction =
-                  !isLoading &&
-                  username != null &&
-                  username.isNotEmpty &&
-                  (!requestPending || isFollowing);
-
-              final actionColor = requestPending
-                  ? AppColors.chaputMaterialBlue
-                  : (isFollowing
-                        ? AppColors.chaputGrey300
-                        : AppColors.chaputBlack);
-              final actionForeground = isFollowing
-                  ? AppColors.chaputBlack
-                  : AppColors.chaputWhite;
-              final actionLabel = requestPending
-                  ? context.t('profile.follow_request_sent')
-                  : (isFollowing
-                        ? context.t('profile.unfollow')
-                        : context.t('profile.follow'));
-
-              final card = SizedBox(
+              final card = RecommendedUserCard(
+                user: _previewFromRecommendedUser(user),
                 width: cardWidth,
-                child: GlowShimmerCard(
-                  radius: 22,
-                  glowSigma: 0,
-                  glowOpacity: 0,
-                  enableBlur: false,
-                  glassOpacity: 0.96,
-                  enableInnerShimmer: false,
-                  padding: EdgeInsets.zero,
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () async {
-                            HapticFeedback.selectionClick();
-                            final route = await Routes.profile(user.id);
-                            if (!context.mounted) return;
-                            context.push(route);
-                          },
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ChaputCircleAvatar(
-                                width: 48,
-                                height: 48,
-                                radius: 999,
-                                borderWidth: 2,
-                                bgColor: AppColors.chaputBlack,
-                                isDefaultAvatar:
-                                    user.profilePhotoPath == null ||
-                                    user.profilePhotoPath!.isEmpty,
-                                imageUrl:
-                                    (user.profilePhotoPath != null &&
-                                        user.profilePhotoPath!.isNotEmpty)
-                                    ? user.profilePhotoPath!
-                                    : user.defaultAvatar,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        user.fullName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        username == null || username.isEmpty
-                                            ? context.t('common.na')
-                                            : '@$username',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: AppColors.chaputBlack
-                                              .withOpacity(0.6),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () => _dismissCard(user.id),
-                                child: Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.chaputWhite.withOpacity(
-                                      0.68,
-                                    ),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: canTapAction
-                                ? () => _handleFollowTap(user, followState)
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              backgroundColor: actionColor,
-                              foregroundColor: actionForeground,
-                              disabledBackgroundColor: actionColor,
-                              disabledForegroundColor: actionForeground
-                                  .withOpacity(0.92),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            icon: isLoading
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        actionForeground,
-                                      ),
-                                    ),
-                                  )
-                                : Icon(
-                                    requestPending
-                                        ? Icons.schedule_rounded
-                                        : (isFollowing
-                                              ? Icons
-                                                    .person_remove_alt_1_rounded
-                                              : Icons.add_rounded),
-                                    size: 18,
-                                  ),
-                            label: Text(
-                              actionLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                onDismiss: _dismissCard,
               );
 
               if (index == 0) {
@@ -1323,6 +1040,19 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
       },
     );
   }
+}
+
+ProfilePreview _previewFromRecommendedUser(RecommendedUser user) {
+  return ProfilePreview(
+    id: user.id,
+    username: user.username,
+    fullName: user.fullName,
+    defaultAvatar: user.defaultAvatar,
+    profilePhotoKey: user.profilePhotoKey,
+    profilePhotoUrl: user.profilePhotoUrl,
+    isPublic: user.isPublic,
+    requestPending: user.requestPending,
+  );
 }
 
 class _RecommendedUsersEmptyCard extends StatelessWidget {
