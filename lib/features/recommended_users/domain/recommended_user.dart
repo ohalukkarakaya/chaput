@@ -7,6 +7,7 @@ class RecommendedUser {
   final String? profilePhotoUrl;
   final bool isPublic;
   final bool requestPending;
+  final bool isFollowing;
 
   const RecommendedUser({
     required this.id,
@@ -17,6 +18,7 @@ class RecommendedUser {
     required this.profilePhotoUrl,
     required this.isPublic,
     required this.requestPending,
+    required this.isFollowing,
   });
 
   factory RecommendedUser.fromJson(Map<String, dynamic> json) {
@@ -28,7 +30,14 @@ class RecommendedUser {
       profilePhotoKey: json['profile_photo_key'] as String?,
       profilePhotoUrl: json['profile_photo_url'] as String?,
       isPublic: json['is_public'] == true,
-      requestPending: json['request_pending'] == true,
+      requestPending:
+          _jsonBool(json, 'request_pending') ||
+          _viewerStateBool(json, 'request_pending'),
+      isFollowing:
+          _jsonBool(json, 'is_following') ||
+          _jsonBool(json, 'following') ||
+          _jsonBool(json, 'followed') ||
+          _viewerStateBool(json, 'is_following'),
     );
   }
 
@@ -41,4 +50,12 @@ class RecommendedUser {
     }
     return null;
   }
+}
+
+bool _jsonBool(Map<String, dynamic> json, String key) => json[key] == true;
+
+bool _viewerStateBool(Map<String, dynamic> json, String key) {
+  final viewerState = json['viewer_state'];
+  if (viewerState is! Map) return false;
+  return viewerState[key] == true;
 }

@@ -975,6 +975,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _openSettingsPreservingTree() {
+    HapticFeedback.selectionClick();
     unawaited(
       _pushTreePreservingRoute<void>(() => context.push<void>(Routes.settings)),
     );

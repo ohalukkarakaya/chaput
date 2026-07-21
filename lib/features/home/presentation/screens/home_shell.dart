@@ -774,6 +774,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
                                                   preview: preview,
                                                   width: 42,
                                                   height: 42,
+                                                  enabled: false,
                                                 ),
                                               );
                                             },
@@ -1119,6 +1120,7 @@ ProfilePreview _previewFromRecommendedUser(RecommendedUser user) {
     profilePhotoUrl: user.profilePhotoUrl,
     isPublic: user.isPublic,
     requestPending: user.requestPending,
+    isFollowing: user.isFollowing,
   );
 }
 

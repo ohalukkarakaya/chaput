@@ -4,6 +4,7 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:chaput/features/settings/presentation/screens/photo_settings_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
@@ -30,6 +31,12 @@ class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   static const int _closeReasonMinLength = 12;
+
+  static Future<void> _playDoubleTapHaptic() async {
+    await HapticFeedback.selectionClick();
+    await Future<void>.delayed(const Duration(milliseconds: 70));
+    await HapticFeedback.selectionClick();
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -244,6 +251,7 @@ class SettingsScreen extends ConsumerWidget {
                               }
                             },
                             onLogout: () async {
+                              await _playDoubleTapHaptic();
                               final storage = ref.read(tokenStorageProvider);
                               final refresh = await storage.readRefreshToken();
 

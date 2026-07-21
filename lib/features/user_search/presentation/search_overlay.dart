@@ -356,6 +356,7 @@ class _ResultsList extends StatelessWidget {
                     onDismiss: onDismissDiscoverUser,
                     onOpenProfile: onOpenProfile,
                     heroEnabled: false,
+                    dismissOnFollowSuccess: false,
                   );
                 },
               ),
@@ -463,17 +464,27 @@ List<ProfilePreview> _topDiscoverProfiles(
   List<ProfilePreview> visitHistory,
   Set<String> dismissedIds,
 ) {
-  if (visitHistory.isNotEmpty) {
-    return visitHistory
-        .take(5)
-        .where((item) => !dismissedIds.contains(item.id))
-        .toList(growable: false);
+  const targetCount = 5;
+  final topProfiles = <ProfilePreview>[];
+  final seenIds = <String>{};
+
+  void addProfile(ProfilePreview profile) {
+    final id = profile.id;
+    if (id.isEmpty || dismissedIds.contains(id) || !seenIds.add(id)) return;
+    topProfiles.add(profile);
   }
-  return items
-      .take(5)
-      .where((item) => !dismissedIds.contains(item.id))
-      .map(_previewFromSearchItem)
-      .toList(growable: false);
+
+  for (final profile in visitHistory) {
+    if (topProfiles.length >= targetCount) break;
+    addProfile(profile);
+  }
+
+  for (final item in items) {
+    if (topProfiles.length >= targetCount) break;
+    addProfile(_previewFromSearchItem(item));
+  }
+
+  return topProfiles;
 }
 
 ProfilePreview _previewFromSearchItem(UserSearchItem user) {
@@ -485,5 +496,7 @@ ProfilePreview _previewFromSearchItem(UserSearchItem user) {
     profilePhotoKey: user.profilePhotoKey,
     profilePhotoUrl: user.profilePhotoUrl,
     isPublic: user.isPublic,
+    requestPending: user.requestPending,
+    isFollowing: user.isFollowing,
   );
 }

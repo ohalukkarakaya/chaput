@@ -6,6 +6,8 @@ class UserSearchItem {
   final String? profilePhotoKey;
   final String? profilePhotoUrl;
   final bool isPublic;
+  final bool requestPending;
+  final bool isFollowing;
 
   UserSearchItem({
     required this.id,
@@ -15,6 +17,8 @@ class UserSearchItem {
     required this.profilePhotoKey,
     this.profilePhotoUrl,
     required this.isPublic,
+    this.requestPending = false,
+    this.isFollowing = false,
   });
 
   factory UserSearchItem.fromJson(Map<String, dynamic> json) {
@@ -26,8 +30,24 @@ class UserSearchItem {
       profilePhotoKey: json['profile_photo_key'] as String?,
       profilePhotoUrl: json['profile_photo_url'] as String?,
       isPublic: (json['is_public'] ?? false) as bool,
+      requestPending:
+          _jsonBool(json, 'request_pending') ||
+          _viewerStateBool(json, 'request_pending'),
+      isFollowing:
+          _jsonBool(json, 'is_following') ||
+          _jsonBool(json, 'following') ||
+          _jsonBool(json, 'followed') ||
+          _viewerStateBool(json, 'is_following'),
     );
   }
+}
+
+bool _jsonBool(Map<String, dynamic> json, String key) => json[key] == true;
+
+bool _viewerStateBool(Map<String, dynamic> json, String key) {
+  final viewerState = json['viewer_state'];
+  if (viewerState is! Map) return false;
+  return viewerState[key] == true;
 }
 
 class UserSearchResponse {
@@ -45,7 +65,9 @@ class UserSearchResponse {
     final rawItems = (json['items'] as List<dynamic>? ?? const []);
     return UserSearchResponse(
       ok: json['ok'] == true,
-      items: rawItems.map((e) => UserSearchItem.fromJson(e as Map<String, dynamic>)).toList(),
+      items: rawItems
+          .map((e) => UserSearchItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
       nextCursor: json['next_cursor'] as String?,
     );
   }

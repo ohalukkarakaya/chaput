@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -29,6 +30,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (ok) {
+      HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.t('photo.updated'))));
@@ -135,6 +137,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (ok) {
+      HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.t('photo.removed'))));

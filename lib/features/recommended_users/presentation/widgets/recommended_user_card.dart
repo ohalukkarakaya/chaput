@@ -25,6 +25,7 @@ class RecommendedUserCard extends ConsumerStatefulWidget {
     required this.onDismiss,
     this.onOpenProfile,
     this.heroEnabled = true,
+    this.dismissOnFollowSuccess = true,
   });
 
   final ProfilePreview user;
@@ -32,6 +33,7 @@ class RecommendedUserCard extends ConsumerStatefulWidget {
   final ValueChanged<String> onDismiss;
   final Future<void> Function(ProfilePreview user)? onOpenProfile;
   final bool heroEnabled;
+  final bool dismissOnFollowSuccess;
 
   @override
   ConsumerState<RecommendedUserCard> createState() =>
@@ -120,11 +122,12 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
     final rateLimitedMessage = context.t('profile.follow_rate_limited');
     final recoFailedMessage = context.t('home.reco_failed');
 
-    final isFollowing =
-        followState is FollowIdle && followState.isFollowing == true;
-    final requestPending =
-        (followState is FollowIdle && followState.requestPending == true) ||
-        user.requestPending;
+    final idleState = followState is FollowIdle ? followState : null;
+    final isFollowing = (idleState?.isFollowing ?? user.isFollowing) == true;
+    final requestPending = idleState != null
+        ? idleState.requestPending ??
+              (idleState.isFollowing == null ? user.requestPending : false)
+        : user.requestPending;
     if (requestPending && !isFollowing) {
       return;
     }
@@ -147,7 +150,8 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
 
       await ctrl.follow();
       final latestState = ref.read(followControllerProvider(username));
-      if (user.isPublic &&
+      if (widget.dismissOnFollowSuccess &&
+          user.isPublic &&
           latestState is FollowIdle &&
           latestState.isFollowing == true &&
           mounted) {
@@ -175,11 +179,12 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
         ? const FollowIdle()
         : ref.watch(followControllerProvider(username));
     final isLoading = followState is FollowLoading;
-    final isFollowing =
-        followState is FollowIdle && followState.isFollowing == true;
-    final requestPending =
-        (followState is FollowIdle && followState.requestPending == true) ||
-        user.requestPending;
+    final idleState = followState is FollowIdle ? followState : null;
+    final isFollowing = (idleState?.isFollowing ?? user.isFollowing) == true;
+    final requestPending = idleState != null
+        ? idleState.requestPending ??
+              (idleState.isFollowing == null ? user.requestPending : false)
+        : user.requestPending;
     final canTapAction =
         !isLoading &&
         username != null &&
@@ -313,7 +318,7 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
                           requestPending
                               ? Icons.schedule_rounded
                               : (isFollowing
-                                    ? Icons.person_remove_alt_1_rounded
+                                    ? Icons.remove_rounded
                                     : Icons.add_rounded),
                           size: 18,
                         ),

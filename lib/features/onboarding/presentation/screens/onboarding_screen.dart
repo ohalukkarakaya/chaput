@@ -238,6 +238,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await HapticFeedback.mediumImpact();
   }
 
+  Future<void> _playSuccessHaptics() async {
+    await HapticFeedback.selectionClick();
+    await Future<void>.delayed(const Duration(milliseconds: 70));
+    await HapticFeedback.selectionClick();
+  }
+
   String _mapOnboardingError(DioException e) {
     final data = e.response?.data;
     final raw = data is Map
@@ -296,6 +302,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     if (!mounted) return;
     if (verified == null) return;
+
+    await _playSuccessHaptics();
 
     await storage.saveAccessToken(verified.accessToken);
     await storage.saveRefreshToken(verified.refreshToken);
@@ -356,6 +364,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     if (!mounted) return;
     if (verified == null) return;
+
+    await _playSuccessHaptics();
 
     await storage.saveAccessToken(verified.accessToken);
     await storage.saveRefreshToken(verified.refreshToken);
@@ -478,7 +488,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       color: AppColors.chaputWhite.withValues(alpha: 0.82),
       fontSize: 12.5,
       height: 1.32,
-      fontWeight: FontWeight.w400,
+      fontWeight: FontWeight.w500,
     );
 
     final sliderTexts = List.generate(9, (index) {
@@ -621,6 +631,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                                           ),
                                                           title:
                                                               item['title'] ??
+                                                              '',
+                                                          subtitle:
+                                                              item['subtitle'] ??
                                                               '',
                                                           titleStyle:
                                                               titleStyle,
@@ -776,11 +789,13 @@ class _OnboardingTextShimmer extends StatefulWidget {
   const _OnboardingTextShimmer({
     super.key,
     required this.title,
+    required this.subtitle,
     required this.titleStyle,
     required this.subtitleStyle,
   });
 
   final String title;
+  final String subtitle;
   final TextStyle titleStyle;
   final TextStyle subtitleStyle;
 
@@ -809,8 +824,11 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
 
   @override
   Widget build(BuildContext context) {
-    final lineColor = AppColors.chaputWhite.withValues(alpha: 0.34);
-    final highlightColor = AppColors.chaputWhite.withValues(alpha: 0.86);
+    final titleBaseColor = AppColors.chaputWhite.withValues(alpha: 0.36);
+    final featuredBaseColor = AppColors.chaputWhite.withValues(alpha: 0.32);
+    final bodyBaseColor = AppColors.chaputWhite.withValues(alpha: 0.24);
+    final titleHighlightColor = AppColors.chaputWhite.withValues(alpha: 0.86);
+    final bodyHighlightColor = AppColors.chaputWhite.withValues(alpha: 0.68);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -821,83 +839,214 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
             ? constraints.maxHeight
             : 88.0;
         final textScaler = MediaQuery.textScalerOf(context);
-        final titleHeight = (TextPainter(
-          text: TextSpan(text: widget.title, style: widget.titleStyle),
-          textDirection: Directionality.of(context),
+        final direction = Directionality.of(context);
+        final titleFontSize = widget.titleStyle.fontSize ?? 20.0;
+        final subtitleFontSize = widget.subtitleStyle.fontSize ?? 12.5;
+        final emojiSize = math.min(24.0, math.max(20.0, titleFontSize * 1.05));
+        final titleLineHeight = math.min(
+          19.0,
+          math.max(15.0, titleFontSize * 0.78),
+        );
+        final featuredLineHeight = math.min(
+          13.0,
+          math.max(10.5, subtitleFontSize * 0.90),
+        );
+        final bodyLineHeight = math.min(
+          12.0,
+          math.max(10.0, subtitleFontSize * 0.82),
+        );
+        final titleText = _titleWithoutLeadingEmoji();
+        final hasEmojiSlot = titleText != widget.title.trim();
+        final titleTextWidth = hasEmojiSlot
+            ? math.max(1.0, width - emojiSize - 8)
+            : width;
+        final titleWidths = _lineWidthFactors(
+          text: titleText,
+          style: widget.titleStyle,
+          maxWidth: titleTextWidth,
           textScaler: textScaler,
+          textDirection: direction,
           maxLines: 2,
-        )..layout(maxWidth: width)).height;
-        final lineHeight = ((widget.subtitleStyle.fontSize ?? 12.5) * 0.92)
-            .clamp(10.0, 14.0);
-        const lineGap = 9.0;
-        final bodyTop = math.min(height, titleHeight + 8);
-        final bodyHeight = math.max(0.0, height - bodyTop);
-        var lineCount = ((bodyHeight + lineGap) / (lineHeight + lineGap))
-            .floor()
-            .clamp(1, 12);
-        while (lineCount > 1 &&
-            (lineCount * lineHeight + (lineCount - 1) * lineGap) > bodyHeight) {
-          lineCount -= 1;
+        );
+        final paragraphs = widget.subtitle
+            .split('\n\n')
+            .map((part) => part.trim())
+            .where((part) => part.isNotEmpty)
+            .toList(growable: false);
+        final featuredStyle = widget.subtitleStyle.copyWith(
+          fontWeight: FontWeight.w600,
+        );
+        final featuredWidths = paragraphs.isEmpty
+            ? const <double>[0.78]
+            : _lineWidthFactors(
+                text: paragraphs.first,
+                style: featuredStyle,
+                maxWidth: width,
+                textScaler: textScaler,
+                textDirection: direction,
+              );
+        final bodyParagraphs = paragraphs.length <= 1
+            ? const <String>[]
+            : paragraphs.skip(1);
+        final children = <Widget>[];
+        var top = 0.0;
+
+        void addLine({
+          required double left,
+          required double topOffset,
+          required double lineWidth,
+          required double lineHeight,
+          required Color baseColor,
+          required Color highlightColor,
+          double radius = 999,
+        }) {
+          if (topOffset >= height || lineWidth <= 0) return;
+          final visibleHeight = math.min(lineHeight, height - topOffset);
+          if (visibleHeight <= 1) return;
+          children.add(
+            Positioned(
+              left: left,
+              top: topOffset,
+              width: math.min(lineWidth, math.max(0.0, width - left)),
+              height: visibleHeight,
+              child: _OnboardingShimmerLine(
+                animation: _controller,
+                height: visibleHeight,
+                baseColor: baseColor,
+                highlightColor: highlightColor,
+                radius: radius,
+              ),
+            ),
+          );
+        }
+
+        if (hasEmojiSlot) {
+          addLine(
+            left: 0,
+            topOffset: top,
+            lineWidth: emojiSize,
+            lineHeight: emojiSize,
+            baseColor: titleBaseColor,
+            highlightColor: titleHighlightColor,
+            radius: 7,
+          );
+          addLine(
+            left: emojiSize + 8,
+            topOffset: top + ((emojiSize - titleLineHeight) / 2),
+            lineWidth: titleTextWidth * titleWidths.first,
+            lineHeight: titleLineHeight,
+            baseColor: titleBaseColor,
+            highlightColor: titleHighlightColor,
+          );
+          top += math.max(emojiSize, titleLineHeight) + 6;
+        } else {
+          addLine(
+            left: 0,
+            topOffset: top,
+            lineWidth: width * titleWidths.first,
+            lineHeight: titleLineHeight,
+            baseColor: titleBaseColor,
+            highlightColor: titleHighlightColor,
+          );
+          top += titleLineHeight + 6;
+        }
+
+        for (final factor in titleWidths.skip(1)) {
+          addLine(
+            left: 0,
+            topOffset: top,
+            lineWidth: width * factor,
+            lineHeight: titleLineHeight,
+            baseColor: titleBaseColor,
+            highlightColor: titleHighlightColor,
+          );
+          top += titleLineHeight + 6;
+        }
+
+        top += 2;
+
+        for (final factor in featuredWidths) {
+          addLine(
+            left: 0,
+            topOffset: top,
+            lineWidth: width * factor,
+            lineHeight: featuredLineHeight,
+            baseColor: featuredBaseColor,
+            highlightColor: titleHighlightColor,
+          );
+          top += featuredLineHeight + 6;
+        }
+
+        if (bodyParagraphs.isNotEmpty) {
+          top += 8;
+        }
+
+        for (final paragraph in bodyParagraphs) {
+          final bodyWidths = _lineWidthFactors(
+            text: paragraph,
+            style: widget.subtitleStyle,
+            maxWidth: width,
+            textScaler: textScaler,
+            textDirection: direction,
+          );
+          for (final factor in bodyWidths) {
+            addLine(
+              left: 0,
+              topOffset: top,
+              lineWidth: width * factor,
+              lineHeight: bodyLineHeight,
+              baseColor: bodyBaseColor,
+              highlightColor: bodyHighlightColor,
+            );
+            top += bodyLineHeight + 6;
+          }
+          top += 7;
         }
 
         return ClipRect(
           child: SizedBox(
             height: height,
-            child: Stack(
-              clipBehavior: Clip.hardEdge,
-              children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  child: Text(
-                    widget.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: widget.titleStyle,
-                  ),
-                ),
-                if (bodyHeight > 0)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: bodyTop,
-                    height: bodyHeight,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (var i = 0; i < lineCount; i++) ...[
-                          FractionallySizedBox(
-                            widthFactor: _paragraphLineWidthFactor(
-                              i,
-                              lineCount,
-                            ),
-                            child: _OnboardingShimmerLine(
-                              animation: _controller,
-                              height: lineHeight,
-                              baseColor: lineColor,
-                              highlightColor: highlightColor,
-                            ),
-                          ),
-                          if (i != lineCount - 1)
-                            const SizedBox(height: lineGap),
-                        ],
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+            child: Stack(clipBehavior: Clip.hardEdge, children: children),
           ),
         );
       },
     );
   }
 
-  double _paragraphLineWidthFactor(int index, int lineCount) {
-    if (index == lineCount - 1) return 0.62;
-    const widths = [0.94, 0.86, 0.98, 0.78, 0.91, 0.83];
-    return widths[index % widths.length];
+  String _titleWithoutLeadingEmoji() {
+    final title = widget.title.trim();
+    final firstSpace = title.indexOf(' ');
+    if (firstSpace > 0 && firstSpace <= 4 && firstSpace < title.length - 1) {
+      return title.substring(firstSpace + 1).trim();
+    }
+    return title;
+  }
+
+  List<double> _lineWidthFactors({
+    required String text,
+    required TextStyle style,
+    required double maxWidth,
+    required TextScaler textScaler,
+    required TextDirection textDirection,
+    int? maxLines,
+  }) {
+    if (text.trim().isEmpty || maxWidth <= 1) return const [0.62];
+
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: textDirection,
+      textScaler: textScaler,
+      maxLines: maxLines,
+    )..layout(maxWidth: maxWidth);
+    final metrics = painter.computeLineMetrics();
+    if (metrics.isEmpty) return const [0.62];
+
+    return metrics
+        .map((metric) {
+          final widthFactor = metric.width / maxWidth;
+          return widthFactor.clamp(0.32, 0.98).toDouble();
+        })
+        .toList(growable: false);
   }
 }
 
@@ -907,12 +1056,14 @@ class _OnboardingShimmerLine extends StatelessWidget {
     required this.height,
     required this.baseColor,
     required this.highlightColor,
+    this.radius = 999,
   });
 
   final Animation<double> animation;
   final double height;
   final Color baseColor;
   final Color highlightColor;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -921,7 +1072,7 @@ class _OnboardingShimmerLine extends StatelessWidget {
       builder: (context, child) {
         final t = animation.value;
         return ClipRRect(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(radius),
           child: Stack(
             children: [
               Container(height: height, color: baseColor),

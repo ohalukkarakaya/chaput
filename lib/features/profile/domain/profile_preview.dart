@@ -8,6 +8,7 @@ class ProfilePreview {
     required this.profilePhotoUrl,
     required this.isPublic,
     this.requestPending = false,
+    this.isFollowing = false,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class ProfilePreview {
   final String? profilePhotoUrl;
   final bool isPublic;
   final bool requestPending;
+  final bool isFollowing;
 
   String? get profilePhotoPath {
     if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty) {
