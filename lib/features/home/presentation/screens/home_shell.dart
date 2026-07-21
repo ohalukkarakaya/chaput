@@ -44,9 +44,11 @@ class HomeShell extends ConsumerStatefulWidget {
   ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends ConsumerState<HomeShell> {
+class _HomeShellState extends ConsumerState<HomeShell>
+    with SingleTickerProviderStateMixin {
   StreamSubscription<ChaputSocketEvent>? _socketSub;
   final GlobalKey _recoShowcaseKey = GlobalKey();
+  late final AnimationController _homeIntroCtrl;
   String _homeTutorialUserId = '';
   bool _homeTutorialCheckQueued = false;
   bool _homeTutorialCheckInFlight = false;
@@ -61,6 +63,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   bool _pendingDeepLinkOpenScheduled = false;
   bool _reviewPromptScheduled = false;
   bool _reviewPromptCheckInFlight = false;
+  bool _homeIntroStarted = false;
 
   void _syncHomeTutorialState({
     required String userId,
@@ -114,6 +117,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         _homeRecommendationTutorialActive ||
         _homeFeedbackTutorialActive ||
         _homeTutorialUserId.isEmpty ||
+        _homeIntroCtrl.status != AnimationStatus.completed ||
         _isHomeShowcaseRunning()) {
       return;
     }
@@ -333,7 +337,25 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void initState() {
     super.initState();
+    _homeIntroCtrl =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 640),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            _queueHomeTutorialCheck();
+          }
+        });
     _scheduleNotificationsBoot();
+  }
+
+  void _startHomeIntroIfNeeded() {
+    if (_homeIntroStarted) return;
+    _homeIntroStarted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _homeIntroCtrl.forward();
+    });
   }
 
   void _scheduleNotificationsBoot() {
@@ -446,6 +468,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   void dispose() {
     _socketSub?.cancel();
     _socketSub = null;
+    _homeIntroCtrl.dispose();
     super.dispose();
   }
 
@@ -466,6 +489,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             body: SizedBox.expand(),
           );
         }
+        _startHomeIntroIfNeeded();
         final meId = me.user.userId;
         final recommendationState = ref.watch(
           recommendedUserControllerProvider,
@@ -525,19 +549,176 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                       top: 12,
                       left: 16,
                       right: 16,
-                      child: SafeArea(
-                        bottom: false,
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 520),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: Consumer(
+                      child: _HomeIntroSlide(
+                        animation: _homeIntroCtrl,
+                        beginOffset: const Offset(0, -96),
+                        child: SafeArea(
+                          bottom: false,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 520),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                        child: Consumer(
+                                          builder: (context, ref, _) {
+                                            final meAsync = ref.watch(
+                                              meControllerProvider,
+                                            );
+
+                                            return meAsync.when(
+                                              loading: () =>
+                                                  const _HomeHeaderShimmer(),
+                                              error: (_, __) =>
+                                                  const SizedBox(height: 44),
+                                              data: (me) {
+                                                final rawName =
+                                                    me?.user.fullName ?? '';
+                                                final fullName = formatFullName(
+                                                  rawName,
+                                                );
+                                                final unread = ref.watch(
+                                                  notificationCountControllerProvider,
+                                                );
+                                                return Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    SizedBox(
+                                                      width: double.infinity,
+                                                      child: InkWell(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        onTap: () {
+                                                          HapticFeedback.selectionClick();
+                                                          context.push(
+                                                            Routes
+                                                                .notifications,
+                                                          );
+                                                        },
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets.fromLTRB(
+                                                                0,
+                                                                3,
+                                                                8,
+                                                                3,
+                                                              ),
+                                                          child: Row(
+                                                            children: [
+                                                              Text(
+                                                                context.t(
+                                                                  'home.welcome',
+                                                                ),
+                                                                style: TextStyle(
+                                                                  fontSize: 13,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w300,
+                                                                  color: AppColors
+                                                                      .chaputBlack
+                                                                      .withOpacity(
+                                                                        0.55,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 6,
+                                                              ),
+                                                              Stack(
+                                                                clipBehavior:
+                                                                    Clip.none,
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons
+                                                                        .keyboard_arrow_down,
+                                                                    size: 18,
+                                                                    color: AppColors
+                                                                        .chaputBlack
+                                                                        .withOpacity(
+                                                                          0.6,
+                                                                        ),
+                                                                  ),
+                                                                  if (unread >
+                                                                      0)
+                                                                    Positioned(
+                                                                      right: -6,
+                                                                      top: -6,
+                                                                      child: Container(
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          horizontal:
+                                                                              5,
+                                                                          vertical:
+                                                                              2,
+                                                                        ),
+                                                                        decoration: BoxDecoration(
+                                                                          color:
+                                                                              AppColors.chaputBlack,
+                                                                          borderRadius: BorderRadius.circular(
+                                                                            10,
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          unread >
+                                                                                  99
+                                                                              ? '99+'
+                                                                              : unread.toString(),
+                                                                          style: const TextStyle(
+                                                                            fontSize:
+                                                                                10,
+                                                                            fontWeight:
+                                                                                FontWeight.w800,
+                                                                            color:
+                                                                                AppColors.chaputWhite,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                ],
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      fullName.isEmpty
+                                                          ? context.t(
+                                                              'common.na',
+                                                            )
+                                                          : fullName,
+                                                      maxLines: 1,
+                                                      softWrap: false,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        color: AppColors
+                                                            .chaputBlack,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+
+                                      // Sağ: avatar
+                                      Consumer(
                                         builder: (context, ref, _) {
                                           final meAsync = ref.watch(
                                             meControllerProvider,
@@ -545,266 +726,121 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
                                           return meAsync.when(
                                             loading: () =>
-                                                const _HomeHeaderShimmer(),
-                                            error: (_, __) =>
-                                                const SizedBox(height: 44),
+                                                const _HomeAvatarShimmer(),
+                                            error: (_, __) => const SizedBox(
+                                              width: 40,
+                                              height: 40,
+                                            ),
                                             data: (me) {
-                                              final rawName =
-                                                  me?.user.fullName ?? '';
-                                              final fullName = formatFullName(
-                                                rawName,
+                                              if (me == null) {
+                                                return const SizedBox(
+                                                  width: 40,
+                                                  height: 40,
+                                                );
+                                              }
+                                              final user = me.user;
+                                              final preview = ProfilePreview(
+                                                id: user.userId,
+                                                username: user.username.isEmpty
+                                                    ? null
+                                                    : user.username,
+                                                fullName: user.fullName,
+                                                defaultAvatar:
+                                                    user.defaultAvatar ?? '',
+                                                profilePhotoKey:
+                                                    user.profilePhotoKey,
+                                                profilePhotoUrl:
+                                                    user.profilePhotoUrl,
+                                                isPublic: true,
                                               );
-                                              final unread = ref.watch(
-                                                notificationCountControllerProvider,
-                                              );
-                                              return Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  SizedBox(
-                                                    width: double.infinity,
-                                                    child: InkWell(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            12,
-                                                          ),
-                                                      onTap: () {
-                                                        HapticFeedback.selectionClick();
-                                                        context.push(
-                                                          Routes.notifications,
-                                                        );
-                                                      },
-                                                      child: Padding(
-                                                        padding:
-                                                            const EdgeInsets.fromLTRB(
-                                                              0,
-                                                              3,
-                                                              8,
-                                                              3,
-                                                            ),
-                                                        child: Row(
-                                                          children: [
-                                                            Text(
-                                                              context.t(
-                                                                'home.welcome',
-                                                              ),
-                                                              style: TextStyle(
-                                                                fontSize: 13,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w300,
-                                                                color: AppColors
-                                                                    .chaputBlack
-                                                                    .withOpacity(
-                                                                      0.55,
-                                                                    ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 6,
-                                                            ),
-                                                            Stack(
-                                                              clipBehavior:
-                                                                  Clip.none,
-                                                              children: [
-                                                                Icon(
-                                                                  Icons
-                                                                      .keyboard_arrow_down,
-                                                                  size: 18,
-                                                                  color: AppColors
-                                                                      .chaputBlack
-                                                                      .withOpacity(
-                                                                        0.6,
-                                                                      ),
-                                                                ),
-                                                                if (unread > 0)
-                                                                  Positioned(
-                                                                    right: -6,
-                                                                    top: -6,
-                                                                    child: Container(
-                                                                      padding: const EdgeInsets.symmetric(
-                                                                        horizontal:
-                                                                            5,
-                                                                        vertical:
-                                                                            2,
-                                                                      ),
-                                                                      decoration: BoxDecoration(
-                                                                        color: AppColors
-                                                                            .chaputBlack,
-                                                                        borderRadius:
-                                                                            BorderRadius.circular(
-                                                                              10,
-                                                                            ),
-                                                                      ),
-                                                                      child: Text(
-                                                                        unread >
-                                                                                99
-                                                                            ? '99+'
-                                                                            : unread.toString(),
-                                                                        style: const TextStyle(
-                                                                          fontSize:
-                                                                              10,
-                                                                          fontWeight:
-                                                                              FontWeight.w800,
-                                                                          color:
-                                                                              AppColors.chaputWhite,
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                              ],
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    fullName.isEmpty
-                                                        ? context.t('common.na')
-                                                        : fullName,
-                                                    maxLines: 1,
-                                                    softWrap: false,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      color:
-                                                          AppColors.chaputBlack,
-                                                    ),
-                                                  ),
-                                                ],
+
+                                              return GestureDetector(
+                                                onTap: () async {
+                                                  HapticFeedback.selectionClick();
+                                                  final route =
+                                                      await Routes.profile(
+                                                        user.userId,
+                                                      );
+                                                  if (!context.mounted) return;
+                                                  context.push(
+                                                    route,
+                                                    extra: {
+                                                      profilePreviewExtraKey:
+                                                          preview,
+                                                    },
+                                                  );
+                                                },
+                                                child: ProfileAvatarHero(
+                                                  preview: preview,
+                                                  width: 42,
+                                                  height: 42,
+                                                ),
                                               );
                                             },
                                           );
                                         },
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
+                                    ],
+                                  ),
 
-                                    // Sağ: avatar
-                                    Consumer(
-                                      builder: (context, ref, _) {
-                                        final meAsync = ref.watch(
-                                          meControllerProvider,
-                                        );
+                                  const SizedBox(height: 10),
 
-                                        return meAsync.when(
-                                          loading: () =>
-                                              const _HomeAvatarShimmer(),
-                                          error: (_, __) => const SizedBox(
-                                            width: 40,
-                                            height: 40,
+                                  // ✅ Search bar
+                                  Hero(
+                                    tag: SearchOverlay.heroTag,
+                                    child: Material(
+                                      color: AppColors.chaputTransparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(16),
+                                        onTap: () => Navigator.of(
+                                          context,
+                                        ).push(_SearchOverlayRoute()),
+                                        child: Container(
+                                          height: 46,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
                                           ),
-                                          data: (me) {
-                                            if (me == null) {
-                                              return const SizedBox(
-                                                width: 40,
-                                                height: 40,
-                                              );
-                                            }
-                                            final user = me.user;
-                                            final preview = ProfilePreview(
-                                              id: user.userId,
-                                              username: user.username.isEmpty
-                                                  ? null
-                                                  : user.username,
-                                              fullName: user.fullName,
-                                              defaultAvatar:
-                                                  user.defaultAvatar ?? '',
-                                              profilePhotoKey:
-                                                  user.profilePhotoKey,
-                                              profilePhotoUrl:
-                                                  user.profilePhotoUrl,
-                                              isPublic: true,
-                                            );
-
-                                            return GestureDetector(
-                                              onTap: () async {
-                                                HapticFeedback.selectionClick();
-                                                final route =
-                                                    await Routes.profile(
-                                                      user.userId,
-                                                    );
-                                                if (!context.mounted) return;
-                                                context.push(
-                                                  route,
-                                                  extra: {
-                                                    profilePreviewExtraKey:
-                                                        preview,
-                                                  },
-                                                );
-                                              },
-                                              child: ProfileAvatarHero(
-                                                preview: preview,
-                                                width: 42,
-                                                height: 42,
-                                              ),
-                                            );
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 10),
-
-                                // ✅ Search bar
-                                Hero(
-                                  tag: SearchOverlay.heroTag,
-                                  child: Material(
-                                    color: AppColors.chaputTransparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(16),
-                                      onTap: () => Navigator.of(
-                                        context,
-                                      ).push(_SearchOverlayRoute()),
-                                      child: Container(
-                                        height: 46,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.chaputWhite
-                                              .withOpacity(0.92),
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.search, size: 20),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              context.t('search.hint'),
-                                              style: TextStyle(
-                                                color: AppColors.chaputBlack
-                                                    .withOpacity(0.55),
-                                              ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.chaputWhite
+                                                .withOpacity(0.92),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
                                             ),
-                                          ],
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.search,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                context.t('search.hint'),
+                                                style: TextStyle(
+                                                  color: AppColors.chaputBlack
+                                                      .withOpacity(0.55),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
 
-                                const SizedBox(height: 14),
-                                _RecommendedUsersRail(
-                                  showcaseKey: _recoShowcaseKey,
-                                  viewerId: meId,
-                                  onTargetReadyChanged: (isReady) {
-                                    _setHomeRecommendationTargetReady(
-                                      userId: meId,
-                                      isReady: isReady,
-                                    );
-                                  },
-                                ),
-                              ],
+                                  const SizedBox(height: 14),
+                                  _RecommendedUsersRail(
+                                    showcaseKey: _recoShowcaseKey,
+                                    viewerId: meId,
+                                    onTargetReadyChanged: (isReady) {
+                                      _setHomeRecommendationTargetReady(
+                                        userId: meId,
+                                        isReady: isReady,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -819,37 +855,41 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 left: 16,
                 right: 16,
                 bottom: 0,
-                child: Padding(
-                  padding: context.responsive.bottomFixedPadding(base: 16),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: Consumer(
-                        builder: (context, ref, _) {
-                          final meAsync = ref.watch(meControllerProvider);
+                child: _HomeIntroSlide(
+                  animation: _homeIntroCtrl,
+                  beginOffset: const Offset(0, 96),
+                  child: Padding(
+                    padding: context.responsive.bottomFixedPadding(base: 16),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 520),
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final meAsync = ref.watch(meControllerProvider);
 
-                          return meAsync.when(
-                            loading: () => const _ShareBarShimmer(),
-                            error: (_, __) => const SizedBox(),
-                            data: (me) {
-                              if (me == null) return const SizedBox();
+                            return meAsync.when(
+                              loading: () => const _ShareBarShimmer(),
+                              error: (_, __) => const SizedBox(),
+                              data: (me) {
+                                if (me == null) return const SizedBox();
 
-                              final username = me.user.username;
-                              if (username.isEmpty) {
-                                return const SizedBox();
-                              }
+                                final username = me.user.username;
+                                if (username.isEmpty) {
+                                  return const SizedBox();
+                                }
 
-                              final link = 'https://chaput.app/me/$username';
+                                final link = 'https://chaput.app/me/$username';
 
-                              return ShareBar(
-                                link: link,
-                                title: context.t('home.share_title'),
-                                subtitle: context.t('home.share_subtitle'),
-                                showShareButton: false,
-                              );
-                            },
-                          );
-                        },
+                                return ShareBar(
+                                  link: link,
+                                  title: context.t('home.share_title'),
+                                  subtitle: context.t('home.share_subtitle'),
+                                  showShareButton: false,
+                                );
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -877,6 +917,33 @@ class _RecommendedUsersRail extends ConsumerStatefulWidget {
   @override
   ConsumerState<_RecommendedUsersRail> createState() =>
       _RecommendedUsersRailState();
+}
+
+class _HomeIntroSlide extends StatelessWidget {
+  const _HomeIntroSlide({
+    required this.animation,
+    required this.beginOffset,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final Offset beginOffset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final t = Curves.easeOutCubic.transform(animation.value);
+        return Transform.translate(
+          offset: Offset(beginOffset.dx * (1 - t), beginOffset.dy * (1 - t)),
+          child: child,
+        );
+      },
+    );
+  }
 }
 
 class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {

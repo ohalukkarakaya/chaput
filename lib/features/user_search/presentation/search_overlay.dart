@@ -355,6 +355,7 @@ class _ResultsList extends StatelessWidget {
                     width: cardWidth,
                     onDismiss: onDismissDiscoverUser,
                     onOpenProfile: onOpenProfile,
+                    heroEnabled: false,
                   );
                 },
               ),
@@ -394,7 +395,12 @@ class _ResultsList extends StatelessWidget {
             child: Row(
               children: [
                 // Avatar
-                ProfileAvatarHero(preview: preview, width: 42, height: 42),
+                ProfileAvatarHero(
+                  preview: preview,
+                  width: 42,
+                  height: 42,
+                  enabled: !isDiscover,
+                ),
                 const SizedBox(width: 12),
 
                 Expanded(
