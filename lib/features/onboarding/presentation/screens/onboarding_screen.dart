@@ -629,12 +629,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                                           key: ValueKey(
                                                             'shimmer-$index',
                                                           ),
-                                                          title:
-                                                              item['title'] ??
-                                                              '',
-                                                          subtitle:
-                                                              item['subtitle'] ??
-                                                              '',
                                                           titleStyle:
                                                               titleStyle,
                                                           subtitleStyle:
@@ -788,14 +782,10 @@ class _OnboardingSlideText extends StatelessWidget {
 class _OnboardingTextShimmer extends StatefulWidget {
   const _OnboardingTextShimmer({
     super.key,
-    required this.title,
-    required this.subtitle,
     required this.titleStyle,
     required this.subtitleStyle,
   });
 
-  final String title;
-  final String subtitle;
   final TextStyle titleStyle;
   final TextStyle subtitleStyle;
 
@@ -838,56 +828,21 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
         final height = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : 88.0;
-        final textScaler = MediaQuery.textScalerOf(context);
-        final direction = Directionality.of(context);
         final titleFontSize = widget.titleStyle.fontSize ?? 20.0;
         final subtitleFontSize = widget.subtitleStyle.fontSize ?? 12.5;
-        final emojiSize = math.min(24.0, math.max(20.0, titleFontSize * 1.05));
+        final emojiSize = math.min(23.0, math.max(19.0, titleFontSize * 1.0));
         final titleLineHeight = math.min(
-          19.0,
-          math.max(15.0, titleFontSize * 0.78),
+          18.0,
+          math.max(14.0, titleFontSize * 0.72),
         );
         final featuredLineHeight = math.min(
-          13.0,
-          math.max(10.5, subtitleFontSize * 0.90),
+          12.5,
+          math.max(10.0, subtitleFontSize * 0.84),
         );
         final bodyLineHeight = math.min(
-          12.0,
-          math.max(10.0, subtitleFontSize * 0.82),
+          11.0,
+          math.max(9.0, subtitleFontSize * 0.76),
         );
-        final titleText = _titleWithoutLeadingEmoji();
-        final hasEmojiSlot = titleText != widget.title.trim();
-        final titleTextWidth = hasEmojiSlot
-            ? math.max(1.0, width - emojiSize - 8)
-            : width;
-        final titleWidths = _lineWidthFactors(
-          text: titleText,
-          style: widget.titleStyle,
-          maxWidth: titleTextWidth,
-          textScaler: textScaler,
-          textDirection: direction,
-          maxLines: 2,
-        );
-        final paragraphs = widget.subtitle
-            .split('\n\n')
-            .map((part) => part.trim())
-            .where((part) => part.isNotEmpty)
-            .toList(growable: false);
-        final featuredStyle = widget.subtitleStyle.copyWith(
-          fontWeight: FontWeight.w600,
-        );
-        final featuredWidths = paragraphs.isEmpty
-            ? const <double>[0.78]
-            : _lineWidthFactors(
-                text: paragraphs.first,
-                style: featuredStyle,
-                maxWidth: width,
-                textScaler: textScaler,
-                textDirection: direction,
-              );
-        final bodyParagraphs = paragraphs.length <= 1
-            ? const <String>[]
-            : paragraphs.skip(1);
         final children = <Widget>[];
         var top = 0.0;
 
@@ -920,87 +875,49 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
           );
         }
 
-        if (hasEmojiSlot) {
-          addLine(
-            left: 0,
-            topOffset: top,
-            lineWidth: emojiSize,
-            lineHeight: emojiSize,
-            baseColor: titleBaseColor,
-            highlightColor: titleHighlightColor,
-            radius: 7,
-          );
-          addLine(
-            left: emojiSize + 8,
-            topOffset: top + ((emojiSize - titleLineHeight) / 2),
-            lineWidth: titleTextWidth * titleWidths.first,
-            lineHeight: titleLineHeight,
-            baseColor: titleBaseColor,
-            highlightColor: titleHighlightColor,
-          );
-          top += math.max(emojiSize, titleLineHeight) + 6;
-        } else {
-          addLine(
-            left: 0,
-            topOffset: top,
-            lineWidth: width * titleWidths.first,
-            lineHeight: titleLineHeight,
-            baseColor: titleBaseColor,
-            highlightColor: titleHighlightColor,
-          );
-          top += titleLineHeight + 6;
-        }
+        addLine(
+          left: 0,
+          topOffset: top,
+          lineWidth: emojiSize,
+          lineHeight: emojiSize,
+          baseColor: titleBaseColor,
+          highlightColor: titleHighlightColor,
+          radius: 7,
+        );
+        addLine(
+          left: emojiSize + 8,
+          topOffset: top + ((emojiSize - titleLineHeight) / 2),
+          lineWidth: math.min(
+            width * 0.62,
+            math.max(0.0, width - emojiSize - 8),
+          ),
+          lineHeight: titleLineHeight,
+          baseColor: titleBaseColor,
+          highlightColor: titleHighlightColor,
+        );
+        top += math.max(emojiSize, titleLineHeight) + 8;
 
-        for (final factor in titleWidths.skip(1)) {
-          addLine(
-            left: 0,
-            topOffset: top,
-            lineWidth: width * factor,
-            lineHeight: titleLineHeight,
-            baseColor: titleBaseColor,
-            highlightColor: titleHighlightColor,
-          );
-          top += titleLineHeight + 6;
-        }
+        addLine(
+          left: 0,
+          topOffset: top,
+          lineWidth: width * 0.86,
+          lineHeight: featuredLineHeight,
+          baseColor: featuredBaseColor,
+          highlightColor: titleHighlightColor,
+        );
+        top += featuredLineHeight + 14;
 
-        top += 2;
-
-        for (final factor in featuredWidths) {
+        const bodyWidthFactors = <double>[0.95, 0.82, 0.68];
+        for (final factor in bodyWidthFactors) {
           addLine(
             left: 0,
             topOffset: top,
             lineWidth: width * factor,
-            lineHeight: featuredLineHeight,
-            baseColor: featuredBaseColor,
-            highlightColor: titleHighlightColor,
+            lineHeight: bodyLineHeight,
+            baseColor: bodyBaseColor,
+            highlightColor: bodyHighlightColor,
           );
-          top += featuredLineHeight + 6;
-        }
-
-        if (bodyParagraphs.isNotEmpty) {
-          top += 8;
-        }
-
-        for (final paragraph in bodyParagraphs) {
-          final bodyWidths = _lineWidthFactors(
-            text: paragraph,
-            style: widget.subtitleStyle,
-            maxWidth: width,
-            textScaler: textScaler,
-            textDirection: direction,
-          );
-          for (final factor in bodyWidths) {
-            addLine(
-              left: 0,
-              topOffset: top,
-              lineWidth: width * factor,
-              lineHeight: bodyLineHeight,
-              baseColor: bodyBaseColor,
-              highlightColor: bodyHighlightColor,
-            );
-            top += bodyLineHeight + 6;
-          }
-          top += 7;
+          top += bodyLineHeight + 6;
         }
 
         return ClipRect(
@@ -1011,42 +928,6 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
         );
       },
     );
-  }
-
-  String _titleWithoutLeadingEmoji() {
-    final title = widget.title.trim();
-    final firstSpace = title.indexOf(' ');
-    if (firstSpace > 0 && firstSpace <= 4 && firstSpace < title.length - 1) {
-      return title.substring(firstSpace + 1).trim();
-    }
-    return title;
-  }
-
-  List<double> _lineWidthFactors({
-    required String text,
-    required TextStyle style,
-    required double maxWidth,
-    required TextScaler textScaler,
-    required TextDirection textDirection,
-    int? maxLines,
-  }) {
-    if (text.trim().isEmpty || maxWidth <= 1) return const [0.62];
-
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: textDirection,
-      textScaler: textScaler,
-      maxLines: maxLines,
-    )..layout(maxWidth: maxWidth);
-    final metrics = painter.computeLineMetrics();
-    if (metrics.isEmpty) return const [0.62];
-
-    return metrics
-        .map((metric) {
-          final widthFactor = metric.width / maxWidth;
-          return widthFactor.clamp(0.32, 0.98).toDouble();
-        })
-        .toList(growable: false);
   }
 }
 

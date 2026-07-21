@@ -101,7 +101,10 @@ class SettingsScreen extends ConsumerWidget {
                             isDefaultAvatar:
                                 profilePhotoUrl == null ||
                                 profilePhotoUrl.isEmpty,
-                            onBack: () => Navigator.of(context).pop(),
+                            onBack: () {
+                              HapticFeedback.selectionClick();
+                              Navigator.of(context).pop();
+                            },
                             onOpenPhoto: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
