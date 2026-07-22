@@ -1833,6 +1833,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _silhouetteMode) {
       return;
     }
+    HapticFeedback.selectionClick();
     _chaputSheetPrevExtent = _chaputSheetMid;
     _chaputSheetCtrl.animateTo(
       _chaputSheetMid,
