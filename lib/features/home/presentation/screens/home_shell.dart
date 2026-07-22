@@ -25,8 +25,10 @@ import '../../../notifications/data/notification_api_provider.dart';
 import '../../../onboarding/application/onboarding_permission_coordinator.dart';
 import '../../../../chaput/data/chaput_socket.dart';
 import '../../../notifications/application/push_token_registrar.dart';
+import '../../../profile/application/profile_visit_history_controller.dart';
 import '../../../profile/domain/profile_preview.dart';
 import '../../../profile/presentation/widgets/profile_avatar_hero.dart';
+import '../../../user_search/application/user_search_controller.dart';
 import '../../../user_search/presentation/search_overlay.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
 import '../../../recommended_users/domain/recommended_user.dart';
@@ -987,13 +989,28 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
   }
 
   void _syncRecommendedFollowState(ProfilePreview user) {
+    final syncedUser = user.isFollowing
+        ? user.copyWith(requestPending: false)
+        : user;
     ref
         .read(recommendedUserControllerProvider.notifier)
         .updateFollowState(
-          userId: user.id,
-          isFollowing: user.isFollowing,
-          requestPending: user.requestPending,
+          userId: syncedUser.id,
+          isFollowing: syncedUser.isFollowing,
+          requestPending: syncedUser.requestPending,
         );
+    ref
+        .read(profileVisitHistoryProvider.notifier)
+        .updateFollowState(syncedUser);
+    if (ref.exists(userSearchControllerProvider)) {
+      ref
+          .read(userSearchControllerProvider.notifier)
+          .updateFollowState(
+            userId: syncedUser.id,
+            isFollowing: syncedUser.isFollowing,
+            requestPending: syncedUser.requestPending,
+          );
+    }
   }
 
   @override

@@ -342,7 +342,7 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
                           requestPending
                               ? Icons.schedule_rounded
                               : (isFollowing
-                                    ? Icons.remove_circle
+                                    ? Icons.remove_circle_outline
                                     : Icons.add_rounded),
                           size: 18,
                         ),

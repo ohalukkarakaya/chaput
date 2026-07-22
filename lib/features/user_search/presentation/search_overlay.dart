@@ -466,7 +466,12 @@ List<ProfilePreview> _topDiscoverProfiles(
 
   for (final profile in visitHistory) {
     if (topProfiles.length >= targetCount) break;
-    addProfile(discoverProfilesById[profile.id] ?? profile);
+    final discoverProfile = discoverProfilesById[profile.id];
+    addProfile(
+      discoverProfile == null
+          ? profile
+          : mergeDiscoverProfileState(discoverProfile, profile),
+    );
   }
 
   for (final item in items) {
@@ -475,6 +480,20 @@ List<ProfilePreview> _topDiscoverProfiles(
   }
 
   return topProfiles;
+}
+
+ProfilePreview mergeDiscoverProfileState(
+  ProfilePreview discoverProfile,
+  ProfilePreview historyProfile,
+) {
+  final isFollowing = discoverProfile.isFollowing || historyProfile.isFollowing;
+  final requestPending =
+      !isFollowing &&
+      (discoverProfile.requestPending || historyProfile.requestPending);
+  return discoverProfile.copyWith(
+    isFollowing: isFollowing,
+    requestPending: requestPending,
+  );
 }
 
 ProfilePreview _previewFromSearchItem(UserSearchItem user) {
