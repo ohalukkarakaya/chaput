@@ -46,6 +46,14 @@ class RecommendedUser {
   }
 
   factory RecommendedUser.fromJson(Map<String, dynamic> json) {
+    final isFollowing =
+        _jsonBoolAny(json, _isFollowingKeys) ||
+        _viewerStateBoolAny(json, _isFollowingKeys);
+    final requestPending =
+        !isFollowing &&
+        (_jsonBoolAny(json, _requestPendingKeys) ||
+            _viewerStateBoolAny(json, _requestPendingKeys));
+
     return RecommendedUser(
       id: json['id'] as String,
       username: json['username'] as String?,
@@ -54,12 +62,8 @@ class RecommendedUser {
       profilePhotoKey: json['profile_photo_key'] as String?,
       profilePhotoUrl: json['profile_photo_url'] as String?,
       isPublic: json['is_public'] == true,
-      requestPending:
-          _jsonBoolAny(json, _requestPendingKeys) ||
-          _viewerStateBoolAny(json, _requestPendingKeys),
-      isFollowing:
-          _jsonBoolAny(json, _isFollowingKeys) ||
-          _viewerStateBoolAny(json, _isFollowingKeys),
+      requestPending: requestPending,
+      isFollowing: isFollowing,
     );
   }
 

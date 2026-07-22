@@ -46,6 +46,14 @@ class UserSearchItem {
   }
 
   factory UserSearchItem.fromJson(Map<String, dynamic> json) {
+    final isFollowing =
+        _jsonBoolAny(json, _isFollowingKeys) ||
+        _viewerStateBoolAny(json, _isFollowingKeys);
+    final requestPending =
+        !isFollowing &&
+        (_jsonBoolAny(json, _requestPendingKeys) ||
+            _viewerStateBoolAny(json, _requestPendingKeys));
+
     return UserSearchItem(
       id: (json['id'] ?? '') as String,
       fullName: (json['full_name'] ?? '') as String,
@@ -54,12 +62,8 @@ class UserSearchItem {
       profilePhotoKey: json['profile_photo_key'] as String?,
       profilePhotoUrl: json['profile_photo_url'] as String?,
       isPublic: (json['is_public'] ?? false) as bool,
-      requestPending:
-          _jsonBoolAny(json, _requestPendingKeys) ||
-          _viewerStateBoolAny(json, _requestPendingKeys),
-      isFollowing:
-          _jsonBoolAny(json, _isFollowingKeys) ||
-          _viewerStateBoolAny(json, _isFollowingKeys),
+      requestPending: requestPending,
+      isFollowing: isFollowing,
     );
   }
 }

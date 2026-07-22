@@ -126,10 +126,11 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
 
     final idleState = followState is FollowIdle ? followState : null;
     final isFollowing = (idleState?.isFollowing ?? user.isFollowing) == true;
-    final requestPending = idleState != null
+    final rawRequestPending = idleState != null
         ? idleState.requestPending ??
               (idleState.isFollowing == null ? user.requestPending : false)
         : user.requestPending;
+    final requestPending = !isFollowing && rawRequestPending;
     if (requestPending && !isFollowing) {
       return;
     }
@@ -203,10 +204,11 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
     final isLoading = followState is FollowLoading;
     final idleState = followState is FollowIdle ? followState : null;
     final isFollowing = (idleState?.isFollowing ?? user.isFollowing) == true;
-    final requestPending = idleState != null
+    final rawRequestPending = idleState != null
         ? idleState.requestPending ??
               (idleState.isFollowing == null ? user.requestPending : false)
         : user.requestPending;
+    final requestPending = !isFollowing && rawRequestPending;
     final canTapAction =
         !isLoading &&
         username != null &&
