@@ -911,10 +911,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void didPushNext() {
     if (_treePreservingOverlayDepth > 0) return;
+    if (!routeObserver.isCoveredByPageRoute(ModalRoute.of(context))) return;
     _stopTypingSound();
     _resetChaputSwipeFeedback();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _treePreservingOverlayDepth > 0) return;
+      if (!routeObserver.isCoveredByPageRoute(ModalRoute.of(context))) return;
       _suspendTreeForCoveredRoute();
     });
   }
@@ -5746,6 +5748,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             duration: const Duration(milliseconds: 160),
                             child:
                                 (_composerOpen ||
+                                    _isInteracting ||
                                     (_silhouetteMode &&
                                         !showPrivateFollowSheet) ||
                                     isMe ||

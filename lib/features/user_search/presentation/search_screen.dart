@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/user_search_controller.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'package:chaput/core/ui/widgets/empty_state_illustration.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 
@@ -194,11 +195,10 @@ class _ResultsList extends StatelessWidget {
     }
 
     if (state.items.isEmpty) {
-      return Center(
-        child: Text(
-          context.t('search.no_users'),
-          style: const TextStyle(color: AppColors.chaputWhite),
-        ),
+      return const EmptyStateIllustration(
+        assetPath:
+            'assets/images/empty_state/user_search_not_found_empty_state.png',
+        maxWidth: 220,
       );
     }
 
@@ -210,13 +210,13 @@ class _ResultsList extends StatelessWidget {
         if (i == state.items.length) {
           return state.isLoadingMore
               ? Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: ShimmerLoading(
-              baseColor: AppColors.chaputWhite.withOpacity(0.10),
-              highlightColor: AppColors.chaputWhite.withOpacity(0.28),
-              child: const ShimmerLine(width: 140, height: 10),
-            ),
-          )
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: ShimmerLoading(
+                    baseColor: AppColors.chaputWhite.withOpacity(0.10),
+                    highlightColor: AppColors.chaputWhite.withOpacity(0.28),
+                    child: const ShimmerLine(width: 140, height: 10),
+                  ),
+                )
               : const SizedBox(height: 12);
         }
 
@@ -254,25 +254,36 @@ class _ResultsList extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      u.username == null ? context.t('common.na') : '@${u.username}',
+                      u.username == null
+                          ? context.t('common.na')
+                          : '@${u.username}',
                       maxLines: 1,
                       softWrap: false,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: AppColors.chaputBlack.withOpacity(0.55)),
+                      style: TextStyle(
+                        color: AppColors.chaputBlack.withOpacity(0.55),
+                      ),
                     ),
                   ],
                 ),
               ),
               if (!u.isPublic)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.chaputBlack,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     context.t('search.private'),
-                    style: const TextStyle(color: AppColors.chaputWhite, fontWeight: FontWeight.w700, fontSize: 12),
+                    style: const TextStyle(
+                      color: AppColors.chaputWhite,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
             ],

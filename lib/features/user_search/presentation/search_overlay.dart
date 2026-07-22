@@ -12,6 +12,7 @@ import '../domain/user_search_models.dart';
 import '../application/user_search_controller.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'package:chaput/core/ui/widgets/empty_state_illustration.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 import 'package:chaput/core/router/routes.dart';
@@ -275,39 +276,10 @@ class _ResultsList extends StatelessWidget {
     }
 
     if (state.items.isEmpty) {
-      final isDiscover = state.mode == UserSearchMode.discover;
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isDiscover
-                  ? Icons.people_outline_rounded
-                  : Icons.person_search_rounded,
-              size: 56,
-              color: AppColors.chaputWhite.withOpacity(0.65),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              isDiscover
-                  ? context.t('home.reco_empty')
-                  : context.t('search.no_users'),
-              style: TextStyle(
-                color: AppColors.chaputWhite.withOpacity(0.85),
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              context.t('search.try_different'),
-              style: TextStyle(
-                color: AppColors.chaputWhite.withOpacity(0.60),
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
+      return const EmptyStateIllustration(
+        assetPath:
+            'assets/images/empty_state/user_search_not_found_empty_state.png',
+        maxWidth: 220,
       );
     }
 

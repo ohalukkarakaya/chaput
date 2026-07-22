@@ -13,6 +13,7 @@ import 'package:chaput/features/settings/data/account_api.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chaput/core/ui/widgets/empty_state_illustration.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:go_router/go_router.dart';
 
@@ -282,14 +283,9 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                             ),
                           )
                         : (st.items.isEmpty && !st.isLoading)
-                        ? Center(
-                            child: Text(
-                              context.t('common.empty'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.chaputBlack54,
-                              ),
-                            ),
+                        ? const EmptyStateIllustration(
+                            assetPath:
+                                'assets/images/empty_state/archive_empty_state.png',
                           )
                         : NotificationListener<ScrollNotification>(
                             onNotification: (n) {

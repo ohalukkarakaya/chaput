@@ -882,8 +882,6 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
     final titleBaseColor = AppColors.chaputWhite.withValues(alpha: 0.36);
     final featuredBaseColor = AppColors.chaputWhite.withValues(alpha: 0.32);
     final bodyBaseColor = AppColors.chaputWhite.withValues(alpha: 0.24);
-    final titleHighlightColor = AppColors.chaputWhite.withValues(alpha: 0.86);
-    final bodyHighlightColor = AppColors.chaputWhite.withValues(alpha: 0.68);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -943,7 +941,8 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
         final bodyParagraphs = paragraphs.length <= 1
             ? const <String>[]
             : paragraphs.skip(1);
-        final children = <Widget>[];
+        final baseChildren = <Widget>[];
+        final maskChildren = <Widget>[];
         var top = 0.0;
 
         void addLine({
@@ -952,26 +951,99 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
           required double lineWidth,
           required double lineHeight,
           required Color baseColor,
-          required Color highlightColor,
           double radius = 999,
         }) {
           if (topOffset >= height || lineWidth <= 0) return;
           final visibleHeight = math.min(lineHeight, height - topOffset);
           if (visibleHeight <= 1) return;
-          children.add(
-            Positioned(
+
+          Widget positionedLine(Color color) {
+            return Positioned(
               left: left,
               top: topOffset,
               width: math.min(lineWidth, math.max(0.0, width - left)),
               height: visibleHeight,
               child: _OnboardingShimmerLine(
-                animation: _controller,
                 height: visibleHeight,
-                baseColor: baseColor,
-                highlightColor: highlightColor,
+                color: color,
                 radius: radius,
               ),
+            );
+          }
+
+          baseChildren.add(positionedLine(baseColor));
+          maskChildren.add(positionedLine(AppColors.chaputWhite));
+        }
+
+        Widget shimmerMask() {
+          return AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final t = _controller.value;
+              return ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (rect) {
+                  return LinearGradient(
+                    begin: Alignment(-1.8 + (3.6 * t), 0),
+                    end: Alignment(-0.8 + (3.6 * t), 0),
+                    colors: [
+                      AppColors.chaputTransparent,
+                      AppColors.chaputWhite.withValues(alpha: 0.72),
+                      AppColors.chaputTransparent,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ).createShader(rect);
+                },
+                child: child,
+              );
+            },
+            child: Stack(clipBehavior: Clip.hardEdge, children: maskChildren),
+          );
+        }
+
+        Widget buildStack() {
+          return ClipRect(
+            child: SizedBox(
+              height: height,
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  ...baseChildren,
+                  Positioned.fill(child: shimmerMask()),
+                ],
+              ),
             ),
+          );
+        }
+
+        void addTitleLine({
+          required double left,
+          required double topOffset,
+          required double lineWidth,
+          double radius = 999,
+        }) {
+          addLine(
+            left: left,
+            topOffset: topOffset,
+            lineWidth: lineWidth,
+            lineHeight: titleLineHeight,
+            baseColor: titleBaseColor,
+            radius: radius,
+          );
+        }
+
+        void addSubtitleLine({
+          required double topOffset,
+          required double lineWidth,
+          required Color baseColor,
+          required double lineHeight,
+        }) {
+          addLine(
+            left: 0,
+            topOffset: topOffset,
+            lineWidth: lineWidth,
+            lineHeight: lineHeight,
+            baseColor: baseColor,
           );
         }
 
@@ -982,58 +1054,40 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
             lineWidth: emojiSize,
             lineHeight: emojiSize,
             baseColor: titleBaseColor,
-            highlightColor: titleHighlightColor,
             radius: 7,
           );
-          addLine(
+          addTitleLine(
             left: emojiSize + 8,
             topOffset: top + ((emojiSize - titleLineHeight) / 2),
             lineWidth: titleTextWidth * titleWidths.first,
-            lineHeight: titleLineHeight,
-            baseColor: titleBaseColor,
-            highlightColor: titleHighlightColor,
           );
-          top += math.max(emojiSize, titleLineHeight) + 6;
+          top += math.max(emojiSize, titleLineHeight) + 8;
         } else {
-          addLine(
+          addTitleLine(
             left: 0,
             topOffset: top,
             lineWidth: width * titleWidths.first,
-            lineHeight: titleLineHeight,
-            baseColor: titleBaseColor,
-            highlightColor: titleHighlightColor,
           );
-          top += titleLineHeight + 6;
+          top += titleLineHeight + 8;
         }
 
         for (final factor in titleWidths.skip(1)) {
-          addLine(
-            left: 0,
-            topOffset: top,
-            lineWidth: width * factor,
-            lineHeight: titleLineHeight,
-            baseColor: titleBaseColor,
-            highlightColor: titleHighlightColor,
-          );
-          top += titleLineHeight + 6;
+          addTitleLine(left: 0, topOffset: top, lineWidth: width * factor);
+          top += titleLineHeight + 8;
         }
 
-        top += 2;
-
         for (final factor in featuredWidths) {
-          addLine(
-            left: 0,
+          addSubtitleLine(
             topOffset: top,
             lineWidth: width * factor,
             lineHeight: featuredLineHeight,
             baseColor: featuredBaseColor,
-            highlightColor: titleHighlightColor,
           );
-          top += featuredLineHeight + 6;
+          top += featuredLineHeight + 8;
         }
 
         if (bodyParagraphs.isNotEmpty) {
-          top += 8;
+          top += 12;
         }
 
         for (final paragraph in bodyParagraphs) {
@@ -1045,25 +1099,18 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
             textDirection: direction,
           );
           for (final factor in bodyWidths) {
-            addLine(
-              left: 0,
+            addSubtitleLine(
               topOffset: top,
               lineWidth: width * factor,
               lineHeight: bodyLineHeight,
               baseColor: bodyBaseColor,
-              highlightColor: bodyHighlightColor,
             );
-            top += bodyLineHeight + 6;
+            top += bodyLineHeight + 8;
           }
-          top += 7;
+          top += 10;
         }
 
-        return ClipRect(
-          child: SizedBox(
-            height: height,
-            child: Stack(clipBehavior: Clip.hardEdge, children: children),
-          ),
-        );
+        return buildStack();
       },
     );
   }
@@ -1107,50 +1154,23 @@ class _OnboardingTextShimmerState extends State<_OnboardingTextShimmer>
 
 class _OnboardingShimmerLine extends StatelessWidget {
   const _OnboardingShimmerLine({
-    required this.animation,
     required this.height,
-    required this.baseColor,
-    required this.highlightColor,
+    required this.color,
     this.radius = 999,
   });
 
-  final Animation<double> animation;
   final double height;
-  final Color baseColor;
-  final Color highlightColor;
+  final Color color;
   final double radius;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final t = animation.value;
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Stack(
-            children: [
-              Container(height: height, color: baseColor),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment(-1.8 + (3.6 * t), 0),
-                      end: Alignment(-0.8 + (3.6 * t), 0),
-                      colors: [
-                        AppColors.chaputTransparent,
-                        highlightColor,
-                        AppColors.chaputTransparent,
-                      ],
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: ColoredBox(
+        color: color,
+        child: SizedBox(height: height),
+      ),
     );
   }
 }

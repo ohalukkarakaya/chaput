@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chaput/core/ui/widgets/empty_state_illustration.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:go_router/go_router.dart';
 
@@ -178,14 +179,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             ),
                           )
                         : (st.items.isEmpty && !st.isLoading)
-                        ? Center(
-                            child: Text(
-                              context.t('common.empty'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.chaputBlack54,
-                              ),
-                            ),
+                        ? const EmptyStateIllustration(
+                            assetPath:
+                                'assets/images/empty_state/notifications_empty_state.png',
                           )
                         : NotificationListener<ScrollNotification>(
                             onNotification: (n) {

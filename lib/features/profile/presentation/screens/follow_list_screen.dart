@@ -2,6 +2,7 @@ import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chaput/core/ui/widgets/empty_state_illustration.dart';
 import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import 'package:chaput/core/ui/widgets/app_text_context_menu.dart';
 import 'package:go_router/go_router.dart';
@@ -218,14 +219,9 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                         }
 
                         if (items.isEmpty && !st.isLoading) {
-                          return Center(
-                            child: Text(
-                              context.t('common.empty'),
-                              style: TextStyle(
-                                color: AppColors.chaputBlack.withOpacity(0.55),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                          return const EmptyStateIllustration(
+                            assetPath:
+                                'assets/images/empty_state/followers_followings_empty_state.png',
                           );
                         }
 

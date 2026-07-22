@@ -2,7 +2,7 @@ name: chaput
 description: "Chaput App"
 publish_to: 'none'
 
-version: 1.0.1+51
+version: 1.0.1+52
 
 environment:
   sdk: ^3.8.1
@@ -97,6 +97,7 @@ flutter:
     - assets/videos/chaput_bg.M4V
     - assets/videos/chaput_bg_2.mp4
     - assets/images/
+    - assets/images/empty_state/
     - assets/images/tree_bg.png
     - assets/images/chaput_logo_256px_h.png
     - assets/images/chaput_tying_lady.png
