@@ -36,9 +36,12 @@ import '../../../revenuecat/data/revenue_cat_service.dart';
 import '../../../settings/data/account_api.dart';
 import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../user/domain/lite_user.dart';
+import '../../application/profile_visit_history_controller.dart';
 import '../../domain/profile_preview.dart';
+import '../../../recommended_users/application/recommended_user_controller.dart';
 import '../../../social/application/follow_state.dart';
 import '../../../social/application/ui_restriction_override_provider.dart';
+import '../../../user_search/application/user_search_controller.dart';
 import '../../../user/application/profile_controller.dart';
 import '../../../user/data/user_api_provider.dart';
 import '../../domain/tree_catalog.dart';
@@ -170,6 +173,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   int _uiFollowerDelta = 0;
   bool _uiFollowLoading = false;
   bool? _uiRequestedFollow;
+  String? _lastFollowStateSyncSignature;
 
   // ===== COMPOSER (Chaput bağla) =====
   final TextEditingController _msgCtrl = TextEditingController();
@@ -2153,6 +2157,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
+  void _syncProfileFollowState(ProfilePreview preview, {required bool isMe}) {
+    if (isMe || preview.id.isEmpty) return;
+    final requestPending = preview.isFollowing ? false : preview.requestPending;
+    final signature = '${preview.id}|${preview.isFollowing}|$requestPending';
+    if (_lastFollowStateSyncSignature == signature) return;
+    _lastFollowStateSyncSignature = signature;
+
+    final syncedPreview = preview.copyWith(requestPending: requestPending);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _isDisposed ||
+          _lastFollowStateSyncSignature != signature) {
+        return;
+      }
+      ref
+          .read(profileVisitHistoryProvider.notifier)
+          .updateFollowState(syncedPreview);
+      if (ref.exists(userSearchControllerProvider)) {
+        ref
+            .read(userSearchControllerProvider.notifier)
+            .updateFollowState(
+              userId: syncedPreview.id,
+              isFollowing: syncedPreview.isFollowing,
+              requestPending: syncedPreview.requestPending,
+            );
+      }
+      if (ref.exists(recommendedUserControllerProvider)) {
+        ref
+            .read(recommendedUserControllerProvider.notifier)
+            .updateFollowState(
+              userId: syncedPreview.id,
+              isFollowing: syncedPreview.isFollowing,
+              requestPending: syncedPreview.requestPending,
+            );
+      }
+    });
+  }
+
   String _resolveProfileId(Map<String, dynamic>? profileJson, String fallback) {
     if (profileJson == null) return fallback;
     final user = (profileJson['user'] is Map)
@@ -3880,6 +3922,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
 
     final followLoading = followState is FollowLoading;
+    if (viewerState != null && userId.isNotEmpty) {
+      _syncProfileFollowState(
+        avatarPreview.copyWith(
+          isFollowing: effectiveIsFollowing,
+          requestPending: effectiveRequestedFollow,
+        ),
+        isMe: isMe,
+      );
+    }
 
     final me = meAsync.valueOrNull;
     final viewerId = me?.user.userId ?? '';

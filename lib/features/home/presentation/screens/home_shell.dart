@@ -986,6 +986,16 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
     setState(() => _dismissedIds.add(id));
   }
 
+  void _syncRecommendedFollowState(ProfilePreview user) {
+    ref
+        .read(recommendedUserControllerProvider.notifier)
+        .updateFollowState(
+          userId: user.id,
+          isFollowing: user.isFollowing,
+          requestPending: user.requestPending,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final recAsync = ref.watch(recommendedUserControllerProvider);
@@ -1008,7 +1018,7 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
       },
       data: (items) {
         final visibleItems = items
-            .where((u) => !_dismissedIds.contains(u.id))
+            .where((u) => !_dismissedIds.contains(u.id) && !u.isFollowing)
             .toList(growable: false);
 
         if (visibleItems.isEmpty) {
@@ -1040,6 +1050,7 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
                 user: _previewFromRecommendedUser(user),
                 width: cardWidth,
                 onDismiss: _dismissCard,
+                onFollowStateChanged: _syncRecommendedFollowState,
               );
 
               if (index == 0) {

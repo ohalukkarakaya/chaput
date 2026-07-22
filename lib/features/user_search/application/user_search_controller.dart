@@ -191,6 +191,31 @@ class UserSearchController extends Notifier<UserSearchState> {
     }
   }
 
+  void updateFollowState({
+    required String userId,
+    required bool isFollowing,
+    required bool requestPending,
+  }) {
+    if (userId.isEmpty) return;
+    final normalizedRequestPending = isFollowing ? false : requestPending;
+    var changed = false;
+    final next = state.items
+        .map((item) {
+          if (item.id != userId) return item;
+          if (item.isFollowing == isFollowing &&
+              item.requestPending == normalizedRequestPending) {
+            return item;
+          }
+          changed = true;
+          return item.copyWith(
+            isFollowing: isFollowing,
+            requestPending: normalizedRequestPending,
+          );
+        })
+        .toList(growable: false);
+    if (changed) state = state.copyWith(items: next);
+  }
+
   String _extractError(DioException e) {
     final data = e.response?.data;
     if (data is Map && data['error'] is String) return data['error'] as String;

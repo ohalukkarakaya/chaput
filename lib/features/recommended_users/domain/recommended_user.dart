@@ -21,6 +21,30 @@ class RecommendedUser {
     required this.isFollowing,
   });
 
+  RecommendedUser copyWith({
+    String? id,
+    String? username,
+    String? fullName,
+    String? defaultAvatar,
+    String? profilePhotoKey,
+    String? profilePhotoUrl,
+    bool? isPublic,
+    bool? requestPending,
+    bool? isFollowing,
+  }) {
+    return RecommendedUser(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      fullName: fullName ?? this.fullName,
+      defaultAvatar: defaultAvatar ?? this.defaultAvatar,
+      profilePhotoKey: profilePhotoKey ?? this.profilePhotoKey,
+      profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
+      isPublic: isPublic ?? this.isPublic,
+      requestPending: requestPending ?? this.requestPending,
+      isFollowing: isFollowing ?? this.isFollowing,
+    );
+  }
+
   factory RecommendedUser.fromJson(Map<String, dynamic> json) {
     return RecommendedUser(
       id: json['id'] as String,
@@ -31,13 +55,11 @@ class RecommendedUser {
       profilePhotoUrl: json['profile_photo_url'] as String?,
       isPublic: json['is_public'] == true,
       requestPending:
-          _jsonBool(json, 'request_pending') ||
-          _viewerStateBool(json, 'request_pending'),
+          _jsonBoolAny(json, _requestPendingKeys) ||
+          _viewerStateBoolAny(json, _requestPendingKeys),
       isFollowing:
-          _jsonBool(json, 'is_following') ||
-          _jsonBool(json, 'following') ||
-          _jsonBool(json, 'followed') ||
-          _viewerStateBool(json, 'is_following'),
+          _jsonBoolAny(json, _isFollowingKeys) ||
+          _viewerStateBoolAny(json, _isFollowingKeys),
     );
   }
 
@@ -52,10 +74,46 @@ class RecommendedUser {
   }
 }
 
-bool _jsonBool(Map<String, dynamic> json, String key) => json[key] == true;
+const _requestPendingKeys = [
+  'request_pending',
+  'i_requested_follow',
+  'requested_follow',
+  'follow_request_pending',
+  'request_created',
+];
 
-bool _viewerStateBool(Map<String, dynamic> json, String key) {
+const _isFollowingKeys = [
+  'is_following',
+  'i_following',
+  'following',
+  'followed',
+  'am_following',
+  'viewer_is_following',
+  'is_followed_by_me',
+];
+
+bool _jsonBoolAny(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    if (_boolValue(json[key])) return true;
+  }
+  return false;
+}
+
+bool _viewerStateBoolAny(Map<String, dynamic> json, List<String> keys) {
   final viewerState = json['viewer_state'];
   if (viewerState is! Map) return false;
-  return viewerState[key] == true;
+  for (final key in keys) {
+    if (_boolValue(viewerState[key])) return true;
+  }
+  return false;
+}
+
+bool _boolValue(Object? value) {
+  if (value == true) return true;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
+  return false;
 }

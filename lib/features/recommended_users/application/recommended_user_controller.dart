@@ -40,4 +40,32 @@ class RecommendedUserController extends AsyncNotifier<List<RecommendedUser>> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(_fetch);
   }
+
+  void updateFollowState({
+    required String userId,
+    required bool isFollowing,
+    required bool requestPending,
+  }) {
+    if (userId.isEmpty) return;
+    final items = state.valueOrNull;
+    if (items == null) return;
+
+    final normalizedRequestPending = isFollowing ? false : requestPending;
+    var changed = false;
+    final next = items
+        .map((user) {
+          if (user.id != userId) return user;
+          if (user.isFollowing == isFollowing &&
+              user.requestPending == normalizedRequestPending) {
+            return user;
+          }
+          changed = true;
+          return user.copyWith(
+            isFollowing: isFollowing,
+            requestPending: normalizedRequestPending,
+          );
+        })
+        .toList(growable: false);
+    if (changed) state = AsyncData(next);
+  }
 }

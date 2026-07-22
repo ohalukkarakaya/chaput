@@ -23,4 +23,24 @@ class ProfileVisitHistoryController extends Notifier<List<ProfilePreview>> {
 
     state = next.take(_maxItems).toList(growable: false);
   }
+
+  void updateFollowState(ProfilePreview preview) {
+    if (preview.id.isEmpty) return;
+    var changed = false;
+    final next = state
+        .map((item) {
+          if (item.id != preview.id) return item;
+          if (item.requestPending == preview.requestPending &&
+              item.isFollowing == preview.isFollowing) {
+            return item;
+          }
+          changed = true;
+          return item.copyWith(
+            requestPending: preview.requestPending,
+            isFollowing: preview.isFollowing,
+          );
+        })
+        .toList(growable: false);
+    if (changed) state = next;
+  }
 }

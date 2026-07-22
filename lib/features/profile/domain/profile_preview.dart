@@ -21,6 +21,30 @@ class ProfilePreview {
   final bool requestPending;
   final bool isFollowing;
 
+  ProfilePreview copyWith({
+    String? id,
+    String? username,
+    String? fullName,
+    String? defaultAvatar,
+    String? profilePhotoKey,
+    String? profilePhotoUrl,
+    bool? isPublic,
+    bool? requestPending,
+    bool? isFollowing,
+  }) {
+    return ProfilePreview(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      fullName: fullName ?? this.fullName,
+      defaultAvatar: defaultAvatar ?? this.defaultAvatar,
+      profilePhotoKey: profilePhotoKey ?? this.profilePhotoKey,
+      profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
+      isPublic: isPublic ?? this.isPublic,
+      requestPending: requestPending ?? this.requestPending,
+      isFollowing: isFollowing ?? this.isFollowing,
+    );
+  }
+
   String? get profilePhotoPath {
     if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty) {
       return profilePhotoUrl;

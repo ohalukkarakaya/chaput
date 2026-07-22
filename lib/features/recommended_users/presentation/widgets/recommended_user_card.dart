@@ -24,6 +24,7 @@ class RecommendedUserCard extends ConsumerStatefulWidget {
     required this.width,
     required this.onDismiss,
     this.onOpenProfile,
+    this.onFollowStateChanged,
     this.heroEnabled = true,
     this.dismissOnFollowSuccess = true,
   });
@@ -32,6 +33,7 @@ class RecommendedUserCard extends ConsumerStatefulWidget {
   final double width;
   final ValueChanged<String> onDismiss;
   final Future<void> Function(ProfilePreview user)? onOpenProfile;
+  final ValueChanged<ProfilePreview>? onFollowStateChanged;
   final bool heroEnabled;
   final bool dismissOnFollowSuccess;
 
@@ -145,13 +147,17 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
       final ctrl = ref.read(followControllerProvider(username).notifier);
       if (isFollowing) {
         await ctrl.unfollow();
+        if (!mounted) return;
+        _syncLatestFollowState(user, username);
         return;
       }
 
       await ctrl.follow();
+      if (!mounted) return;
       final latestState = ref.read(followControllerProvider(username));
+      final updatedUser = _syncLatestFollowState(user, username);
       if (widget.dismissOnFollowSuccess &&
-          user.isPublic &&
+          updatedUser?.isFollowing == true &&
           latestState is FollowIdle &&
           latestState.isFollowing == true &&
           mounted) {
@@ -169,6 +175,22 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
         );
       }
     }
+  }
+
+  ProfilePreview? _syncLatestFollowState(ProfilePreview user, String username) {
+    final latestState = ref.read(followControllerProvider(username));
+    if (latestState is! FollowIdle) return null;
+
+    final nextIsFollowing = latestState.isFollowing ?? false;
+    final nextRequestPending = nextIsFollowing
+        ? false
+        : (latestState.requestPending ?? false);
+    final updatedUser = user.copyWith(
+      isFollowing: nextIsFollowing,
+      requestPending: nextRequestPending,
+    );
+    widget.onFollowStateChanged?.call(updatedUser);
+    return updatedUser;
   }
 
   @override
@@ -318,7 +340,7 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
                           requestPending
                               ? Icons.schedule_rounded
                               : (isFollowing
-                                    ? Icons.remove_rounded
+                                    ? Icons.remove_circle
                                     : Icons.add_rounded),
                           size: 18,
                         ),

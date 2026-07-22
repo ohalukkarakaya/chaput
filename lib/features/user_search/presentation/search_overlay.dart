@@ -130,6 +130,17 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
     setState(() => _dismissedDiscoverIds.add(id));
   }
 
+  void _syncDiscoverFollowState(ProfilePreview user) {
+    ref
+        .read(userSearchControllerProvider.notifier)
+        .updateFollowState(
+          userId: user.id,
+          isFollowing: user.isFollowing,
+          requestPending: user.requestPending,
+        );
+    ref.read(profileVisitHistoryProvider.notifier).updateFollowState(user);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(userSearchControllerProvider);
@@ -213,6 +224,7 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
                     dismissedDiscoverIds: _dismissedDiscoverIds,
                     onOpenProfile: _openProfile,
                     onDismissDiscoverUser: _dismissDiscoverUser,
+                    onFollowStateChanged: _syncDiscoverFollowState,
                   ),
                 ),
               ],
@@ -231,6 +243,7 @@ class _ResultsList extends StatelessWidget {
   final Set<String> dismissedDiscoverIds;
   final Future<void> Function(ProfilePreview preview) onOpenProfile;
   final ValueChanged<String> onDismissDiscoverUser;
+  final ValueChanged<ProfilePreview> onFollowStateChanged;
 
   const _ResultsList({
     required this.state,
@@ -239,6 +252,7 @@ class _ResultsList extends StatelessWidget {
     required this.dismissedDiscoverIds,
     required this.onOpenProfile,
     required this.onDismissDiscoverUser,
+    required this.onFollowStateChanged,
   });
 
   @override
@@ -327,6 +341,7 @@ class _ResultsList extends StatelessWidget {
                     width: cardWidth,
                     onDismiss: onDismissDiscoverUser,
                     onOpenProfile: onOpenProfile,
+                    onFollowStateChanged: onFollowStateChanged,
                     heroEnabled: false,
                     dismissOnFollowSuccess: false,
                   );
@@ -437,6 +452,9 @@ List<ProfilePreview> _topDiscoverProfiles(
   Set<String> dismissedIds,
 ) {
   const targetCount = 5;
+  final discoverProfilesById = {
+    for (final item in items) item.id: _previewFromSearchItem(item),
+  };
   final topProfiles = <ProfilePreview>[];
   final seenIds = <String>{};
 
@@ -448,7 +466,7 @@ List<ProfilePreview> _topDiscoverProfiles(
 
   for (final profile in visitHistory) {
     if (topProfiles.length >= targetCount) break;
-    addProfile(profile);
+    addProfile(discoverProfilesById[profile.id] ?? profile);
   }
 
   for (final item in items) {
