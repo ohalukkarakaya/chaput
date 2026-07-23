@@ -5264,23 +5264,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             padding: EdgeInsets.only(
                               bottom: chaputSheetOuterOffset,
                             ),
-                            child: SizedBox(
-                              height:
-                                  (chaputSheetAvailableHeight *
-                                      _chaputSheetMin) +
-                                  context.responsive.bottomSheetInnerPadding(
-                                    min: 0,
-                                  ),
-                              child: EmptyChaputSheet(
-                                message: emptyChaputMessage ?? '',
-                                messageSpan: privateFollowMessage,
-                                height:
-                                    (chaputSheetAvailableHeight *
-                                        _chaputSheetMin) +
-                                    context.responsive.bottomSheetInnerPadding(
-                                      min: 0,
+                            child: IgnorePointer(
+                              ignoring: _isInteracting,
+                              child: AnimatedSlide(
+                                duration: const Duration(milliseconds: 140),
+                                curve: Curves.easeOutCubic,
+                                offset: _isInteracting
+                                    ? const Offset(0, 1.08)
+                                    : Offset.zero,
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 100),
+                                  curve: Curves.easeOut,
+                                  opacity: _isInteracting ? 0 : 1,
+                                  child: SizedBox(
+                                    height:
+                                        (chaputSheetAvailableHeight *
+                                            _chaputSheetMin) +
+                                        context.responsive
+                                            .bottomSheetInnerPadding(min: 0),
+                                    child: EmptyChaputSheet(
+                                      message: emptyChaputMessage ?? '',
+                                      messageSpan: privateFollowMessage,
+                                      height:
+                                          (chaputSheetAvailableHeight *
+                                              _chaputSheetMin) +
+                                          context.responsive
+                                              .bottomSheetInnerPadding(min: 0),
+                                      actionLabel: null,
                                     ),
-                                actionLabel: null,
+                                  ),
+                                ),
                               ),
                             ),
                           ),

@@ -90,7 +90,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                           HapticFeedback.selectionClick();
                           Navigator.of(context).pop();
                         },
-                        icon: const Icon(Icons.arrow_back_rounded),
+                        icon: const Icon(Icons.arrow_back_ios),
                       ),
                       const Spacer(),
                       IconButton(
