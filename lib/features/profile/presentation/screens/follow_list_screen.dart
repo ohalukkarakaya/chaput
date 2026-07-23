@@ -140,18 +140,24 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                         decoration: InputDecoration(
                           hintText: context.t('common.search'),
                           filled: true,
-                          fillColor: AppColors.chaputWhite.withOpacity(0.96),
+                          fillColor: AppColors.chaputWhite.withValues(
+                            alpha: 0.96,
+                          ),
                           prefixIcon: const Icon(Icons.search),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: AppColors.chaputBlack.withOpacity(0.08),
+                              color: AppColors.chaputBlack.withValues(
+                                alpha: 0.08,
+                              ),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: AppColors.chaputBlack.withOpacity(0.08),
+                              color: AppColors.chaputBlack.withValues(
+                                alpha: 0.08,
+                              ),
                             ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
@@ -187,7 +193,9 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                             child: Text(
                               context.t('follow_list.forbidden'),
                               style: TextStyle(
-                                color: AppColors.chaputBlack.withOpacity(0.6),
+                                color: AppColors.chaputBlack.withValues(
+                                  alpha: 0.6,
+                                ),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -263,7 +271,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                                 12,
                               ),
                               itemCount: items.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(height: 10),
                               itemBuilder: (context, i) {
                                 final it = items[i];
@@ -357,8 +365,8 @@ class _FollowListShimmer extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         itemCount: 6,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (_, __) => const ShimmerUserCard(
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        itemBuilder: (_, _) => const ShimmerUserCard(
           radius: 18,
           line1Factor: 0.72,
           line2Factor: 0.48,

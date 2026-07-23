@@ -80,7 +80,7 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
   void didUpdateWidget(covariant GlowShimmerCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.duration != widget.duration || oldWidget.gap != widget.gap) {
-      _c..duration = _cycleDuration;
+      _c.duration = _cycleDuration;
       if (_isAnimating) {
         _c.repeat();
       }
@@ -109,7 +109,7 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
 
     return AnimatedBuilder(
       animation: _c,
-      builder: (_, __) {
+      builder: (_, _) {
         final totalMs = _cycleDuration.inMilliseconds.toDouble().clamp(
           1,
           double.infinity,
@@ -141,7 +141,7 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
         final body = Container(
           decoration: BoxDecoration(
             borderRadius: r,
-            color: widget.glassColor.withOpacity(widget.glassOpacity),
+            color: widget.glassColor.withValues(alpha: widget.glassOpacity),
           ),
           child: Stack(
             children: [
@@ -160,8 +160,8 @@ class _GlowShimmerCardState extends State<GlowShimmerCard>
                             begin: begin,
                             end: end,
                             colors: shimmerColors.map((c) {
-                              return c.withOpacity(
-                                (c.opacity) * widget.innerShimmerSoftness,
+                              return c.withValues(
+                                alpha: (c.a) * widget.innerShimmerSoftness,
                               );
                             }).toList(),
                             stops: const [0.00, 0.20, 0.45, 0.60, 0.80, 1.00],
@@ -275,7 +275,7 @@ class _BorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..shader = gradient.createShader(rect)
-      ..color = AppColors.chaputWhite.withOpacity(glowOpacity);
+      ..color = AppColors.chaputWhite.withValues(alpha: glowOpacity);
 
     if (blurSigma > 0) {
       paint.maskFilter = MaskFilter.blur(BlurStyle.normal, blurSigma);

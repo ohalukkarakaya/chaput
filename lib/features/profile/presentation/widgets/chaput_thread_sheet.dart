@@ -20,7 +20,6 @@ import '../../../feedback/presentation/feedback_launcher.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'black_glass.dart';
-import 'chaput_native_ad_card.dart';
 import 'sheet_handle.dart';
 
 class ChaputThreadSheet extends ConsumerWidget {
@@ -39,12 +38,10 @@ class ChaputThreadSheet extends ConsumerWidget {
     required this.pageController,
     required this.sheetController,
     required this.initialExtent,
-    required this.isAdPageActive,
     required this.isCollapsed,
     required this.onExtentChanged,
     required this.onCollapsedTap,
     required this.onPageChanged,
-    required this.showNativeAds,
     required this.onOpenProfile,
     required this.onSendMessage,
     required this.onMakeHidden,
@@ -80,12 +77,10 @@ class ChaputThreadSheet extends ConsumerWidget {
   final PageController pageController;
   final DraggableScrollableController sheetController;
   final double initialExtent;
-  final bool isAdPageActive;
   final bool isCollapsed;
   final ValueChanged<double> onExtentChanged;
   final VoidCallback onCollapsedTap;
-  final void Function(int pageIndex, ChaputThreadItem? thread) onPageChanged;
-  final bool showNativeAds;
+  final void Function(int pageIndex, ChaputThreadItem thread) onPageChanged;
   final void Function(String userId, String threadId) onOpenProfile;
   final Future<void> Function(
     ChaputThreadItem thread,
@@ -117,7 +112,6 @@ class ChaputThreadSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (threads.isEmpty) return const SizedBox.shrink();
-    final entries = _ChaputPageEntries.build(threads, showNativeAds);
 
     Widget wrapPullTutorial(BuildContext targetContext, Widget child) {
       final showcaseKey = sheetShowcaseKey;
@@ -188,20 +182,11 @@ class ChaputThreadSheet extends ConsumerWidget {
                         child: PageView.builder(
                           controller: pageController,
                           onPageChanged: (index) {
-                            final entry = entries[index];
-                            onPageChanged(index, entry.thread);
+                            onPageChanged(index, threads[index]);
                           },
-                          itemCount: entries.length,
+                          itemCount: threads.length,
                           itemBuilder: (ctx, index) {
-                            final entry = entries[index];
-                            if (entry.isAd) {
-                              return _ChaputNativeAdPage(
-                                key: ValueKey('native-ad-page-$index'),
-                                slotId: index,
-                                isActive: isAdPageActive,
-                              );
-                            }
-                            final thread = entry.thread!;
+                            final thread = threads[index];
                             final isParticipant =
                                 thread.userAId == viewerId ||
                                 thread.userBId == viewerId;
@@ -306,16 +291,10 @@ class ChaputThreadSheet extends ConsumerWidget {
                                   1.0,
                                 );
                                 final scale = 1.0 - (delta * 0.08);
-                                final animatedChild = entry.isAd
-                                    ? Opacity(
-                                        opacity: 1.0 - (delta * 0.25),
-                                        child: child,
-                                      )
-                                    : child;
                                 return Transform.scale(
                                   scale: scale,
                                   alignment: Alignment.bottomCenter,
-                                  child: animatedChild,
+                                  child: child,
                                 );
                               },
                             );
@@ -520,73 +499,6 @@ class _ChaputSwipePreviewPainter extends CustomPainter {
   }
 }
 
-class _ChaputPageEntries {
-  static List<_ChaputPageEntry> build(
-    List<ChaputThreadItem> threads,
-    bool showAds,
-  ) {
-    final entries = <_ChaputPageEntry>[];
-    var threadCount = 0;
-    for (var i = 0; i < threads.length; i++) {
-      entries.add(_ChaputPageEntry.thread(threads[i]));
-      threadCount += 1;
-      if (showAds && threadCount % 2 == 0) {
-        entries.add(const _ChaputPageEntry.ad());
-      }
-    }
-    return entries;
-  }
-}
-
-class _ChaputPageEntry {
-  const _ChaputPageEntry.thread(this.thread) : isAd = false;
-  const _ChaputPageEntry.ad() : thread = null, isAd = true;
-
-  final ChaputThreadItem? thread;
-  final bool isAd;
-}
-
-class _ChaputNativeAdPage extends StatefulWidget {
-  const _ChaputNativeAdPage({
-    super.key,
-    required this.slotId,
-    required this.isActive,
-  });
-
-  final int slotId;
-  final bool isActive;
-
-  @override
-  State<_ChaputNativeAdPage> createState() => _ChaputNativeAdPageState();
-}
-
-class _ChaputNativeAdPageState extends State<_ChaputNativeAdPage>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (!constraints.hasBoundedHeight || constraints.maxHeight <= 0) {
-          return const SizedBox.shrink();
-        }
-        if (!widget.isActive) {
-          return const SizedBox.expand();
-        }
-        return Align(
-          alignment: Alignment.bottomCenter,
-          child: ChaputNativeAdCard(
-            key: ValueKey('native-ad-card-${widget.slotId}'),
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _SheetPage extends StatelessWidget {
   const _SheetPage({
     required this.thread,
@@ -665,7 +577,7 @@ class _SheetPage extends StatelessWidget {
                 top: Radius.circular(22),
               ),
               border: Border.all(
-                color: AppColors.chaputWhite.withOpacity(0.10),
+                color: AppColors.chaputWhite.withValues(alpha: 0.10),
               ),
             ),
             child: compact
@@ -1104,7 +1016,7 @@ class _ThreadHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
                     style: TextStyle(
-                      color: AppColors.chaputWhite.withOpacity(0.65),
+                      color: AppColors.chaputWhite.withValues(alpha: 0.65),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1118,7 +1030,7 @@ class _ThreadHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
                     style: TextStyle(
-                      color: AppColors.chaputWhite.withOpacity(0.55),
+                      color: AppColors.chaputWhite.withValues(alpha: 0.55),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1131,10 +1043,10 @@ class _ThreadHeader extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppColors.chaputWhite.withOpacity(0.12),
+                color: AppColors.chaputWhite.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: AppColors.chaputWhite.withOpacity(0.2),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.2),
                 ),
               ),
               child: _SuperBadge(),
@@ -1150,10 +1062,10 @@ class _ThreadHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: canMakeHidden
                       ? AppColors.chaputWhite
-                      : AppColors.chaputWhite.withOpacity(0.12),
+                      : AppColors.chaputWhite.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: AppColors.chaputWhite.withOpacity(0.2),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
@@ -1172,10 +1084,10 @@ class _ThreadHeader extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppColors.chaputWhite.withOpacity(0.12),
+                color: AppColors.chaputWhite.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: AppColors.chaputWhite.withOpacity(0.2),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.2),
                 ),
               ),
               child: Row(
@@ -1219,10 +1131,10 @@ class _ThreadHeader extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: AppColors.chaputWhite.withOpacity(0.08),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppColors.chaputWhite.withOpacity(0.14),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.14),
                   ),
                 ),
                 child: const Icon(
@@ -1329,9 +1241,11 @@ class _ThreadActionSheet extends ConsumerWidget {
         child: Container(
           padding: EdgeInsets.only(bottom: bottomInset),
           decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withOpacity(0.82),
+            color: AppColors.chaputBlack.withValues(alpha: 0.82),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+            border: Border.all(
+              color: AppColors.chaputWhite.withValues(alpha: 0.10),
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1420,9 +1334,11 @@ class _MessageActionSheet extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.only(bottom: bottomInset),
           decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withOpacity(0.82),
+            color: AppColors.chaputBlack.withValues(alpha: 0.82),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+            border: Border.all(
+              color: AppColors.chaputWhite.withValues(alpha: 0.10),
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1434,10 +1350,10 @@ class _MessageActionSheet extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.chaputWhite.withOpacity(0.06),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: AppColors.chaputWhite.withOpacity(0.08),
+                      color: AppColors.chaputWhite.withValues(alpha: 0.08),
                     ),
                   ),
                   child: Text(
@@ -1520,11 +1436,13 @@ class _GlassActionTile extends StatelessWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: AppColors.chaputWhite.withOpacity(
-              isDestructive ? 0.10 : 0.06,
+            color: AppColors.chaputWhite.withValues(
+              alpha: isDestructive ? 0.10 : 0.06,
             ),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.08)),
+            border: Border.all(
+              color: AppColors.chaputWhite.withValues(alpha: 0.08),
+            ),
           ),
           child: Icon(icon, color: color, size: 20),
         ),
@@ -1535,7 +1453,7 @@ class _GlassActionTile extends StatelessWidget {
         subtitle: Text(
           subtitle,
           style: TextStyle(
-            color: AppColors.chaputWhite.withOpacity(0.58),
+            color: AppColors.chaputWhite.withValues(alpha: 0.58),
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -1646,7 +1564,7 @@ class ChatComposerAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return CircleAvatar(
       radius: 16,
-      backgroundColor: AppColors.chaputWhite.withOpacity(0.05),
+      backgroundColor: AppColors.chaputWhite.withValues(alpha: 0.05),
       backgroundImage: null,
       child: SizedBox(
         width: 32,
@@ -1760,8 +1678,9 @@ class _MessagesListState extends State<_MessagesList> {
   void _handleScroll() {
     if (!_scrollController.hasClients) return;
     if (widget.state.isLoading || widget.state.isLoadingMore) return;
-    if (widget.state.nextCursor == null || widget.state.nextCursor!.isEmpty)
+    if (widget.state.nextCursor == null || widget.state.nextCursor!.isEmpty) {
       return;
+    }
     final pos = _scrollController.position;
     final nearTop = pos.pixels >= pos.maxScrollExtent - 40;
     if (nearTop && !_loadTriggered) {
@@ -1932,7 +1851,7 @@ class _MessagesListState extends State<_MessagesList> {
         context: context,
         barrierDismissible: true,
         barrierLabel: context.t('chat.likes_label'),
-        barrierColor: AppColors.chaputBlack.withOpacity(0.35),
+        barrierColor: AppColors.chaputBlack.withValues(alpha: 0.35),
         transitionDuration: const Duration(milliseconds: 180),
         pageBuilder: (ctx, a1, a2) {
           return _MessageLikesDialog(
@@ -1966,7 +1885,7 @@ class _MessagesListState extends State<_MessagesList> {
         child: Text(
           context.t('chat.no_messages'),
           style: TextStyle(
-            color: AppColors.chaputWhite.withOpacity(0.6),
+            color: AppColors.chaputWhite.withValues(alpha: 0.6),
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -2145,14 +2064,17 @@ class _MessagesListState extends State<_MessagesList> {
   LiteUser? _resolveUser(String id) {
     final idNorm = id.toLowerCase();
     if (widget.ownerUser != null &&
-        widget.ownerUser!.id.toLowerCase() == idNorm)
+        widget.ownerUser!.id.toLowerCase() == idNorm) {
       return widget.ownerUser;
+    }
     if (widget.otherUser != null &&
-        widget.otherUser!.id.toLowerCase() == idNorm)
+        widget.otherUser!.id.toLowerCase() == idNorm) {
       return widget.otherUser;
+    }
     if (widget.viewerUser != null &&
-        widget.viewerUser!.id.toLowerCase() == idNorm)
+        widget.viewerUser!.id.toLowerCase() == idNorm) {
       return widget.viewerUser;
+    }
     return null;
   }
 }
@@ -2252,16 +2174,16 @@ class _MessageGroupBubble extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.chaputWhite.withOpacity(0.08),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: AppColors.chaputWhite.withOpacity(0.16),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.16),
                   ),
                 ),
                 child: Text(
                   dayLabel!,
                   style: TextStyle(
-                    color: AppColors.chaputWhite.withOpacity(0.8),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.8),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.2,
@@ -2467,7 +2389,7 @@ class _MessageBubble extends StatelessWidget {
         ? whisperBg
         : (isMine
               ? AppColors.chaputWhite
-              : AppColors.chaputWhite.withOpacity(0.12));
+              : AppColors.chaputWhite.withValues(alpha: 0.12));
     final fg = isWhisper
         ? whisperFg
         : (isMine ? AppColors.chaputBlack : AppColors.chaputWhite);
@@ -2497,7 +2419,7 @@ class _MessageBubble extends StatelessWidget {
     final showTicks = isParticipant && isMine && timeText != null;
     final tickColor = message.readByOther
         ? AppColors.chaputLightBlueAccent
-        : fg.withOpacity(0.45);
+        : fg.withValues(alpha: 0.45);
     final tickIcon = message.delivered ? Icons.done_all : Icons.check;
 
     final maxWidth = MediaQuery.of(context).size.width * 0.72;
@@ -2509,10 +2431,12 @@ class _MessageBubble extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isWhisperHidden ? AppColors.chaputWhite.withOpacity(0.08) : bg,
+        color: isWhisperHidden
+            ? AppColors.chaputWhite.withValues(alpha: 0.08)
+            : bg,
         borderRadius: radius,
         border: Border.all(
-          color: AppColors.chaputWhite.withOpacity(isMine ? 0.0 : 0.06),
+          color: AppColors.chaputWhite.withValues(alpha: isMine ? 0.0 : 0.06),
         ),
       ),
       child: IntrinsicWidth(
@@ -2565,7 +2489,7 @@ class _MessageBubble extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: fg.withOpacity(0.92),
+                                  color: fg.withValues(alpha: 0.92),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -2576,7 +2500,7 @@ class _MessageBubble extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: fg.withOpacity(0.7),
+                                  color: fg.withValues(alpha: 0.7),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -2592,7 +2516,7 @@ class _MessageBubble extends StatelessWidget {
                 displayText,
                 style: TextStyle(
                   color: isWhisperHidden
-                      ? AppColors.chaputWhite.withOpacity(0.7)
+                      ? AppColors.chaputWhite.withValues(alpha: 0.7)
                       : fg,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -2620,8 +2544,10 @@ class _MessageBubble extends StatelessWidget {
                             timeText,
                             style: TextStyle(
                               color: (isWhisperHidden
-                                  ? AppColors.chaputWhite.withOpacity(0.45)
-                                  : fg.withOpacity(0.45)),
+                                  ? AppColors.chaputWhite.withValues(
+                                      alpha: 0.45,
+                                    )
+                                  : fg.withValues(alpha: 0.45)),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2746,17 +2672,17 @@ class _LikeStack extends StatelessWidget {
                   width: size,
                   height: size,
                   decoration: BoxDecoration(
-                    color: AppColors.chaputWhite.withOpacity(0.18),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppColors.chaputWhite.withOpacity(0.2),
+                      color: AppColors.chaputWhite.withValues(alpha: 0.2),
                     ),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     '+$overflow',
                     style: TextStyle(
-                      color: AppColors.chaputWhite.withOpacity(0.9),
+                      color: AppColors.chaputWhite.withValues(alpha: 0.9),
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                     ),
@@ -2807,7 +2733,7 @@ class _ReplySwipeBackground extends StatelessWidget {
       padding: const EdgeInsets.only(left: 18),
       child: Icon(
         Icons.reply_rounded,
-        color: AppColors.chaputWhite.withOpacity(0.7),
+        color: AppColors.chaputWhite.withValues(alpha: 0.7),
         size: 20,
       ),
     );
@@ -2851,7 +2777,7 @@ class _TypingIndicator extends StatelessWidget {
                   params: {'count': shown.length.toString()},
                 ),
           style: TextStyle(
-            color: AppColors.chaputWhite.withOpacity(0.65),
+            color: AppColors.chaputWhite.withValues(alpha: 0.65),
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -2959,7 +2885,9 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(color: AppColors.chaputBlack.withOpacity(0.35)),
+              child: Container(
+                color: AppColors.chaputBlack.withValues(alpha: 0.35),
+              ),
             ),
           ),
           Positioned.fill(
@@ -2976,10 +2904,10 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                 height: h * 0.65,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.chaputBlack.withOpacity(0.82),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.82),
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: AppColors.chaputWhite.withOpacity(0.12),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.12),
                   ),
                 ),
                 child: Column(
@@ -2997,7 +2925,7 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                         canReply: false,
                         onReply: (_) {},
                         onReportMessage: (_) {},
-                        onToggleLike: (_, __) {},
+                        onToggleLike: (_, _) {},
                         onShowLikes: (_) {},
                         onReplyTap: (_) {},
                         enableActions: false,
@@ -3016,7 +2944,9 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                               child: Text(
                                 context.t('chat_no_likes'),
                                 style: TextStyle(
-                                  color: AppColors.chaputWhite.withOpacity(0.7),
+                                  color: AppColors.chaputWhite.withValues(
+                                    alpha: 0.7,
+                                  ),
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -3024,8 +2954,10 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                           : ListView.separated(
                               controller: _ctrl,
                               itemCount: _items.length + (_loadingMore ? 1 : 0),
-                              separatorBuilder: (_, __) => Divider(
-                                color: AppColors.chaputWhite.withOpacity(0.08),
+                              separatorBuilder: (_, _) => Divider(
+                                color: AppColors.chaputWhite.withValues(
+                                  alpha: 0.08,
+                                ),
                               ),
                               itemBuilder: (ctx, i) {
                                 if (i >= _items.length) {
@@ -3077,7 +3009,7 @@ class _MessageLikesDialogState extends ConsumerState<_MessageLikesDialog> {
                                               '@${u.username}',
                                               style: TextStyle(
                                                 color: AppColors.chaputWhite
-                                                    .withOpacity(0.6),
+                                                    .withValues(alpha: 0.6),
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -3121,7 +3053,7 @@ class _PendingNotice extends StatelessWidget {
           text,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: AppColors.chaputWhite.withOpacity(0.65),
+            color: AppColors.chaputWhite.withValues(alpha: 0.65),
             fontWeight: FontWeight.w700,
             fontSize: 12,
           ),
@@ -3133,11 +3065,13 @@ class _PendingNotice extends StatelessWidget {
   String _formatRemaining(BuildContext context, DateTime until) {
     final diff = until.toUtc().difference(DateTime.now().toUtc());
     final mins = diff.inMinutes;
-    if (mins <= 0)
+    if (mins <= 0) {
       return context.t('time.minutes_short', params: {'count': '0'});
+    }
     final hours = diff.inHours;
-    if (hours >= 1)
+    if (hours >= 1) {
       return context.t('time.hours_short', params: {'count': '$hours'});
+    }
     return context.t('time.minutes_short', params: {'count': '$mins'});
   }
 }
@@ -3152,7 +3086,7 @@ class _PendingReplyHint extends StatelessWidget {
       child: Text(
         context.t('chat.pending_hint'),
         style: TextStyle(
-          color: AppColors.chaputWhite.withOpacity(0.65),
+          color: AppColors.chaputWhite.withValues(alpha: 0.65),
           fontWeight: FontWeight.w700,
           fontSize: 12,
         ),

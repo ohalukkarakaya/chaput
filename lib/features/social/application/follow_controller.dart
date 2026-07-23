@@ -10,14 +10,16 @@ final followApiProvider = Provider<FollowApi>((ref) {
   return FollowApi(dio);
 });
 
-final followControllerProvider =
-    AutoDisposeNotifierProviderFamily<FollowController, FollowState, String>(
-      FollowController.new,
-    );
+final followControllerProvider = NotifierProvider.autoDispose
+    .family<FollowController, FollowState, String>(FollowController.new);
 
-class FollowController extends AutoDisposeFamilyNotifier<FollowState, String> {
+class FollowController extends Notifier<FollowState> {
+  FollowController(this.arg);
+
+  final String arg;
+
   @override
-  FollowState build(String username) {
+  FollowState build() {
     return const FollowIdle();
   }
 

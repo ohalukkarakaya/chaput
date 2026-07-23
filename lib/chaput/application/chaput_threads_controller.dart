@@ -73,19 +73,20 @@ class ChaputThreadsState {
   static const empty = ChaputThreadsState();
 }
 
-final chaputThreadsControllerProvider =
-    AutoDisposeNotifierProviderFamily<
-      ChaputThreadsController,
-      ChaputThreadsState,
-      ChaputThreadsArgs
-    >(ChaputThreadsController.new);
+final chaputThreadsControllerProvider = NotifierProvider.autoDispose
+    .family<ChaputThreadsController, ChaputThreadsState, ChaputThreadsArgs>(
+      ChaputThreadsController.new,
+    );
 
-class ChaputThreadsController
-    extends AutoDisposeFamilyNotifier<ChaputThreadsState, ChaputThreadsArgs> {
+class ChaputThreadsController extends Notifier<ChaputThreadsState> {
+  ChaputThreadsController(this.arg);
+
+  final ChaputThreadsArgs arg;
+
   ChaputApi get _api => ref.read(chaputApiProvider);
 
   @override
-  ChaputThreadsState build(ChaputThreadsArgs arg) {
+  ChaputThreadsState build() {
     _loadInitial(arg);
     return ChaputThreadsState(isLoading: true);
   }

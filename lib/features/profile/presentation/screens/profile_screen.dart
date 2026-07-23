@@ -65,7 +65,6 @@ import 'follow_list_screen.dart';
 import '../../../social/application/follow_list_controller.dart';
 import '../widgets/subscription_replace_sheet.dart';
 import '../widgets/chaput_thread_sheet.dart';
-import '../widgets/chaput_native_ad_card.dart';
 import 'package:chaput/core/constants/app_colors.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -197,10 +196,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   bool _composerOpen = false; // input bar açık mı?
   three.Vector3? _draftAnchor; // mesaj varken hatırlanan anchor
-  three.Vector3?
-  _activeAnchor; // şu an focus olunan anchor (genelde _focusAnchor)
-
-  bool get _composerHasKeyboard => MediaQuery.of(context).viewInsets.bottom > 0;
   double _composerPitchBias = 0.0;
 
   // ================= FOCUS / ANCHOR =================
@@ -208,20 +203,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   final ValueNotifier<Offset?> _focusScreen = ValueNotifier<Offset?>(null);
 
   bool _isInteracting = false;
-  bool _showFocusMarker = false;
 
   // snap back animasyonu
   late double _snapFromYaw, _snapToYaw;
   late double _snapFromPitch, _snapToPitch;
 
-  late three.Vector3 _snapFromLookAt;
-  late three.Vector3 _snapToLookAt;
-
   bool _snapActive = false;
   double _snapT = 0.0;
-
-  late three.Vector3 _snapFromTarget;
-  late three.Vector3 _snapToTarget;
 
   late three.Vector3 _snapFromCenter;
   late three.Vector3 _snapToCenter;
@@ -260,8 +248,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   double _radius = 3.0;
 
   // gesture snapshot
-  double _startYaw = 0.0;
-  double _startPitch = -0.20;
   double _startRadius = 3.0;
 
   // zoom limits
@@ -342,11 +328,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _chaputSheetMin,
   );
   double _chaputSheetPrevExtent = _chaputSheetMin;
-  double _sheetExtentBeforeAd = _chaputSheetMin;
-  double _adLockedExtent = _chaputSheetMid;
-  bool _isAdPageActive = false;
-  bool _isProgrammaticAdSheetChange = false;
-  bool _nativeAdPreloaded = false;
   final DraggableScrollableController _chaputSheetCtrl =
       DraggableScrollableController();
   bool _sheetAutoExpanded = false;
@@ -364,12 +345,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   int _creditHidden = 0;
   int _creditSpecial = 0;
   int _creditRevive = 0;
-  int _creditWhisper = 0;
-
-  bool _adsCanWatch = false;
-  int _adsWatchedToday = 0;
-  int _adsRewardsToday = 0;
-  int _adsNextRewardIn = 0;
 
   String _decisionPath = 'FORBIDDEN';
   bool _decisionCanStart = false;
@@ -381,23 +356,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   bool _replyWhisperMode = false;
 
-  bool _isFreePlan(String plan) {
-    final p = plan.toUpperCase();
-    return !(p.contains('PRO') || p.contains('PLUS'));
-  }
+  int _pageIndexForThreadIndex(int threadIndex) => threadIndex;
 
-  int _pageIndexForThreadIndex(int threadIndex, {required bool showAds}) {
-    if (!showAds) return threadIndex;
-    final adsBefore = threadIndex ~/ 2;
-    return threadIndex + adsBefore;
-  }
-
-  int? _threadIndexForPageIndex(int pageIndex, {required bool showAds}) {
-    if (!showAds) return pageIndex;
-    final pos = pageIndex % 3;
-    if (pos == 2) return null;
-    return (pageIndex ~/ 3) * 2 + pos;
-  }
+  int _threadIndexForPageIndex(int pageIndex) => pageIndex;
 
   List<ChaputThreadItem> _stableSessionThreads({
     required String profileIdHex,
@@ -502,7 +463,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     try {
       _socketSub ??= _socketClient.events.listen(
         _handleSocketEvent,
-        onError: (_, __) {},
+        onError: (_, _) {},
       );
       await _socketClient.ensureConnected();
       if (_socketProfileId != profileIdHex) {
@@ -530,10 +491,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _clearSocketSubscriptions() {
     _resetTypingForThreadChange(null);
-    if (_socketProfileId != null)
+    if (_socketProfileId != null) {
       _socketClient.unsubscribeProfile(_socketProfileId!);
-    if (_socketThreadId != null)
+    }
+    if (_socketThreadId != null) {
       _socketClient.unsubscribeThread(_socketThreadId!);
+    }
     _socketProfileId = null;
     _socketThreadId = null;
     _typingIdleTimer?.cancel();
@@ -830,8 +793,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final threadId = data['thread_id']?.toString() ?? '';
       final readerId = data['user_id']?.toString() ?? '';
       if (threadId.isEmpty || _chaputProfileId == null) return;
-      final meId =
-          ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
+      final meId = ref.read(meControllerProvider).value?.user.userId ?? '';
       final meNorm = meId.toLowerCase();
       final readerNorm = readerId.toLowerCase();
       if (meId.isNotEmpty && readerNorm == meNorm) return;
@@ -868,7 +830,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final userIdNorm = userId.toLowerCase();
       final viewerNorm =
           (_lastChaputArgs?.viewerId ??
-                  ref.read(meControllerProvider).valueOrNull?.user.userId ??
+                  ref.read(meControllerProvider).value?.user.userId ??
                   '')
               .toLowerCase();
       if (viewerNorm.isEmpty) return;
@@ -1152,20 +1114,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _chaputSheetExtentListenable.dispose();
     _typingRevision.dispose();
     super.dispose();
-  }
-
-  void _triggerTreeReload() {
-    if (!mounted) return;
-    _forceTreeReload = true;
-    _navToOtherProfile = false;
-    _disposeThree();
-    _lastTreeId = null;
-    _threeError = null;
-    setState(() {});
-    final st = ref.read(profileControllerProvider(widget.userId));
-    if (st.treeId == null) {
-      ref.read(profileControllerProvider(widget.userId).notifier).refetch();
-    }
   }
 
   void _toggleProfileCard() {
@@ -1631,7 +1579,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       // İlk açılışta seçili nokta YOK
       _focusAnchor = null;
-      _showFocusMarker = false;
 
       // merkez treeCenter'da kalsın
       _orbitCenter = _treeCenter.clone();
@@ -1733,7 +1680,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void _resetMarkerStabilizer() {
     _lastProjected = null;
     _stableFor = 0.0;
-    _showFocusMarker = false;
   }
 
   int _resolveEmptyChaputIndex(String userId, bool isMe) {
@@ -1786,7 +1732,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _emptyChaputVisualSignature = signature;
     _emptyChaputAnchorPicked = false;
     _focusAnchor = null;
-    _showFocusMarker = false;
     _isInteracting = false;
     _pendingTreeModeShift = false;
     _treeModeShiftDoneThisGesture = false;
@@ -1808,8 +1753,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     // ✅ hedef anchor değişsin ama kamera/merkez anında zıplamasın
     _focusAnchor = newAnchor;
-
-    _showFocusMarker = false; // snap bitince açılacak
 
     _resetMarkerStabilizer();
 
@@ -1834,7 +1777,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (!_chaputSheetCtrl.isAttached ||
         _chaputSheetExtent >
             _chaputSheetMin + _chaputSheetCollapsedTapTolerance ||
-        _isAdPageActive ||
         _composerOpen ||
         _silhouetteMode) {
       return;
@@ -1857,7 +1799,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _openChaputSheetToExtent(double targetExtent) {
-    if (_isAdPageActive || _silhouetteMode) return;
+    if (_silhouetteMode) return;
     final clampedTarget = targetExtent.clamp(_chaputSheetMin, _chaputSheetMax);
     _chaputSheetPrevExtent = clampedTarget;
     _setChaputSheetExtent(clampedTarget);
@@ -1967,7 +1909,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (ids == null || ids.isEmpty) return false;
     final viewerNorm =
         (_lastChaputArgs?.viewerId ??
-                ref.read(meControllerProvider).valueOrNull?.user.userId ??
+                ref.read(meControllerProvider).value?.user.userId ??
                 '')
             .toLowerCase();
     return ids.any((id) => id.toLowerCase() != viewerNorm);
@@ -2002,9 +1944,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required double extent,
     required bool canReplyOnActive,
     required String? activeThreadId,
-    required bool isAdPageActive,
   }) {
-    if (isAdPageActive || activeThreadId == null || activeThreadId.isEmpty) {
+    if (activeThreadId == null || activeThreadId.isEmpty) {
       return false;
     }
     final replyScopedToAnotherThread =
@@ -2225,7 +2166,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     // Refresh /me so subscription state is up to date for future warnings.
     unawaited(
       ref.read(meControllerProvider.notifier).fetchAndStoreMe().catchError((_) {
-        return ref.read(meControllerProvider).valueOrNull;
+        return ref.read(meControllerProvider).value;
       }),
     );
   }
@@ -2271,7 +2212,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<PaywallPurchase?> _purchaseWithRevenueCat(String productId) async {
-    final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    final userId = ref.read(meControllerProvider).value?.user.userId;
     if (userId == null || userId.isEmpty) {
       log('RevenueCat purchase blocked: missing backend user id');
       _showGlassToast(
@@ -2345,7 +2286,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<bool> _restorePurchasesWithRevenueCat() async {
-    final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    final userId = ref.read(meControllerProvider).value?.user.userId;
     if (userId != null && userId.isNotEmpty) {
       await RevenueCatService.instance.logInWithBackendUserId(userId);
     }
@@ -2372,7 +2313,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (!subscriptionProducts.contains(purchase.productId)) return true;
 
     final meAsync = ref.read(meControllerProvider);
-    var me = meAsync.valueOrNull;
+    var me = meAsync.value;
     if (me == null) {
       try {
         me = await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
@@ -2392,15 +2333,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     }
 
-    if (expiresAt != null && expiresAt.isBefore(DateTime.now().toUtc()))
+    if (expiresAt != null && expiresAt.isBefore(DateTime.now().toUtc())) {
       return true;
+    }
 
     // Only warn when we have a non-free active plan.
     if (plan == 'FREE') return true;
 
-    final untilText = expiresAt != null
-        ? expiresAt.toLocal().toString().split('.').first
-        : null;
+    final untilText = expiresAt?.toLocal().toString().split('.').first;
     final res = await _showTreePreservingOverlay<bool>(
       () => showModalBottomSheet<bool>(
         context: context,
@@ -2425,7 +2365,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
     if (thread.hasCoords()) {
       _focusAnchor = three.Vector3(thread.x!, thread.y!, thread.z!);
-      _showFocusMarker = false;
       _resetMarkerStabilizer();
       _startSnapToNewAnchor();
       return;
@@ -2437,7 +2376,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final newAnchor = _pickRandomLeafAnchor(g);
     if (newAnchor == null) return;
     _focusAnchor = newAnchor;
-    _showFocusMarker = false;
     _resetMarkerStabilizer();
     _startSnapToNewAnchor();
 
@@ -2464,7 +2402,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               curve: Curves.easeOutCubic,
               builder: (ctx, t, _) {
                 return Container(
-                  color: AppColors.chaputBlack.withOpacity(0.12 * t),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.12 * t),
                 );
               },
             ),
@@ -2538,8 +2476,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ? _replyTarget
         : null;
     final localId = 'local_${DateTime.now().millisecondsSinceEpoch}';
-    final meId =
-        ref.read(meControllerProvider).valueOrNull?.user.userId ?? viewerId;
+    final meId = ref.read(meControllerProvider).value?.user.userId ?? viewerId;
     final msg = ChaputMessage(
       id: localId,
       senderId: meId.isNotEmpty ? meId.toLowerCase() : '',
@@ -2637,7 +2574,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
     final freshHidden = freshDecision?.credits.hidden ?? 0;
 
-    Future<bool> _hideNow() async {
+    Future<bool> hideNow() async {
       try {
         await api.hideThread(threadIdHex: thread.threadId);
         return true;
@@ -2648,7 +2585,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     // ✅ 2) kredi varsa direkt gizle
     if (freshHidden > 0) {
-      final ok = await _hideNow();
+      final ok = await hideNow();
       if (!ok) {
         _showGlassToast(
           context.t('profile.toast.chaput_hide_failed'),
@@ -2681,7 +2618,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (!verified) return;
 
     // Satın aldıktan sonra tekrar dene (istersen tekrar fetch yap)
-    final ok = await _hideNow();
+    final ok = await hideNow();
     if (!ok) {
       _showGlassToast(
         context.t('profile.toast.chaput_hide_failed'),
@@ -2952,15 +2889,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               : (targetIndex < currentThreads.length
                     ? targetIndex
                     : currentThreads.length - 1);
-          // Native placements are intentionally disabled for now. Keep the
-          // page-index plumbing so the placement can be restored safely.
-          const showNativeAds = false;
           final targetThread = currentThreads[safeIndex];
           if (_chaputPageCtrl.hasClients) {
-            final pageIdx = _pageIndexForThreadIndex(
-              safeIndex,
-              showAds: showNativeAds,
-            );
+            final pageIdx = _pageIndexForThreadIndex(safeIndex);
             _syncChaputFeedbackBasePage(pageIdx);
             _chaputPageCtrl.jumpToPage(pageIdx);
           }
@@ -3162,7 +3093,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required PaywallFeature feature,
     PaywallReviveTarget? reviveTarget,
   }) async {
-    final me = ref.read(meControllerProvider).valueOrNull;
+    final me = ref.read(meControllerProvider).value;
     final subPlan = me?.subscription.plan;
     final effectivePlanType = (_planType.isNotEmpty && _planType != 'FREE')
         ? _planType
@@ -3214,7 +3145,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     // Eğer mesaj var ve daha önce anchor hatırlanmışsa, aynı anchor’a geri focus ol
     if (_draftAnchor != null) {
       _focusAnchor = _draftAnchor!.clone();
-      _showFocusMarker = false;
       _resetMarkerStabilizer();
       _snapViewToAnchor(); // geri focus
     }
@@ -3235,7 +3165,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       // focus tamamen kapansın
       _focusAnchor = null;
-      _showFocusMarker = false;
       _snapActive = false;
 
       // orbit’i tree center’a geri al
@@ -3252,7 +3181,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     // model focus modundan çıksın (marker yok)
     _focusAnchor = null;
-    _showFocusMarker = false;
     _snapActive = false;
 
     _startCenterShift(toCenter: _treeCenter, toLookAt: _treeCenter);
@@ -3336,7 +3264,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _startSnapBackTo(
       yaw: desiredYaw,
       pitch: desiredPitch,
-      lookAt: _focusAnchor!.clone(),
       radius: _defaultRadius,
     );
   }
@@ -3380,42 +3307,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  void _setFocusModeInstant() {
-    if (_focusAnchor == null) return;
-
-    _orbitCenter = _focusAnchor!.clone();
-    _lookAt = _orbitCenter.clone();
-
-    // kamera açısı: anchor'ın treeCenter'a göre "ön" tarafına gelsin
-    _yawPitchForFocus(frontByTreeCenter: true);
-
-    _radius = _defaultRadius.clamp(_minRadius, _maxRadius);
-    _showFocusMarker = true;
-  }
-
   void _startTreeModeFast() {
     // kullanıcı dokununca hızlıca tree center’a geç
     _startCenterShift(toCenter: _treeCenter, toLookAt: _treeCenter);
-  }
-
-  void _yawPitchForFocus({required bool frontByTreeCenter}) {
-    if (_focusAnchor == null) return;
-
-    final v = _focusAnchor!.clone().sub(_treeCenter);
-    final len = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-    if (len < 1e-6) return;
-
-    v.x /= len;
-    v.y /= len;
-    v.z /= len;
-
-    // kamerayı anchor'ın "ön" tarafına al (treeCenter'a göre)
-    final camDir = frontByTreeCenter
-        ? three.Vector3(-v.x, -v.y, -v.z)
-        : three.Vector3(v.x, v.y, v.z);
-
-    _yaw = math.atan2(camDir.x, camDir.z);
-    _pitch = math.asin(camDir.y).clamp(_minPitchHard, _maxPitch);
   }
 
   void _updateCamera(three.ThreeJS js, double dt) {
@@ -3467,7 +3361,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _origMaterials.putIfAbsent(obj, () => obj.material);
 
         final black = three.MeshBasicMaterial();
-        black.color = three_math.Color.fromHex32(AppColors.chaputBlack.value);
+        black.color = three_math.Color.fromHex32(
+          AppColors.chaputBlack.toARGB32(),
+        );
 
         obj.material = black;
       });
@@ -3525,10 +3421,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     // Yeterince stabil kalınca göster
     if (_stableFor >= _needStableSeconds) {
-      _showFocusMarker = true;
       _focusScreen.value = now;
     } else {
-      _showFocusMarker = false;
       _focusScreen.value = null;
     }
   }
@@ -3577,15 +3471,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   double _lerpAngle(double a, double b, double t) {
     var d = (b - a);
-    while (d > math.pi) d -= 2 * math.pi;
-    while (d < -math.pi) d += 2 * math.pi;
+    while (d > math.pi) {
+      d -= 2 * math.pi;
+    }
+    while (d < -math.pi) {
+      d += 2 * math.pi;
+    }
     return a + d * t;
   }
 
   void _startSnapBackTo({
     required double yaw,
     required double pitch,
-    required three.Vector3 lookAt,
     required double radius,
   }) {
     if (_focusAnchor == null) return;
@@ -3600,9 +3497,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     _snapFromPitch = _pitch;
     _snapToPitch = pitch;
-
-    _snapFromLookAt = _lookAt.clone();
-    _snapToLookAt = lookAt.clone();
 
     _snapFromRadius = _radius;
     _snapToRadius = radius;
@@ -3629,34 +3523,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _startSnapBackTo(
       yaw: desiredYaw,
       pitch: desiredPitch,
-      lookAt: _focusAnchor!.clone(),
       radius: _defaultRadius,
     );
-  }
-
-  void _jumpViewToAnchor() {
-    if (_focusAnchor == null) return;
-
-    // orbitCenter -> anchor yönü
-    final v = _focusAnchor!.clone().sub(_orbitCenter);
-    final len = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-    if (len < 1e-6) return;
-
-    v.x /= len;
-    v.y /= len;
-    v.z /= len;
-
-    // kamerayı anchor'ın "ön" tarafına al
-    final camDir = three.Vector3(-v.x, -v.y, -v.z);
-
-    _yaw = math.atan2(camDir.x, camDir.z);
-    _pitch = math.asin(camDir.y).clamp(_minPitchHard, _maxPitch);
-
-    _lookAt = _focusAnchor!.clone();
-    _radius = _defaultRadius.clamp(_minRadius, _maxRadius);
-
-    // marker ilk açılışta görünür olsun (ama snap yoksa)
-    _showFocusMarker = true;
   }
 
   void _tickSnap(double dt) {
@@ -3696,7 +3564,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   void _onScaleStart(ScaleStartDetails d) {
     _isInteracting = true;
-    _showFocusMarker = false;
     _snapActive = false;
 
     _resetMarkerStabilizer();
@@ -3705,8 +3572,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _pendingTreeModeShift = (_focusAnchor != null);
     _treeModeShiftDoneThisGesture = false;
 
-    _startYaw = _yaw;
-    _startPitch = _pitch;
     _startRadius = _radius;
 
     if (_chaputSheetExtent > _chaputSheetMin + 0.01) {
@@ -3729,11 +3594,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _treeModeShiftDoneThisGesture = false;
 
     if (_focusAnchor == null) {
-      _showFocusMarker = false;
       return;
     }
 
-    _showFocusMarker = false;
     _snapViewToAnchor();
 
     if (_chaputSheetPrevExtent > _chaputSheetMin + 0.01) {
@@ -3805,7 +3668,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
 
     final preset = (tid == null) ? null : TreeCatalog.resolve(tid);
-    final bg = Color(preset?.bgColor ?? AppColors.chaputBlack.value);
+    final bg = Color(preset?.bgColor ?? AppColors.chaputBlack.toARGB32());
 
     final showPageLoading = st.profileJson == null && st.isLoading;
     final showTreeLoading =
@@ -3847,9 +3710,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             profilePhotoUrl: profilePhotoUrl,
           );
 
-    bool _asBool(dynamic v) => v == true || v == 1 || v == '1';
+    bool asBool(dynamic v) => v == true || v == 1 || v == '1';
 
-    int _asNonNegativeInt(dynamic value) {
+    int asNonNegativeInt(dynamic value) {
       final parsed = switch (value) {
         int value => value,
         num value => value.toInt(),
@@ -3858,7 +3721,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       return (parsed ?? 0).clamp(0, 1 << 30).toInt();
     }
 
-    final isPublic = _asBool(user?['is_public']);
+    final isPublic = asBool(user?['is_public']);
     final initialPreview = widget.initialProfilePreview;
     final avatarPreview = ProfilePreview(
       id: userId.isNotEmpty ? userId : widget.userId,
@@ -3885,7 +3748,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
     final hasProfileAvatar = avatarPreview.avatarImageUrl.isNotEmpty;
     final isPrivateTarget = !isPublic;
-    final privateChaputCount = _asNonNegativeInt(
+    final privateChaputCount = asNonNegativeInt(
       st.profileJson?['chaput_count'],
     );
 
@@ -3924,7 +3787,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     }
 
-    final followLoading = followState is FollowLoading;
     if (viewerState != null && userId.isNotEmpty) {
       _syncProfileFollowState(
         avatarPreview.copyWith(
@@ -3935,7 +3797,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
     }
 
-    final me = meAsync.valueOrNull;
+    final me = meAsync.value;
     final viewerId = me?.user.userId ?? '';
     final viewerLite = me == null
         ? null
@@ -3948,10 +3810,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             profilePhotoKey: me.user.profilePhotoKey,
             profilePhotoUrl: me.user.profilePhotoUrl,
           );
-    // Ads remain represented in the backend decision model, but no placement
-    // is rendered while advertising is disabled in the mobile product.
-    const showNativeAds = false;
-
     final profileIdHex = _resolveProfileId(st.profileJson, userId);
     final bool decisionAllowed =
         profileIdHex.length == 32 &&
@@ -3973,11 +3831,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final creditsRevive = decision?.credits.revive ?? 0;
     final creditsWhisper = decision?.credits.whisper ?? 0;
 
-    final adsCanWatch = decision?.ads.canWatch ?? false;
-    final adsWatchedToday = decision?.ads.watchedToday ?? 0;
-    final adsRewardsToday = decision?.ads.rewardsToday ?? 0;
-    final adsNextRewardIn = decision?.ads.nextRewardIn ?? 0;
-
     final decisionPath = decision?.decision.path ?? 'FORBIDDEN';
     final decisionCanStart = decision?.target.canStart ?? false;
     final decisionHasThread = decision?.target.hasThread ?? false;
@@ -3991,11 +3844,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _creditHidden = creditsHidden;
     _creditSpecial = creditsSpecial;
     _creditRevive = creditsRevive;
-    _creditWhisper = creditsWhisper;
-    _adsCanWatch = adsCanWatch;
-    _adsWatchedToday = adsWatchedToday;
-    _adsRewardsToday = adsRewardsToday;
-    _adsNextRewardIn = adsNextRewardIn;
     _decisionLoaded = decisionLoaded;
     _decisionPath = decisionPath;
     _decisionCanStart = decisionCanStart;
@@ -4177,10 +4025,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_chaputPageCtrl.hasClients) {
-            final pageIdx = _pageIndexForThreadIndex(
-              idx,
-              showAds: showNativeAds,
-            );
+            final pageIdx = _pageIndexForThreadIndex(idx);
             _syncChaputFeedbackBasePage(pageIdx);
             _chaputPageCtrl.jumpToPage(pageIdx);
           } else {
@@ -4230,10 +4075,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               setState(() => _chaputActiveIndex = preservedIndex);
             }
             if (_chaputPageCtrl.hasClients) {
-              final pageIdx = _pageIndexForThreadIndex(
-                preservedIndex,
-                showAds: showNativeAds,
-              );
+              final pageIdx = _pageIndexForThreadIndex(preservedIndex);
               _syncChaputFeedbackBasePage(pageIdx);
               _chaputPageCtrl.jumpToPage(pageIdx);
             }
@@ -4320,7 +4162,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _replyTarget = null;
       _replyTargetThreadId = null;
       _focusAnchor = null;
-      _showFocusMarker = false;
       _snapActive = false;
       _silhouetteApplied = false;
       _applySilhouetteIfNeeded();
@@ -4386,7 +4227,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             ? RepaintBoundary(
                 child: ValueListenableBuilder<int>(
                   valueListenable: _typingRevision,
-                  builder: (_, __, ___) {
+                  builder: (_, _, _) {
                     final typingUsersByThread = _resolveTypingUsersByThread(
                       chaputThreadsState.usersById,
                       viewerId,
@@ -4405,43 +4246,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       pageController: _chaputPageCtrl,
                       sheetController: _chaputSheetCtrl,
                       initialExtent: _chaputSheetExtent,
-                      isAdPageActive: _isAdPageActive,
                       isCollapsed:
                           _chaputSheetExtent <=
                           _chaputSheetMin + _chaputSheetCollapsedTapTolerance,
                       onCollapsedTap: _openCollapsedChaputSheet,
-                      showNativeAds: showNativeAds,
                       onExtentChanged: (v) {
                         final previousExtent = _chaputSheetExtent;
                         final wasReplyBarVisible = _shouldShowReplyBar(
                           extent: previousExtent,
                           canReplyOnActive: canReplyOnActive,
                           activeThreadId: activeThread?.threadId,
-                          isAdPageActive: _isAdPageActive,
                         );
                         final wasCollapsed =
                             previousExtent <=
                             _chaputSheetMin + _chaputSheetCollapsedTapTolerance;
-                        if (_isAdPageActive) {
-                          _setChaputSheetExtent(_adLockedExtent);
-                          if (!_isProgrammaticAdSheetChange &&
-                              (v - _adLockedExtent).abs() > 0.01 &&
-                              _chaputSheetCtrl.isAttached) {
-                            _isProgrammaticAdSheetChange = true;
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!mounted || !_chaputSheetCtrl.isAttached) {
-                                _isProgrammaticAdSheetChange = false;
-                                return;
-                              }
-                              _chaputSheetCtrl.jumpTo(_adLockedExtent);
-                              _isProgrammaticAdSheetChange = false;
-                            });
-                          }
-                        } else {
-                          _setChaputSheetExtent(v);
-                          if (v > _chaputSheetMin + 0.01) {
-                            _chaputSheetPrevExtent = v;
-                          }
+                        _setChaputSheetExtent(v);
+                        if (v > _chaputSheetMin + 0.01) {
+                          _chaputSheetPrevExtent = v;
                         }
                         if (v <= _chaputSheetMid + 0.001 &&
                             context.responsive.keyboardOpen) {
@@ -4451,7 +4272,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           extent: _chaputSheetExtent,
                           canReplyOnActive: canReplyOnActive,
                           activeThreadId: activeThread?.threadId,
-                          isAdPageActive: _isAdPageActive,
                         );
                         final isCollapsed =
                             _chaputSheetExtent <=
@@ -4464,56 +4284,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       },
                       onPageChanged: (pageIndex, thread) async {
                         _syncChaputFeedbackBasePage(pageIndex);
-                        final threadIndex = thread == null
-                            ? null
-                            : _threadIndexForPageIndex(
-                                pageIndex,
-                                showAds: showNativeAds,
-                              );
-                        final isAdPage = threadIndex == null;
-                        if (isAdPage && !_isAdPageActive) {
-                          _isAdPageActive = true;
-                          _sheetExtentBeforeAd = _chaputSheetExtent;
-                          final screenHeight = MediaQuery.of(
-                            context,
-                          ).size.height;
-                          final safeBottom = context.responsive
-                              .bottomSheetInnerPadding(min: 0);
-                          _adLockedExtent =
-                              ((ChaputNativeAdCard.minTotalHeight +
-                                          safeBottom +
-                                          20) /
-                                      screenHeight)
-                                  .clamp(_chaputSheetMid, _chaputSheetMax);
-                          _setChaputSheetExtent(_adLockedExtent);
-                          if (_chaputSheetCtrl.isAttached) {
-                            _isProgrammaticAdSheetChange = true;
-                            _chaputSheetCtrl.jumpTo(_adLockedExtent);
-                            _isProgrammaticAdSheetChange = false;
-                          }
-                          if (!mounted) {
-                            return;
-                          }
-                          setState(() {});
-                        } else if (!isAdPage && _isAdPageActive) {
-                          _isAdPageActive = false;
-                          final restoreExtent = _sheetExtentBeforeAd.clamp(
-                            _chaputSheetMin,
-                            _chaputSheetMax,
-                          );
-                          _setChaputSheetExtent(restoreExtent);
-                          if (_chaputSheetCtrl.isAttached) {
-                            _isProgrammaticAdSheetChange = true;
-                            _chaputSheetCtrl.jumpTo(restoreExtent);
-                            _isProgrammaticAdSheetChange = false;
-                          }
-                          if (!mounted) {
-                            return;
-                          }
-                          setState(() {});
-                        }
-                        if (threadIndex != null &&
-                            threadIndex < chaputThreads.length) {
+                        final threadIndex = _threadIndexForPageIndex(pageIndex);
+                        if (threadIndex < chaputThreads.length) {
                           setState(() => _chaputActiveIndex = threadIndex);
                         } else {
                           setState(() {
@@ -4521,8 +4293,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             _replyTargetThreadId = null;
                           });
                         }
-                        if (threadIndex != null &&
-                            threadIndex < chaputThreads.length) {
+                        if (threadIndex < chaputThreads.length) {
                           final t = chaputThreads[threadIndex];
                           _subscribeThreadSocket(t.threadId, profileIdHex);
                           _focusToThreadAnchor(t, profileIdHex);
@@ -4610,7 +4381,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             extent: _chaputSheetExtent,
                             canReplyOnActive: canReplyOnActive,
                             activeThreadId: activeThread?.threadId,
-                            isAdPageActive: _isAdPageActive,
                           )
                           ? 88.0
                           : 0.0,
@@ -4692,7 +4462,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       top: topInset + topBarHeight,
                       bottom: 0,
                       child: IgnorePointer(
-                        ignoring: !_threeReady || _isAdPageActive,
+                        ignoring: !_threeReady,
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onScaleStart: _onScaleStart,
@@ -4752,8 +4522,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                     sigmaY: 10,
                                   ),
                                   child: Material(
-                                    color: AppColors.chaputWhite.withOpacity(
-                                      0.35,
+                                    color: AppColors.chaputWhite.withValues(
+                                      alpha: 0.35,
                                     ),
                                     shape: const CircleBorder(),
                                     child: InkWell(
@@ -4818,8 +4588,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                   },
                                 ),
                                 child: Material(
-                                  color: AppColors.chaputWhite.withOpacity(
-                                    0.35,
+                                  color: AppColors.chaputWhite.withValues(
+                                    alpha: 0.35,
                                   ),
                                   shape: const CircleBorder(),
                                   child: InkWell(
@@ -4865,7 +4635,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         ignoring: !_profileCardOpen,
                         child: AnimatedBuilder(
                           animation: _profileCardT,
-                          builder: (_, __) {
+                          builder: (_, _) {
                             final t = _profileCardT.value;
 
                             // ufak slide + fade
@@ -4899,10 +4669,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                             child: DecoratedBox(
                                               decoration: BoxDecoration(
                                                 color: AppColors.chaputWhite
-                                                    .withOpacity(0.35),
+                                                    .withValues(alpha: 0.35),
                                                 border: Border.all(
                                                   color: AppColors.chaputWhite
-                                                      .withOpacity(0.25),
+                                                      .withValues(alpha: 0.25),
                                                   width: 1,
                                                 ),
                                               ),
@@ -5021,8 +4791,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                                 fontSize: 13,
                                                                 color: AppColors
                                                                     .chaputBlack
-                                                                    .withOpacity(
-                                                                      0.65,
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.65,
                                                                     ),
                                                               ),
                                                             ),
@@ -5413,7 +5184,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       child: IgnorePointer(
                         child: ValueListenableBuilder<Offset?>(
                           valueListenable: _focusScreen,
-                          builder: (_, off, __) {
+                          builder: (_, off, _) {
                             if (off == null) return const SizedBox.shrink();
 
                             return Stack(
@@ -5432,7 +5203,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                           blurRadius: 8,
                                           spreadRadius: 1,
                                           color: AppColors.chaputWhite
-                                              .withOpacity(0.6),
+                                              .withValues(alpha: 0.6),
                                         ),
                                       ],
                                     ),
@@ -5523,7 +5294,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           extent: chaputSheetExtent,
                           canReplyOnActive: canReplyOnActive,
                           activeThreadId: activeThread?.threadId,
-                          isAdPageActive: _isAdPageActive,
                         );
                         if (!showReplyBar) {
                           return const SizedBox.shrink();
@@ -5551,8 +5321,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               onTypingChanged: (isTyping) {
                                 if (!mounted) return;
                                 final threadId = activeThread?.threadId;
-                                if (threadId == null || threadId.isEmpty)
+                                if (threadId == null || threadId.isEmpty) {
                                   return;
+                                }
                                 _sendTyping(threadId, isTyping);
                               },
 
@@ -5700,7 +5471,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 setState(() => _replyWhisperMode = true);
                               },
 
-                              onSend: (text, _ignored) async {
+                              onSend: (text, ignored) async {
                                 final t = activeThread;
                                 if (t == null) return;
 
@@ -5834,8 +5605,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                               : () async {
                                                   if (showPrivateFollowSheet) {
                                                     if (isBlocked ||
-                                                        followButtonDisabled)
+                                                        followButtonDisabled) {
                                                       return;
+                                                    }
 
                                                     HapticFeedback.selectionClick();
 
@@ -6005,7 +5777,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                     onOptionsTap: _openComposerOptionsSheet,
                                     onOptionsEmptyTap: _onOptionsEmptyTap,
                                   ),
-                                  error: (_, __) => ChatComposerBar(
+                                  error: (_, _) => ChatComposerBar(
                                     controller: _msgCtrl,
                                     focusNode: _msgFocus,
                                     avatarUrl: null,

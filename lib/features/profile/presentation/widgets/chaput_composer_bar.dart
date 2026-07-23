@@ -85,8 +85,10 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withOpacity(0.55),
-            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+            color: AppColors.chaputBlack.withValues(alpha: 0.55),
+            border: Border.all(
+              color: AppColors.chaputWhite.withValues(alpha: 0.10),
+            ),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Padding(
@@ -106,10 +108,10 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.chaputWhite.withOpacity(0.14),
+                      color: AppColors.chaputWhite.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                        color: AppColors.chaputWhite.withOpacity(0.10),
+                        color: AppColors.chaputWhite.withValues(alpha: 0.10),
                       ),
                     ),
                     child: Text(
@@ -196,7 +198,7 @@ class _RoundIconButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: AppColors.chaputWhite.withOpacity(0.10),
+          color: AppColors.chaputWhite.withValues(alpha: 0.10),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: AppColors.chaputWhite, size: 22),
@@ -225,7 +227,7 @@ class _InkAvatarButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: AppColors.chaputWhite.withOpacity(0.10),
+          color: AppColors.chaputWhite.withValues(alpha: 0.10),
           shape: BoxShape.circle,
         ),
         child: ClipOval(

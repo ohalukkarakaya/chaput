@@ -45,9 +45,10 @@ class _GlassToastOverlayState extends State<GlassToastOverlay>
       reverseCurve: Curves.easeInCubic,
     );
 
-    _slide = Tween<double>(begin: 10, end: 0).animate(
-      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
-    );
+    _slide = Tween<double>(
+      begin: 10,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
 
     _c.forward();
 
@@ -79,7 +80,7 @@ class _GlassToastOverlayState extends State<GlassToastOverlay>
               bottom: widget.bottom,
               child: AnimatedBuilder(
                 animation: _c,
-                builder: (_, __) {
+                builder: (_, _) {
                   return Opacity(
                     opacity: _fade.value,
                     child: Transform.translate(
@@ -90,27 +91,38 @@ class _GlassToastOverlayState extends State<GlassToastOverlay>
                           filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: AppColors.chaputBlack.withOpacity(0.55),
+                              color: AppColors.chaputBlack.withValues(
+                                alpha: 0.55,
+                              ),
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(
-                                color: AppColors.chaputWhite.withOpacity(0.12),
+                                color: AppColors.chaputWhite.withValues(
+                                  alpha: 0.12,
+                                ),
                                 width: 1,
                               ),
                             ),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
                               child: Row(
                                 children: [
                                   Container(
                                     width: 34,
                                     height: 34,
                                     decoration: BoxDecoration(
-                                      color: AppColors.chaputWhite.withOpacity(0.10),
+                                      color: AppColors.chaputWhite.withValues(
+                                        alpha: 0.10,
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
                                       widget.icon,
-                                      color: AppColors.chaputWhite.withOpacity(0.92),
+                                      color: AppColors.chaputWhite.withValues(
+                                        alpha: 0.92,
+                                      ),
                                       size: 18,
                                     ),
                                   ),

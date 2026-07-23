@@ -58,11 +58,11 @@ class ArchiveState {
 }
 
 final archiveControllerProvider =
-AutoDisposeNotifierProvider<ArchiveController, ArchiveState>(
-  ArchiveController.new,
-);
+    NotifierProvider.autoDispose<ArchiveController, ArchiveState>(
+      ArchiveController.new,
+    );
 
-class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
+class ArchiveController extends Notifier<ArchiveState> {
   static const _pageSize = 20;
 
   ArchiveApi get _api => ref.read(archiveApiProvider);
@@ -77,7 +77,9 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
   String _mapError(Object e) {
     if (e is DioException) {
       final data = e.response?.data;
-      final s = (data is Map) ? (data['error']?.toString() ?? '') : data?.toString() ?? '';
+      final s = (data is Map)
+          ? (data['error']?.toString() ?? '')
+          : data?.toString() ?? '';
       if (s.contains('unauthorized')) return 'errors.unauthorized';
       if (s.contains('not_found')) return 'errors.not_found';
       if (s.contains('forbidden')) return 'errors.forbidden';
@@ -105,7 +107,10 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
       final res = await _api.listArchived(limit: _pageSize, cursor: null);
 
       final items = [...res.items];
-      final userIds = items.map((e) => e.otherUserId).toSet().toList(growable: false);
+      final userIds = items
+          .map((e) => e.otherUserId)
+          .toSet()
+          .toList(growable: false);
       final users = await _hydrateUsers(userIds);
 
       state = state.copyWith(
@@ -135,7 +140,10 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
     state = state.copyWith(isLoadingMore: true, error: null);
 
     try {
-      final res = await _api.listArchived(limit: _pageSize, cursor: state.nextCursor);
+      final res = await _api.listArchived(
+        limit: _pageSize,
+        cursor: state.nextCursor,
+      );
 
       final added = res.items;
       final all = [...state.items, ...added];
@@ -180,12 +188,11 @@ class ArchiveController extends AutoDisposeNotifier<ArchiveState> {
       await _api.reviveChaput(chaputIdHex: chaputId);
 
       // ✅ 200 -> listeden kaldır
-      final nextItems = state.items.where((e) => e.threadId != chaputId).toList(growable: false);
+      final nextItems = state.items
+          .where((e) => e.threadId != chaputId)
+          .toList(growable: false);
 
-      state = state.copyWith(
-        revivingChaputId: null,
-        items: nextItems,
-      );
+      state = state.copyWith(revivingChaputId: null, items: nextItems);
       return true;
     } catch (e) {
       state = state.copyWith(revivingChaputId: null, error: _mapError(e));

@@ -20,11 +20,11 @@ class RestrictError extends RestrictActionState {
 }
 
 final restrictionsControllerProvider =
-AutoDisposeNotifierProvider<RestrictionsController, RestrictActionState>(
-  RestrictionsController.new,
-);
+    NotifierProvider.autoDispose<RestrictionsController, RestrictActionState>(
+      RestrictionsController.new,
+    );
 
-class RestrictionsController extends AutoDisposeNotifier<RestrictActionState> {
+class RestrictionsController extends Notifier<RestrictActionState> {
   @override
   RestrictActionState build() => const RestrictIdle();
 

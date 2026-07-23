@@ -34,7 +34,7 @@ class UserSearchApi {
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/users/search',
-      data: {'q': q, 'limit': limit, if (cursor != null) 'cursor': cursor},
+      data: {'q': q, 'limit': limit, 'cursor': ?cursor},
       options: Options(contentType: Headers.jsonContentType),
     );
 

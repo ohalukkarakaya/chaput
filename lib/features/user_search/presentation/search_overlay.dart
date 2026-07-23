@@ -180,7 +180,7 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
                       child: Container(
                         height: 50,
                         decoration: BoxDecoration(
-                          color: AppColors.chaputWhite.withOpacity(0.92),
+                          color: AppColors.chaputWhite.withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -262,10 +262,10 @@ class _ResultsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.isLoading) {
-      final cardBg = AppColors.chaputWhite.withOpacity(0.12);
+      final cardBg = AppColors.chaputWhite.withValues(alpha: 0.12);
       return ShimmerLoading(
-        baseColor: AppColors.chaputWhite.withOpacity(0.10),
-        highlightColor: AppColors.chaputWhite.withOpacity(0.28),
+        baseColor: AppColors.chaputWhite.withValues(alpha: 0.10),
+        highlightColor: AppColors.chaputWhite.withValues(alpha: 0.28),
         child: ListView.separated(
           padding: EdgeInsets.fromLTRB(
             16,
@@ -274,8 +274,8 @@ class _ResultsList extends StatelessWidget {
             MediaQuery.paddingOf(context).bottom + 48,
           ),
           itemCount: 6,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (_, __) => ShimmerUserCard(
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (_, _) => ShimmerUserCard(
             backgroundColor: cardBg,
             line1Factor: 0.6,
             line2Factor: 0.38,
@@ -337,7 +337,7 @@ class _ResultsList extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 padding: EdgeInsets.zero,
                 itemCount: topProfiles.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final profile = topProfiles[index];
                   return RecommendedUserCard(
@@ -361,8 +361,10 @@ class _ResultsList extends StatelessWidget {
               ? Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: ShimmerLoading(
-                    baseColor: AppColors.chaputWhite.withOpacity(0.10),
-                    highlightColor: AppColors.chaputWhite.withOpacity(0.28),
+                    baseColor: AppColors.chaputWhite.withValues(alpha: 0.10),
+                    highlightColor: AppColors.chaputWhite.withValues(
+                      alpha: 0.28,
+                    ),
                     child: const ShimmerLine(width: 140, height: 10),
                   ),
                 )
@@ -382,7 +384,7 @@ class _ResultsList extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.chaputWhite.withOpacity(0.92),
+              color: AppColors.chaputWhite.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -416,7 +418,7 @@ class _ResultsList extends StatelessWidget {
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: AppColors.chaputBlack.withOpacity(0.55),
+                          color: AppColors.chaputBlack.withValues(alpha: 0.55),
                         ),
                       ),
                     ],
@@ -434,13 +436,13 @@ class _ResultsList extends StatelessWidget {
                       width: 30,
                       height: 30,
                       decoration: BoxDecoration(
-                        color: AppColors.chaputBlack.withOpacity(0.06),
+                        color: AppColors.chaputBlack.withValues(alpha: 0.06),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.close_rounded,
                         size: 17,
-                        color: AppColors.chaputBlack.withOpacity(0.68),
+                        color: AppColors.chaputBlack.withValues(alpha: 0.68),
                       ),
                     ),
                   ),

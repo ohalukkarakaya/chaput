@@ -75,7 +75,7 @@ class SettingsScreen extends ConsumerWidget {
                     child: meAsync.when(
                       loading: () =>
                           const _SettingsShell(child: _LoadingCard()),
-                      error: (_, __) =>
+                      error: (_, _) =>
                           const _SettingsShell(child: _ErrorCard()),
                       data: (me) {
                         final user = me?.user;
@@ -424,12 +424,12 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
         : AppColors.chaputBlack;
     final badgeBg = widget.isDestructive
         ? AppColors.chaputLightRed
-        : AppColors.chaputBlack.withOpacity(0.06);
+        : AppColors.chaputBlack.withValues(alpha: 0.06);
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-      backgroundColor: AppColors.chaputWhite.withOpacity(0.98),
+      backgroundColor: AppColors.chaputWhite.withValues(alpha: 0.98),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
         child: SingleChildScrollView(
@@ -470,7 +470,7 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
               Text(
                 widget.description,
                 style: TextStyle(
-                  color: AppColors.chaputBlack.withOpacity(0.65),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.65),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -484,7 +484,7 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
                   hintText: context.t('settings.username_hint'),
                   errorText: errorText,
                   filled: true,
-                  fillColor: AppColors.chaputBlack.withOpacity(0.04),
+                  fillColor: AppColors.chaputBlack.withValues(alpha: 0.04),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -500,7 +500,7 @@ class _UsernameConfirmDialogState extends State<_UsernameConfirmDialog> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.chaputBlack,
                         side: BorderSide(
-                          color: AppColors.chaputBlack.withOpacity(0.12),
+                          color: AppColors.chaputBlack.withValues(alpha: 0.12),
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -601,7 +601,7 @@ class _CloseAccountConfirmDialogState
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-      backgroundColor: AppColors.chaputWhite.withOpacity(0.98),
+      backgroundColor: AppColors.chaputWhite.withValues(alpha: 0.98),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
         child: SingleChildScrollView(
@@ -636,7 +636,7 @@ class _CloseAccountConfirmDialogState
               Text(
                 widget.description,
                 style: TextStyle(
-                  color: AppColors.chaputBlack.withOpacity(0.65),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.65),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -650,7 +650,7 @@ class _CloseAccountConfirmDialogState
                   hintText: context.t('settings.username_hint'),
                   errorText: usernameErrorText,
                   filled: true,
-                  fillColor: AppColors.chaputBlack.withOpacity(0.04),
+                  fillColor: AppColors.chaputBlack.withValues(alpha: 0.04),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -677,7 +677,7 @@ class _CloseAccountConfirmDialogState
                   ),
                   errorText: reasonErrorText,
                   filled: true,
-                  fillColor: AppColors.chaputBlack.withOpacity(0.04),
+                  fillColor: AppColors.chaputBlack.withValues(alpha: 0.04),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -693,7 +693,7 @@ class _CloseAccountConfirmDialogState
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.chaputBlack,
                         side: BorderSide(
-                          color: AppColors.chaputBlack.withOpacity(0.12),
+                          color: AppColors.chaputBlack.withValues(alpha: 0.12),
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -861,7 +861,9 @@ class _SettingsContent extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           softWrap: false,
                           style: TextStyle(
-                            color: AppColors.chaputBlack.withOpacity(0.55),
+                            color: AppColors.chaputBlack.withValues(
+                              alpha: 0.55,
+                            ),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -871,7 +873,9 @@ class _SettingsContent extends StatelessWidget {
                         Text(
                           context.t('settings.manage_desc'),
                           style: TextStyle(
-                            color: AppColors.chaputBlack.withOpacity(0.60),
+                            color: AppColors.chaputBlack.withValues(
+                              alpha: 0.60,
+                            ),
                             fontWeight: FontWeight.w500,
                             height: 1.35,
                           ),
@@ -908,7 +912,7 @@ class _SettingsContent extends StatelessWidget {
               Text(
                 context.t('settings.section_living_setup'),
                 style: TextStyle(
-                  color: AppColors.chaputBlack.withOpacity(0.60),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.60),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -954,7 +958,7 @@ class _SettingsContent extends StatelessWidget {
               Text(
                 context.t('settings.section_account_control'),
                 style: TextStyle(
-                  color: AppColors.chaputBlack.withOpacity(0.60),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.60),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1122,7 +1126,7 @@ class _AvatarWithRing extends StatelessWidget {
                     BoxShadow(
                       blurRadius: 14,
                       offset: const Offset(0, 6),
-                      color: AppColors.chaputBlack.withOpacity(0.12),
+                      color: AppColors.chaputBlack.withValues(alpha: 0.12),
                     ),
                   ],
                 ),
@@ -1169,7 +1173,9 @@ class _SettingsRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.chaputWhite,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
+            border: Border.all(
+              color: AppColors.chaputBlack.withValues(alpha: 0.06),
+            ),
           ),
           child: Row(
             children: [
@@ -1177,7 +1183,7 @@ class _SettingsRow extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.chaputBlack.withOpacity(0.06),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, size: 18, color: AppColors.chaputBlack),
@@ -1195,7 +1201,7 @@ class _SettingsRow extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        color: AppColors.chaputBlack.withOpacity(0.55),
+                        color: AppColors.chaputBlack.withValues(alpha: 0.55),
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
@@ -1205,7 +1211,7 @@ class _SettingsRow extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: AppColors.chaputBlack.withOpacity(0.35),
+                color: AppColors.chaputBlack.withValues(alpha: 0.35),
               ),
             ],
           ),
@@ -1220,7 +1226,7 @@ class _LoadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lineColor = AppColors.chaputBlack.withOpacity(0.08);
+    final lineColor = AppColors.chaputBlack.withValues(alpha: 0.08);
 
     Widget listRow() {
       return Container(
@@ -1229,7 +1235,9 @@ class _LoadingCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.chaputWhite,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
+          border: Border.all(
+            color: AppColors.chaputBlack.withValues(alpha: 0.06),
+          ),
         ),
         child: Row(
           children: [
@@ -1260,7 +1268,7 @@ class _LoadingCard extends StatelessWidget {
               color: AppColors.chaputWhite,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
-                color: AppColors.chaputBlack.withOpacity(0.06),
+                color: AppColors.chaputBlack.withValues(alpha: 0.06),
               ),
             ),
             child: Row(
@@ -1300,7 +1308,7 @@ class _ErrorCard extends StatelessWidget {
       child: Text(
         context.t('settings.load_failed'),
         style: TextStyle(
-          color: AppColors.chaputBlack.withOpacity(0.65),
+          color: AppColors.chaputBlack.withValues(alpha: 0.65),
           fontWeight: FontWeight.w700,
         ),
       ),

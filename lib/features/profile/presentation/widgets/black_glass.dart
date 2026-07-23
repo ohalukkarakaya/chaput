@@ -26,10 +26,10 @@ class BlackGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final box = BoxDecoration(
-      color: AppColors.chaputBlack.withOpacity(opacity),
+      color: AppColors.chaputBlack.withValues(alpha: opacity),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: AppColors.chaputWhite.withOpacity(borderOpacity),
+        color: AppColors.chaputWhite.withValues(alpha: borderOpacity),
         width: borderWidth,
       ),
     );

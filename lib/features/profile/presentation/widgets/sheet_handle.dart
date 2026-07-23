@@ -12,7 +12,7 @@ class SheetHandle extends StatelessWidget {
         width: 36,
         height: 4,
         decoration: BoxDecoration(
-          color: AppColors.chaputBlack.withOpacity(0.2),
+          color: AppColors.chaputBlack.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(2),
         ),
       ),

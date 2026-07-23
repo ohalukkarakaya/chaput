@@ -129,8 +129,8 @@ class _VideoBackgroundState extends State<VideoBackground>
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: Container(
-                      color: AppColors.chaputBlack.withOpacity(
-                        widget.overlayOpacity,
+                      color: AppColors.chaputBlack.withValues(
+                        alpha: widget.overlayOpacity,
                       ),
                     ),
                   ),
@@ -240,7 +240,7 @@ class _BlobPainter extends CustomPainter {
       final color = Color.lerp(blob.color, blob.accentColor, mix) ?? blob.color;
 
       final paint = Paint()
-        ..color = color.withOpacity(0.82)
+        ..color = color.withValues(alpha: 0.82)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, blurSigma);
 
       canvas.drawCircle(Offset(dx, dy), radius, paint);
@@ -264,7 +264,7 @@ class _GrainPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF).withOpacity(0.05)
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.05)
       ..strokeWidth = 1;
 
     canvas.drawPoints(PointMode.points, points, paint);

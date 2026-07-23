@@ -127,7 +127,7 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                                 12,
                               ),
                               itemCount: st.items.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(height: 10),
                               itemBuilder: (context, i) {
                                 final it = st.items[i];
@@ -196,8 +196,8 @@ class _UserRow extends ConsumerWidget {
         ? context.t('blocked.blocked')
         : context.t('blocked.restricted');
     final chipBg = (kind == VisibilityKind.blocked)
-        ? AppColors.chaputMaterialRed.withOpacity(0.10)
-        : AppColors.chaputMaterialOrange.withOpacity(0.12);
+        ? AppColors.chaputMaterialRed.withValues(alpha: 0.10)
+        : AppColors.chaputMaterialOrange.withValues(alpha: 0.12);
     final chipFg = (kind == VisibilityKind.blocked)
         ? AppColors.chaputRed700
         : AppColors.chaputOrange800;
@@ -205,9 +205,11 @@ class _UserRow extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.chaputWhite.withOpacity(0.96),
+        color: AppColors.chaputWhite.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
+        border: Border.all(
+          color: AppColors.chaputBlack.withValues(alpha: 0.06),
+        ),
       ),
       child: Row(
         children: [
@@ -234,7 +236,7 @@ class _UserRow extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.chaputBlack.withOpacity(0.55),
+                    color: AppColors.chaputBlack.withValues(alpha: 0.55),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -301,8 +303,8 @@ class _BlockedShimmerList extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         itemCount: 6,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (_, __) => const ShimmerUserCard(
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        itemBuilder: (_, _) => const ShimmerUserCard(
           radius: 18,
           line1Factor: 0.7,
           line2Factor: 0.5,
@@ -311,29 +313,6 @@ class _BlockedShimmerList extends StatelessWidget {
           trailingHeight: 22,
         ),
       ),
-    );
-  }
-}
-
-class _WhiteCard extends StatelessWidget {
-  final Widget child;
-  const _WhiteCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.chaputWhite.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 26,
-            offset: const Offset(0, 14),
-            color: AppColors.chaputBlack.withOpacity(0.08),
-          ),
-        ],
-      ),
-      child: child,
     );
   }
 }

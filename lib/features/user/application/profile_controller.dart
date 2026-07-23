@@ -40,22 +40,23 @@ final profileApiProvider = Provider<ProfileApi>((ref) {
   return ProfileApi(dio);
 });
 
-final profileControllerProvider =
-    AutoDisposeNotifierProviderFamily<ProfileController, ProfileState, String>(
-      ProfileController.new,
-    );
+final profileControllerProvider = NotifierProvider.autoDispose
+    .family<ProfileController, ProfileState, String>(ProfileController.new);
 
-class ProfileController
-    extends AutoDisposeFamilyNotifier<ProfileState, String> {
+class ProfileController extends Notifier<ProfileState> {
+  ProfileController(this.arg);
+
+  final String arg;
+
   ProfileApi get _api => ref.read(profileApiProvider);
 
   @override
-  ProfileState build(String userId) {
+  ProfileState build() {
     // önce state'i initialize et
     final initial = ProfileState.empty.copyWith(isLoading: true);
 
     // sonra fetch'i bir sonraki tick'te başlat
-    Future.microtask(() => _fetch(userId));
+    Future.microtask(() => _fetch(arg));
 
     return initial;
   }

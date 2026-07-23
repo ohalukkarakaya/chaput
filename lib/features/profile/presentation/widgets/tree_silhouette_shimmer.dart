@@ -8,21 +8,18 @@ import '../../../../core/constants/app_colors.dart';
 class TreeSilhouetteShimmer extends StatelessWidget {
   final double size;
 
-  const TreeSilhouetteShimmer({
-    super.key,
-    this.size = 220,
-  });
+  const TreeSilhouetteShimmer({super.key, this.size = 220});
 
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: AppColors.chaputWhite.withOpacity(0.18),
-      highlightColor: AppColors.chaputWhite.withOpacity(0.6),
+      baseColor: AppColors.chaputWhite.withValues(alpha: 0.18),
+      highlightColor: AppColors.chaputWhite.withValues(alpha: 0.6),
       period: const Duration(milliseconds: 1200),
       child: CustomPaint(
         size: Size.square(size),
         painter: _TreeSilhouettePainter(
-          color: AppColors.chaputWhite.withOpacity(0.7),
+          color: AppColors.chaputWhite.withValues(alpha: 0.7),
         ),
       ),
     );

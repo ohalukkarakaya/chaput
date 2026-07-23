@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/account_api.dart';
 
 final accountControllerProvider =
-    AutoDisposeNotifierProvider<AccountController, AsyncValue<void>>(
+    NotifierProvider.autoDispose<AccountController, AsyncValue<void>>(
       AccountController.new,
     );
 
-class AccountController extends AutoDisposeNotifier<AsyncValue<void>> {
+class AccountController extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncData(null);
 

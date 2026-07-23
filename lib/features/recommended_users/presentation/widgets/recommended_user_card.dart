@@ -69,10 +69,10 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.chaputBlack.withOpacity(0.78),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.78),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: AppColors.chaputWhite.withOpacity(0.12),
+                    color: AppColors.chaputWhite.withValues(alpha: 0.12),
                   ),
                 ),
                 child: Row(
@@ -279,7 +279,9 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.chaputBlack.withOpacity(0.6),
+                                color: AppColors.chaputBlack.withValues(
+                                  alpha: 0.6,
+                                ),
                               ),
                             ),
                           ],
@@ -297,7 +299,7 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
                         width: 34,
                         height: 34,
                         decoration: BoxDecoration(
-                          color: AppColors.chaputWhite.withOpacity(0.68),
+                          color: AppColors.chaputWhite.withValues(alpha: 0.68),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.close_rounded, size: 18),
@@ -322,7 +324,9 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
                     backgroundColor: actionColor,
                     foregroundColor: actionForeground,
                     disabledBackgroundColor: actionColor,
-                    disabledForegroundColor: actionForeground.withOpacity(0.92),
+                    disabledForegroundColor: actionForeground.withValues(
+                      alpha: 0.92,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),

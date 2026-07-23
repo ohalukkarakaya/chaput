@@ -72,7 +72,7 @@ class ChaputSocketClient {
           }
         },
         onDone: _handleDisconnect,
-        onError: (_, __) => _handleDisconnect(),
+        onError: (_, _) => _handleDisconnect(),
       );
 
       await channel.ready;

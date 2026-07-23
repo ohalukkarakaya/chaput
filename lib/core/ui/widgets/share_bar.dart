@@ -104,14 +104,14 @@ class _ShareBarState extends State<ShareBar>
           border: Border.all(
             // ✅ kopyalanınca hafif yeşil border
             color: _copied
-                ? _confirmGreen.withOpacity(0.35)
-                : AppColors.chaputBlack.withOpacity(0.06),
+                ? _confirmGreen.withValues(alpha: 0.35)
+                : AppColors.chaputBlack.withValues(alpha: 0.06),
           ),
           boxShadow: [
             BoxShadow(
               blurRadius: 18,
               offset: const Offset(0, 8),
-              color: AppColors.chaputBlack.withOpacity(0.06),
+              color: AppColors.chaputBlack.withValues(alpha: 0.06),
             ),
 
             // ✅ kopyalanınca glow
@@ -120,7 +120,7 @@ class _ShareBarState extends State<ShareBar>
                 blurRadius: 22,
                 spreadRadius: 1,
                 offset: const Offset(0, 10),
-                color: _confirmGreen.withOpacity(0.20),
+                color: _confirmGreen.withValues(alpha: 0.20),
               ),
           ],
         ),
@@ -149,7 +149,7 @@ class _ShareBarState extends State<ShareBar>
                         fontSize: 12,
                         fontStyle: FontStyle.italic,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.chaputBlack.withOpacity(0.55),
+                        color: AppColors.chaputBlack.withValues(alpha: 0.55),
                       ),
                     ),
                 ],
@@ -164,7 +164,7 @@ class _ShareBarState extends State<ShareBar>
                   duration: const Duration(milliseconds: 160),
                   decoration: BoxDecoration(
                     color: _copied
-                        ? _confirmGreen.withOpacity(0.10)
+                        ? _confirmGreen.withValues(alpha: 0.10)
                         : AppColors.chaputTransparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -188,7 +188,9 @@ class _ShareBarState extends State<ShareBar>
                           : Icon(
                               Icons.copy_rounded,
                               key: const ValueKey('copy'),
-                              color: AppColors.chaputBlack.withOpacity(0.85),
+                              color: AppColors.chaputBlack.withValues(
+                                alpha: 0.85,
+                              ),
                             ),
                     ),
                   ),
@@ -202,7 +204,7 @@ class _ShareBarState extends State<ShareBar>
                     maxLines: 1,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: AppColors.chaputBlack.withOpacity(0.68),
+                      color: AppColors.chaputBlack.withValues(alpha: 0.68),
                     ),
                   ),
                 ),

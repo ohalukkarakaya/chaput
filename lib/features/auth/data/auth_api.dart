@@ -2,8 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/dio_provider.dart';
-import 'dto/auth_response.dart';
-import 'dto/login_request.dart';
 import 'dto/login_verify_response.dart';
 import 'dto/refresh_response.dart';
 
@@ -22,10 +20,7 @@ class AuthApi {
   }) async {
     await _dio.post(
       '/auth/login/request-code',
-      data: {
-        'email': email,
-        'device_id': deviceId,
-      },
+      data: {'email': email, 'device_id': deviceId},
       options: Options(headers: {'Content-Type': 'application/json'}),
     );
   }
@@ -37,20 +32,14 @@ class AuthApi {
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/auth/login/verify-code',
-      data: {
-        'email': email,
-        'device_id': deviceId,
-        'code': code,
-      },
+      data: {'email': email, 'device_id': deviceId, 'code': code},
       options: Options(headers: {'Content-Type': 'application/json'}),
     );
 
     return LoginVerifyResponse.fromJson(res.data ?? const {});
   }
 
-  Future<void> logout({
-    required String refreshToken,
-  }) async {
+  Future<void> logout({required String refreshToken}) async {
     await _dio.post(
       '/auth/logout',
       data: {'refresh_token': refreshToken},
@@ -58,9 +47,7 @@ class AuthApi {
     );
   }
 
-  Future<RefreshResponse> refresh({
-    required String refreshToken,
-  }) async {
+  Future<RefreshResponse> refresh({required String refreshToken}) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/auth/token/refresh',
       data: {'refresh_token': refreshToken},
@@ -76,10 +63,7 @@ class AuthApi {
   }) async {
     await _dio.post(
       '/signup/request-code', // sende /signup/request-code ise burayı değiştir
-      data: {
-        'email': email,
-        'device_id': deviceId,
-      },
+      data: {'email': email, 'device_id': deviceId},
       options: Options(headers: {'Content-Type': 'application/json'}),
     );
   }
@@ -89,24 +73,18 @@ class AuthApi {
     required String deviceId,
     required String code,
   }) async {
-    try{
+    try {
       final res = await _dio.post<Map<String, dynamic>>(
         '/signup/verify-code', // SignupController::verifyCode
-        data: {
-          'email': email,
-          'device_id': deviceId,
-          'code': code,
-        },
+        data: {'email': email, 'device_id': deviceId, 'code': code},
         options: Options(headers: {'Content-Type': 'application/json'}),
       );
 
       return LoginVerifyResponse.fromJson(res.data ?? const {});
-    }on DioException catch (e) {
+    } on DioException catch (e) {
       print('status: ${e.response?.statusCode}');
       print('data: ${e.response?.data}');
       rethrow;
     }
   }
-
-
 }

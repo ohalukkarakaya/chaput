@@ -68,7 +68,7 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                       padding: const EdgeInsets.all(18),
                       child: meAsync.when(
                         loading: () => const _EmailChangeShimmer(),
-                        error: (_, __) => Text(context.t('common.load_failed')),
+                        error: (_, _) => Text(context.t('common.load_failed')),
                         data: (me) {
                           final current =
                               me?.user.email ?? context.t('common.na');

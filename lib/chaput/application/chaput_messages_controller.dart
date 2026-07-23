@@ -61,20 +61,21 @@ class ChaputMessagesState {
   }
 }
 
-final chaputMessagesControllerProvider =
-    AutoDisposeNotifierProviderFamily<
-      ChaputMessagesController,
-      ChaputMessagesState,
-      ChaputMessagesArgs
-    >(ChaputMessagesController.new);
+final chaputMessagesControllerProvider = NotifierProvider.autoDispose
+    .family<ChaputMessagesController, ChaputMessagesState, ChaputMessagesArgs>(
+      ChaputMessagesController.new,
+    );
 
-class ChaputMessagesController
-    extends AutoDisposeFamilyNotifier<ChaputMessagesState, ChaputMessagesArgs> {
+class ChaputMessagesController extends Notifier<ChaputMessagesState> {
+  ChaputMessagesController(this.arg);
+
+  final ChaputMessagesArgs arg;
+
   ChaputApi get _api => ref.read(chaputApiProvider);
   String? _lastLoadCursor;
 
   @override
-  ChaputMessagesState build(ChaputMessagesArgs arg) {
+  ChaputMessagesState build() {
     _loadInitial(arg);
     return const ChaputMessagesState(isLoading: true);
   }
@@ -231,7 +232,7 @@ class ChaputMessagesController
   }
 
   void upsertMessageFromSocket(ChaputMessage message) {
-    final meId = ref.read(meControllerProvider).valueOrNull?.user.userId ?? '';
+    final meId = ref.read(meControllerProvider).value?.user.userId ?? '';
     if (meId.isNotEmpty &&
         message.senderId.toLowerCase() == meId.toLowerCase()) {
       // If this is my message, try to replace a pending local message.
@@ -289,7 +290,7 @@ class ChaputMessagesController
   }
 
   void markReadByOther() {
-    final me = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    final me = ref.read(meControllerProvider).value?.user.userId;
     if (me == null || me.isEmpty) return;
     final meNorm = me.toLowerCase();
     final next = state.items
@@ -325,7 +326,7 @@ class ChaputMessagesController
               top = top.take(3).toList(growable: false);
             }
           }
-          final me = ref.read(meControllerProvider).valueOrNull?.user.userId;
+          final me = ref.read(meControllerProvider).value?.user.userId;
           final likedByMe = (me != null && me == likerId) ? liked : m.likedByMe;
           return _copyMessage(
             m,

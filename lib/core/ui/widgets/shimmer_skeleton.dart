@@ -25,9 +25,10 @@ class ShimmerLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!enabled) return child;
 
-    final resolvedBase = baseColor ?? AppColors.chaputBlack.withOpacity(0.08);
+    final resolvedBase =
+        baseColor ?? AppColors.chaputBlack.withValues(alpha: 0.08);
     final resolvedHighlight =
-        highlightColor ?? AppColors.chaputWhite.withOpacity(0.65);
+        highlightColor ?? AppColors.chaputWhite.withValues(alpha: 0.65);
 
     return Shimmer.fromColors(
       baseColor: resolvedBase,
@@ -62,7 +63,7 @@ class ShimmerBlock extends StatelessWidget {
       height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: color ?? AppColors.chaputBlack.withOpacity(0.08),
+          color: color ?? AppColors.chaputBlack.withValues(alpha: 0.08),
           shape: shape,
           borderRadius: shape == BoxShape.circle
               ? null
@@ -102,11 +103,7 @@ class ShimmerLine extends StatelessWidget {
 }
 
 class ShimmerCircle extends StatelessWidget {
-  const ShimmerCircle({
-    super.key,
-    required this.size,
-    this.color,
-  });
+  const ShimmerCircle({super.key, required this.size, this.color});
 
   final double size;
   final Color? color;
@@ -151,7 +148,7 @@ class ShimmerUserCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: backgroundColor ?? AppColors.chaputWhite.withOpacity(0.92),
+        color: backgroundColor ?? AppColors.chaputWhite.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: Row(
@@ -180,7 +177,7 @@ class ShimmerUserCard extends StatelessWidget {
               width: trailingWidth,
               height: trailingHeight,
               radius: 999,
-              color: AppColors.chaputBlack.withOpacity(0.12),
+              color: AppColors.chaputBlack.withValues(alpha: 0.12),
             ),
           ],
         ],

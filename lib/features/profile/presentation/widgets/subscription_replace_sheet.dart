@@ -30,10 +30,10 @@ class SubscriptionReplaceSheet extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.only(bottom: bottomInset),
               decoration: BoxDecoration(
-                color: AppColors.chaputBlack.withOpacity(0.78),
+                color: AppColors.chaputBlack.withValues(alpha: 0.78),
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: AppColors.chaputWhite.withOpacity(0.10),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.10),
                 ),
               ),
               child: Column(
@@ -67,8 +67,8 @@ class SubscriptionReplaceSheet extends StatelessWidget {
                                         'subscription_replace.body_no_date',
                                       ),
                                 style: TextStyle(
-                                  color: AppColors.chaputWhite.withOpacity(
-                                    0.72,
+                                  color: AppColors.chaputWhite.withValues(
+                                    alpha: 0.72,
                                   ),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -86,7 +86,9 @@ class SubscriptionReplaceSheet extends StatelessWidget {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: AppColors.chaputWhite.withOpacity(0.08),
+                              color: AppColors.chaputWhite.withValues(
+                                alpha: 0.08,
+                              ),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -112,8 +114,8 @@ class SubscriptionReplaceSheet extends StatelessWidget {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.chaputWhite,
                                 side: BorderSide(
-                                  color: AppColors.chaputWhite.withOpacity(
-                                    0.25,
+                                  color: AppColors.chaputWhite.withValues(
+                                    alpha: 0.25,
                                   ),
                                 ),
                                 shape: RoundedRectangleBorder(

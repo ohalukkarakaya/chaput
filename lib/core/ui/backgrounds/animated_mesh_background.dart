@@ -68,7 +68,7 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
                         center: p1,
                         radius: 1.2,
                         colors: [
-                          AppColors.chaputSkyBlue.withOpacity(a1),
+                          AppColors.chaputSkyBlue.withValues(alpha: a1),
                           AppColors.chaputTransparent,
                         ],
                         stops: const [0.0, 1.0],
@@ -82,7 +82,7 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
                         center: p2,
                         radius: 1.15,
                         colors: [
-                          AppColors.chaputLavender.withOpacity(a2),
+                          AppColors.chaputLavender.withValues(alpha: a2),
                           AppColors.chaputTransparent,
                         ],
                         stops: const [0.0, 1.0],
@@ -96,7 +96,7 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
                         center: p3,
                         radius: 1.25,
                         colors: [
-                          AppColors.chaputMint.withOpacity(a3),
+                          AppColors.chaputMint.withValues(alpha: a3),
                           AppColors.chaputTransparent,
                         ],
                         stops: const [0.0, 1.0],
@@ -111,8 +111,8 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          AppColors.chaputWhite.withOpacity(0.00),
-                          AppColors.chaputBlack.withOpacity(0.05),
+                          AppColors.chaputWhite.withValues(alpha: 0.00),
+                          AppColors.chaputBlack.withValues(alpha: 0.05),
                         ],
                       ),
                     ),

@@ -36,11 +36,11 @@ class EmailChangeState {
 }
 
 final emailChangeControllerProvider =
-AutoDisposeNotifierProvider<EmailChangeController, EmailChangeState>(
-  EmailChangeController.new,
-);
+    NotifierProvider.autoDispose<EmailChangeController, EmailChangeState>(
+      EmailChangeController.new,
+    );
 
-class EmailChangeController extends AutoDisposeNotifier<EmailChangeState> {
+class EmailChangeController extends Notifier<EmailChangeState> {
   @override
   EmailChangeState build() => const EmailChangeState();
 
@@ -48,7 +48,9 @@ class EmailChangeController extends AutoDisposeNotifier<EmailChangeState> {
 
   String _mapDioToMessage(DioException e) {
     final data = e.response?.data;
-    final s = (data is Map) ? (data['error']?.toString() ?? '') : (data?.toString() ?? '');
+    final s = (data is Map)
+        ? (data['error']?.toString() ?? '')
+        : (data?.toString() ?? '');
 
     if (s.contains('missing_new_email')) return 'errors.missing_new_email';
     if (s.contains('missing_fields')) return 'errors.missing_fields';
@@ -66,15 +68,26 @@ class EmailChangeController extends AutoDisposeNotifier<EmailChangeState> {
   }
 
   Future<bool> requestCode(String email) async {
-    state = state.copyWith(isLoading: true, errorMessage: null, newEmail: email);
+    state = state.copyWith(
+      isLoading: true,
+      errorMessage: null,
+      newEmail: email,
+    );
 
     try {
       await _api.requestChange(newEmail: email);
-      state = state.copyWith(isLoading: false, codeRequested: true, errorMessage: null);
+      state = state.copyWith(
+        isLoading: false,
+        codeRequested: true,
+        errorMessage: null,
+      );
       return true;
     } on DioException catch (e, st) {
       log('request email change dio error', error: e, stackTrace: st);
-      state = state.copyWith(isLoading: false, errorMessage: _mapDioToMessage(e));
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: _mapDioToMessage(e),
+      );
       return false;
     } catch (e, st) {
       log('request email change unknown error', error: e, stackTrace: st);
@@ -83,7 +96,9 @@ class EmailChangeController extends AutoDisposeNotifier<EmailChangeState> {
     }
   }
 
-  Future<({bool ok, String? errorText, int? lockSeconds})> verifyCode(String code) async {
+  Future<({bool ok, String? errorText, int? lockSeconds})> verifyCode(
+    String code,
+  ) async {
     final email = state.newEmail;
     state = state.copyWith(isLoading: true, errorMessage: null);
 
@@ -102,7 +117,9 @@ class EmailChangeController extends AutoDisposeNotifier<EmailChangeState> {
       final msg = _mapDioToMessage(e);
 
       // Email verify endpoint: too_many_attempts = 403
-      if (status == 403 && (e.response?.data?.toString().contains('too_many_attempts') ?? false)) {
+      if (status == 403 &&
+          (e.response?.data?.toString().contains('too_many_attempts') ??
+              false)) {
         return (ok: false, errorText: msg, lockSeconds: 60);
       }
 

@@ -81,12 +81,12 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                 bottom: responsive.bottomSheetInnerPadding(min: 14),
               ),
               decoration: BoxDecoration(
-                color: AppColors.chaputBlack.withOpacity(0.82),
+                color: AppColors.chaputBlack.withValues(alpha: 0.82),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(28),
                 ),
                 border: Border.all(
-                  color: AppColors.chaputWhite.withOpacity(0.10),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.10),
                 ),
               ),
               child: Column(
@@ -114,7 +114,9 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                               Text(
                                 context.t('reports.sheet.${targetKey}_body'),
                                 style: TextStyle(
-                                  color: AppColors.chaputWhite.withOpacity(0.7),
+                                  color: AppColors.chaputWhite.withValues(
+                                    alpha: 0.7,
+                                  ),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   height: 1.35,
@@ -131,7 +133,9 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: AppColors.chaputWhite.withOpacity(0.08),
+                              color: AppColors.chaputWhite.withValues(
+                                alpha: 0.08,
+                              ),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -152,7 +156,7 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                       child: Text(
                         context.t('reports.sheet.reason_title'),
                         style: TextStyle(
-                          color: AppColors.chaputWhite.withOpacity(0.85),
+                          color: AppColors.chaputWhite.withValues(alpha: 0.85),
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
@@ -203,26 +207,32 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                         hintText: context.t('reports.sheet.details_hint'),
                         alignLabelWithHint: true,
                         labelStyle: TextStyle(
-                          color: AppColors.chaputWhite.withOpacity(0.72),
+                          color: AppColors.chaputWhite.withValues(alpha: 0.72),
                         ),
                         hintStyle: TextStyle(
-                          color: AppColors.chaputWhite.withOpacity(0.42),
+                          color: AppColors.chaputWhite.withValues(alpha: 0.42),
                         ),
                         counterStyle: TextStyle(
-                          color: AppColors.chaputWhite.withOpacity(0.5),
+                          color: AppColors.chaputWhite.withValues(alpha: 0.5),
                         ),
                         filled: true,
-                        fillColor: AppColors.chaputWhite.withOpacity(0.06),
+                        fillColor: AppColors.chaputWhite.withValues(
+                          alpha: 0.06,
+                        ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(18),
                           borderSide: BorderSide(
-                            color: AppColors.chaputWhite.withOpacity(0.10),
+                            color: AppColors.chaputWhite.withValues(
+                              alpha: 0.10,
+                            ),
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(18),
                           borderSide: BorderSide(
-                            color: AppColors.chaputWhite.withOpacity(0.24),
+                            color: AppColors.chaputWhite.withValues(
+                              alpha: 0.24,
+                            ),
                           ),
                         ),
                       ),
@@ -257,8 +267,8 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.chaputWhite,
                                 side: BorderSide(
-                                  color: AppColors.chaputWhite.withOpacity(
-                                    0.20,
+                                  color: AppColors.chaputWhite.withValues(
+                                    alpha: 0.20,
                                   ),
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -315,7 +325,9 @@ class _ReportContentSheetState extends State<_ReportContentSheet> {
                           child: Text(
                             '$detailsLength/500',
                             style: TextStyle(
-                              color: AppColors.chaputWhite.withOpacity(0.45),
+                              color: AppColors.chaputWhite.withValues(
+                                alpha: 0.45,
+                              ),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -375,12 +387,12 @@ class _ReasonChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.chaputWhite
-              : AppColors.chaputWhite.withOpacity(0.06),
+              : AppColors.chaputWhite.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: selected
                 ? AppColors.chaputWhite
-                : AppColors.chaputWhite.withOpacity(0.10),
+                : AppColors.chaputWhite.withValues(alpha: 0.10),
           ),
         ),
         child: Text(

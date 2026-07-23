@@ -2,7 +2,6 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 
-
 class ChaputDefaultAvatar extends StatelessWidget {
   final String backgroundImagePath;
   final String avatarImagePath;
@@ -10,16 +9,14 @@ class ChaputDefaultAvatar extends StatelessWidget {
   final double height;
   final double borderRadius;
 
-  const ChaputDefaultAvatar(
-    {
-    super.key, 
+  const ChaputDefaultAvatar({
+    super.key,
     required this.backgroundImagePath,
     required this.avatarImagePath,
     required this.width,
     required this.height,
     required this.borderRadius,
-    }
-  );
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -44,12 +41,11 @@ class ChaputDefaultAvatar extends StatelessWidget {
               width: width,
               height: height,
               fit: BoxFit.cover,
-              errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
-                if(error != null){
-                  log('Error: $error');
-                }
-                return const SizedBox();
-              }
+              errorBuilder:
+                  (BuildContext context, Object error, StackTrace? stackTrace) {
+                    log('Error: $error');
+                    return const SizedBox();
+                  },
             ),
           ),
         ],

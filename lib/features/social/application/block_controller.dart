@@ -4,23 +4,26 @@ import '../../settings/data/blocks_api.dart';
 sealed class BlockActionState {
   const BlockActionState();
 }
+
 class BlockActionIdle extends BlockActionState {
   const BlockActionIdle();
 }
+
 class BlockActionLoading extends BlockActionState {
   const BlockActionLoading();
 }
+
 class BlockActionError extends BlockActionState {
   const BlockActionError(this.message);
   final String message;
 }
 
 final blockControllerProvider =
-AutoDisposeNotifierProvider<BlockController, BlockActionState>(
-  BlockController.new,
-);
+    NotifierProvider.autoDispose<BlockController, BlockActionState>(
+      BlockController.new,
+    );
 
-class BlockController extends AutoDisposeNotifier<BlockActionState> {
+class BlockController extends Notifier<BlockActionState> {
   @override
   BlockActionState build() => const BlockActionIdle();
 

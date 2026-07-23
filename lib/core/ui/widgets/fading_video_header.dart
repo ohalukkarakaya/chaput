@@ -53,12 +53,11 @@ class _FadingVideoHeaderState extends State<FadingVideoHeader> {
       child: FutureBuilder<void>(
         future: _init,
         builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done || !_c.value.isInitialized) {
+          if (snap.connectionState != ConnectionState.done ||
+              !_c.value.isInitialized) {
             // placeholder
             return DecoratedBox(
-              decoration: BoxDecoration(
-                color: widget.fadeToColor,
-              ),
+              decoration: BoxDecoration(color: widget.fadeToColor),
               child: const Center(
                 child: SizedBox(
                   width: 18,
@@ -77,11 +76,7 @@ class _FadingVideoHeaderState extends State<FadingVideoHeader> {
                 return LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  stops: [
-                    0.0,
-                    widget.fadeStart.clamp(0.0, 1.0),
-                    1.0,
-                  ],
+                  stops: [0.0, widget.fadeStart.clamp(0.0, 1.0), 1.0],
                   colors: const [
                     AppColors.chaputWhite, // full visible
                     AppColors.chaputWhite, // still visible
@@ -114,7 +109,7 @@ class _FadingVideoHeaderState extends State<FadingVideoHeader> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            widget.fadeToColor.withOpacity(0.0),
+                            widget.fadeToColor.withValues(alpha: 0.0),
                             widget.fadeToColor,
                           ],
                         ),

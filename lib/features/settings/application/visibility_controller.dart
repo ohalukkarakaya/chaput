@@ -58,11 +58,11 @@ class VisibilityState {
 }
 
 final visibilityControllerProvider =
-    AutoDisposeNotifierProvider<VisibilityController, VisibilityState>(
+    NotifierProvider.autoDispose<VisibilityController, VisibilityState>(
       VisibilityController.new,
     );
 
-class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
+class VisibilityController extends Notifier<VisibilityState> {
   static const _pageSize = 20;
 
   BlocksApi get _blocks => ref.read(blocksApiProvider);
@@ -180,10 +180,12 @@ class VisibilityController extends AutoDisposeNotifier<VisibilityState> {
       ({List<Map<String, dynamic>> items, String? nextCursor})? restrRes;
 
       for (final r in results) {
-        if (r is ({List<Map<String, dynamic>> items, int nextAfter}))
+        if (r is ({List<Map<String, dynamic>> items, int nextAfter})) {
           blocksRes = r;
-        if (r is ({List<Map<String, dynamic>> items, String? nextCursor}))
+        }
+        if (r is ({List<Map<String, dynamic>> items, String? nextCursor})) {
           restrRes = r;
+        }
       }
 
       final added = <VisibilityItem>[];

@@ -36,8 +36,10 @@ class ComposerOptionsSheet extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withOpacity(0.70),
-            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+            color: AppColors.chaputBlack.withValues(alpha: 0.70),
+            border: Border.all(
+              color: AppColors.chaputWhite.withValues(alpha: 0.10),
+            ),
             borderRadius: BorderRadius.circular(22),
           ),
           child: Padding(

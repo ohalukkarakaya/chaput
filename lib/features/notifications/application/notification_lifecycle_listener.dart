@@ -135,8 +135,7 @@ class _NotificationLifecycleListenerState
 
   Future<void> _resumeRealtimeConnection() async {
     try {
-      final hasValidatedSession =
-          ref.read(meControllerProvider).valueOrNull != null;
+      final hasValidatedSession = ref.read(meControllerProvider).value != null;
       if (!hasValidatedSession) return;
       await ref.read(chaputSocketProvider).resumeFromBackground();
     } catch (_) {
@@ -152,8 +151,7 @@ class _NotificationLifecycleListenerState
     } catch (_) {}
 
     try {
-      final hasValidatedSession =
-          ref.read(meControllerProvider).valueOrNull != null;
+      final hasValidatedSession = ref.read(meControllerProvider).value != null;
       if (hasValidatedSession) {
         await ref
             .read(notificationApiProvider)

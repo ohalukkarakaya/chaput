@@ -58,7 +58,7 @@ class ProfileActionsButton extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: AppColors.chaputBlack.withOpacity(0.08),
+          color: AppColors.chaputBlack.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(
@@ -243,7 +243,7 @@ class ProfileActionTile extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           color: enabled
-              ? AppColors.chaputBlack.withOpacity(0.6)
+              ? AppColors.chaputBlack.withValues(alpha: 0.6)
               : AppColors.chaputGrey,
         ),
       ),

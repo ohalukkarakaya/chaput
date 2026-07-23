@@ -28,13 +28,20 @@ class ArchiveApi {
     final raw = (data['items'] as List?) ?? const [];
     final items = raw
         .whereType<Map>()
-        .map((e) => ArchiveChaput.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+        .map(
+          (e) => ArchiveChaput.fromJson(
+            e.map((k, v) => MapEntry(k.toString(), v)),
+          ),
+        )
         .where((c) => c.threadId.isNotEmpty && c.otherUserId.isNotEmpty)
         .toList(growable: false);
 
     final next = data['next_cursor'];
-    final nextCursor = next == null ? null : next.toString();
-    return (items: items, nextCursor: (nextCursor == 'null') ? null : nextCursor);
+    final nextCursor = next?.toString();
+    return (
+      items: items,
+      nextCursor: (nextCursor == 'null') ? null : nextCursor,
+    );
   }
 
   Future<void> reviveChaput({required String chaputIdHex}) async {

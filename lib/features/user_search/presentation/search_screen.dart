@@ -83,7 +83,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(color: AppColors.chaputBlack.withOpacity(0.15)),
+              child: Container(
+                color: AppColors.chaputBlack.withValues(alpha: 0.15),
+              ),
             ),
           ),
 
@@ -163,15 +165,15 @@ class _ResultsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.isLoading) {
-      final cardBg = AppColors.chaputWhite.withOpacity(0.12);
+      final cardBg = AppColors.chaputWhite.withValues(alpha: 0.12);
       return ShimmerLoading(
-        baseColor: AppColors.chaputWhite.withOpacity(0.10),
-        highlightColor: AppColors.chaputWhite.withOpacity(0.28),
+        baseColor: AppColors.chaputWhite.withValues(alpha: 0.10),
+        highlightColor: AppColors.chaputWhite.withValues(alpha: 0.28),
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           itemCount: 6,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (_, __) => ShimmerUserCard(
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (_, _) => ShimmerUserCard(
             backgroundColor: cardBg,
             line1Factor: 0.58,
             line2Factor: 0.35,
@@ -216,8 +218,10 @@ class _ResultsList extends StatelessWidget {
               ? Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: ShimmerLoading(
-                    baseColor: AppColors.chaputWhite.withOpacity(0.10),
-                    highlightColor: AppColors.chaputWhite.withOpacity(0.28),
+                    baseColor: AppColors.chaputWhite.withValues(alpha: 0.10),
+                    highlightColor: AppColors.chaputWhite.withValues(
+                      alpha: 0.28,
+                    ),
                     child: const ShimmerLine(width: 140, height: 10),
                   ),
                 )
@@ -230,7 +234,7 @@ class _ResultsList extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.chaputWhite.withOpacity(0.92),
+            color: AppColors.chaputWhite.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -265,7 +269,7 @@ class _ResultsList extends StatelessWidget {
                       softWrap: false,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppColors.chaputBlack.withOpacity(0.55),
+                        color: AppColors.chaputBlack.withValues(alpha: 0.55),
                       ),
                     ),
                   ],

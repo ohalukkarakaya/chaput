@@ -207,7 +207,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
       context: context,
       barrierDismissible: true,
       barrierLabel: 'feedback tutorial',
-      barrierColor: AppColors.chaputBlack.withOpacity(0.45),
+      barrierColor: AppColors.chaputBlack.withValues(alpha: 0.45),
       transitionDuration: const Duration(milliseconds: 180),
       pageBuilder: (context, animation, secondaryAnimation) {
         return SafeArea(
@@ -225,11 +225,13 @@ class _HomeShellState extends ConsumerState<HomeShell>
                       width: 292,
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
                       decoration: BoxDecoration(
-                        color: AppColors.chaputBlack.withOpacity(0.92),
+                        color: AppColors.chaputBlack.withValues(alpha: 0.92),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.chaputBlack.withOpacity(0.28),
+                            color: AppColors.chaputBlack.withValues(
+                              alpha: 0.28,
+                            ),
                             blurRadius: 18,
                             offset: const Offset(0, 10),
                           ),
@@ -255,7 +257,9 @@ class _HomeShellState extends ConsumerState<HomeShell>
                             style: TextStyle(
                               fontSize: 12.5,
                               height: 1.35,
-                              color: AppColors.chaputWhite.withOpacity(0.9),
+                              color: AppColors.chaputWhite.withValues(
+                                alpha: 0.9,
+                              ),
                             ),
                           ),
                         ],
@@ -318,7 +322,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
         if (ref.read(pendingDeepLinkProvider) != null) return;
         if (ref.read(appAvailabilityProvider).blocksApp) return;
 
-        final action = await showAppReviewPromptSheet(this.context);
+        final action = await showAppReviewPromptSheet(context);
         if (!mounted) return;
 
         final service = ref.read(appReviewServiceProvider);
@@ -377,7 +381,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
     _notificationsBootScheduled = false;
     await Future<void>.delayed(Duration.zero);
     if (!mounted || _notificationsBooted) return;
-    if (ref.read(meControllerProvider).valueOrNull == null) return;
+    if (ref.read(meControllerProvider).value == null) return;
     _notificationsBooted = true;
     await OnboardingPermissionCoordinator.requestWithChaputPrompt(context);
     if (!mounted) return;
@@ -413,7 +417,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
   Future<void> _openPendingDeepLinkFromHome() async {
     _pendingDeepLinkOpenScheduled = false;
     if (!mounted) return;
-    if (ref.read(meControllerProvider).valueOrNull == null) return;
+    if (ref.read(meControllerProvider).value == null) return;
 
     final scheduledTarget = ref.read(pendingDeepLinkProvider);
     if (scheduledTarget == null) return;
@@ -441,7 +445,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
 
   void _handleSocketEvent(ChaputSocketEvent ev) {
     if (ev.type != 'notif.created') return;
-    final me = ref.read(meControllerProvider).valueOrNull;
+    final me = ref.read(meControllerProvider).value;
     final meId = me?.user.userId ?? '';
     if (meId.isEmpty) return;
     final raw = ev.data['notification'];
@@ -481,7 +485,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
       onDismiss: _handleHomeShowcaseDismissed,
       builder: (_) {
         final meState = ref.watch(meControllerProvider);
-        final me = meState.valueOrNull;
+        final me = meState.value;
         if (me == null) {
           if (!meState.isLoading) {
             _restartBootIfUnauthenticated();
@@ -576,7 +580,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
                                             return meAsync.when(
                                               loading: () =>
                                                   const _HomeHeaderShimmer(),
-                                              error: (_, __) =>
+                                              error: (_, _) =>
                                                   const SizedBox(height: 44),
                                               data: (me) {
                                                 final rawName =
@@ -628,8 +632,9 @@ class _HomeShellState extends ConsumerState<HomeShell>
                                                                           .w300,
                                                                   color: AppColors
                                                                       .chaputBlack
-                                                                      .withOpacity(
-                                                                        0.55,
+                                                                      .withValues(
+                                                                        alpha:
+                                                                            0.55,
                                                                       ),
                                                                 ),
                                                               ),
@@ -646,8 +651,9 @@ class _HomeShellState extends ConsumerState<HomeShell>
                                                                     size: 18,
                                                                     color: AppColors
                                                                         .chaputBlack
-                                                                        .withOpacity(
-                                                                          0.6,
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.6,
                                                                         ),
                                                                   ),
                                                                   if (unread >
@@ -729,7 +735,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
                                           return meAsync.when(
                                             loading: () =>
                                                 const _HomeAvatarShimmer(),
-                                            error: (_, __) => const SizedBox(
+                                            error: (_, _) => const SizedBox(
                                               width: 40,
                                               height: 40,
                                             ),
@@ -805,7 +811,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
                                           ),
                                           decoration: BoxDecoration(
                                             color: AppColors.chaputWhite
-                                                .withOpacity(0.92),
+                                                .withValues(alpha: 0.92),
                                             borderRadius: BorderRadius.circular(
                                               16,
                                             ),
@@ -821,7 +827,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
                                                 context.t('search.hint'),
                                                 style: TextStyle(
                                                   color: AppColors.chaputBlack
-                                                      .withOpacity(0.55),
+                                                      .withValues(alpha: 0.55),
                                                 ),
                                               ),
                                             ],
@@ -872,7 +878,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
 
                             return meAsync.when(
                               loading: () => const _ShareBarShimmer(),
-                              error: (_, __) => const SizedBox(),
+                              error: (_, _) => const SizedBox(),
                               data: (me) {
                                 if (me == null) return const SizedBox();
 
@@ -1060,7 +1066,7 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.zero,
             itemCount: visibleItems.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final user = visibleItems[index];
               final card = RecommendedUserCard(
@@ -1096,7 +1102,7 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.chaputBlack.withOpacity(0.92),
+                          color: AppColors.chaputBlack.withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Column(
@@ -1117,7 +1123,9 @@ class _RecommendedUsersRailState extends ConsumerState<_RecommendedUsersRail> {
                               style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.3,
-                                color: AppColors.chaputWhite.withOpacity(0.9),
+                                color: AppColors.chaputWhite.withValues(
+                                  alpha: 0.9,
+                                ),
                               ),
                             ),
                           ],
@@ -1200,8 +1208,8 @@ class _RecommendedUsersRailShimmer extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
         itemCount: 2,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, __) => const SizedBox(
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (_, _) => const SizedBox(
           width: 260,
           child: GlowShimmerCard(
             radius: 22,
@@ -1339,9 +1347,11 @@ class _FeedbackPinchPreviewState extends State<_FeedbackPinchPreview>
       width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.chaputWhite.withOpacity(0.06),
+          color: AppColors.chaputWhite.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.chaputWhite.withOpacity(0.08)),
+          border: Border.all(
+            color: AppColors.chaputWhite.withValues(alpha: 0.08),
+          ),
         ),
         child: AnimatedBuilder(
           animation: _controller,
@@ -1370,8 +1380,8 @@ class _FeedbackPinchPreviewState extends State<_FeedbackPinchPreview>
                   child: Container(
                     width: lerpDouble(56, 34, t)!,
                     height: 1.5,
-                    color: AppColors.chaputWhite.withOpacity(
-                      lerpDouble(0.1, 0.22, t)!,
+                    color: AppColors.chaputWhite.withValues(
+                      alpha: lerpDouble(0.1, 0.22, t)!,
                     ),
                   ),
                 ),
@@ -1399,9 +1409,9 @@ class _PinchDot extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.chaputWhite.withOpacity(0.08),
+          color: AppColors.chaputWhite.withValues(alpha: 0.08),
           border: Border.all(
-            color: AppColors.chaputWhite.withOpacity(0.42),
+            color: AppColors.chaputWhite.withValues(alpha: 0.42),
             width: 1.4,
           ),
         ),

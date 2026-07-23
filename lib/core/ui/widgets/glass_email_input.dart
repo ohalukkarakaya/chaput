@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../i18n/app_localizations.dart';
-import 'package:chaput/core/i18n/app_localizations.dart';
 import 'app_text_context_menu.dart';
 
 class GlassEmailInput extends StatelessWidget {
@@ -30,9 +29,11 @@ class GlassEmailInput extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withOpacity(0.35),
+            color: AppColors.chaputBlack.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.14)),
+            border: Border.all(
+              color: AppColors.chaputWhite.withValues(alpha: 0.14),
+            ),
           ),
           child: Row(
             children: [
@@ -55,7 +56,9 @@ class GlassEmailInput extends StatelessWidget {
                       isDense: true,
                       border: InputBorder.none,
                       hintText: hintText ?? context.t('common.email'),
-                      hintStyle: const TextStyle(color: AppColors.chaputWhite54),
+                      hintStyle: const TextStyle(
+                        color: AppColors.chaputWhite54,
+                      ),
                     ),
                   ),
                 ),
@@ -106,9 +109,11 @@ class GlassSquareIconButton extends StatelessWidget {
               width: size,
               height: size,
               decoration: BoxDecoration(
-                color: AppColors.chaputBlack.withOpacity(0.45),
+                color: AppColors.chaputBlack.withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(radius),
-                border: Border.all(color: AppColors.chaputWhite.withOpacity(0.18)),
+                border: Border.all(
+                  color: AppColors.chaputWhite.withValues(alpha: 0.18),
+                ),
               ),
               child: Center(
                 child: Icon(icon, size: 16, color: AppColors.chaputWhite),

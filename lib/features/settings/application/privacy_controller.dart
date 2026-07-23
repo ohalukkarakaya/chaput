@@ -3,11 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/privacy_api_provider.dart';
 
 class PrivacyState {
-  const PrivacyState({
-    required this.isLoading,
-    this.error,
-    this.isPublic,
-  });
+  const PrivacyState({required this.isLoading, this.error, this.isPublic});
 
   final bool isLoading;
   final String? error;
@@ -15,11 +11,7 @@ class PrivacyState {
   /// backend truth (null = henüz yüklenmedi)
   final bool? isPublic;
 
-  PrivacyState copyWith({
-    bool? isLoading,
-    String? error,
-    bool? isPublic,
-  }) {
+  PrivacyState copyWith({bool? isLoading, String? error, bool? isPublic}) {
     return PrivacyState(
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -31,11 +23,11 @@ class PrivacyState {
 }
 
 final privacyControllerProvider =
-AutoDisposeNotifierProvider<PrivacyController, PrivacyState>(
-  PrivacyController.new,
-);
+    NotifierProvider.autoDispose<PrivacyController, PrivacyState>(
+      PrivacyController.new,
+    );
 
-class PrivacyController extends AutoDisposeNotifier<PrivacyState> {
+class PrivacyController extends Notifier<PrivacyState> {
   @override
   PrivacyState build() {
     // ekran açılınca çek

@@ -5,11 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/notification_api_provider.dart';
 
 final notificationCountControllerProvider =
-    AutoDisposeNotifierProvider<NotificationCountController, int>(
+    NotifierProvider.autoDispose<NotificationCountController, int>(
       NotificationCountController.new,
     );
 
-class NotificationCountController extends AutoDisposeNotifier<int> {
+class NotificationCountController extends Notifier<int> {
   @override
   int build() {
     _refresh();

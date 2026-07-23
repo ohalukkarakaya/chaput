@@ -45,11 +45,11 @@ class NotificationsState {
 }
 
 final notificationsControllerProvider =
-    AutoDisposeNotifierProvider<NotificationsController, NotificationsState>(
+    NotifierProvider.autoDispose<NotificationsController, NotificationsState>(
       NotificationsController.new,
     );
 
-class NotificationsController extends AutoDisposeNotifier<NotificationsState> {
+class NotificationsController extends Notifier<NotificationsState> {
   static const _pageSize = 20;
 
   UserApi get _userApi => ref.read(userApiProvider);

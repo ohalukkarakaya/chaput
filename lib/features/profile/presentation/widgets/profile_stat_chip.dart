@@ -14,9 +14,12 @@ class ProfileStatChip extends StatelessWidget {
   final VoidCallback? onTap;
 
   String _compact(int n) {
-    if (n >= 1000000000) return '${(n / 1000000000).toStringAsFixed(1).replaceAll('.0', '')}B';
-    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
+    if (n >= 1000000000)
+      return '${(n / 1000000000).toStringAsFixed(1).replaceAll('.0', '')}B';
+    if (n >= 1000000)
+      return '${(n / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
+    if (n >= 1000)
+      return '${(n / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
     return '$n';
   }
 
@@ -33,10 +36,10 @@ class ProfileStatChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           constraints: const BoxConstraints(minHeight: 28),
           decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withOpacity(0.10),
+            color: AppColors.chaputBlack.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.chaputWhite.withOpacity(0.18),
+              color: AppColors.chaputWhite.withValues(alpha: 0.18),
               width: 1,
             ),
           ),
@@ -61,7 +64,7 @@ class ProfileStatChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.chaputBlack.withOpacity(0.65),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.65),
                 ),
               ),
             ],

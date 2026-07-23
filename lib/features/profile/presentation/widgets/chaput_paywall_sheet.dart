@@ -392,24 +392,24 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
             ),
           ];
 
-    String _txId() {
+    String txId() {
       final now = DateTime.now().millisecondsSinceEpoch;
       return 'dev_${now}_$_selectedIndex';
     }
 
-    PaywallPurchase _planPurchase() {
+    PaywallPurchase planPurchase() {
       return PaywallPurchase(
         productId: plans[selectedIndex].productId,
         provider: 'DEV',
-        transactionId: _txId(),
+        transactionId: txId(),
       );
     }
 
-    PaywallPurchase _singlePurchase(PaywallSingle item) {
+    PaywallPurchase singlePurchase(PaywallSingle item) {
       return PaywallPurchase(
         productId: item.productId,
         provider: 'DEV',
-        transactionId: _txId(),
+        transactionId: txId(),
       );
     }
 
@@ -460,8 +460,8 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.chaputBlack.withOpacity(
-                                      0.65,
+                                    color: AppColors.chaputBlack.withValues(
+                                      alpha: 0.65,
                                     ),
                                     height: 1.25,
                                   ),
@@ -477,7 +477,9 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                color: AppColors.chaputBlack.withOpacity(0.06),
+                                color: AppColors.chaputBlack.withValues(
+                                  alpha: 0.06,
+                                ),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -513,8 +515,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                               ),
                             );
                           },
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 12),
+                          separatorBuilder: (_, _) => const SizedBox(width: 12),
                           itemCount: plans.length,
                         ),
                       ),
@@ -539,7 +540,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                                 : _withTapHaptic(
                                     () => _handlePurchase(
                                       plans[selectedIndex].productId,
-                                      _planPurchase(),
+                                      planPurchase(),
                                     ),
                                   ),
                             style: ElevatedButton.styleFrom(
@@ -591,7 +592,9 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: AppColors.chaputBlack.withOpacity(0.85),
+                                color: AppColors.chaputBlack.withValues(
+                                  alpha: 0.85,
+                                ),
                               ),
                             ),
                           ],
@@ -603,7 +606,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                           if (singles.isNotEmpty) {
                             _handlePurchase(
                               singles.first.productId,
-                              _singlePurchase(singles.first),
+                              singlePurchase(singles.first),
                             );
                           }
                         }),
@@ -627,7 +630,9 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: AppColors.chaputBlack.withOpacity(0.85),
+                                color: AppColors.chaputBlack.withValues(
+                                  alpha: 0.85,
+                                ),
                               ),
                             ),
                             const Spacer(),
@@ -636,7 +641,9 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.chaputBlack.withOpacity(0.55),
+                                color: AppColors.chaputBlack.withValues(
+                                  alpha: 0.55,
+                                ),
                               ),
                             ),
                           ],
@@ -658,12 +665,11 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                                 : _withTapHaptic(
                                     () => _handlePurchase(
                                       singles[i].productId,
-                                      _singlePurchase(singles[i]),
+                                      singlePurchase(singles[i]),
                                     ),
                                   ),
                           ),
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 10),
+                          separatorBuilder: (_, _) => const SizedBox(width: 10),
                           itemCount: singles.length,
                         ),
                       ),
@@ -686,10 +692,14 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.chaputBlack.withOpacity(0.04),
+                            color: AppColors.chaputBlack.withValues(
+                              alpha: 0.04,
+                            ),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: AppColors.chaputBlack.withOpacity(0.08),
+                              color: AppColors.chaputBlack.withValues(
+                                alpha: 0.08,
+                              ),
                             ),
                           ),
                           child: Row(
@@ -698,15 +708,17 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                                 width: 30,
                                 height: 30,
                                 decoration: BoxDecoration(
-                                  color: AppColors.chaputBlack.withOpacity(
-                                    0.08,
+                                  color: AppColors.chaputBlack.withValues(
+                                    alpha: 0.08,
                                   ),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   Icons.restore_rounded,
                                   size: 16,
-                                  color: AppColors.chaputBlack.withOpacity(0.7),
+                                  color: AppColors.chaputBlack.withValues(
+                                    alpha: 0.7,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -732,8 +744,8 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
                                 Icon(
                                   Icons.chevron_right_rounded,
                                   size: 20,
-                                  color: AppColors.chaputBlack.withOpacity(
-                                    0.55,
+                                  color: AppColors.chaputBlack.withValues(
+                                    alpha: 0.55,
                                   ),
                                 ),
                             ],
@@ -792,13 +804,13 @@ class _PaywallLegalConsentTextState extends State<_PaywallLegalConsentText> {
   @override
   Widget build(BuildContext context) {
     final baseStyle = TextStyle(
-      color: AppColors.chaputBlack.withOpacity(0.52),
+      color: AppColors.chaputBlack.withValues(alpha: 0.52),
       fontSize: 11.5,
       fontWeight: FontWeight.w600,
       height: 1.35,
     );
     final linkStyle = baseStyle.copyWith(
-      color: AppColors.chaputBlack.withOpacity(0.82),
+      color: AppColors.chaputBlack.withValues(alpha: 0.82),
       fontWeight: FontWeight.w700,
       decoration: TextDecoration.underline,
       decorationThickness: 1.2,
@@ -868,9 +880,11 @@ class _ReviveTargetCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withOpacity(0.04),
+            color: AppColors.chaputBlack.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.chaputBlack.withOpacity(0.08)),
+            border: Border.all(
+              color: AppColors.chaputBlack.withValues(alpha: 0.08),
+            ),
           ),
           child: Row(
             children: [
@@ -900,7 +914,7 @@ class _ReviveTargetCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.chaputBlack.withOpacity(0.6),
+                        color: AppColors.chaputBlack.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -940,7 +954,7 @@ class _ReviveTargetCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.chaputBlack.withOpacity(0.6),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -1011,7 +1025,7 @@ class PlanCard extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? AppColors.chaputBlack
-                : AppColors.chaputBlack.withOpacity(0.10),
+                : AppColors.chaputBlack.withValues(alpha: 0.10),
             width: 1,
           ),
           boxShadow: [
@@ -1019,7 +1033,9 @@ class PlanCard extends StatelessWidget {
               blurRadius: 18,
               spreadRadius: 0,
               offset: const Offset(0, 10),
-              color: AppColors.chaputBlack.withOpacity(selected ? 0.25 : 0.08),
+              color: AppColors.chaputBlack.withValues(
+                alpha: selected ? 0.25 : 0.08,
+              ),
             ),
           ],
         ),
@@ -1030,8 +1046,8 @@ class PlanCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: selected
-                    ? AppColors.chaputWhite.withOpacity(0.14)
-                    : AppColors.chaputBlack.withOpacity(0.06),
+                    ? AppColors.chaputWhite.withValues(alpha: 0.14)
+                    : AppColors.chaputBlack.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
@@ -1039,7 +1055,7 @@ class PlanCard extends StatelessWidget {
                 style: TextStyle(
                   color: selected
                       ? AppColors.chaputWhite
-                      : AppColors.chaputBlack.withOpacity(0.70),
+                      : AppColors.chaputBlack.withValues(alpha: 0.70),
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.2,
@@ -1062,8 +1078,8 @@ class PlanCard extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: selected
-                    ? AppColors.chaputWhite.withOpacity(0.92)
-                    : AppColors.chaputBlack.withOpacity(0.85),
+                    ? AppColors.chaputWhite.withValues(alpha: 0.92)
+                    : AppColors.chaputBlack.withValues(alpha: 0.85),
               ),
             ),
             const Spacer(),
@@ -1075,8 +1091,8 @@ class PlanCard extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: selected
-                    ? AppColors.chaputWhite.withOpacity(0.70)
-                    : AppColors.chaputBlack.withOpacity(0.55),
+                    ? AppColors.chaputWhite.withValues(alpha: 0.70)
+                    : AppColors.chaputBlack.withValues(alpha: 0.55),
               ),
             ),
           ],
@@ -1095,9 +1111,11 @@ class PlanBullets extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: AppColors.chaputBlack.withOpacity(0.04),
+        color: AppColors.chaputBlack.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
+        border: Border.all(
+          color: AppColors.chaputBlack.withValues(alpha: 0.06),
+        ),
       ),
       child: Column(
         children: plan.bullets
@@ -1126,7 +1144,7 @@ class PlanBullets extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.chaputBlack.withOpacity(0.78),
+                          color: AppColors.chaputBlack.withValues(alpha: 0.78),
                         ),
                       ),
                     ),
@@ -1162,12 +1180,14 @@ class SingleCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.chaputWhite,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.chaputBlack.withOpacity(0.10)),
+          border: Border.all(
+            color: AppColors.chaputBlack.withValues(alpha: 0.10),
+          ),
           boxShadow: [
             BoxShadow(
               blurRadius: 14,
               offset: const Offset(0, 10),
-              color: AppColors.chaputBlack.withOpacity(0.06),
+              color: AppColors.chaputBlack.withValues(alpha: 0.06),
             ),
           ],
         ),
@@ -1198,7 +1218,7 @@ class SingleCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.chaputBlack.withOpacity(0.55),
+                    color: AppColors.chaputBlack.withValues(alpha: 0.55),
                     height: 1.05,
                   ),
                 ),

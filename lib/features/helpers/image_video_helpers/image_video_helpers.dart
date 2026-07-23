@@ -8,10 +8,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/config/env.dart';
 
-
 class ImageVideoHelpers {
-
-  static String mediaServerBaseUrlHelper(){
+  static String mediaServerBaseUrlHelper() {
     final base = Env.apiBaseUrl;
     if (base.isEmpty) return base;
     return base.endsWith('/') ? base : '$base/';
@@ -28,7 +26,9 @@ class ImageVideoHelpers {
   }
 
   static bool isImage(String url) {
-    return url.contains('.jpg') || url.contains('.jpeg') || url.contains('.png');
+    return url.contains('.jpg') ||
+        url.contains('.jpeg') ||
+        url.contains('.png');
   }
 
   static bool isVideo(String url) {
@@ -37,12 +37,9 @@ class ImageVideoHelpers {
 
   static Widget getThumbnail(String url) {
     if (isImage(url)) {
-      return Image.network(
-        _fullUrl(url),
-        fit: BoxFit.cover,
-      );
+      return Image.network(_fullUrl(url), fit: BoxFit.cover);
     } else if (isVideo(url)) {
-      try{
+      try {
         return Image.network(
           '${mediaServerBaseUrlHelper()}getVideoThumbnail?videoPath=$url',
           fit: BoxFit.cover,
@@ -56,11 +53,11 @@ class ImageVideoHelpers {
     }
   }
 
-  static getFullUrl(String url) {
+  static String getFullUrl(String url) {
     return _fullUrl(url);
   }
 
-  static getVideo(String url) async {
+  static Future<String?>? getVideo(String url) async {
     String videoUrl = '${mediaServerBaseUrlHelper()}getAsset?assetPath=$url';
 
     var request = http.Request('GET', Uri.parse(videoUrl));
@@ -77,17 +74,16 @@ class ImageVideoHelpers {
 
       // Return the file path
       return tempFile.path;
-    }
-    else {
+    } else {
       log(response.reasonPhrase ?? 'ERROR: getVideoUrl');
       return null;
     }
   }
 
-  static Future<String?> pickFile( List<String>? allowedExtensions ) async {
+  static Future<String?> pickFile(List<String>? allowedExtensions) async {
     String? filePath;
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: allowedExtensions,
         allowMultiple: false,
@@ -103,5 +99,4 @@ class ImageVideoHelpers {
 
     return filePath;
   }
-
 }

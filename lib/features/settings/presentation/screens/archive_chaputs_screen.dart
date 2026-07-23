@@ -58,7 +58,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
         ref.read(meControllerProvider.notifier).fetchAndStoreMe().catchError((
           _,
         ) {
-          return ref.read(meControllerProvider).valueOrNull;
+          return ref.read(meControllerProvider).value;
         }),
       );
       return true;
@@ -76,7 +76,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     WidgetRef ref,
     String productId,
   ) async {
-    final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    final userId = ref.read(meControllerProvider).value?.user.userId;
     if (userId == null || userId.isEmpty) {
       developer.log('RevenueCat purchase blocked: missing backend user id');
       if (context.mounted) {
@@ -154,7 +154,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
   }
 
   Future<bool> _restorePurchasesWithRevenueCat(WidgetRef ref) async {
-    final userId = ref.read(meControllerProvider).valueOrNull?.user.userId;
+    final userId = ref.read(meControllerProvider).value?.user.userId;
     if (userId != null && userId.isNotEmpty) {
       await RevenueCatService.instance.logInWithBackendUserId(userId);
     }
@@ -175,7 +175,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     WidgetRef ref, {
     required PaywallReviveTarget reviveTarget,
   }) async {
-    final me = ref.read(meControllerProvider).valueOrNull;
+    final me = ref.read(meControllerProvider).value;
     final planType = (me?.subscription.plan ?? 'FREE');
     return showModalBottomSheet<PaywallPurchase>(
       context: context,
@@ -197,7 +197,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = ref.watch(archiveControllerProvider);
-    final me = ref.watch(meControllerProvider).valueOrNull;
+    final me = ref.watch(meControllerProvider).value;
     final plan = (me?.subscription.plan ?? 'FREE').toUpperCase();
     final isPro = plan.contains('PRO');
 
@@ -311,7 +311,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                                 12,
                               ),
                               itemCount: st.items.length + 1,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(height: 10),
                               itemBuilder: (context, i) {
                                 if (i == st.items.length) {
@@ -459,9 +459,11 @@ class _ArchivedRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.chaputWhite.withOpacity(0.96),
+          color: AppColors.chaputWhite.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.chaputBlack.withOpacity(0.06)),
+          border: Border.all(
+            color: AppColors.chaputBlack.withValues(alpha: 0.06),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -493,7 +495,7 @@ class _ArchivedRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: AppColors.chaputBlack.withOpacity(0.55),
+                      color: AppColors.chaputBlack.withValues(alpha: 0.55),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -551,36 +553,13 @@ class _ArchiveShimmerList extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         itemCount: 6,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (_, __) => const ShimmerUserCard(
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        itemBuilder: (_, _) => const ShimmerUserCard(
           radius: 20,
           line1Factor: 0.75,
           line2Factor: 0.55,
         ),
       ),
-    );
-  }
-}
-
-class _WhiteCard extends StatelessWidget {
-  final Widget child;
-  const _WhiteCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.chaputWhite.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 26,
-            offset: const Offset(0, 14),
-            color: AppColors.chaputBlack.withOpacity(0.08),
-          ),
-        ],
-      ),
-      child: child,
     );
   }
 }

@@ -661,7 +661,7 @@ class _OnboardingTreeSceneState extends State<OnboardingTreeScene> {
             child: IgnorePointer(
               child: ValueListenableBuilder<Offset?>(
                 valueListenable: _focusScreen,
-                builder: (_, off, __) {
+                builder: (_, off, _) {
                   if (off == null) return const SizedBox.shrink();
                   return Stack(
                     children: [

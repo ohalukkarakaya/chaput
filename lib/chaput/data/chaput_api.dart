@@ -96,10 +96,8 @@ class ChaputApi {
     throw Exception('bad_read_response');
   }
 
-  Future<({String threadId, String threadSlug, bool alreadyExists})> startThread({
-    required String profileIdHex,
-    String? kind,
-  }) async {
+  Future<({String threadId, String threadSlug, bool alreadyExists})>
+  startThread({required String profileIdHex, String? kind}) async {
     final payload = <String, dynamic>{};
     if (kind != null && kind.isNotEmpty) {
       payload['kind'] = kind;
@@ -265,59 +263,5 @@ class ChaputApi {
       throw Exception(data['error'] ?? 'hide_error');
     }
     throw Exception('bad_hide_response');
-  }
-
-  Future<bool> watchAd() async {
-    final res = await _dio.post('/chaput/ads/watch');
-    final data = res.data;
-    if (data is Map<String, dynamic>) {
-      if (data['ok'] == true) return true;
-      return false;
-    }
-    throw Exception('bad_watch_response');
-  }
-
-  Future<String> startAdRewardSession({
-    String network = 'FAKE',
-    String rewardType = 'CHAPUT_BIND',
-    int requiredAds = 1,
-  }) async {
-    final res = await _dio.post(
-      '/chaput/ads/reward/start',
-      data: {
-        'network': network,
-        'reward_type': rewardType,
-        'required_ads': requiredAds,
-      },
-    );
-    final data = res.data;
-    if (data is Map<String, dynamic>) {
-      if (data['ok'] == true) {
-        return data['session_id']?.toString() ?? '';
-      }
-      throw Exception(data['error'] ?? 'ad_start_failed');
-    }
-    throw Exception('bad_ad_start_response');
-  }
-
-  Future<({int watchedToday, bool canWatch})> claimAdReward({
-    required String sessionId,
-    required int watchedCount,
-  }) async {
-    final res = await _dio.post(
-      '/chaput/ads/reward/claim',
-      data: {'session_id': sessionId, 'watched_count': watchedCount},
-    );
-    final data = res.data;
-    if (data is Map<String, dynamic>) {
-      if (data['ok'] == true) {
-        return (
-          watchedToday: (data['watched_today'] as num?)?.toInt() ?? 0,
-          canWatch: data['can_watch'] == true,
-        );
-      }
-      throw Exception(data['error'] ?? 'ad_claim_failed');
-    }
-    throw Exception('bad_ad_claim_response');
   }
 }

@@ -69,10 +69,7 @@ class FollowListArgs {
   final String username;
   final FollowListKind kind;
 
-  const FollowListArgs({
-    required this.username,
-    required this.kind,
-  });
+  const FollowListArgs({required this.username, required this.kind});
 
   @override
   bool operator ==(Object other) {
@@ -86,19 +83,23 @@ class FollowListArgs {
   int get hashCode => Object.hash(username, kind);
 }
 
-final followListControllerProvider =
-AutoDisposeNotifierProviderFamily<FollowListController, FollowListState, FollowListArgs>(
-  FollowListController.new,
-);
+final followListControllerProvider = NotifierProvider.autoDispose
+    .family<FollowListController, FollowListState, FollowListArgs>(
+      FollowListController.new,
+    );
 
-class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, FollowListArgs> {
+class FollowListController extends Notifier<FollowListState> {
+  FollowListController(this.arg);
+
+  final FollowListArgs arg;
+
   static const _pageSize = 20;
 
   FollowApi get _followApi => ref.read(followApiProvider);
   UserApi get _userApi => ref.read(userApiProvider);
 
   @override
-  FollowListState build(FollowListArgs arg) {
+  FollowListState build() {
     _loadInitial();
     return const FollowListState(isLoading: true);
   }
@@ -106,7 +107,10 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
   Future<void> _loadInitial() async {
     try {
       final res = await _fetchPage(after: 0);
-      final ids = res.items.map((e) => e.userId).toSet().toList(growable: false);
+      final ids = res.items
+          .map((e) => e.userId)
+          .toSet()
+          .toList(growable: false);
       final users = await _hydrateUsers(ids);
 
       state = state.copyWith(
@@ -116,7 +120,10 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
         items: res.items,
         usersById: users,
         nextAfter: res.nextAfter,
-        hasMore: res.items.isNotEmpty && res.items.length == _pageSize && res.nextAfter > 0,
+        hasMore:
+            res.items.isNotEmpty &&
+            res.items.length == _pageSize &&
+            res.nextAfter > 0,
       );
     } catch (e, st) {
       if (_isForbiddenError(e)) {
@@ -132,23 +139,41 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
         return;
       }
       log('follow list initial load error: $e', stackTrace: st);
-      state = state.copyWith(isLoading: false, error: e.toString(), hasMore: false, isForbidden: false);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+        hasMore: false,
+        isForbidden: false,
+      );
     }
   }
 
-  Future<({List<FollowListItem> items, int nextAfter})> _fetchPage({required int after}) async {
+  Future<({List<FollowListItem> items, int nextAfter})> _fetchPage({
+    required int after,
+  }) async {
     final data = arg.kind == FollowListKind.followers
-        ? await _followApi.listFollowers(username: arg.username, after: after, limit: _pageSize)
-        : await _followApi.listFollowing(username: arg.username, after: after, limit: _pageSize);
+        ? await _followApi.listFollowers(
+            username: arg.username,
+            after: after,
+            limit: _pageSize,
+          )
+        : await _followApi.listFollowing(
+            username: arg.username,
+            after: after,
+            limit: _pageSize,
+          );
 
-    final items = data.items.map((e) {
-      return FollowListItem(
-        userId: e['user_id']?.toString() ?? '',
-        username: e['username']?.toString() ?? '',
-        fullName: e['full_name']?.toString() ?? '',
-        canOpenProfile: e['can_open_profile'] == true,
-      );
-    }).where((e) => e.userId.isNotEmpty).toList(growable: false);
+    final items = data.items
+        .map((e) {
+          return FollowListItem(
+            userId: e['user_id']?.toString() ?? '',
+            username: e['username']?.toString() ?? '',
+            fullName: e['full_name']?.toString() ?? '',
+            canOpenProfile: e['can_open_profile'] == true,
+          );
+        })
+        .where((e) => e.userId.isNotEmpty)
+        .toList(growable: false);
 
     return (items: items, nextAfter: data.nextAfter);
   }
@@ -175,7 +200,10 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
     try {
       final res = await _fetchPage(after: state.nextAfter);
       final merged = [...state.items, ...res.items];
-      final ids = res.items.map((e) => e.userId).toSet().toList(growable: false);
+      final ids = res.items
+          .map((e) => e.userId)
+          .toSet()
+          .toList(growable: false);
       final users = await _hydrateUsers(ids);
 
       final mergedUsers = Map<String, LiteUser>.from(state.usersById);
@@ -186,15 +214,27 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
         items: merged,
         usersById: mergedUsers,
         nextAfter: res.nextAfter,
-        hasMore: res.items.isNotEmpty && res.items.length == _pageSize && res.nextAfter > state.nextAfter,
+        hasMore:
+            res.items.isNotEmpty &&
+            res.items.length == _pageSize &&
+            res.nextAfter > state.nextAfter,
       );
     } catch (e, st) {
       if (_isForbiddenError(e)) {
-        state = state.copyWith(isLoading: false, hasMore: false, isForbidden: true);
+        state = state.copyWith(
+          isLoading: false,
+          hasMore: false,
+          isForbidden: true,
+        );
         return;
       }
       log('follow list load more error: $e', stackTrace: st);
-      state = state.copyWith(isLoading: false, error: e.toString(), hasMore: false, isForbidden: false);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+        hasMore: false,
+        isForbidden: false,
+      );
     }
   }
 
@@ -207,7 +247,9 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
       if (msg.contains('403')) return true;
     }
     final msg = e.toString();
-    return msg.contains('private_profile') || msg.contains('restricted') || msg.contains('blocked');
+    return msg.contains('private_profile') ||
+        msg.contains('restricted') ||
+        msg.contains('blocked');
   }
 
   Future<void> removeFollower({
@@ -215,9 +257,15 @@ class FollowListController extends AutoDisposeFamilyNotifier<FollowListState, Fo
     required String followerUsername,
     required String followerId,
   }) async {
-    await _followApi.removeFollower(username: ownerUsername, followerUsername: followerUsername);
-    final nextItems = state.items.where((e) => e.userId != followerId).toList(growable: false);
-    final nextUsers = Map<String, LiteUser>.from(state.usersById)..remove(followerId);
+    await _followApi.removeFollower(
+      username: ownerUsername,
+      followerUsername: followerUsername,
+    );
+    final nextItems = state.items
+        .where((e) => e.userId != followerId)
+        .toList(growable: false);
+    final nextUsers = Map<String, LiteUser>.from(state.usersById)
+      ..remove(followerId);
     state = state.copyWith(items: nextItems, usersById: nextUsers);
   }
 }

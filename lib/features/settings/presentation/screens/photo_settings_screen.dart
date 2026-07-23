@@ -44,7 +44,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
 
     final yes = await showDialog<bool>(
       context: context,
-      barrierColor: AppColors.chaputBlack.withOpacity(0.25),
+      barrierColor: AppColors.chaputBlack.withValues(alpha: 0.25),
       builder: (_) => Dialog(
         backgroundColor: AppColors.chaputTransparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 22),
@@ -55,10 +55,10 @@ class PhotoSettingsScreen extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
               decoration: BoxDecoration(
-                color: AppColors.chaputBlack.withOpacity(0.78),
+                color: AppColors.chaputBlack.withValues(alpha: 0.78),
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: AppColors.chaputWhite.withOpacity(0.12),
+                  color: AppColors.chaputWhite.withValues(alpha: 0.12),
                 ),
               ),
               child: Column(
@@ -77,7 +77,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
                   Text(
                     context.t('photo.remove_body'),
                     style: TextStyle(
-                      color: AppColors.chaputWhite.withOpacity(0.72),
+                      color: AppColors.chaputWhite.withValues(alpha: 0.72),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       height: 1.25,
@@ -95,7 +95,9 @@ class PhotoSettingsScreen extends ConsumerWidget {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.chaputWhite,
                             side: BorderSide(
-                              color: AppColors.chaputWhite.withOpacity(0.25),
+                              color: AppColors.chaputWhite.withValues(
+                                alpha: 0.25,
+                              ),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -189,7 +191,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(18),
                       child: meAsync.when(
                         loading: () => const _PhotoSettingsShimmer(),
-                        error: (_, __) => Text(context.t('photo.load_failed')),
+                        error: (_, _) => Text(context.t('photo.load_failed')),
                         data: (me) {
                           final user = me?.user;
 
@@ -220,8 +222,8 @@ class PhotoSettingsScreen extends ConsumerWidget {
                                     ? context.t('photo.visible_hint')
                                     : context.t('photo.default_hint'),
                                 style: TextStyle(
-                                  color: AppColors.chaputBlack.withOpacity(
-                                    0.60,
+                                  color: AppColors.chaputBlack.withValues(
+                                    alpha: 0.60,
                                   ),
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -232,8 +234,8 @@ class PhotoSettingsScreen extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(18),
                                 child: Container(
                                   height: 260,
-                                  color: AppColors.chaputBlack.withOpacity(
-                                    0.06,
+                                  color: AppColors.chaputBlack.withValues(
+                                    alpha: 0.06,
                                   ),
                                   child: Stack(
                                     fit: StackFit.expand,
@@ -253,7 +255,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
                                       if (st.isLoading)
                                         Container(
                                           color: AppColors.chaputBlack
-                                              .withOpacity(0.12),
+                                              .withValues(alpha: 0.12),
                                           child: const Center(
                                             child: SizedBox(
                                               width: 26,
@@ -324,8 +326,8 @@ class PhotoSettingsScreen extends ConsumerWidget {
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppColors.chaputBlack,
                                     side: BorderSide(
-                                      color: AppColors.chaputBlack.withOpacity(
-                                        0.12,
+                                      color: AppColors.chaputBlack.withValues(
+                                        alpha: 0.12,
                                       ),
                                     ),
                                     shape: RoundedRectangleBorder(
@@ -376,7 +378,7 @@ class _PhotoSettingsShimmer extends StatelessWidget {
             children: [
               ShimmerCircle(
                 size: 64,
-                color: AppColors.chaputBlack.withOpacity(0.08),
+                color: AppColors.chaputBlack.withValues(alpha: 0.08),
               ),
               const SizedBox(width: 14),
               const Expanded(
@@ -395,13 +397,13 @@ class _PhotoSettingsShimmer extends StatelessWidget {
           ShimmerBlock(
             height: 46,
             radius: 14,
-            color: AppColors.chaputBlack.withOpacity(0.10),
+            color: AppColors.chaputBlack.withValues(alpha: 0.10),
           ),
           const SizedBox(height: 10),
           ShimmerBlock(
             height: 46,
             radius: 14,
-            color: AppColors.chaputBlack.withOpacity(0.06),
+            color: AppColors.chaputBlack.withValues(alpha: 0.06),
           ),
         ],
       ),
@@ -417,13 +419,13 @@ class _WhiteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.chaputWhite.withOpacity(0.92),
+        color: AppColors.chaputWhite.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
             blurRadius: 26,
             offset: const Offset(0, 14),
-            color: AppColors.chaputBlack.withOpacity(0.08),
+            color: AppColors.chaputBlack.withValues(alpha: 0.08),
           ),
         ],
       ),

@@ -46,11 +46,11 @@ class PhotoSettingsState {
 const _busyActionSentinel = Object();
 
 final photoSettingsControllerProvider =
-    AutoDisposeNotifierProvider<PhotoSettingsController, PhotoSettingsState>(
+    NotifierProvider.autoDispose<PhotoSettingsController, PhotoSettingsState>(
       PhotoSettingsController.new,
     );
 
-class PhotoSettingsController extends AutoDisposeNotifier<PhotoSettingsState> {
+class PhotoSettingsController extends Notifier<PhotoSettingsState> {
   @override
   PhotoSettingsState build() => const PhotoSettingsState();
 

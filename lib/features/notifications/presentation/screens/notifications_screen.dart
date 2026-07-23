@@ -46,7 +46,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   void _handleSocketEvent(ChaputSocketEvent ev) {
     if (ev.type != 'notif.created') return;
-    final me = ref.read(meControllerProvider).valueOrNull;
+    final me = ref.read(meControllerProvider).value;
     final meId = me?.user.userId ?? '';
     if (meId.isEmpty) return;
     final raw = ev.data['notification'];
@@ -87,7 +87,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final st = ref.watch(notificationsControllerProvider);
-    final me = ref.watch(meControllerProvider).valueOrNull;
+    final me = ref.watch(meControllerProvider).value;
     final entries = _buildEntries(st.items);
 
     return Scaffold(
@@ -201,7 +201,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 12,
                               ),
                               itemCount: entries.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(height: 10),
                               itemBuilder: (context, i) {
                                 final entry = entries[i];
@@ -834,8 +834,8 @@ class _NotificationsShimmerList extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         itemCount: 6,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (_, __) => const ShimmerUserCard(
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        itemBuilder: (_, _) => const ShimmerUserCard(
           radius: 18,
           line1Factor: 0.7,
           line2Factor: 0.5,

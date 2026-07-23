@@ -33,10 +33,12 @@ class GlassCtaButton extends StatelessWidget {
             height: height,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.chaputBlack.withOpacity(canTap ? 0.78 : 0.48),
+              color: AppColors.chaputBlack.withValues(
+                alpha: canTap ? 0.78 : 0.48,
+              ),
               borderRadius: BorderRadius.circular(radius),
               border: Border.all(
-                color: AppColors.chaputWhite.withOpacity(0.16),
+                color: AppColors.chaputWhite.withValues(alpha: 0.16),
               ),
             ),
             child: isLoading

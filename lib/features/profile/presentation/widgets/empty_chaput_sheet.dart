@@ -42,9 +42,11 @@ class EmptyChaputSheet extends StatelessWidget {
           height: height,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withOpacity(0.80),
+            color: AppColors.chaputBlack.withValues(alpha: 0.80),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-            border: Border.all(color: AppColors.chaputWhite.withOpacity(0.10)),
+            border: Border.all(
+              color: AppColors.chaputWhite.withValues(alpha: 0.10),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(18, 6, 18, 14),
@@ -62,7 +64,7 @@ class EmptyChaputSheet extends StatelessWidget {
                       maxLines: hasAction || messageSpan != null ? 3 : 2,
                       overflow: TextOverflow.fade,
                       style: TextStyle(
-                        color: AppColors.chaputWhite.withOpacity(0.9),
+                        color: AppColors.chaputWhite.withValues(alpha: 0.9),
                         fontSize: 14,
                         height: 1.3,
                         fontWeight: FontWeight.w600,
@@ -92,17 +94,17 @@ class EmptyChaputSheet extends StatelessWidget {
                           : Icon(actionIcon ?? Icons.arrow_forward_rounded),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
-                        backgroundColor: AppColors.chaputWhite.withOpacity(
-                          0.10,
+                        backgroundColor: AppColors.chaputWhite.withValues(
+                          alpha: 0.10,
                         ),
                         foregroundColor:
                             actionForegroundColor ?? AppColors.chaputWhite,
                         disabledBackgroundColor: AppColors.chaputWhite
-                            .withOpacity(0.06),
+                            .withValues(alpha: 0.06),
                         disabledForegroundColor: AppColors.chaputWhite
-                            .withOpacity(0.55),
+                            .withValues(alpha: 0.55),
                         side: BorderSide(
-                          color: AppColors.chaputWhite.withOpacity(0.22),
+                          color: AppColors.chaputWhite.withValues(alpha: 0.22),
                           width: 1,
                         ),
                         shape: RoundedRectangleBorder(

@@ -38,19 +38,20 @@ final chaputApiProvider = Provider<ChaputApi>((ref) {
   return ChaputApi(dio);
 });
 
-final chaputDecisionControllerProvider =
-    AutoDisposeNotifierProviderFamily<
-      ChaputDecisionController,
-      ChaputDecisionState,
-      String
-    >(ChaputDecisionController.new);
+final chaputDecisionControllerProvider = NotifierProvider.autoDispose
+    .family<ChaputDecisionController, ChaputDecisionState, String>(
+      ChaputDecisionController.new,
+    );
 
-class ChaputDecisionController
-    extends AutoDisposeFamilyNotifier<ChaputDecisionState, String> {
+class ChaputDecisionController extends Notifier<ChaputDecisionState> {
+  ChaputDecisionController(this.arg);
+
+  final String arg;
+
   ChaputApi get _api => ref.read(chaputApiProvider);
 
   @override
-  ChaputDecisionState build(String profileIdHex) {
+  ChaputDecisionState build() {
     return ChaputDecisionState.empty;
   }
 
@@ -144,33 +145,5 @@ class ChaputDecisionController
         ),
       ),
     );
-  }
-
-  void applyAdRewardClaimed({
-    required int watchedToday,
-    required bool canWatch,
-  }) {
-    final current = state.decision;
-    if (current == null) return;
-    state = state.copyWith(
-      decision: current.copyWith(
-        target: current.target.copyWith(canStart: true, hasThread: false),
-        ads: current.ads.copyWith(
-          canWatch: canWatch,
-          watchedToday: watchedToday,
-          nextRewardIn: 0,
-        ),
-        decision: current.decision.copyWith(
-          path: 'CAN_START',
-          reason: 'ad_reward_claimed',
-        ),
-      ),
-    );
-  }
-
-  void applyAdsWatched(int watched) {
-    // Deprecated: ad rewards are now tracked server-side; use fetchDecision().
-    // ignore: unnecessary_statements
-    watched;
   }
 }

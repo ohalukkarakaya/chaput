@@ -82,8 +82,9 @@ class ChaputMessageLiker {
   }
 
   String? get profilePhotoPath {
-    if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty)
+    if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty) {
       return profilePhotoUrl;
+    }
     if (profilePhotoKey != null && profilePhotoKey!.isNotEmpty) {
       if (profilePhotoKey!.contains('/')) return profilePhotoKey;
       return '/uploads/profile_photos/$profilePhotoKey';

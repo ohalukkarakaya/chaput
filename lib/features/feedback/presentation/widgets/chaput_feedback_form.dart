@@ -6,10 +6,10 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
 
 Widget chaputFeedbackBuilder(
-    BuildContext context,
-    OnSubmit onSubmit,
-    ScrollController? scrollController,
-    ) {
+  BuildContext context,
+  OnSubmit onSubmit,
+  ScrollController? scrollController,
+) {
   return _ChaputFeedbackForm(
     onSubmit: onSubmit,
     scrollController: scrollController,
@@ -106,7 +106,7 @@ class _ChaputFeedbackFormState extends State<_ChaputFeedbackForm> {
             Text(
               context.t('feedback.sheet_subtitle'),
               style: TextStyle(
-                color: AppColors.chaputBlack.withOpacity(0.52),
+                color: AppColors.chaputBlack.withValues(alpha: 0.52),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 height: 1.3,
@@ -134,11 +134,11 @@ class _ChaputFeedbackFormState extends State<_ChaputFeedbackForm> {
               decoration: InputDecoration(
                 hintText: context.t('feedback.sheet_input_placeholder'),
                 hintStyle: TextStyle(
-                  color: AppColors.chaputBlack.withOpacity(0.38),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.38),
                   fontWeight: FontWeight.w600,
                 ),
                 counterStyle: TextStyle(
-                  color: AppColors.chaputBlack.withOpacity(0.45),
+                  color: AppColors.chaputBlack.withValues(alpha: 0.45),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -148,14 +148,14 @@ class _ChaputFeedbackFormState extends State<_ChaputFeedbackForm> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide(
-                    color: AppColors.chaputBlack.withOpacity(0.16),
+                    color: AppColors.chaputBlack.withValues(alpha: 0.16),
                     width: 1.2,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide(
-                    color: AppColors.chaputBlack.withOpacity(0.16),
+                    color: AppColors.chaputBlack.withValues(alpha: 0.16),
                     width: 1.2,
                   ),
                 ),
@@ -177,8 +177,9 @@ class _ChaputFeedbackFormState extends State<_ChaputFeedbackForm> {
                 onPressed: _canSubmit ? _submit : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.chaputBlack,
-                  disabledBackgroundColor:
-                  AppColors.chaputBlack.withOpacity(0.18),
+                  disabledBackgroundColor: AppColors.chaputBlack.withValues(
+                    alpha: 0.18,
+                  ),
                   foregroundColor: AppColors.chaputWhite,
                   disabledForegroundColor: AppColors.chaputWhite,
                   elevation: 0,
@@ -188,20 +189,20 @@ class _ChaputFeedbackFormState extends State<_ChaputFeedbackForm> {
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
-                  width: 21,
-                  height: 21,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.3,
-                    color: AppColors.chaputWhite,
-                  ),
-                )
+                        width: 21,
+                        height: 21,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.3,
+                          color: AppColors.chaputWhite,
+                        ),
+                      )
                     : Text(
-                  context.t('feedback.sheet_submit'),
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                        context.t('feedback.sheet_submit'),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
               ),
             ),
           ],

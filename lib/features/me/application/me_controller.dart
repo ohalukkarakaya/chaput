@@ -21,7 +21,7 @@ class MeController extends AsyncNotifier<MeResponse?> {
   /// 400 -> silent retry 1 kez
   /// 401/404 -> hard logout (storage clear)
   Future<MeResponse?> fetchAndStoreMe() async {
-    final previous = state.valueOrNull;
+    final previous = state.value;
     state = const AsyncLoading();
 
     final api = ref.read(meApiProvider);

@@ -11,7 +11,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../network/dio_provider.dart';
 
 final chaputAttributionServiceProvider = Provider<ChaputAttributionService>(
-      (ref) => ChaputAttributionService(ref.watch(dioProvider)),
+  (ref) => ChaputAttributionService(ref.watch(dioProvider)),
 );
 
 class ChaputVerifiedPurchaseEvent {
@@ -78,8 +78,8 @@ class ChaputAttributionService {
   }
 
   static Future<void> recordVerifiedPurchase(
-      ChaputVerifiedPurchaseEvent purchase,
-      ) async {
+    ChaputVerifiedPurchaseEvent purchase,
+  ) async {
     final transactionId = _normalizedString(purchase.transactionId);
     final productId = _normalizedString(purchase.productId);
 
@@ -115,8 +115,8 @@ class ChaputAttributionService {
           'name': 'purchase',
           'transactionId': transactionId,
           'productId': productId,
-          if (currency != null) 'currency': currency,
-          if (value != null) 'value': value,
+          'currency': ?currency,
+          'value': ?value,
         });
       } catch (_) {
         // Attribution must never alter billing completion.
@@ -137,9 +137,7 @@ class ChaputAttributionService {
           break;
       }
 
-      await _channel.invokeMethod<void>('trackEvent', {
-        'name': eventName,
-      });
+      await _channel.invokeMethod<void>('trackEvent', {'name': eventName});
     } catch (_) {
       // Attribution must never alter authentication or billing completion.
     }
@@ -152,15 +150,13 @@ class ChaputAttributionService {
   }
 
   static Future<bool> _markPurchaseTransactionForReporting(
-      String transactionId,
-      ) async {
+    String transactionId,
+  ) async {
     if (_reportedPurchaseTransactionIds.contains(transactionId)) {
       return false;
     }
 
-    final encodedTransactionId = base64Url.encode(
-      utf8.encode(transactionId),
-    );
+    final encodedTransactionId = base64Url.encode(utf8.encode(transactionId));
 
     final storageKey = '$_purchaseReportKeyPrefix$encodedTransactionId';
 
@@ -170,10 +166,7 @@ class ChaputAttributionService {
         return false;
       }
 
-      await _storage.write(
-        key: storageKey,
-        value: '1',
-      );
+      await _storage.write(key: storageKey, value: '1');
 
       _reportedPurchaseTransactionIds.add(transactionId);
       return true;
@@ -192,9 +185,7 @@ class ChaputAttributionService {
 
   static Future<int?> requestTrackingAuthorization() async {
     try {
-      return await _channel.invokeMethod<int>(
-        'requestTrackingAuthorization',
-      );
+      return await _channel.invokeMethod<int>('requestTrackingAuthorization');
     } catch (_) {
       return null;
     }
@@ -202,9 +193,7 @@ class ChaputAttributionService {
 
   Future<String?> _appleSearchAdsToken() async {
     try {
-      return await _channel.invokeMethod<String>(
-        'appleSearchAdsToken',
-      );
+      return await _channel.invokeMethod<String>('appleSearchAdsToken');
     } catch (_) {
       return null;
     }
@@ -215,9 +204,7 @@ class ChaputAttributionService {
       try {
         await _dio.post<void>(
           '/me/attribution/apple-search-ads',
-          data: {
-            'token': token,
-          },
+          data: {'token': token},
         );
 
         return true;
@@ -226,9 +213,7 @@ class ChaputAttributionService {
           return false;
         }
 
-        await Future<void>.delayed(
-          const Duration(seconds: 5),
-        );
+        await Future<void>.delayed(const Duration(seconds: 5));
       } catch (_) {
         return false;
       }

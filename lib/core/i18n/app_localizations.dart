@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -94,10 +93,12 @@ class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   Future<AppLocalizations> load(Locale locale) => AppLocalizations.load(locale);
 
   @override
-  bool shouldReload(covariant LocalizationsDelegate<AppLocalizations> old) => false;
+  bool shouldReload(covariant LocalizationsDelegate<AppLocalizations> old) =>
+      false;
 }
 
 extension L10nX on BuildContext {
   AppLocalizations get l10n => AppLocalizations.of(this);
-  String t(String key, {Map<String, String>? params}) => l10n.t(key, params: params);
+  String t(String key, {Map<String, String>? params}) =>
+      l10n.t(key, params: params);
 }

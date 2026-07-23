@@ -18,7 +18,7 @@ class RecommendedUserController extends AsyncNotifier<List<RecommendedUser>> {
   Future<List<RecommendedUser>> _fetch() async {
     final api = ref.read(recommendedUsersApiProvider);
     final items = await api.getRecommended();
-    final me = ref.read(meControllerProvider).valueOrNull?.user;
+    final me = ref.read(meControllerProvider).value?.user;
     if (me == null) {
       return items;
     }
@@ -47,7 +47,7 @@ class RecommendedUserController extends AsyncNotifier<List<RecommendedUser>> {
     required bool requestPending,
   }) {
     if (userId.isEmpty) return;
-    final items = state.valueOrNull;
+    final items = state.value;
     if (items == null) return;
 
     final normalizedRequestPending = isFollowing ? false : requestPending;
