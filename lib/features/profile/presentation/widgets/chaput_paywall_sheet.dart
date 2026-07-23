@@ -149,6 +149,7 @@ class _FakePaywallSheetState extends State<FakePaywallSheet> {
   }
 
   void _openLegalDocument(LegalDocument document) {
+    HapticFeedback.selectionClick();
     final locale = Localizations.localeOf(context);
     context.push(
       Routes.legal,

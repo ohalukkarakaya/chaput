@@ -976,7 +976,10 @@ class _SettingsContent extends StatelessWidget {
                     ),
                   ),
                   InkWell(
-                    onTap: onPauseAccount,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onPauseAccount();
+                    },
                     child: Text(
                       context.t('settings.account_actions_pause'),
                       style: const TextStyle(
@@ -998,7 +1001,10 @@ class _SettingsContent extends StatelessWidget {
                     ),
                   ),
                   InkWell(
-                    onTap: onCloseAccount,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onCloseAccount();
+                    },
                     child: Text(
                       context.t('settings.account_actions_close'),
                       style: const TextStyle(
@@ -1101,7 +1107,10 @@ class _AvatarWithRing extends StatelessWidget {
             right: 2,
             bottom: -6,
             child: InkWell(
-              onTap: onTap,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onTap();
+              },
               borderRadius: BorderRadius.circular(999),
               child: Container(
                 width: 34,
@@ -1150,7 +1159,10 @@ class _SettingsRow extends StatelessWidget {
       color: AppColors.chaputWhite,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
         borderRadius: BorderRadius.circular(18),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

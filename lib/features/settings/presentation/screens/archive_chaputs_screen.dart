@@ -11,6 +11,7 @@ import 'package:chaput/features/profile/presentation/widgets/chaput_paywall_shee
 import 'package:chaput/features/revenuecat/data/revenue_cat_service.dart';
 import 'package:chaput/features/settings/data/account_api.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chaput/core/ui/widgets/empty_state_illustration.dart';
@@ -214,18 +215,22 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          context.t('common.back'),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                      IconButton(
+                        tooltip: context.t('common.back'),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       const Spacer(),
                       IconButton(
-                        onPressed: () => ref
-                            .read(archiveControllerProvider.notifier)
-                            .refresh(),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          ref
+                              .read(archiveControllerProvider.notifier)
+                              .refresh();
+                        },
                         icon: const Icon(Icons.refresh),
                       ),
                     ],
@@ -392,6 +397,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                                               .revive(it.threadId);
                                           if (!context.mounted) return;
                                           if (ok) {
+                                            HapticFeedback.mediumImpact();
                                             ScaffoldMessenger.of(
                                               context,
                                             ).showSnackBar(
@@ -443,7 +449,12 @@ class _ArchivedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: onTap == null
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              onTap!();
+            },
       borderRadius: BorderRadius.circular(18),
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -495,7 +506,12 @@ class _ArchivedRow extends StatelessWidget {
             SizedBox(
               height: 40,
               child: ElevatedButton(
-                onPressed: onRevive,
+                onPressed: onRevive == null
+                    ? null
+                    : () {
+                        HapticFeedback.selectionClick();
+                        onRevive!();
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.chaputBlack,
                   foregroundColor: AppColors.chaputWhite,

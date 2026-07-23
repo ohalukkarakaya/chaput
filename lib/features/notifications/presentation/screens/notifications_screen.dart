@@ -104,15 +104,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 children: [
                   Row(
                     children: [
-                      TextButton(
+                      IconButton(
+                        tooltip: context.t('common.back'),
                         onPressed: () {
                           HapticFeedback.selectionClick();
                           Navigator.of(context).pop();
                         },
-                        child: Text(
-                          context.t('common.back'),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                        icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       const Spacer(),
                       IconButton(

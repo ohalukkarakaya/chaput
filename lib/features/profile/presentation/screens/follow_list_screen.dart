@@ -1,5 +1,6 @@
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chaput/core/ui/widgets/empty_state_illustration.dart';
@@ -48,6 +49,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
 
   void _openProfileFromRow(FollowListItem item) {
     if (_openingProfile || !item.canOpenProfile || item.userId.isEmpty) return;
+    HapticFeedback.selectionClick();
     _openingProfile = true;
 
     final router = GoRouter.of(context);
@@ -82,18 +84,24 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                 children: [
                   Row(
                     children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          context.t('common.back'),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                      IconButton(
+                        tooltip: context.t('common.back'),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       const Spacer(),
                       IconButton(
-                        onPressed: () => ref
-                            .read(followListControllerProvider(_args).notifier)
-                            .refresh(),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          ref
+                              .read(
+                                followListControllerProvider(_args).notifier,
+                              )
+                              .refresh();
+                        },
                         icon: const Icon(Icons.refresh),
                       ),
                     ],
@@ -291,6 +299,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                                       widget.isMe &&
                                       widget.kind == FollowListKind.followers,
                                   onRemove: () async {
+                                    HapticFeedback.selectionClick();
                                     if (!widget.isMe ||
                                         (uname?.isEmpty ?? true)) {
                                       return;
@@ -307,6 +316,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                                             followerUsername: uname ?? '',
                                             followerId: it.userId,
                                           );
+                                      HapticFeedback.mediumImpact();
                                     } catch (e) {
                                       if (!context.mounted) return;
                                       ScaffoldMessenger.of(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../profile/application/profile_visit_history_controller.dart';
@@ -204,7 +205,10 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
                               ),
                             ),
                             IconButton(
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                Navigator.of(context).pop();
+                              },
                               icon: const Icon(Icons.close),
                             ),
                           ],
@@ -370,6 +374,7 @@ class _ResultsList extends StatelessWidget {
 
         return InkWell(
           onTap: () async {
+            HapticFeedback.selectionClick();
             await onOpenProfile(preview);
           },
           borderRadius: BorderRadius.circular(16),
@@ -421,7 +426,10 @@ class _ResultsList extends StatelessWidget {
                   const SizedBox(width: 8),
                   InkWell(
                     borderRadius: BorderRadius.circular(999),
-                    onTap: () => onDismissDiscoverUser(u.id),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onDismissDiscoverUser(u.id);
+                    },
                     child: Container(
                       width: 30,
                       height: 30,

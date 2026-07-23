@@ -3008,6 +3008,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required LiteUser? targetUser,
   }) async {
     if (_reviveFlowBusy) return;
+    HapticFeedback.selectionClick();
     if (threadIdHex.length != 32) {
       _showGlassToast(
         context.t('profile.toast.chaput_not_found'),
@@ -3063,6 +3064,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         context.t('profile.toast.chaput_revived'),
         icon: Icons.check_circle_outline,
       );
+      unawaited(HapticFeedback.mediumImpact());
     } catch (e) {
       _showGlassToast(
         context.t('profile.toast.chaput_revive_failed'),
@@ -3090,6 +3092,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Future<void> _handleBindPressed({required String profileId}) async {
     if (_chaputThreadCreated || _composerOpen) return;
+    HapticFeedback.selectionClick();
     if (profileId.length != 32) {
       _showGlassToast(
         context.t('profile.toast.profile_not_found'),
@@ -5891,6 +5894,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                     return;
                                                   }
                                                   if (showBindExhausted) {
+                                                    HapticFeedback.selectionClick();
                                                     final purchase =
                                                         await _openPaywall(
                                                           feature:

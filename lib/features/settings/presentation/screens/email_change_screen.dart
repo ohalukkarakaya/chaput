@@ -50,12 +50,13 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                 children: [
                   Row(
                     children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          context.t('common.back'),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                      IconButton(
+                        tooltip: context.t('common.back'),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       const Spacer(),
                     ],
@@ -148,6 +149,7 @@ class _EmailChangeScreenState extends ConsumerState<EmailChangeScreen> {
                                             HapticFeedback.heavyImpact();
                                             return;
                                           }
+                                          HapticFeedback.selectionClick();
 
                                           final ok = await ref
                                               .read(

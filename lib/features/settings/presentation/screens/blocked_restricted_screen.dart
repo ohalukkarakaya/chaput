@@ -1,5 +1,6 @@
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chaput/core/ui/widgets/empty_state_illustration.dart';
@@ -30,18 +31,22 @@ class BlockedRestrictedScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          context.t('common.back'),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                      IconButton(
+                        tooltip: context.t('common.back'),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       const Spacer(),
                       IconButton(
-                        onPressed: () => ref
-                            .read(visibilityControllerProvider.notifier)
-                            .refresh(),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          ref
+                              .read(visibilityControllerProvider.notifier)
+                              .refresh();
+                        },
                         icon: const Icon(Icons.refresh),
                       ),
                     ],
@@ -260,6 +265,7 @@ class _UserRow extends ConsumerWidget {
           // “Remove” (sonra eklenecekmiş gibi tasarla)
           TextButton(
             onPressed: () async {
+              HapticFeedback.selectionClick();
               try {
                 await ref
                     .read(visibilityControllerProvider.notifier)
@@ -268,6 +274,7 @@ class _UserRow extends ConsumerWidget {
                       kind: kind,
                       username: username,
                     );
+                HapticFeedback.mediumImpact();
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(

@@ -16,6 +16,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
   const PhotoSettingsScreen({super.key});
 
   Future<void> _pickAndUpload(BuildContext context, WidgetRef ref) async {
+    HapticFeedback.selectionClick();
     final ctrl = ref.read(photoSettingsControllerProvider.notifier);
 
     final picker = ImagePicker();
@@ -38,6 +39,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    HapticFeedback.selectionClick();
     final ctrl = ref.read(photoSettingsControllerProvider.notifier);
 
     final yes = await showDialog<bool>(
@@ -86,7 +88,10 @@ class PhotoSettingsScreen extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context, false),
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            Navigator.pop(context, false);
+                          },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.chaputWhite,
                             side: BorderSide(
@@ -106,7 +111,10 @@ class PhotoSettingsScreen extends ConsumerWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context, true),
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            Navigator.pop(context, true);
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.chaputWhite,
                             foregroundColor: AppColors.chaputBlack,
@@ -163,12 +171,13 @@ class PhotoSettingsScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          context.t('common.back'),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                      IconButton(
+                        tooltip: context.t('common.back'),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.arrow_back_rounded),
                       ),
                       const Spacer(),
                     ],
