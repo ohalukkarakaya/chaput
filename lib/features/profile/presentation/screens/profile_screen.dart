@@ -4410,6 +4410,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               )
             : null;
 
+        final showReplyKeyboardBackdrop =
+            responsive.keyboardOpen &&
+            _shouldShowReplyBar(
+              extent: _chaputSheetExtent,
+              canReplyOnActive: canReplyOnActive,
+              activeThreadId: activeThread?.threadId,
+            );
+        double bottomSystemBackdropHeight = 0.0;
+        if (showReplyKeyboardBackdrop) {
+          bottomSystemBackdropHeight = mediaQuery.viewInsets.bottom;
+        } else if (androidSystemBottomFillHeight > 0 &&
+            (threadSheetChild != null || showBottomInfoSheet)) {
+          bottomSystemBackdropHeight = androidSystemBottomFillHeight;
+        }
+
         return PopScope(
           canPop: !responsive.isAndroid,
           onPopInvokedWithResult: (didPop, _) {
@@ -5216,15 +5231,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       ),
                     ),
 
-                    if (androidSystemBottomFillHeight > 0 &&
-                        (threadSheetChild != null || showBottomInfoSheet))
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: -1,
-                        height: androidSystemBottomFillHeight + 2,
-                        child: const ColoredBox(color: AppColors.chaputBlack),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: bottomSystemBackdropHeight,
+                      child: const IgnorePointer(
+                        child: ColoredBox(color: AppColors.chaputBlack),
                       ),
+                    ),
 
                     if (threadSheetChild != null)
                       Positioned.fill(
