@@ -215,8 +215,9 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
 
                 // ✅ Fısılda butonu artık parent state’ine bağlı
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () async {
-                    widget.onToggleWhisper();
+                    await widget.onToggleWhisper();
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(

@@ -16,7 +16,6 @@ import '../../../../chaput/application/chaput_decision_controller.dart';
 import '../../../../chaput/application/chaput_messages_controller.dart';
 import '../../../../chaput/application/chaput_threads_controller.dart';
 import '../../../../chaput/data/chaput_socket.dart';
-import '../../../../chaput/domain/chaput_decision.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../../core/config/env.dart';
@@ -2542,37 +2541,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
+  Future<void> _toggleReplyWhisperMode({
+    required int cachedWhisperCredits,
+  }) async {
+    HapticFeedback.selectionClick();
+    if (_replyWhisperMode) {
+      setState(() => _replyWhisperMode = false);
+      return;
+    }
+
+    if (cachedWhisperCredits > 0) {
+      setState(() => _replyWhisperMode = true);
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    final purchase = await _openPaywall(feature: PaywallFeature.whisper);
+    if (purchase == null) return;
+
+    final ok = await _verifyPurchaseAndApply(purchase);
+    if (!ok || !mounted) return;
+
+    setState(() => _replyWhisperMode = true);
+  }
+
   Future<void> _makeThreadHidden({
     required ChaputThreadItem thread,
     required String profileIdHex,
     required ChaputThreadsArgs chaputArgs,
+    required int cachedHiddenCredits,
   }) async {
     final api = ref.read(chaputApiProvider);
-
-    // ✅ 1) fresh decision'ı direkt API sonucundan al (race yok)
     final decisionNotifier = ref.read(
       chaputDecisionControllerProvider(profileIdHex).notifier,
     );
-
-    ChaputDecision? freshDecision;
-    try {
-      freshDecision = await api.getDecision(profileIdHex);
-      decisionNotifier.setCredits(
-        normal: freshDecision.credits.normal,
-        hidden: freshDecision.credits.hidden,
-        special: freshDecision.credits.special,
-        revive: freshDecision.credits.revive,
-        whisper: freshDecision.credits.whisper,
-      );
-      decisionNotifier.applyPlanType(freshDecision.plan.type);
-      if (freshDecision.plan.period != null &&
-          freshDecision.plan.period!.isNotEmpty) {
-        decisionNotifier.applyPlanPeriod(freshDecision.plan.period!);
-      }
-    } catch (_) {
-      freshDecision = await decisionNotifier.fetchDecisionAndReturn();
-    }
-    final freshHidden = freshDecision?.credits.hidden ?? 0;
 
     Future<bool> hideNow() async {
       try {
@@ -2583,10 +2585,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       }
     }
 
-    // ✅ 2) kredi varsa direkt gizle
-    if (freshHidden > 0) {
+    void applyHiddenLocally() {
+      decisionNotifier.applyCreditsDelta(hidden: -1);
+      final nextKind = thread.isSpecial ? 'HIDDEN_SPECIAL' : 'HIDDEN';
+      ref
+          .read(chaputThreadsControllerProvider(chaputArgs).notifier)
+          .updateThreadKind(thread.threadId, nextKind);
+    }
+
+    if (cachedHiddenCredits > 0) {
       final ok = await hideNow();
       if (!ok) {
+        if (!mounted) return;
         _showGlassToast(
           context.t('profile.toast.chaput_hide_failed'),
           icon: Icons.error_outline,
@@ -2594,13 +2604,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         return;
       }
 
-      // UI/State: 1 kredi düş
-      decisionNotifier.applyCreditsDelta(hidden: -1);
-      final nextKind = thread.isSpecial ? 'HIDDEN_SPECIAL' : 'HIDDEN';
-      ref
-          .read(chaputThreadsControllerProvider(chaputArgs).notifier)
-          .updateThreadKind(thread.threadId, nextKind);
+      applyHiddenLocally();
 
+      if (!mounted) return;
       _showGlassToast(
         context.t('profile.toast.chaput_hidden'),
         icon: Icons.lock_outline,
@@ -2608,7 +2614,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       return;
     }
 
-    // ✅ 3) kredi yoksa paywall
     final purchase = await _openPaywall(
       feature: PaywallFeature.hideCredentials,
     );
@@ -2617,9 +2622,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final verified = await _verifyPurchaseAndApply(purchase);
     if (!verified) return;
 
-    // Satın aldıktan sonra tekrar dene (istersen tekrar fetch yap)
     final ok = await hideNow();
     if (!ok) {
+      if (!mounted) return;
       _showGlassToast(
         context.t('profile.toast.chaput_hide_failed'),
         icon: Icons.error_outline,
@@ -2627,14 +2632,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       return;
     }
 
-    // satın alma doğrulandıysa server zaten krediyi yazmış olmalı,
-    // ama UI için güvenli şekilde local düşür / güncelle
-    decisionNotifier.applyCreditsDelta(hidden: -1);
-    final nextKind = thread.isSpecial ? 'HIDDEN_SPECIAL' : 'HIDDEN';
-    ref
-        .read(chaputThreadsControllerProvider(chaputArgs).notifier)
-        .updateThreadKind(thread.threadId, nextKind);
+    applyHiddenLocally();
 
+    if (!mounted) return;
     _showGlassToast(
       context.t('profile.toast.chaput_hidden'),
       icon: Icons.lock_outline,
@@ -4335,6 +4335,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           thread: thread,
                           profileIdHex: profileIdHex,
                           chaputArgs: chaputArgs,
+                          cachedHiddenCredits: creditsHidden,
                         );
                       },
                       onArchiveThread: (thread) async {
@@ -5356,147 +5357,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               },
 
                               onToggleWhisper: () async {
-                                if (_replyWhisperMode) {
-                                  setState(() => _replyWhisperMode = false);
-                                  return;
-                                }
-
-                                final notifier = ref.read(
-                                  chaputDecisionControllerProvider(
-                                    profileIdHex,
-                                  ).notifier,
+                                await _toggleReplyWhisperMode(
+                                  cachedWhisperCredits: creditsWhisper,
                                 );
-                                ChaputDecision? freshDecision;
-                                final api = ref.read(chaputApiProvider);
-                                try {
-                                  freshDecision = await api.getDecision(
-                                    profileIdHex,
-                                  );
-                                  notifier.setCredits(
-                                    normal: freshDecision.credits.normal,
-                                    hidden: freshDecision.credits.hidden,
-                                    special: freshDecision.credits.special,
-                                    revive: freshDecision.credits.revive,
-                                    whisper: freshDecision.credits.whisper,
-                                  );
-                                  notifier.applyPlanType(
-                                    freshDecision.plan.type,
-                                  );
-                                  if (freshDecision.plan.period != null &&
-                                      freshDecision.plan.period!.isNotEmpty) {
-                                    notifier.applyPlanPeriod(
-                                      freshDecision.plan.period!,
-                                    );
-                                  }
-                                } catch (_) {
-                                  freshDecision = await notifier
-                                      .fetchDecisionAndReturn();
-                                }
-                                final freshWhisper =
-                                    freshDecision?.credits.whisper ?? 0;
-
-                                if (freshWhisper > 0) {
-                                  setState(() => _replyWhisperMode = true);
-                                  return;
-                                }
-
-                                final purchase = await _openPaywall(
-                                  feature: PaywallFeature.whisper,
-                                );
-                                if (purchase == null) return;
-
-                                final ok = await _verifyPurchaseAndApply(
-                                  purchase,
-                                );
-                                if (!ok) return;
-
-                                ChaputDecision? after;
-                                try {
-                                  after = await api.getDecision(profileIdHex);
-                                  notifier.setCredits(
-                                    normal: after.credits.normal,
-                                    hidden: after.credits.hidden,
-                                    special: after.credits.special,
-                                    revive: after.credits.revive,
-                                    whisper: after.credits.whisper,
-                                  );
-                                  notifier.applyPlanType(after.plan.type);
-                                  if (after.plan.period != null &&
-                                      after.plan.period!.isNotEmpty) {
-                                    notifier.applyPlanPeriod(
-                                      after.plan.period!,
-                                    );
-                                  }
-                                } catch (_) {
-                                  after = await notifier
-                                      .fetchDecisionAndReturn();
-                                }
-                                final afterWhisper =
-                                    after?.credits.whisper ?? 0;
-
-                                if (afterWhisper > 0) {
-                                  setState(() => _replyWhisperMode = true);
-                                } else {
-                                  _showGlassToast(
-                                    context.t(
-                                      'profile.toast.whisper_unavailable',
-                                    ),
-                                    icon: Icons.error_outline,
-                                  );
-                                }
                               },
 
                               onWhisperPaywall: () async {
-                                final notifier = ref.read(
-                                  chaputDecisionControllerProvider(
-                                    profileIdHex,
-                                  ).notifier,
+                                await _toggleReplyWhisperMode(
+                                  cachedWhisperCredits: creditsWhisper,
                                 );
-                                ChaputDecision? freshDecision;
-                                final api = ref.read(chaputApiProvider);
-                                try {
-                                  freshDecision = await api.getDecision(
-                                    profileIdHex,
-                                  );
-                                  notifier.setCredits(
-                                    normal: freshDecision.credits.normal,
-                                    hidden: freshDecision.credits.hidden,
-                                    special: freshDecision.credits.special,
-                                    revive: freshDecision.credits.revive,
-                                    whisper: freshDecision.credits.whisper,
-                                  );
-                                  notifier.applyPlanType(
-                                    freshDecision.plan.type,
-                                  );
-                                  if (freshDecision.plan.period != null &&
-                                      freshDecision.plan.period!.isNotEmpty) {
-                                    notifier.applyPlanPeriod(
-                                      freshDecision.plan.period!,
-                                    );
-                                  }
-                                } catch (_) {
-                                  freshDecision = await notifier
-                                      .fetchDecisionAndReturn();
-                                }
-                                final freshWhisper =
-                                    freshDecision?.credits.whisper ?? 0;
-
-                                if (freshWhisper > 0) {
-                                  setState(() => _replyWhisperMode = true);
-                                  return;
-                                }
-
-                                final purchase = await _openPaywall(
-                                  feature: PaywallFeature.whisper,
-                                );
-                                if (purchase == null) return;
-
-                                final ok = await _verifyPurchaseAndApply(
-                                  purchase,
-                                );
-                                if (!ok) return;
-
-                                setState(() => _replyWhisperMode = true);
                               },
 
                               onSend: (text, ignored) async {

@@ -1053,7 +1053,11 @@ class _ThreadHeader extends StatelessWidget {
             ),
           if (showHideAction)
             GestureDetector(
-              onTap: onMakeHidden,
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onMakeHidden();
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
