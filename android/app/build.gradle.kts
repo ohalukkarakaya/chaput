@@ -30,6 +30,55 @@ val revenueCatAndroidDartDefines = run {
     }
 }
 
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+
+fun chaputConfigValue(
+    propertyName: String,
+    environmentName: String,
+    fallback: String = "",
+): String {
+    return listOfNotNull(
+        providers.gradleProperty(propertyName).orNull,
+        localProperties.getProperty(propertyName),
+        System.getenv(environmentName),
+        fallback,
+    ).firstOrNull { it.trim().isNotEmpty() }?.trim().orEmpty()
+}
+
+fun androidStringResourceValue(value: String): String {
+    return value
+}
+
+val metaAppId = chaputConfigValue(
+    "chaput.metaAppId",
+    "CHAPUT_META_APP_ID",
+    "886339164066110",
+)
+val metaClientToken = chaputConfigValue(
+    "chaput.metaClientToken",
+    "CHAPUT_META_CLIENT_TOKEN",
+    "3185a6e15855a00d9b5fa71e5659333f",
+)
+val tiktokBusinessAppId = chaputConfigValue(
+    "chaput.tiktokBusinessAppId",
+    "CHAPUT_TIKTOK_BUSINESS_APP_ID",
+    "6777180189",
+)
+val tiktokAppId = chaputConfigValue(
+    "chaput.tiktokAppId",
+    "CHAPUT_TIKTOK_APP_ID",
+    "7663786815312216084",
+)
+val tiktokAppEventsAccessToken = chaputConfigValue(
+    "chaput.tiktokAppEventsAccessToken",
+    "CHAPUT_TIKTOK_APP_EVENTS_ACCESS_TOKEN",
+    chaputConfigValue("chaput.tiktokAppSecret", "CHAPUT_TIKTOK_APP_SECRET"),
+)
+
 if (revenueCatAndroidDartDefines.isNotBlank()) {
     val existingDartDefines = providers.gradleProperty("dart-defines").orNull
     extensions.extraProperties.set(
@@ -77,6 +126,28 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
+        resValue("string", "facebook_app_id", androidStringResourceValue(metaAppId))
+        resValue(
+            "string",
+            "facebook_client_token",
+            androidStringResourceValue(metaClientToken),
+        )
+        resValue(
+            "string",
+            "chaput_tiktok_business_app_id",
+            androidStringResourceValue(tiktokBusinessAppId),
+        )
+        resValue(
+            "string",
+            "chaput_tiktok_app_id",
+            androidStringResourceValue(tiktokAppId),
+        )
+        resValue(
+            "string",
+            "chaput_tiktok_app_events_access_token",
+            androidStringResourceValue(tiktokAppEventsAccessToken),
+        )
+
         // flutter_angle currently ships ANGLE native libraries only for arm64.
         // Do not let Play generate installs for ABIs that will crash at 3D init.
         ndk {
@@ -113,12 +184,14 @@ android {
             }
         }
     }
-
-    dependencies {
-        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation("com.facebook.android:facebook-core:18.3.0")
+    implementation("com.github.tiktok:tiktok-business-android-sdk:1.7.0")
 }

@@ -1,5 +1,6 @@
 package com.goktigin.chaput
 
+import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
 import io.flutter.embedding.android.FlutterActivity
@@ -11,6 +12,10 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        ChaputAttributionBridge.register(
+            flutterEngine.dartExecutor.binaryMessenger,
+            application as Application,
+        )
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, notificationsChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
