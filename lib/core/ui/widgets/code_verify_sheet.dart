@@ -47,7 +47,7 @@ class _CodeSheet extends StatefulWidget {
 }
 
 class _CodeSheetState extends State<_CodeSheet>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
 
@@ -71,6 +71,7 @@ class _CodeSheetState extends State<_CodeSheet>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _email = widget.email.trim().toLowerCase();
 
     _shakeController = AnimationController(
@@ -87,9 +88,7 @@ class _CodeSheetState extends State<_CodeSheet>
       ],
     ).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openCodeKeyboard());
 
     _startResendCountdown();
 
@@ -120,12 +119,31 @@ class _CodeSheetState extends State<_CodeSheet>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _resendTimer?.cancel();
     _lockTimer?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     _shakeController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _openCodeKeyboard();
+    }
+  }
+
+  void _openCodeKeyboard() {
+    if (!mounted || _lockSeconds > 0) return;
+
+    FocusScope.of(context).requestFocus(_focusNode);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _lockSeconds > 0) return;
+      FocusScope.of(context).requestFocus(_focusNode);
+      unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.show'));
+    });
   }
 
   void _startResendCountdown({int seconds = 30}) {
@@ -152,7 +170,7 @@ class _CodeSheetState extends State<_CodeSheet>
       if (_lockSeconds <= 1) {
         t.cancel();
         setState(() => _lockSeconds = 0);
-        _focusNode.requestFocus();
+        _openCodeKeyboard();
       } else {
         setState(() => _lockSeconds -= 1);
       }
@@ -354,23 +372,27 @@ class _CodeSheetState extends State<_CodeSheet>
                       _buildEmailSection(),
                       const SizedBox(height: 14),
 
-                      AnimatedBuilder(
-                        animation: _shakeAnimation,
-                        builder: (context, child) {
-                          return Transform.translate(
-                            offset: Offset(_shakeAnimation.value, 0),
-                            child: child,
-                          );
-                        },
-                        child: Opacity(
-                          opacity: isLocked ? 0.6 : 1.0,
-                          child: ValueListenableBuilder<TextEditingValue>(
-                            valueListenable: _controller,
-                            builder: (context, value, _) {
-                              return _StarPinRow(
-                                valueLength: value.text.length,
-                              );
-                            },
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _openCodeKeyboard,
+                        child: AnimatedBuilder(
+                          animation: _shakeAnimation,
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: Offset(_shakeAnimation.value, 0),
+                              child: child,
+                            );
+                          },
+                          child: Opacity(
+                            opacity: isLocked ? 0.6 : 1.0,
+                            child: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _controller,
+                              builder: (context, value, _) {
+                                return _StarPinRow(
+                                  valueLength: value.text.length,
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -384,6 +406,7 @@ class _CodeSheetState extends State<_CodeSheet>
                           enabled: !isLocked,
                           keyboardType: TextInputType.number,
                           textInputAction: TextInputAction.done,
+                          onTap: _openCodeKeyboard,
                           contextMenuBuilder: appTextContextMenuBuilder,
                           decoration: const InputDecoration(
                             border: InputBorder.none,

@@ -107,6 +107,7 @@ class _SignupSheetState extends State<_SignupSheet> {
       initialDate: initial,
       firstDate: DateTime(1900, 1, 1),
       lastDate: latestAllowed,
+      keyboardType: TextInputType.datetime,
     );
 
     if (picked != null) {

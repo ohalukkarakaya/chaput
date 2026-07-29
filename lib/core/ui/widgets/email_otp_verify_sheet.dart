@@ -46,7 +46,7 @@ class _EmailOtpSheet extends StatefulWidget {
 }
 
 class _EmailOtpSheetState extends State<_EmailOtpSheet>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
 
@@ -67,6 +67,7 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _shakeController = AnimationController(
       vsync: this,
@@ -82,9 +83,7 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet>
       ],
     ).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openCodeKeyboard());
 
     _startResendCountdown();
 
@@ -115,12 +114,31 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _resendTimer?.cancel();
     _lockTimer?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     _shakeController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _openCodeKeyboard();
+    }
+  }
+
+  void _openCodeKeyboard() {
+    if (!mounted || _lockSeconds > 0) return;
+
+    FocusScope.of(context).requestFocus(_focusNode);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _lockSeconds > 0) return;
+      FocusScope.of(context).requestFocus(_focusNode);
+      unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.show'));
+    });
   }
 
   void _startResendCountdown({int seconds = 60}) {
@@ -147,7 +165,7 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet>
       if (_lockSeconds <= 1) {
         t.cancel();
         setState(() => _lockSeconds = 0);
-        _focusNode.requestFocus();
+        _openCodeKeyboard();
       } else {
         setState(() => _lockSeconds -= 1);
       }
@@ -291,21 +309,25 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet>
                       ),
                       const SizedBox(height: 14),
 
-                      AnimatedBuilder(
-                        animation: _shakeAnimation,
-                        builder: (context, child) => Transform.translate(
-                          offset: Offset(_shakeAnimation.value, 0),
-                          child: child,
-                        ),
-                        child: Opacity(
-                          opacity: isLocked ? 0.6 : 1.0,
-                          child: ValueListenableBuilder<TextEditingValue>(
-                            valueListenable: _controller,
-                            builder: (context, value, _) {
-                              return _StarPinRow(
-                                valueLength: value.text.length,
-                              );
-                            },
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _openCodeKeyboard,
+                        child: AnimatedBuilder(
+                          animation: _shakeAnimation,
+                          builder: (context, child) => Transform.translate(
+                            offset: Offset(_shakeAnimation.value, 0),
+                            child: child,
+                          ),
+                          child: Opacity(
+                            opacity: isLocked ? 0.6 : 1.0,
+                            child: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _controller,
+                              builder: (context, value, _) {
+                                return _StarPinRow(
+                                  valueLength: value.text.length,
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -318,6 +340,7 @@ class _EmailOtpSheetState extends State<_EmailOtpSheet>
                           enabled: !isLocked,
                           keyboardType: TextInputType.number,
                           textInputAction: TextInputAction.done,
+                          onTap: _openCodeKeyboard,
                           contextMenuBuilder: appTextContextMenuBuilder,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
