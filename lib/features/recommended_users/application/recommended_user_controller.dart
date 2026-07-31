@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../me/application/me_controller.dart';
+import '../../social/application/follow_relationship_override.dart';
 import '../data/recommended_users_api.dart';
 import '../domain/recommended_user.dart';
 
@@ -20,12 +21,12 @@ class RecommendedUserController extends AsyncNotifier<List<RecommendedUser>> {
     final items = await api.getRecommended();
     final me = ref.read(meControllerProvider).value?.user;
     if (me == null) {
-      return items;
+      return _applyFollowOverrides(items);
     }
 
     final meId = me.userId.toLowerCase();
     final meUsername = me.username.toLowerCase();
-    return items
+    final filtered = items
         .where((u) {
           final sameId = u.id.toLowerCase() == meId;
           final sameUsername =
@@ -34,6 +35,34 @@ class RecommendedUserController extends AsyncNotifier<List<RecommendedUser>> {
           return !sameId && !sameUsername;
         })
         .toList(growable: false);
+    return _applyFollowOverrides(filtered);
+  }
+
+  List<RecommendedUser> _applyFollowOverrides(List<RecommendedUser> items) {
+    final overrides = ref.read(followRelationshipOverridesProvider);
+    if (overrides.isEmpty) return items;
+
+    var changed = false;
+    final next = items
+        .map((user) {
+          final override = followRelationshipOverrideFor(
+            overrides,
+            userId: user.id,
+            username: user.username,
+          );
+          if (override == null) return user;
+          if (user.isFollowing == override.isFollowing &&
+              user.requestPending == override.requestPending) {
+            return user;
+          }
+          changed = true;
+          return user.copyWith(
+            isFollowing: override.isFollowing,
+            requestPending: override.requestPending,
+          );
+        })
+        .toList(growable: false);
+    return changed ? next : items;
   }
 
   Future<void> refresh() async {

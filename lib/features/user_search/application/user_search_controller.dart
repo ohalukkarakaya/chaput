@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../social/application/follow_relationship_override.dart';
 import '../data/user_search_api.dart';
 import '../domain/user_search_models.dart';
 
@@ -93,7 +94,7 @@ class UserSearchController extends Notifier<UserSearchState> {
       );
 
       state = state.copyWith(
-        items: res.items,
+        items: _applyFollowOverrides(res.items),
         nextCursor: res.nextCursor,
         isLoading: false,
         error: null,
@@ -133,7 +134,7 @@ class UserSearchController extends Notifier<UserSearchState> {
       );
 
       state = state.copyWith(
-        items: res.items,
+        items: _applyFollowOverrides(res.items),
         nextCursor: res.nextCursor,
         isLoading: false,
         error: null,
@@ -177,7 +178,7 @@ class UserSearchController extends Notifier<UserSearchState> {
       }
 
       state = state.copyWith(
-        items: [...state.items, ...res.items],
+        items: [...state.items, ..._applyFollowOverrides(res.items)],
         nextCursor: res.nextCursor,
         isLoadingMore: false,
         error: null,
@@ -214,6 +215,33 @@ class UserSearchController extends Notifier<UserSearchState> {
         })
         .toList(growable: false);
     if (changed) state = state.copyWith(items: next);
+  }
+
+  List<UserSearchItem> _applyFollowOverrides(List<UserSearchItem> items) {
+    final overrides = ref.read(followRelationshipOverridesProvider);
+    if (overrides.isEmpty) return items;
+
+    var changed = false;
+    final next = items
+        .map((item) {
+          final override = followRelationshipOverrideFor(
+            overrides,
+            userId: item.id,
+            username: item.username,
+          );
+          if (override == null) return item;
+          if (item.isFollowing == override.isFollowing &&
+              item.requestPending == override.requestPending) {
+            return item;
+          }
+          changed = true;
+          return item.copyWith(
+            isFollowing: override.isFollowing,
+            requestPending: override.requestPending,
+          );
+        })
+        .toList(growable: false);
+    return changed ? next : items;
   }
 
   String _extractError(DioException e) {

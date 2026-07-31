@@ -38,6 +38,7 @@ import '../../../user/domain/lite_user.dart';
 import '../../application/profile_visit_history_controller.dart';
 import '../../domain/profile_preview.dart';
 import '../../../recommended_users/application/recommended_user_controller.dart';
+import '../../../social/application/follow_relationship_override.dart';
 import '../../../social/application/follow_state.dart';
 import '../../../social/application/ui_restriction_override_provider.dart';
 import '../../../user_search/application/user_search_controller.dart';
@@ -2114,6 +2115,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       ref
           .read(profileVisitHistoryProvider.notifier)
           .updateFollowState(syncedPreview);
+      ref
+          .read(followRelationshipOverridesProvider.notifier)
+          .setForUser(
+            userId: syncedPreview.id,
+            username: syncedPreview.username,
+            isFollowing: syncedPreview.isFollowing,
+            requestPending: syncedPreview.requestPending,
+          );
       if (ref.exists(userSearchControllerProvider)) {
         ref
             .read(userSearchControllerProvider.notifier)

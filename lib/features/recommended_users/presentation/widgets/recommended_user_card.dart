@@ -15,6 +15,7 @@ import '../../../profile/application/profile_visit_history_controller.dart';
 import '../../../profile/domain/profile_preview.dart';
 import '../../../profile/presentation/widgets/profile_avatar_hero.dart';
 import '../../../social/application/follow_controller.dart';
+import '../../../social/application/follow_relationship_override.dart';
 import '../../../social/application/follow_state.dart';
 
 class RecommendedUserCard extends ConsumerStatefulWidget {
@@ -190,6 +191,14 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
       isFollowing: nextIsFollowing,
       requestPending: nextRequestPending,
     );
+    ref
+        .read(followRelationshipOverridesProvider.notifier)
+        .setForUser(
+          userId: updatedUser.id,
+          username: updatedUser.username,
+          isFollowing: updatedUser.isFollowing,
+          requestPending: updatedUser.requestPending,
+        );
     widget.onFollowStateChanged?.call(updatedUser);
     return updatedUser;
   }

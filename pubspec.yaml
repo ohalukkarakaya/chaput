@@ -2,7 +2,7 @@ name: chaput
 description: "Chaput App"
 publish_to: 'none'
 
-version: 1.0.1+62
+version: 1.0.2+63
 
 environment:
   sdk: ^3.8.1

@@ -4,6 +4,7 @@ import '../../../core/device/device_id_service.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 import '../../notifications/application/push_token_registrar.dart';
 import '../../revenuecat/data/revenue_cat_service.dart';
+import '../../social/application/follow_relationship_override.dart';
 import '../data/auth_api.dart';
 import '../domain/models/session.dart';
 
@@ -90,6 +91,7 @@ class AuthController extends AsyncNotifier<Session?> {
 
     await RevenueCatService.instance.logOut();
     await _tokenStorage.clear();
+    ref.read(followRelationshipOverridesProvider.notifier).clear();
     state = const AsyncData(null);
   }
 }

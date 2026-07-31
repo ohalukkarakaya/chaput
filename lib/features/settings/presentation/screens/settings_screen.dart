@@ -18,6 +18,7 @@ import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../me/application/me_controller.dart';
 import '../../../notifications/application/push_token_registrar.dart';
+import '../../../social/application/follow_relationship_override.dart';
 import '../../application/account_controller.dart';
 import 'archive_chaputs_screen.dart';
 import 'blocked_restricted_screen.dart';
@@ -36,6 +37,11 @@ class SettingsScreen extends ConsumerWidget {
     await HapticFeedback.selectionClick();
     await Future<void>.delayed(const Duration(milliseconds: 70));
     await HapticFeedback.selectionClick();
+  }
+
+  static Future<void> _clearLocalSession(WidgetRef ref) async {
+    await ref.read(tokenStorageProvider).clear();
+    ref.read(followRelationshipOverridesProvider.notifier).clear();
   }
 
   @override
@@ -263,7 +269,7 @@ class SettingsScreen extends ConsumerWidget {
                                   .unregisterCurrentDevice();
 
                               if (refresh == null || refresh.isEmpty) {
-                                await storage.clear();
+                                await _clearLocalSession(ref);
                                 if (context.mounted) {
                                   context.go(Routes.onboarding);
                                 }
@@ -274,17 +280,17 @@ class SettingsScreen extends ConsumerWidget {
                                 final api = ref.read(authApiProvider);
                                 await api.logout(refreshToken: refresh);
 
-                                await storage.clear();
+                                await _clearLocalSession(ref);
                                 if (context.mounted) {
                                   context.go(Routes.onboarding);
                                 }
                               } on DioException {
-                                await storage.clear();
+                                await _clearLocalSession(ref);
                                 if (context.mounted) {
                                   context.go(Routes.onboarding);
                                 }
                               } catch (_) {
-                                await storage.clear();
+                                await _clearLocalSession(ref);
                                 if (context.mounted) {
                                   context.go(Routes.onboarding);
                                 }
@@ -367,7 +373,7 @@ class SettingsScreen extends ConsumerWidget {
       // ignore
     }
 
-    await storage.clear();
+    await _clearLocalSession(ref);
     if (context.mounted) context.go(Routes.onboarding);
   }
 }

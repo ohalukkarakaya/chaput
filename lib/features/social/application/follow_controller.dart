@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/network/dio_provider.dart';
 import '../data/follow_api.dart';
+import 'follow_relationship_override.dart';
 import 'follow_state.dart';
 
 final followApiProvider = Provider<FollowApi>((ref) {
@@ -20,7 +21,15 @@ class FollowController extends Notifier<FollowState> {
 
   @override
   FollowState build() {
-    return const FollowIdle();
+    final override = ref.watch(
+      followRelationshipOverridesProvider.select(
+        (overrides) => followRelationshipOverrideFor(overrides, username: arg),
+      ),
+    );
+    return FollowIdle(
+      isFollowing: override?.isFollowing,
+      requestPending: override?.requestPending,
+    );
   }
 
   Future<void> follow() async {
@@ -29,10 +38,18 @@ class FollowController extends Notifier<FollowState> {
       final api = ref.read(followApiProvider);
       final res = await api.follow(arg);
 
-      state = FollowIdle(
+      final nextState = FollowIdle(
         isFollowing: res.followed,
         requestPending: res.requestCreated,
       );
+      ref
+          .read(followRelationshipOverridesProvider.notifier)
+          .setForUser(
+            username: arg,
+            isFollowing: nextState.isFollowing == true,
+            requestPending: nextState.requestPending == true,
+          );
+      state = nextState;
     } on DioException catch (e) {
       final code = extractFollowErrorCode(e);
       state = FollowError(code);
@@ -45,6 +62,9 @@ class FollowController extends Notifier<FollowState> {
     try {
       final api = ref.read(followApiProvider);
       await api.unfollow(arg);
+      ref
+          .read(followRelationshipOverridesProvider.notifier)
+          .setForUser(username: arg, isFollowing: false, requestPending: false);
       state = const FollowIdle(isFollowing: false);
     } on DioException catch (e) {
       final code = extractFollowErrorCode(e);
