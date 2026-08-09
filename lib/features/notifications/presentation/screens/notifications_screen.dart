@@ -807,7 +807,7 @@ class _NotificationRow extends StatelessWidget {
     final diff = now.difference(local);
     final seconds = diff.isNegative ? 0 : diff.inSeconds;
     if (seconds < 60) {
-      return context.t('time.seconds', params: {'count': seconds.toString()});
+      return context.t('time.just_now');
     }
     final minutes = seconds ~/ 60;
     if (minutes < 60) {

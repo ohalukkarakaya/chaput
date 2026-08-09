@@ -62,24 +62,12 @@ class ProfileStatChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              if (fillWidth)
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.chaputBlack.withValues(alpha: 0.65),
-                    ),
-                  ),
-                )
-              else
-                Text(
+              Flexible(
+                fit: fillWidth ? FlexFit.tight : FlexFit.loose,
+                child: Text(
                   label,
                   maxLines: 1,
+                  softWrap: false,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11,
@@ -87,6 +75,7 @@ class ProfileStatChip extends StatelessWidget {
                     color: AppColors.chaputBlack.withValues(alpha: 0.65),
                   ),
                 ),
+              ),
             ],
           ),
         ),

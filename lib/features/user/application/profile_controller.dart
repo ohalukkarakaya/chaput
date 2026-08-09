@@ -97,4 +97,14 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   Future<void> refetch() => _fetch(arg);
+
+  void updateGalleryPhotos(List<Map<String, dynamic>> photos) {
+    final current = state.profileJson;
+    if (current == null) return;
+    final next = Map<String, dynamic>.from(current);
+    next['profile_gallery_photos'] = photos
+        .map((photo) => Map<String, dynamic>.from(photo))
+        .toList(growable: false);
+    state = state.copyWith(profileJson: next);
+  }
 }
