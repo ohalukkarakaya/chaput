@@ -197,4 +197,5 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("com.facebook.android:facebook-core:18.3.0")
     implementation("com.github.tiktok:tiktok-business-android-sdk:1.7.0")
+    implementation("me.leolin:ShortcutBadger:1.1.22@aar")
 }

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/notification_api_provider.dart';
+import 'notification_badge_service.dart';
 
 final notificationCountControllerProvider =
     NotifierProvider.autoDispose<NotificationCountController, int>(
@@ -20,6 +22,7 @@ class NotificationCountController extends Notifier<int> {
     try {
       final c = await ref.read(notificationApiProvider).countUnread();
       state = c;
+      await NotificationBadgeService.setAppIconBadge(c);
     } catch (e, st) {
       log('notif count error: $e', stackTrace: st);
     }
@@ -29,16 +32,23 @@ class NotificationCountController extends Notifier<int> {
 
   void updateFromSocket(int? count) {
     if (count == null) return;
-    state = count;
+    final normalized = count < 0 ? 0 : count;
+    state = normalized;
+    unawaited(NotificationBadgeService.setAppIconBadge(normalized));
   }
 
   void decrementIfUnread() {
-    if (state > 0) state = state - 1;
+    if (state <= 0) return;
+    final next = state - 1;
+    state = next;
+    unawaited(NotificationBadgeService.setAppIconBadge(next));
   }
 
   void decrementBy(int count) {
     if (count <= 0 || state <= 0) return;
     final next = state - count;
-    state = next < 0 ? 0 : next;
+    final normalized = next < 0 ? 0 : next;
+    state = normalized;
+    unawaited(NotificationBadgeService.setAppIconBadge(normalized));
   }
 }

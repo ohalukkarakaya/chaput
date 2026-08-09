@@ -7,19 +7,24 @@ class ProfileStatChip extends StatelessWidget {
     required this.value,
     required this.label,
     this.onTap,
+    this.fillWidth = false,
   });
 
   final int value;
   final String label;
   final VoidCallback? onTap;
+  final bool fillWidth;
 
   String _compact(int n) {
-    if (n >= 1000000000)
+    if (n >= 1000000000) {
       return '${(n / 1000000000).toStringAsFixed(1).replaceAll('.0', '')}B';
-    if (n >= 1000000)
+    }
+    if (n >= 1000000) {
       return '${(n / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
-    if (n >= 1000)
+    }
+    if (n >= 1000) {
       return '${(n / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
+    }
     return '$n';
   }
 
@@ -44,7 +49,7 @@ class ProfileStatChip extends StatelessWidget {
             ),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: fillWidth ? MainAxisSize.max : MainAxisSize.min,
             children: [
               Text(
                 v,
@@ -57,16 +62,31 @@ class ProfileStatChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.chaputBlack.withValues(alpha: 0.65),
+              if (fillWidth)
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.chaputBlack.withValues(alpha: 0.65),
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.chaputBlack.withValues(alpha: 0.65),
+                  ),
                 ),
-              ),
             ],
           ),
         ),

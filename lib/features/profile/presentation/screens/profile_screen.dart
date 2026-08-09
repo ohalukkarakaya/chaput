@@ -617,6 +617,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return value.map((key, val) => MapEntry(key.toString(), val));
   }
 
+  Map<String, dynamic>? _messagePayloadFromSocket(Map<String, dynamic> data) {
+    final nested = _normalizeSocketMap(data['message']);
+    if (nested != null) return nested;
+
+    final id = data['message_id'] ?? data['id'];
+    if (id == null || id.toString().isEmpty) return null;
+    return <String, dynamic>{
+      'id': id,
+      'sender_id': data['sender_id'] ?? data['user_id'] ?? data['actor_id'],
+      'kind': data['kind'] ?? 'NORMAL',
+      'body': data['body'] ?? data['message_body'] ?? data['text'] ?? '',
+      'created_at': data['created_at'],
+      'reply_to_id': data['reply_to_id'],
+      'reply_to_sender_id': data['reply_to_sender_id'],
+      'reply_to_body': data['reply_to_body'],
+      'like_count': data['like_count'] ?? 0,
+      'liked_by_me': data['liked_by_me'] == true,
+      'read_by_other': data['read_by_other'] == true,
+      'top_likers': data['top_likers'] ?? const [],
+    };
+  }
+
   Future<void> _handleSocketEvent(ChaputSocketEvent ev) async {
     final data = ev.data;
     if (ev.type == 'chaput.thread.bump') {
@@ -702,9 +724,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
 
     if (ev.type == 'chaput.message.created') {
-      final threadId = data['thread_id']?.toString() ?? '';
-      final msg = _normalizeSocketMap(data['message']);
-      if (threadId.isEmpty || msg == null) return;
+      final msg = _messagePayloadFromSocket(data);
+      final threadId =
+          data['thread_id']?.toString() ?? msg?['thread_id']?.toString() ?? '';
+      if (threadId.isEmpty) return;
+      if (msg == null) {
+        if (_chaputProfileId != null && _activeThreadId == threadId) {
+          unawaited(
+            ref
+                .read(
+                  chaputMessagesControllerProvider(
+                    ChaputMessagesArgs(
+                      threadId: threadId,
+                      profileId: _chaputProfileId!,
+                    ),
+                  ).notifier,
+                )
+                .refresh(),
+          );
+        }
+        return;
+      }
       if (_chaputProfileId == null) return;
       final senderId = msg['sender_id']?.toString() ?? '';
       final args = ChaputMessagesArgs(
@@ -732,6 +772,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       ref
           .read(chaputMessagesControllerProvider(args).notifier)
           .upsertMessageFromSocket(message);
+      unawaited(
+        ref
+            .read(chaputMessagesControllerProvider(args).notifier)
+            .refreshAfterSocketMessage(message.id),
+      );
 
       if (senderId.isNotEmpty) {
         final argsThreads = _lastChaputArgs;
@@ -3778,12 +3823,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
     final effectiveIRestrictedHim = uiRestrictedOverride ?? iRestrictedHim;
 
+    final relationshipOverride = ref.watch(
+      followRelationshipOverridesProvider.select(
+        (overrides) => followRelationshipOverrideFor(
+          overrides,
+          userId: userId.isNotEmpty ? userId : widget.userId,
+          username: username,
+        ),
+      ),
+    );
+
     final int effectiveFollowerCount = (followerCount + _uiFollowerDelta).clamp(
       0,
       1 << 30,
     );
-    bool effectiveIsFollowing = _uiIsFollowing ?? isFollowing;
-    bool effectiveRequestedFollow = _uiRequestedFollow ?? iRequestedFollow;
+    bool effectiveIsFollowing =
+        relationshipOverride?.isFollowing ?? isFollowing;
+    bool effectiveRequestedFollow =
+        relationshipOverride?.requestPending ?? iRequestedFollow;
+    if (_uiIsFollowing != null) {
+      effectiveIsFollowing = _uiIsFollowing!;
+      if (effectiveIsFollowing) {
+        effectiveRequestedFollow = false;
+      }
+    }
+    if (_uiRequestedFollow != null && !effectiveIsFollowing) {
+      effectiveRequestedFollow = _uiRequestedFollow!;
+    }
 
     final followState = ref.watch(followControllerProvider(username));
 
@@ -3932,6 +3998,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final bool chaputAllowed =
         profileIdHex.length == 32 &&
         (!isPrivateTarget || effectiveIsFollowing || isMe);
+    if (_chaputProfileId == profileIdHex &&
+        chaputAllowed &&
+        _socketProfileId != profileIdHex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isDisposed || _socketProfileId == profileIdHex) return;
+        _ensureSocket(profileIdHex);
+      });
+    } else if (_chaputProfileId == profileIdHex &&
+        !chaputAllowed &&
+        _socketProfileId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isDisposed || chaputAllowed) return;
+        _clearSocketSubscriptions();
+      });
+    }
     final chaputArgs = ChaputThreadsArgs(
       profileId: profileIdHex,
       viewerId: viewerId,
@@ -4825,83 +4906,92 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                             const SizedBox(
                                                               height: 6,
                                                             ),
-                                                            Wrap(
-                                                              spacing: 8,
-                                                              runSpacing: 6,
+                                                            Row(
                                                               children: [
-                                                                ProfileStatChip(
-                                                                  value:
-                                                                      effectiveFollowerCount,
-                                                                  label: context.t(
-                                                                    'profile.followers_label',
-                                                                  ),
-                                                                  onTap: () {
-                                                                    if (heRestrictedMe ||
-                                                                        (isPrivateTarget &&
-                                                                            !effectiveIsFollowing &&
-                                                                            !isMe)) {
-                                                                      ScaffoldMessenger.of(
-                                                                        context,
-                                                                      ).showSnackBar(
-                                                                        SnackBar(
-                                                                          content: Text(
-                                                                            context.t(
-                                                                              'profile.follow_list_forbidden',
+                                                                Flexible(
+                                                                  child: ProfileStatChip(
+                                                                    value:
+                                                                        effectiveFollowerCount,
+                                                                    label: context.t(
+                                                                      'profile.followers_label',
+                                                                    ),
+                                                                    fillWidth:
+                                                                        true,
+                                                                    onTap: () {
+                                                                      if (heRestrictedMe ||
+                                                                          (isPrivateTarget &&
+                                                                              !effectiveIsFollowing &&
+                                                                              !isMe)) {
+                                                                        ScaffoldMessenger.of(
+                                                                          context,
+                                                                        ).showSnackBar(
+                                                                          SnackBar(
+                                                                            content: Text(
+                                                                              context.t(
+                                                                                'profile.follow_list_forbidden',
+                                                                              ),
                                                                             ),
                                                                           ),
+                                                                        );
+                                                                        return;
+                                                                      }
+                                                                      _openFollowListPreservingTree(
+                                                                        username:
+                                                                            username,
+                                                                        kind: FollowListKind
+                                                                            .followers,
+                                                                        isMe:
+                                                                            isMe,
+                                                                        title: context.t(
+                                                                          'profile.followers_title',
                                                                         ),
                                                                       );
-                                                                      return;
-                                                                    }
-                                                                    _openFollowListPreservingTree(
-                                                                      username:
-                                                                          username,
-                                                                      kind: FollowListKind
-                                                                          .followers,
-                                                                      isMe:
-                                                                          isMe,
-                                                                      title: context.t(
-                                                                        'profile.followers_title',
-                                                                      ),
-                                                                    );
-                                                                  },
+                                                                    },
+                                                                  ),
                                                                 ),
-                                                                ProfileStatChip(
-                                                                  value:
-                                                                      followingCount,
-                                                                  label: context.t(
-                                                                    'profile.following_label',
-                                                                  ),
-                                                                  onTap: () {
-                                                                    if (heRestrictedMe ||
-                                                                        (isPrivateTarget &&
-                                                                            !effectiveIsFollowing &&
-                                                                            !isMe)) {
-                                                                      ScaffoldMessenger.of(
-                                                                        context,
-                                                                      ).showSnackBar(
-                                                                        SnackBar(
-                                                                          content: Text(
-                                                                            context.t(
-                                                                              'profile.follow_list_forbidden',
+                                                                const SizedBox(
+                                                                  width: 8,
+                                                                ),
+                                                                Flexible(
+                                                                  child: ProfileStatChip(
+                                                                    value:
+                                                                        followingCount,
+                                                                    label: context.t(
+                                                                      'profile.following_label',
+                                                                    ),
+                                                                    fillWidth:
+                                                                        true,
+                                                                    onTap: () {
+                                                                      if (heRestrictedMe ||
+                                                                          (isPrivateTarget &&
+                                                                              !effectiveIsFollowing &&
+                                                                              !isMe)) {
+                                                                        ScaffoldMessenger.of(
+                                                                          context,
+                                                                        ).showSnackBar(
+                                                                          SnackBar(
+                                                                            content: Text(
+                                                                              context.t(
+                                                                                'profile.follow_list_forbidden',
+                                                                              ),
                                                                             ),
                                                                           ),
+                                                                        );
+                                                                        return;
+                                                                      }
+                                                                      _openFollowListPreservingTree(
+                                                                        username:
+                                                                            username,
+                                                                        kind: FollowListKind
+                                                                            .following,
+                                                                        isMe:
+                                                                            isMe,
+                                                                        title: context.t(
+                                                                          'profile.following_title',
                                                                         ),
                                                                       );
-                                                                      return;
-                                                                    }
-                                                                    _openFollowListPreservingTree(
-                                                                      username:
-                                                                          username,
-                                                                      kind: FollowListKind
-                                                                          .following,
-                                                                      isMe:
-                                                                          isMe,
-                                                                      title: context.t(
-                                                                        'profile.following_title',
-                                                                      ),
-                                                                    );
-                                                                  },
+                                                                    },
+                                                                  ),
                                                                 ),
                                                               ],
                                                             ),
@@ -4981,210 +5071,217 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                           ),
                                                         )
                                                       else
-                                                        Row(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            // FOLLOW / UNFOLLOW
-                                                            TextButton(
-                                                              onPressed:
-                                                                  followButtonDisabled
-                                                                  ? null
-                                                                  : () async {
-                                                                      if (isBlocked) {
-                                                                        return;
-                                                                      }
-                                                                      HapticFeedback.selectionClick();
+                                                        ConstrainedBox(
+                                                          constraints: BoxConstraints(
+                                                            maxWidth: math.min(
+                                                              176.0,
+                                                              MediaQuery.sizeOf(
+                                                                    context,
+                                                                  ).width *
+                                                                  0.46,
+                                                            ),
+                                                          ),
+                                                          child: Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              // FOLLOW / UNFOLLOW
+                                                              Flexible(
+                                                                child: TextButton(
+                                                                  onPressed:
+                                                                      followButtonDisabled
+                                                                      ? null
+                                                                      : () async {
+                                                                          if (isBlocked) {
+                                                                            return;
+                                                                          }
+                                                                          HapticFeedback.selectionClick();
 
-                                                                      setState(
-                                                                        () => _uiFollowLoading =
-                                                                            true,
-                                                                      );
-
-                                                                      // PRIVATE + not following: follow -> request gönderme modu
-                                                                      if (showRequestMode) {
-                                                                        // optimistic: anında "İstek Gönderildi"
-                                                                        setState(
-                                                                          () => _uiRequestedFollow =
-                                                                              true,
-                                                                        );
-
-                                                                        try {
-                                                                          final ctrl = ref.read(
-                                                                            followControllerProvider(
-                                                                              username,
-                                                                            ).notifier,
-                                                                          );
-
-                                                                          // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
-                                                                          await ctrl
-                                                                              .follow();
-                                                                          unawaited(
-                                                                            ChaputSoundService.instance.play(
-                                                                              ChaputSoundEffect.refreshRecommendedUser,
-                                                                            ),
-                                                                          );
-                                                                        } catch (
-                                                                          error
-                                                                        ) {
-                                                                          // rollback
                                                                           setState(
                                                                             () =>
-                                                                                _uiRequestedFollow = null,
+                                                                                _uiFollowLoading = true,
                                                                           );
-                                                                          _handleFollowActionError(
-                                                                            error,
-                                                                          );
-                                                                        } finally {
-                                                                          setState(
-                                                                            () =>
-                                                                                _uiFollowLoading = false,
-                                                                          );
-                                                                        }
-                                                                        return;
-                                                                      }
 
-                                                                      // PUBLIC veya zaten following/unfollow normal akış
-                                                                      setState(() {
-                                                                        if (effectiveIsFollowing) {
-                                                                          _uiIsFollowing =
-                                                                              false;
-                                                                          _uiFollowerDelta -=
-                                                                              1;
-                                                                        } else {
-                                                                          _uiIsFollowing =
-                                                                              true;
-                                                                          _uiFollowerDelta +=
-                                                                              1;
-                                                                        }
-                                                                      });
+                                                                          // PRIVATE + not following: follow -> request gönderme modu
+                                                                          if (showRequestMode) {
+                                                                            // optimistic: anında "İstek Gönderildi"
+                                                                            setState(
+                                                                              () => _uiRequestedFollow = true,
+                                                                            );
 
-                                                                      try {
-                                                                        final ctrl = ref.read(
-                                                                          followControllerProvider(
-                                                                            username,
-                                                                          ).notifier,
-                                                                        );
-                                                                        if (effectiveIsFollowing) {
-                                                                          await ctrl
-                                                                              .unfollow();
-                                                                        } else {
-                                                                          await ctrl
-                                                                              .follow();
-                                                                        }
-                                                                      } catch (
-                                                                        _
-                                                                      ) {
-                                                                        setState(() {
-                                                                          _uiIsFollowing =
-                                                                              null;
-                                                                          _uiFollowerDelta =
-                                                                              0;
-                                                                        });
-                                                                      } finally {
-                                                                        setState(
-                                                                          () => _uiFollowLoading =
-                                                                              false,
-                                                                        );
-                                                                      }
-                                                                    },
+                                                                            try {
+                                                                              final ctrl = ref.read(
+                                                                                followControllerProvider(
+                                                                                  username,
+                                                                                ).notifier,
+                                                                              );
 
-                                                              style: TextButton.styleFrom(
-                                                                padding:
-                                                                    const EdgeInsets.symmetric(
+                                                                              // follow() backend'de private ise follow_request oluşturmalı (senin sistemde genelde böyle)
+                                                                              await ctrl.follow();
+                                                                              unawaited(
+                                                                                ChaputSoundService.instance.play(
+                                                                                  ChaputSoundEffect.refreshRecommendedUser,
+                                                                                ),
+                                                                              );
+                                                                            } catch (
+                                                                              error
+                                                                            ) {
+                                                                              // rollback
+                                                                              setState(
+                                                                                () => _uiRequestedFollow = null,
+                                                                              );
+                                                                              _handleFollowActionError(
+                                                                                error,
+                                                                              );
+                                                                            } finally {
+                                                                              setState(
+                                                                                () => _uiFollowLoading = false,
+                                                                              );
+                                                                            }
+                                                                            return;
+                                                                          }
+
+                                                                          // PUBLIC veya zaten following/unfollow normal akış
+                                                                          setState(() {
+                                                                            if (effectiveIsFollowing) {
+                                                                              _uiIsFollowing = false;
+                                                                              _uiFollowerDelta -= 1;
+                                                                            } else {
+                                                                              _uiIsFollowing = true;
+                                                                              _uiFollowerDelta += 1;
+                                                                            }
+                                                                          });
+
+                                                                          try {
+                                                                            final ctrl = ref.read(
+                                                                              followControllerProvider(
+                                                                                username,
+                                                                              ).notifier,
+                                                                            );
+                                                                            if (effectiveIsFollowing) {
+                                                                              await ctrl.unfollow();
+                                                                            } else {
+                                                                              await ctrl.follow();
+                                                                            }
+                                                                          } catch (
+                                                                            _
+                                                                          ) {
+                                                                            setState(() {
+                                                                              _uiIsFollowing = null;
+                                                                              _uiFollowerDelta = 0;
+                                                                            });
+                                                                          } finally {
+                                                                            setState(
+                                                                              () => _uiFollowLoading = false,
+                                                                            );
+                                                                          }
+                                                                        },
+
+                                                                  style: TextButton.styleFrom(
+                                                                    padding: const EdgeInsets.symmetric(
                                                                       horizontal:
                                                                           12,
                                                                       vertical:
                                                                           6,
                                                                     ),
-                                                                backgroundColor:
-                                                                    isBlocked
-                                                                    ? AppColors
-                                                                          .chaputRed200
-                                                                    : requestAlreadySent
-                                                                    ? AppColors
-                                                                          .chaputMaterialBlue
-                                                                    : effectiveIsFollowing
-                                                                    ? AppColors
-                                                                          .chaputGrey300
-                                                                    : AppColors
-                                                                          .chaputBlack,
-                                                                foregroundColor:
-                                                                    requestAlreadySent
-                                                                    ? AppColors
-                                                                          .chaputWhite
-                                                                    : (effectiveIsFollowing
-                                                                          ? AppColors.chaputBlack
-                                                                          : AppColors.chaputWhite),
+                                                                    backgroundColor:
+                                                                        isBlocked
+                                                                        ? AppColors
+                                                                              .chaputRed200
+                                                                        : requestAlreadySent
+                                                                        ? AppColors
+                                                                              .chaputMaterialBlue
+                                                                        : effectiveIsFollowing
+                                                                        ? AppColors
+                                                                              .chaputGrey300
+                                                                        : AppColors
+                                                                              .chaputBlack,
+                                                                    foregroundColor:
+                                                                        requestAlreadySent
+                                                                        ? AppColors
+                                                                              .chaputWhite
+                                                                        : (effectiveIsFollowing
+                                                                              ? AppColors.chaputBlack
+                                                                              : AppColors.chaputWhite),
 
-                                                                // disabled iken de beyaz kalsın
-                                                                disabledForegroundColor:
-                                                                    requestAlreadySent
-                                                                    ? AppColors
-                                                                          .chaputWhite
-                                                                    : AppColors
-                                                                          .chaputWhite70,
+                                                                    // disabled iken de beyaz kalsın
+                                                                    disabledForegroundColor:
+                                                                        requestAlreadySent
+                                                                        ? AppColors
+                                                                              .chaputWhite
+                                                                        : AppColors
+                                                                              .chaputWhite70,
 
-                                                                // disabled iken arka plan da mavi kalsın
-                                                                disabledBackgroundColor:
-                                                                    requestAlreadySent
-                                                                    ? AppColors
-                                                                          .chaputMaterialBlue
-                                                                    : AppColors
-                                                                          .chaputGrey300,
+                                                                    // disabled iken arka plan da mavi kalsın
+                                                                    disabledBackgroundColor:
+                                                                        requestAlreadySent
+                                                                        ? AppColors
+                                                                              .chaputMaterialBlue
+                                                                        : AppColors
+                                                                              .chaputGrey300,
 
-                                                                shape: RoundedRectangleBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
+                                                                    shape: RoundedRectangleBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                    ),
+                                                                  ),
+                                                                  child:
+                                                                      _uiFollowLoading
+                                                                      ? const SizedBox(
+                                                                          width:
+                                                                              14,
+                                                                          height:
+                                                                              14,
+                                                                          child: CircularProgressIndicator(
+                                                                            strokeWidth:
+                                                                                2,
+                                                                          ),
+                                                                        )
+                                                                      : Text(
+                                                                          requestAlreadySent
+                                                                              ? context.t(
+                                                                                  'profile.follow_request_sent',
+                                                                                )
+                                                                              : (effectiveIsFollowing
+                                                                                    ? context.t(
+                                                                                        'profile.unfollow',
+                                                                                      )
+                                                                                    : context.t(
+                                                                                        'profile.follow',
+                                                                                      )),
+                                                                          maxLines:
+                                                                              1,
+                                                                          softWrap:
+                                                                              false,
+                                                                          overflow:
+                                                                              TextOverflow.ellipsis,
+                                                                          style: const TextStyle(
+                                                                            fontSize:
+                                                                                12,
+                                                                          ),
+                                                                        ),
                                                                 ),
                                                               ),
-                                                              child:
-                                                                  _uiFollowLoading
-                                                                  ? const SizedBox(
-                                                                      width: 14,
-                                                                      height:
-                                                                          14,
-                                                                      child: CircularProgressIndicator(
-                                                                        strokeWidth:
-                                                                            2,
-                                                                      ),
-                                                                    )
-                                                                  : Text(
-                                                                      requestAlreadySent
-                                                                          ? context.t(
-                                                                              'profile.follow_request_sent',
-                                                                            )
-                                                                          : (effectiveIsFollowing
-                                                                                ? context.t(
-                                                                                    'profile.unfollow',
-                                                                                  )
-                                                                                : context.t(
-                                                                                    'profile.follow',
-                                                                                  )),
-                                                                      style: const TextStyle(
-                                                                        fontSize:
-                                                                            12,
-                                                                      ),
-                                                                    ),
-                                                            ),
 
-                                                            const SizedBox(
-                                                              width: 6,
-                                                            ),
+                                                              const SizedBox(
+                                                                width: 6,
+                                                              ),
 
-                                                            // THREE DOT MENU
-                                                            ProfileActionsButton(
-                                                              username:
-                                                                  username,
-                                                              userId: userId,
-                                                              iRestrictedHim:
-                                                                  effectiveIRestrictedHim,
-                                                              onSheetVisibilityChanged:
-                                                                  _setTreePreservingOverlayVisible,
-                                                            ),
-                                                          ],
+                                                              // THREE DOT MENU
+                                                              ProfileActionsButton(
+                                                                username:
+                                                                    username,
+                                                                userId: userId,
+                                                                iRestrictedHim:
+                                                                    effectiveIRestrictedHim,
+                                                                onSheetVisibilityChanged:
+                                                                    _setTreePreservingOverlayVisible,
+                                                              ),
+                                                            ],
+                                                          ),
                                                         ),
                                                     ],
                                                   ),
@@ -5599,46 +5696,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                               horizontal: 14,
                                               vertical: 10,
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  showPrivateFollowSheet
-                                                      ? (requestAlreadySent
-                                                            ? Icons
-                                                                  .schedule_rounded
-                                                            : Icons.add_rounded)
-                                                      : decisionHasArchived
-                                                      ? Icons.restore
-                                                      : Icons.draw,
-                                                  size: 18,
-                                                  color: AppColors.chaputWhite,
+                                            child: ConstrainedBox(
+                                              constraints: BoxConstraints(
+                                                maxWidth: math.min(
+                                                  220.0,
+                                                  MediaQuery.sizeOf(
+                                                        context,
+                                                      ).width -
+                                                      56,
                                                 ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  showPrivateFollowSheet
-                                                      ? (requestAlreadySent
-                                                            ? context.t(
-                                                                'profile.follow_request_sent',
-                                                              )
-                                                            : context.t(
-                                                                'profile.follow',
-                                                              ))
-                                                      : decisionHasArchived
-                                                      ? context.t(
-                                                          'profile.bind.restore_archive',
-                                                        )
-                                                      : context.t(
-                                                          'profile.bind.start_one',
-                                                        ),
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w700,
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    showPrivateFollowSheet
+                                                        ? (requestAlreadySent
+                                                              ? Icons
+                                                                    .schedule_rounded
+                                                              : Icons
+                                                                    .add_rounded)
+                                                        : decisionHasArchived
+                                                        ? Icons.restore
+                                                        : Icons.draw,
+                                                    size: 18,
                                                     color:
                                                         AppColors.chaputWhite,
                                                   ),
-                                                ),
-                                              ],
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
+                                                    child: Text(
+                                                      showPrivateFollowSheet
+                                                          ? (requestAlreadySent
+                                                                ? context.t(
+                                                                    'profile.follow_request_sent',
+                                                                  )
+                                                                : context.t(
+                                                                    'profile.follow',
+                                                                  ))
+                                                          : decisionHasArchived
+                                                          ? context.t(
+                                                              'profile.bind.restore_archive',
+                                                            )
+                                                          : context.t(
+                                                              'profile.bind.start_one',
+                                                            ),
+                                                      maxLines: 1,
+                                                      softWrap: false,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: AppColors
+                                                            .chaputWhite,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ),

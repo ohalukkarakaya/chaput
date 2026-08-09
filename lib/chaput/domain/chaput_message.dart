@@ -41,7 +41,7 @@ class ChaputMessage {
       replyToId: json['reply_to_id']?.toString(),
       replyToSenderId: json['reply_to_sender_id']?.toString(),
       replyToBody: json['reply_to_body']?.toString(),
-      likeCount: (json['like_count'] ?? 0) as int,
+      likeCount: _intValue(json['like_count']),
       likedByMe: json['liked_by_me'] == true,
       delivered: true,
       readByOther: json['read_by_other'] == true,
@@ -50,6 +50,13 @@ class ChaputMessage {
           .toList(growable: false),
     );
   }
+}
+
+int _intValue(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? 0;
+  return 0;
 }
 
 class ChaputMessageLiker {

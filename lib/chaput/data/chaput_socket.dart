@@ -24,6 +24,7 @@ class ChaputSocketClient {
   Future<void>? _connectFuture;
   final Set<String> _profileSubscriptions = <String>{};
   final Map<String, String?> _threadSubscriptions = <String, String?>{};
+  int _globalConnectionRetainCount = 0;
   bool _disposed = false;
   bool _isReady = false;
   bool _suspended = false;
@@ -117,7 +118,11 @@ class ChaputSocketClient {
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
     if (_disposed || _suspended) return;
-    if (_profileSubscriptions.isEmpty && _threadSubscriptions.isEmpty) return;
+    if (_globalConnectionRetainCount <= 0 &&
+        _profileSubscriptions.isEmpty &&
+        _threadSubscriptions.isEmpty) {
+      return;
+    }
     _reconnectTimer = Timer(const Duration(milliseconds: 600), () {
       if (_disposed || _suspended || _channel != null) return;
       unawaited(ensureConnected());
@@ -134,6 +139,24 @@ class ChaputSocketClient {
     if (_disposed) return;
     _suspended = false;
     await ensureConnected();
+  }
+
+  Future<void> retainGlobalConnection() async {
+    if (_disposed) return;
+    _globalConnectionRetainCount += 1;
+    await ensureConnected();
+  }
+
+  void releaseGlobalConnection() {
+    if (_globalConnectionRetainCount > 0) {
+      _globalConnectionRetainCount -= 1;
+    }
+    if (_globalConnectionRetainCount > 0 ||
+        _profileSubscriptions.isNotEmpty ||
+        _threadSubscriptions.isNotEmpty) {
+      return;
+    }
+    _cleanup(scheduleReconnect: false);
   }
 
   void dispose() {

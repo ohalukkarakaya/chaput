@@ -7,6 +7,15 @@ class NotificationBadgeService {
 
   static const MethodChannel _channel = MethodChannel('chaput/notifications');
 
+  static Future<void> setAppIconBadge(int count) async {
+    final normalized = count < 0 ? 0 : count;
+    try {
+      await _channel.invokeMethod<void>('setBadge', {'count': normalized});
+    } catch (_) {
+      // Badge support varies by platform/launcher. Failure should never block app state.
+    }
+  }
+
   static Future<void> resetAppIconBadge() async {
     try {
       await LocalNotificationService.instance.clearDeliveredNotifications();

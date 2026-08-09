@@ -26,10 +26,11 @@ class ProfileVisitHistoryController extends Notifier<List<ProfilePreview>> {
 
   void updateFollowState(ProfilePreview preview) {
     if (preview.id.isEmpty) return;
+    final targetId = preview.id.toLowerCase();
     var changed = false;
     final next = state
         .map((item) {
-          if (item.id != preview.id) return item;
+          if (item.id.toLowerCase() != targetId) return item;
           if (item.requestPending == preview.requestPending &&
               item.isFollowing == preview.isFollowing) {
             return item;

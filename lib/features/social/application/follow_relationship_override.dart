@@ -77,7 +77,7 @@ FollowRelationshipOverride? followRelationshipOverrideFor(
 }
 
 String? followRelationshipUserIdKey(String? userId) {
-  final normalized = userId?.trim();
+  final normalized = userId?.trim().toLowerCase();
   if (normalized == null || normalized.isEmpty) return null;
   return 'id:$normalized';
 }

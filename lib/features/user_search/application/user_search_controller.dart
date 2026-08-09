@@ -198,11 +198,12 @@ class UserSearchController extends Notifier<UserSearchState> {
     required bool requestPending,
   }) {
     if (userId.isEmpty) return;
+    final targetUserId = userId.toLowerCase();
     final normalizedRequestPending = isFollowing ? false : requestPending;
     var changed = false;
     final next = state.items
         .map((item) {
-          if (item.id != userId) return item;
+          if (item.id.toLowerCase() != targetUserId) return item;
           if (item.isFollowing == isFollowing &&
               item.requestPending == normalizedRequestPending) {
             return item;

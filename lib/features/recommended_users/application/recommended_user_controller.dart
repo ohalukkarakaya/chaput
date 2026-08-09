@@ -76,6 +76,7 @@ class RecommendedUserController extends AsyncNotifier<List<RecommendedUser>> {
     required bool requestPending,
   }) {
     if (userId.isEmpty) return;
+    final targetUserId = userId.toLowerCase();
     final items = state.value;
     if (items == null) return;
 
@@ -83,7 +84,7 @@ class RecommendedUserController extends AsyncNotifier<List<RecommendedUser>> {
     var changed = false;
     final next = items
         .map((user) {
-          if (user.id != userId) return user;
+          if (user.id.toLowerCase() != targetUserId) return user;
           if (user.isFollowing == isFollowing &&
               user.requestPending == normalizedRequestPending) {
             return user;

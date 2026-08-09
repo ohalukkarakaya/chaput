@@ -90,7 +90,7 @@ class ChaputMessagesController extends Notifier<ChaputMessagesState> {
       _lastLoadCursor = null;
       state = state.copyWith(
         isLoading: false,
-        items: res.items,
+        items: _mergeNewestFirst(res.items, state.items),
         nextCursor: res.nextCursor,
         clearError: true,
       );
@@ -289,6 +289,13 @@ class ChaputMessagesController extends Notifier<ChaputMessagesState> {
     }
   }
 
+  Future<void> refreshAfterSocketMessage(String messageId) async {
+    if (messageId.isEmpty) return;
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (state.items.any((m) => m.id == messageId)) return;
+    await refresh();
+  }
+
   void markReadByOther() {
     final me = ref.read(meControllerProvider).value?.user.userId;
     if (me == null || me.isEmpty) return;
@@ -430,6 +437,21 @@ class ChaputMessagesController extends Notifier<ChaputMessagesState> {
       if (seen.add(it.id)) out.add(it);
     }
     return out;
+  }
+
+  List<ChaputMessage> _mergeNewestFirst(
+    List<ChaputMessage> primary,
+    List<ChaputMessage> fallback,
+  ) {
+    final merged = _dedupe([...primary, ...fallback]);
+    merged.sort((a, b) {
+      final at = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final byDate = bt.compareTo(at);
+      if (byDate != 0) return byDate;
+      return b.id.compareTo(a.id);
+    });
+    return merged;
   }
 
   ChaputMessage _copyMessage(

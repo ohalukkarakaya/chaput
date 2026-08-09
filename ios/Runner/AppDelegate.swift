@@ -61,12 +61,18 @@ import UserNotifications
       binaryMessenger: messenger
     )
     notificationsChannel.setMethodCallHandler { [weak self] call, result in
-      guard call.method == "resetBadge" else {
-        result(FlutterMethodNotImplemented)
-        return
-      }
       guard let self = self else {
         result(nil)
+        return
+      }
+      if call.method == "setBadge" {
+        let args = call.arguments as? [String: Any]
+        let count = args?["count"] as? Int ?? 0
+        self.setNotificationBadge(count, result)
+        return
+      }
+      guard call.method == "resetBadge" else {
+        result(FlutterMethodNotImplemented)
         return
       }
       self.resetNotificationBadge(result)
@@ -370,14 +376,21 @@ import UserNotifications
   }
 
   private func resetNotificationBadge(_ result: @escaping FlutterResult) {
+    setNotificationBadge(0, result)
+  }
+
+  private func setNotificationBadge(_ count: Int, _ result: @escaping FlutterResult) {
+    let safeCount = max(0, count)
     DispatchQueue.main.async {
-      UNUserNotificationCenter.current().removeAllDeliveredNotifications()
-      UIApplication.shared.applicationIconBadgeNumber = 0
+      if safeCount == 0 {
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+      }
+      UIApplication.shared.applicationIconBadgeNumber = safeCount
       if #available(iOS 16.0, *) {
-        UNUserNotificationCenter.current().setBadgeCount(0) { error in
+        UNUserNotificationCenter.current().setBadgeCount(safeCount) { error in
           if let error = error {
             result(FlutterError(
-              code: "badge_reset_failed",
+              code: "badge_set_failed",
               message: error.localizedDescription,
               details: nil
             ))
