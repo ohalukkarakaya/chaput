@@ -1007,6 +1007,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _syncTypingSound();
+      _resumeReadyTreeRenderer();
       if (_rebuildTreeAfterResume && !_treeSuspendedForCoveredRoute) {
         _rebuildTreeAfterResume = false;
         _recreateTreeAfterRendererPause();
@@ -1016,12 +1017,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _resetChaputSwipeFeedback();
       if (state == AppLifecycleState.paused ||
           state == AppLifecycleState.detached) {
-        // iOS can discard the ANGLE/Metal texture context while the app is
-        // backgrounded. Rebuild only after a real background transition.
+        _pauseReadyTreeRenderer();
+        // Rebuild only unfinished renderers. A ready renderer can be resumed
+        // without dropping the visible tree back to the setup/loading surface.
         _rebuildTreeAfterResume =
-            _threeJs != null && !_treeSuspendedForCoveredRoute;
+            _threeJs != null && !_threeReady && !_treeSuspendedForCoveredRoute;
       }
     }
+  }
+
+  void _pauseReadyTreeRenderer() {
+    final js = _threeJs;
+    if (js == null || !_threeReady) return;
+    js.pause = true;
+    try {
+      js.ticker?.stop(canceled: false);
+    } catch (_) {}
+  }
+
+  void _resumeReadyTreeRenderer() {
+    final js = _threeJs;
+    if (js == null || !_threeReady) return;
+    js.pause = false;
+    try {
+      final ticker = js.ticker;
+      if (ticker != null && !ticker.isActive) ticker.start();
+    } catch (_) {}
+    _updateCamera(js, 1 / 60);
   }
 
   void _recreateTreeAfterRendererPause() {
