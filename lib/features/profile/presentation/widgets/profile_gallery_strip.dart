@@ -30,7 +30,6 @@ class ProfileGalleryStrip extends StatelessWidget {
   static const _fallbackMaxWidth = 360.0;
   static const _padding = 10.0;
   static const _radius = 18.0;
-  static const _overflowGuard = 8.0;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +48,7 @@ class ProfileGalleryStrip extends StatelessWidget {
             ? constraints.maxWidth
             : math.min(_fallbackMaxWidth, screenSafeWidth);
         final maxWidth = math.max(0.0, math.min(rawMaxWidth, screenSafeWidth));
-        final layoutWidth = math.max(0.0, maxWidth - _overflowGuard);
+        final layoutWidth = maxWidth;
         final innerWidth = math.max(0.0, layoutWidth - (_padding * 2));
         final tileSize = math.max(
           0.0,
