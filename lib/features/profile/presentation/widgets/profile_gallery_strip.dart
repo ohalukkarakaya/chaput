@@ -39,62 +39,73 @@ class ProfileGalleryStrip extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final rawMaxWidth = constraints.hasBoundedWidth
+        final screenSafeWidth = math.max(
+          0.0,
+          MediaQuery.sizeOf(context).width - 24,
+        );
+        final rawMaxWidth =
+            constraints.hasBoundedWidth && constraints.maxWidth.isFinite
             ? constraints.maxWidth
-            : _fallbackMaxWidth;
-        final maxWidth = math.max(0.0, rawMaxWidth);
+            : math.min(_fallbackMaxWidth, screenSafeWidth);
+        final maxWidth = math.max(0.0, math.min(rawMaxWidth, screenSafeWidth));
+        final layoutWidth = math.max(0.0, maxWidth - 2);
+        final innerWidth = math.max(0.0, layoutWidth - (_padding * 2));
         final tileSize = math.max(
           0.0,
-          (maxWidth - (_padding * 2) - (_gap * (_maxPhotos - 1))) / _maxPhotos,
+          (innerWidth - (_gap * (_maxPhotos - 1))) / _maxPhotos,
         );
         final panelHeight = tileSize + (_padding * 2);
         final hasAdd = isMe && count < _maxPhotos;
+        final photoContentWidth = count == 0
+            ? 0.0
+            : (tileSize * count) + (_gap * (count - 1));
         final photoWidth = count == 0
             ? 0.0
-            : count == _maxPhotos
-            ? maxWidth
-            : (_padding * 2) + (tileSize * count) + (_gap * (count - 1));
+            : (_padding * 2) + photoContentWidth;
         final addWidth = count == 0
-            ? maxWidth
-            : math.max(0.0, maxWidth - photoWidth - 10);
+            ? layoutWidth
+            : math.max(0.0, layoutWidth - photoWidth - 10);
 
-        return AnimatedSize(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.centerLeft,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (count > 0)
-                _GlassPanel(
-                  width: math.min(photoWidth, maxWidth),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 0; i < visiblePhotos.length; i++) ...[
-                        _GalleryTile(
-                          key: ValueKey(visiblePhotos[i].id),
-                          photo: visiblePhotos[i],
-                          isMe: isMe,
-                          isDeleting: deletingPhotoId == visiblePhotos[i].id,
-                          onRemove: () => onRemove(visiblePhotos[i]),
-                          size: tileSize,
-                        ),
-                        if (i < visiblePhotos.length - 1)
-                          const SizedBox(width: _gap),
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (count > 0)
+                  _GlassPanel(
+                    width: math.min(photoWidth, layoutWidth),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < visiblePhotos.length; i++) ...[
+                          _GalleryTile(
+                            key: ValueKey(visiblePhotos[i].id),
+                            photo: visiblePhotos[i],
+                            isMe: isMe,
+                            isDeleting: deletingPhotoId == visiblePhotos[i].id,
+                            onRemove: () => onRemove(visiblePhotos[i]),
+                            size: tileSize,
+                          ),
+                          if (i < visiblePhotos.length - 1)
+                            const SizedBox(width: _gap),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              if (hasAdd && count > 0) const SizedBox(width: 10),
-              if (hasAdd)
-                _GlassAddButton(
-                  width: math.min(addWidth, maxWidth),
-                  height: panelHeight,
-                  isUploading: isUploading,
-                  onTap: onAdd,
-                ),
-            ],
+                if (hasAdd && count > 0) const SizedBox(width: 10),
+                if (hasAdd)
+                  _GlassAddButton(
+                    width: math.min(addWidth, layoutWidth),
+                    height: panelHeight,
+                    isUploading: isUploading,
+                    onTap: onAdd,
+                  ),
+              ],
+            ),
           ),
         );
       },

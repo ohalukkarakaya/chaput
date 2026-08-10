@@ -4022,19 +4022,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       0,
       1 << 30,
     );
-    bool effectiveIsFollowing =
-        relationshipOverride?.isFollowing ?? isFollowing;
-    bool effectiveRequestedFollow =
-        relationshipOverride?.requestPending ?? iRequestedFollow;
-    if (_uiIsFollowing != null) {
-      effectiveIsFollowing = _uiIsFollowing!;
-      if (effectiveIsFollowing) {
-        effectiveRequestedFollow = false;
-      }
-    }
-    if (_uiRequestedFollow != null && !effectiveIsFollowing) {
-      effectiveRequestedFollow = _uiRequestedFollow!;
-    }
+    bool effectiveIsFollowing = isFollowing;
+    bool effectiveRequestedFollow = iRequestedFollow;
 
     final followState = ref.watch(followControllerProvider(username));
 
@@ -4045,6 +4034,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (followState.requestPending != null) {
         effectiveRequestedFollow = followState.requestPending!;
       }
+    }
+    if (relationshipOverride != null) {
+      effectiveIsFollowing = relationshipOverride.isFollowing;
+      effectiveRequestedFollow = relationshipOverride.requestPending;
+    }
+    if (_uiIsFollowing != null) {
+      effectiveIsFollowing = _uiIsFollowing!;
+      if (effectiveIsFollowing) {
+        effectiveRequestedFollow = false;
+      }
+    }
+    if (_uiRequestedFollow != null && !effectiveIsFollowing) {
+      effectiveRequestedFollow = _uiRequestedFollow!;
     }
 
     if (viewerState != null && userId.isNotEmpty) {
@@ -5354,9 +5356,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                                                 () {
                                                                                   if (effectiveIsFollowing) {
                                                                                     _uiIsFollowing = false;
+                                                                                    _uiRequestedFollow = false;
                                                                                     _uiFollowerDelta -= 1;
                                                                                   } else {
                                                                                     _uiIsFollowing = true;
+                                                                                    _uiRequestedFollow = false;
                                                                                     _uiFollowerDelta += 1;
                                                                                   }
                                                                                 },

@@ -201,8 +201,15 @@ class _NotificationLifecycleListenerState
   }
 
   void _scheduleRealtimeSocket() {
-    if (_realtimeBootScheduled || _realtimeBooting || _socketSub != null) {
+    if (_realtimeBootScheduled || _realtimeBooting) {
       return;
+    }
+    if (_socketSub != null) {
+      try {
+        if (!ref.read(chaputSocketProvider).isSuspended) return;
+      } catch (_) {
+        return;
+      }
     }
     _realtimeBootScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -213,7 +220,7 @@ class _NotificationLifecycleListenerState
   }
 
   Future<void> _ensureRealtimeSocket() async {
-    if (_realtimeBooting || _socketSub != null) return;
+    if (_realtimeBooting) return;
     final hasValidatedSession = ref.read(meControllerProvider).value != null;
     if (!hasValidatedSession) return;
 

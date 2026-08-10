@@ -126,11 +126,20 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
     final recoFailedMessage = context.t('home.reco_failed');
 
     final idleState = followState is FollowIdle ? followState : null;
-    final isFollowing = (idleState?.isFollowing ?? user.isFollowing) == true;
-    final rawRequestPending = idleState != null
+    var isFollowing = (idleState?.isFollowing ?? user.isFollowing) == true;
+    var rawRequestPending = idleState != null
         ? idleState.requestPending ??
               (idleState.isFollowing == null ? user.requestPending : false)
         : user.requestPending;
+    final relationshipOverride = followRelationshipOverrideFor(
+      ref.read(followRelationshipOverridesProvider),
+      userId: user.id,
+      username: username,
+    );
+    if (relationshipOverride != null) {
+      isFollowing = relationshipOverride.isFollowing;
+      rawRequestPending = relationshipOverride.requestPending;
+    }
     final requestPending = !isFollowing && rawRequestPending;
     if (requestPending && !isFollowing) {
       return;
@@ -183,10 +192,10 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
     final latestState = ref.read(followControllerProvider(username));
     if (latestState is! FollowIdle) return null;
 
-    final nextIsFollowing = latestState.isFollowing ?? false;
+    final nextIsFollowing = latestState.isFollowing ?? user.isFollowing;
     final nextRequestPending = nextIsFollowing
         ? false
-        : (latestState.requestPending ?? false);
+        : (latestState.requestPending ?? user.requestPending);
     final updatedUser = user.copyWith(
       isFollowing: nextIsFollowing,
       requestPending: nextRequestPending,
@@ -210,13 +219,26 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
     final followState = (username == null || username.isEmpty)
         ? const FollowIdle()
         : ref.watch(followControllerProvider(username));
+    final relationshipOverride = ref.watch(
+      followRelationshipOverridesProvider.select(
+        (overrides) => followRelationshipOverrideFor(
+          overrides,
+          userId: user.id,
+          username: username,
+        ),
+      ),
+    );
     final isLoading = followState is FollowLoading;
     final idleState = followState is FollowIdle ? followState : null;
-    final isFollowing = (idleState?.isFollowing ?? user.isFollowing) == true;
-    final rawRequestPending = idleState != null
+    var isFollowing = (idleState?.isFollowing ?? user.isFollowing) == true;
+    var rawRequestPending = idleState != null
         ? idleState.requestPending ??
               (idleState.isFollowing == null ? user.requestPending : false)
         : user.requestPending;
+    if (relationshipOverride != null) {
+      isFollowing = relationshipOverride.isFollowing;
+      rawRequestPending = relationshipOverride.requestPending;
+    }
     final requestPending = !isFollowing && rawRequestPending;
     final canTapAction =
         !isLoading &&

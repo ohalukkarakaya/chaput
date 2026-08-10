@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../core/config/env.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/storage/secure_storage_provider.dart';
+import '../../features/auth/data/auth_api.dart';
 
 class ChaputSocketEvent {
   ChaputSocketEvent(this.type, this.data);
@@ -15,13 +16,15 @@ class ChaputSocketEvent {
 }
 
 class ChaputSocketClient {
-  ChaputSocketClient(this._storage);
+  ChaputSocketClient(this._storage, this._authApi);
 
   final TokenStorage _storage;
+  final AuthApi _authApi;
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   final _events = StreamController<ChaputSocketEvent>.broadcast();
   Future<void>? _connectFuture;
+  Future<void>? _refreshFuture;
   final Set<String> _profileSubscriptions = <String>{};
   final Map<String, String?> _threadSubscriptions = <String, String?>{};
   int _globalConnectionRetainCount = 0;
@@ -31,6 +34,7 @@ class ChaputSocketClient {
   Timer? _reconnectTimer;
 
   Stream<ChaputSocketEvent> get events => _events.stream;
+  bool get isSuspended => _suspended;
 
   Future<void> ensureConnected() async {
     if (_disposed || _suspended) return;
@@ -45,7 +49,7 @@ class ChaputSocketClient {
     _connectFuture = completer.future;
 
     try {
-      final token = await _storage.readAccessToken();
+      final token = await _readFreshAccessToken();
       if (_disposed || _suspended || token == null || token.isEmpty) {
         _cleanup();
         completer.complete();
@@ -97,6 +101,36 @@ class ChaputSocketClient {
     }
   }
 
+  Future<String?> _readFreshAccessToken() async {
+    final refresh = await _storage.readRefreshToken();
+    if (refresh != null && refresh.isNotEmpty) {
+      await _refreshAccessToken(refresh);
+    }
+    return _storage.readAccessToken();
+  }
+
+  Future<void> _refreshAccessToken(String refreshToken) {
+    final inFlight = _refreshFuture;
+    if (inFlight != null) return inFlight;
+
+    final next = () async {
+      try {
+        final res = await _authApi.refresh(refreshToken: refreshToken);
+        if (res.accessToken.isNotEmpty) {
+          await _storage.saveAccessToken(res.accessToken);
+        }
+      } catch (_) {
+        // HTTP calls still own force-logout behavior. The socket can retry with
+        // the last access token and reconnect after the next successful refresh.
+      }
+    }();
+
+    _refreshFuture = next.whenComplete(() {
+      Future.microtask(() => _refreshFuture = null);
+    });
+    return _refreshFuture!;
+  }
+
   void _handleDisconnect() {
     _cleanup();
   }
@@ -144,6 +178,7 @@ class ChaputSocketClient {
   Future<void> retainGlobalConnection() async {
     if (_disposed) return;
     _globalConnectionRetainCount += 1;
+    _suspended = false;
     await ensureConnected();
   }
 
@@ -253,7 +288,7 @@ class ChaputSocketClient {
 
 final chaputSocketProvider = Provider<ChaputSocketClient>((ref) {
   final storage = ref.read(tokenStorageProvider);
-  final client = ChaputSocketClient(storage);
+  final client = ChaputSocketClient(storage, ref.read(authApiProvider));
   ref.onDispose(client.dispose);
   return client;
 });
