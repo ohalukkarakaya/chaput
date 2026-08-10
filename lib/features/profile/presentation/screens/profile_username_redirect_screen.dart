@@ -32,6 +32,38 @@ class _ProfileUsernameRedirectScreenState
   bool _handled = false;
   String? _error;
 
+  bool _isUnavailableProfileError(Object error) {
+    if (error is DioException) {
+      final status = error.response?.statusCode;
+      if (status == 403 || status == 404) return true;
+      final data = error.response?.data;
+      final code = data is Map
+          ? data['error']?.toString() ?? ''
+          : data?.toString() ?? '';
+      return _isUnavailableProfileCode(code);
+    }
+    return _isUnavailableProfileCode(error.toString());
+  }
+
+  bool _isUnavailableProfileCode(String code) {
+    return code.contains('user_not_found') ||
+        code.contains('profile_not_found') ||
+        code.contains('blocked') ||
+        code.contains('forbidden') ||
+        code.contains('shadow') ||
+        code.contains('invalid_username') ||
+        code.contains('bad_username_response');
+  }
+
+  void _showUserNotFoundAndGoHome() {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(content: Text(context.t('errors.user_not_found'))),
+    );
+    context.go(Routes.home);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -74,8 +106,8 @@ class _ProfileUsernameRedirectScreenState
         context.go(Routes.onboarding);
         return;
       }
-      if (e is DioException && e.response?.statusCode == 403) {
-        context.go(Routes.home);
+      if (_isUnavailableProfileError(e)) {
+        _showUserNotFoundAndGoHome();
         return;
       }
       setState(() {

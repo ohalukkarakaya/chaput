@@ -26,26 +26,37 @@ class ProfileGalleryStrip extends StatelessWidget {
   final ValueChanged<ProfileGalleryPhoto> onRemove;
 
   static const _gap = 8.0;
-  static const _tileSize = 74.0;
+  static const _maxPhotos = ProfileGalleryPhoto.maxPhotos;
+  static const _fallbackMaxWidth = 360.0;
   static const _padding = 10.0;
   static const _radius = 18.0;
 
   @override
   Widget build(BuildContext context) {
-    final visiblePhotos = photos.take(3).toList(growable: false);
+    final visiblePhotos = photos.take(_maxPhotos).toList(growable: false);
     final count = visiblePhotos.length;
     if (!isMe && count == 0) return const SizedBox.shrink();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth = math.min(constraints.maxWidth, 360.0);
-        final hasAdd = isMe && count < 3;
+        final rawMaxWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : _fallbackMaxWidth;
+        final maxWidth = math.max(0.0, rawMaxWidth);
+        final tileSize = math.max(
+          0.0,
+          (maxWidth - (_padding * 2) - (_gap * (_maxPhotos - 1))) / _maxPhotos,
+        );
+        final panelHeight = tileSize + (_padding * 2);
+        final hasAdd = isMe && count < _maxPhotos;
         final photoWidth = count == 0
             ? 0.0
-            : (_padding * 2) + (_tileSize * count) + (_gap * (count - 1));
+            : count == _maxPhotos
+            ? maxWidth
+            : (_padding * 2) + (tileSize * count) + (_gap * (count - 1));
         final addWidth = count == 0
             ? maxWidth
-            : math.max(72.0, maxWidth - photoWidth - 10);
+            : math.max(0.0, maxWidth - photoWidth - 10);
 
         return AnimatedSize(
           duration: const Duration(milliseconds: 180),
@@ -67,6 +78,7 @@ class ProfileGalleryStrip extends StatelessWidget {
                           isMe: isMe,
                           isDeleting: deletingPhotoId == visiblePhotos[i].id,
                           onRemove: () => onRemove(visiblePhotos[i]),
+                          size: tileSize,
                         ),
                         if (i < visiblePhotos.length - 1)
                           const SizedBox(width: _gap),
@@ -78,6 +90,7 @@ class ProfileGalleryStrip extends StatelessWidget {
               if (hasAdd)
                 _GlassAddButton(
                   width: math.min(addWidth, maxWidth),
+                  height: panelHeight,
                   isUploading: isUploading,
                   onTap: onAdd,
                 ),
@@ -127,18 +140,20 @@ class _GalleryTile extends StatelessWidget {
     required this.isMe,
     required this.isDeleting,
     required this.onRemove,
+    required this.size,
   });
 
   final ProfileGalleryPhoto photo;
   final bool isMe;
   final bool isDeleting;
   final VoidCallback onRemove;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: ProfileGalleryStrip._tileSize,
-      height: ProfileGalleryStrip._tileSize,
+      width: size,
+      height: size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -194,11 +209,13 @@ class _GalleryTile extends StatelessWidget {
 class _GlassAddButton extends StatelessWidget {
   const _GlassAddButton({
     required this.width,
+    required this.height,
     required this.isUploading,
     required this.onTap,
   });
 
   final double width;
+  final double height;
   final bool isUploading;
   final VoidCallback onTap;
 
@@ -212,8 +229,7 @@ class _GlassAddButton extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           width: width,
-          height:
-              ProfileGalleryStrip._tileSize + ProfileGalleryStrip._padding * 2,
+          height: height,
           decoration: BoxDecoration(
             color: AppColors.chaputWhite.withValues(alpha: 0.30),
             borderRadius: BorderRadius.circular(ProfileGalleryStrip._radius),

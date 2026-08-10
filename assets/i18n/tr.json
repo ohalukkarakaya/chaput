@@ -425,7 +425,7 @@
   "time.minutes_short": "{count}dk",
   "time.seconds": "{count}sn",
   "time.just_now": "az önce",
-  "profile.gallery_full": "En fazla 3 fotoğraf ekleyebilirsin.",
+  "profile.gallery_full": "En fazla 4 fotoğraf ekleyebilirsin.",
   "profile.gallery_upload_failed": "Fotoğraf yüklenemedi.",
   "profile.gallery_delete_failed": "Fotoğraf kaldırılamadı.",
   "reports.toast.not_allowed": "Bu içeriği yalnızca chaputun tarafları bildirebilir.",

@@ -8,24 +8,42 @@ class ProfileState {
   const ProfileState({
     required this.isLoading,
     this.error,
+    this.errorCode,
     this.profileJson,
     this.treeId,
   });
 
   final bool isLoading;
   final String? error;
+  final String? errorCode;
   final Map<String, dynamic>? profileJson;
   final String? treeId;
+
+  bool get isUnavailableProfile {
+    const unavailableCodes = {
+      'user_not_found',
+      'profile_not_found',
+      'blocked',
+      'forbidden',
+      'bad_hex',
+      'bad_hex_len',
+    };
+    return errorCode != null && unavailableCodes.contains(errorCode);
+  }
 
   ProfileState copyWith({
     bool? isLoading,
     String? error,
+    bool clearError = false,
+    String? errorCode,
+    bool clearErrorCode = false,
     Map<String, dynamic>? profileJson,
     String? treeId,
   }) {
     return ProfileState(
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      error: clearError ? null : error ?? this.error,
+      errorCode: clearErrorCode ? null : errorCode ?? this.errorCode,
       profileJson: profileJson ?? this.profileJson,
       treeId: treeId ?? this.treeId,
     );
@@ -42,6 +60,32 @@ final profileApiProvider = Provider<ProfileApi>((ref) {
 
 final profileControllerProvider = NotifierProvider.autoDispose
     .family<ProfileController, ProfileState, String>(ProfileController.new);
+
+String _profileErrorCode(Object error) {
+  if (error is DioException) {
+    final data = error.response?.data;
+    final code = data is Map ? data['error']?.toString() : null;
+    if (code != null && code.isNotEmpty) return code;
+    final status = error.response?.statusCode;
+    if (status == 401) return 'unauthorized';
+    if (status == 403) return 'forbidden';
+    if (status == 404) return 'user_not_found';
+  }
+
+  final text = error.toString();
+  const knownCodes = [
+    'user_not_found',
+    'profile_not_found',
+    'blocked',
+    'forbidden',
+    'bad_hex_len',
+    'bad_hex',
+  ];
+  for (final code in knownCodes) {
+    if (text.contains(code)) return code;
+  }
+  return 'profile_error';
+}
 
 class ProfileController extends Notifier<ProfileState> {
   ProfileController(this.arg);
@@ -62,7 +106,11 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   Future<void> _fetch(String userId) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearErrorCode: true,
+    );
 
     _fetchTree(userId);
 
@@ -74,11 +122,16 @@ class ProfileController extends Notifier<ProfileState> {
 
       state = state.copyWith(
         isLoading: false,
-        error: null,
+        clearError: true,
+        clearErrorCode: true,
         profileJson: profile,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+        errorCode: _profileErrorCode(e),
+      );
       return;
     }
   }
@@ -90,9 +143,11 @@ class ProfileController extends Notifier<ProfileState> {
         throw Exception(tree['error'] ?? 'tree_error');
       }
 
-      state = state.copyWith(treeId: tree['tree_id']?.toString(), error: null);
+      state = state.copyWith(treeId: tree['tree_id']?.toString());
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (state.profileJson == null && state.errorCode == null) {
+        state = state.copyWith(error: e.toString());
+      }
     }
   }
 

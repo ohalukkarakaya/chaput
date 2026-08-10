@@ -425,7 +425,7 @@
   "time.minutes_short": "{count}m",
   "time.seconds": "{count}s",
   "time.just_now": "just now",
-  "profile.gallery_full": "You can add up to 3 photos.",
+  "profile.gallery_full": "You can add up to 4 photos.",
   "profile.gallery_upload_failed": "Photo could not be uploaded.",
   "profile.gallery_delete_failed": "Photo could not be removed.",
   "reports.toast.not_allowed": "Only people in this chaput can send a report.",

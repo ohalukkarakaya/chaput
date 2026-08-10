@@ -415,7 +415,7 @@
   "time.minutes_short": "{count}m",
   "time.seconds": "{count}s",
   "time.just_now": "à l’instant",
-  "profile.gallery_full": "Tu peux ajouter jusqu’à 3 photos.",
+  "profile.gallery_full": "Tu peux ajouter jusqu’à 4 photos.",
   "profile.gallery_upload_failed": "Impossible d’importer la photo.",
   "profile.gallery_delete_failed": "Impossible de supprimer la photo.",
   "reports.toast.not_allowed": "Seules les personnes impliquées dans ce chaput peuvent envoyer un signalement.",

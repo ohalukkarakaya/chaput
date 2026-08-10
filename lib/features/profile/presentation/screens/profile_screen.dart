@@ -234,6 +234,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool _routeSubscribed = false;
   bool _forceTreeReload = false;
   bool _reloadOnPopNext = false;
+  bool _redirectedForProfileUnavailable = false;
 
   String? _lastTreeId;
   String? _lastProfileUserId;
@@ -1126,6 +1127,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _threeReady = false;
       _lastProfileUserId = widget.userId;
       _navToOtherProfile = false;
+      _redirectedForProfileUnavailable = false;
       _chaputThreadCreated = false;
       _decisionProfileId = null;
       _anonMode = false;
@@ -2149,6 +2151,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         duration: const Duration(seconds: 2),
       );
     }
+  }
+
+  void _redirectUnavailableProfileToHome() {
+    if (_redirectedForProfileUnavailable) return;
+    _redirectedForProfileUnavailable = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isDisposed) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.t('errors.user_not_found'))),
+      );
+      context.go(Routes.home);
+    });
   }
 
   void _setProfileGalleryPhotos(List<ProfileGalleryPhoto> photos) {
@@ -3860,6 +3877,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   Widget build(BuildContext context) {
     final st = ref.watch(profileControllerProvider(widget.userId));
     final meAsync = ref.watch(meControllerProvider);
+
+    if (!st.isLoading && st.profileJson == null && st.isUnavailableProfile) {
+      _redirectUnavailableProfileToHome();
+    }
 
     // treeId geldiyse: three init (1 kere) -> post frame
     final tid = st.treeId;

@@ -415,7 +415,7 @@
   "time.minutes_short": "{count}Min",
   "time.seconds": "{count}s",
   "time.just_now": "gerade eben",
-  "profile.gallery_full": "Du kannst bis zu 3 Fotos hinzufügen.",
+  "profile.gallery_full": "Du kannst bis zu 4 Fotos hinzufügen.",
   "profile.gallery_upload_failed": "Foto konnte nicht hochgeladen werden.",
   "profile.gallery_delete_failed": "Foto konnte nicht entfernt werden.",
   "reports.toast.not_allowed": "Nur Beteiligte dieses Chaputs können eine Meldung senden.",

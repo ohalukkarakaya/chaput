@@ -415,7 +415,7 @@
   "time.minutes_short": "{count}min",
   "time.seconds": "{count}s",
   "time.just_now": "lige nu",
-  "profile.gallery_full": "Du kan tilføje op til 3 billeder.",
+  "profile.gallery_full": "Du kan tilføje op til 4 billeder.",
   "profile.gallery_upload_failed": "Billedet kunne ikke uploades.",
   "profile.gallery_delete_failed": "Billedet kunne ikke fjernes.",
   "reports.toast.not_allowed": "Kun deltagerne i denne chaput kan sende en anmeldelse.",

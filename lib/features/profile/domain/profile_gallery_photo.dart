@@ -11,6 +11,8 @@ class ProfileGalleryPhoto {
   final String photoUrl;
   final int sortOrder;
 
+  static const maxPhotos = 4;
+
   factory ProfileGalleryPhoto.fromJson(Map<String, dynamic> json) {
     return ProfileGalleryPhoto(
       id: json['id']?.toString() ?? '',
@@ -50,6 +52,8 @@ class ProfileGalleryPhoto {
       if (byOrder != 0) return byOrder;
       return a.id.compareTo(b.id);
     });
-    return out.length <= 3 ? out : out.take(3).toList(growable: false);
+    return out.length <= maxPhotos
+        ? out
+        : out.take(maxPhotos).toList(growable: false);
   }
 }

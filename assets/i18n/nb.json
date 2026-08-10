@@ -415,7 +415,7 @@
   "time.minutes_short": "{count}m",
   "time.seconds": "{count}s",
   "time.just_now": "akkurat nå",
-  "profile.gallery_full": "Du kan legge til opptil 3 bilder.",
+  "profile.gallery_full": "Du kan legge til opptil 4 bilder.",
   "profile.gallery_upload_failed": "Bildet kunne ikke lastes opp.",
   "profile.gallery_delete_failed": "Bildet kunne ikke fjernes.",
   "reports.toast.not_allowed": "Bare deltakerne i denne chaputen kan sende en rapport.",

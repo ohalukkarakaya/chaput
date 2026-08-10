@@ -415,7 +415,7 @@
   "time.minutes_short": "{count}m",
   "time.seconds": "{count}s",
   "time.just_now": "nyss",
-  "profile.gallery_full": "Du kan lägga till upp till 3 foton.",
+  "profile.gallery_full": "Du kan lägga till upp till 4 foton.",
   "profile.gallery_upload_failed": "Fotot kunde inte laddas upp.",
   "profile.gallery_delete_failed": "Fotot kunde inte tas bort.",
   "reports.toast.not_allowed": "Endast deltagarna i denna chaput kan skicka en anmälan.",
