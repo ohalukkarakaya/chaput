@@ -30,6 +30,7 @@ class ProfileGalleryStrip extends StatelessWidget {
   static const _fallbackMaxWidth = 360.0;
   static const _padding = 10.0;
   static const _radius = 18.0;
+  static const _overflowGuard = 8.0;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +49,7 @@ class ProfileGalleryStrip extends StatelessWidget {
             ? constraints.maxWidth
             : math.min(_fallbackMaxWidth, screenSafeWidth);
         final maxWidth = math.max(0.0, math.min(rawMaxWidth, screenSafeWidth));
-        final layoutWidth = math.max(0.0, maxWidth - 2);
+        final layoutWidth = math.max(0.0, maxWidth - _overflowGuard);
         final innerWidth = math.max(0.0, layoutWidth - (_padding * 2));
         final tileSize = math.max(
           0.0,
@@ -62,6 +63,8 @@ class ProfileGalleryStrip extends StatelessWidget {
         final photoWidth = count == 0
             ? 0.0
             : (_padding * 2) + photoContentWidth;
+        final panelWidth = math.min(photoWidth, layoutWidth);
+        final panelContentWidth = math.max(0.0, panelWidth - (_padding * 2));
         final addWidth = count == 0
             ? layoutWidth
             : math.max(0.0, layoutWidth - photoWidth - 10);
@@ -77,23 +80,29 @@ class ProfileGalleryStrip extends StatelessWidget {
               children: [
                 if (count > 0)
                   _GlassPanel(
-                    width: math.min(photoWidth, layoutWidth),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (var i = 0; i < visiblePhotos.length; i++) ...[
-                          _GalleryTile(
-                            key: ValueKey(visiblePhotos[i].id),
-                            photo: visiblePhotos[i],
-                            isMe: isMe,
-                            isDeleting: deletingPhotoId == visiblePhotos[i].id,
-                            onRemove: () => onRemove(visiblePhotos[i]),
-                            size: tileSize,
-                          ),
-                          if (i < visiblePhotos.length - 1)
-                            const SizedBox(width: _gap),
+                    width: panelWidth,
+                    child: SizedBox(
+                      width: panelContentWidth,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var i = 0; i < visiblePhotos.length; i++) ...[
+                            Expanded(
+                              child: _GalleryTile(
+                                key: ValueKey(visiblePhotos[i].id),
+                                photo: visiblePhotos[i],
+                                isMe: isMe,
+                                isDeleting:
+                                    deletingPhotoId == visiblePhotos[i].id,
+                                onRemove: () => onRemove(visiblePhotos[i]),
+                                size: tileSize,
+                              ),
+                            ),
+                            if (i < visiblePhotos.length - 1)
+                              const SizedBox(width: _gap),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 if (hasAdd && count > 0) const SizedBox(width: 10),
@@ -125,9 +134,7 @@ class _GlassPanel extends StatelessWidget {
       borderRadius: BorderRadius.circular(ProfileGalleryStrip._radius),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
+        child: Container(
           width: width,
           padding: const EdgeInsets.all(ProfileGalleryStrip._padding),
           decoration: BoxDecoration(
@@ -236,9 +243,7 @@ class _GlassAddButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(ProfileGalleryStrip._radius),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
+        child: Container(
           width: width,
           height: height,
           decoration: BoxDecoration(

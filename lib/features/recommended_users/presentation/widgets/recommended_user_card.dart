@@ -167,10 +167,14 @@ class _RecommendedUserCardState extends ConsumerState<RecommendedUserCard> {
       if (!mounted) return;
       final latestState = ref.read(followControllerProvider(username));
       final updatedUser = _syncLatestFollowState(user, username);
+      final shouldDismissAfterFollow =
+          updatedUser?.isFollowing == true ||
+          updatedUser?.requestPending == true;
       if (widget.dismissOnFollowSuccess &&
-          updatedUser?.isFollowing == true &&
+          shouldDismissAfterFollow &&
           latestState is FollowIdle &&
-          latestState.isFollowing == true &&
+          (latestState.isFollowing == true ||
+              latestState.requestPending == true) &&
           mounted) {
         widget.onDismiss(user.id);
       }
