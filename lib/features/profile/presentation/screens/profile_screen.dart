@@ -2346,6 +2346,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<bool> _verifyPurchaseAndApply(PaywallPurchase purchase) async {
+    if (ref.read(meControllerProvider).value?.user.isShadowBanned == true) {
+      _showGlassToast(
+        context.t('paywall.shadow_banned_unavailable'),
+        icon: Icons.lock_outline,
+      );
+      return false;
+    }
+
     try {
       final confirmed = await _confirmReplaceSubscriptionIfNeeded(purchase);
       if (!confirmed) return false;
@@ -2386,7 +2394,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<PaywallPurchase?> _purchaseWithRevenueCat(String productId) async {
-    final userId = ref.read(meControllerProvider).value?.user.userId;
+    final me = ref.read(meControllerProvider).value;
+    if (me?.user.isShadowBanned == true) {
+      _showGlassToast(
+        context.t('paywall.shadow_banned_unavailable'),
+        icon: Icons.lock_outline,
+      );
+      return null;
+    }
+
+    final userId = me?.user.userId;
     if (userId == null || userId.isEmpty) {
       log('RevenueCat purchase blocked: missing backend user id');
       _showGlassToast(
@@ -2460,7 +2477,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<bool> _restorePurchasesWithRevenueCat() async {
-    final userId = ref.read(meControllerProvider).value?.user.userId;
+    final me = ref.read(meControllerProvider).value;
+    if (me?.user.isShadowBanned == true) {
+      _showGlassToast(
+        context.t('paywall.shadow_banned_unavailable'),
+        icon: Icons.lock_outline,
+      );
+      return false;
+    }
+
+    final userId = me?.user.userId;
     if (userId != null && userId.isNotEmpty) {
       await RevenueCatService.instance.logInWithBackendUserId(userId);
     }
@@ -3268,7 +3294,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required PaywallFeature feature,
     PaywallReviveTarget? reviveTarget,
   }) async {
-    final me = ref.read(meControllerProvider).value;
+    var me = ref.read(meControllerProvider).value;
+    try {
+      me =
+          await ref.read(meControllerProvider.notifier).fetchAndStoreMe() ?? me;
+    } catch (_) {}
+    if (!mounted) return null;
+    if (me?.user.isShadowBanned == true) {
+      _showGlassToast(
+        context.t('paywall.shadow_banned_unavailable'),
+        icon: Icons.lock_outline,
+      );
+      return null;
+    }
+
     final subPlan = me?.subscription.plan;
     final effectivePlanType = (_planType.isNotEmpty && _planType != 'FREE')
         ? _planType
@@ -4800,7 +4839,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                               child: Showcase.withWidget(
                                 key: _profileMenuShowcaseKey,
-                                targetPadding: const EdgeInsets.all(6),
+                                targetPadding: EdgeInsets.zero,
                                 targetShapeBorder: const CircleBorder(),
                                 tooltipPosition: TooltipPosition.bottom,
                                 toolTipMargin: 16,
@@ -4935,7 +4974,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                                 Showcase.withWidget(
                                                   key: _profileCloseShowcaseKey,
                                                   targetPadding:
-                                                      const EdgeInsets.all(6),
+                                                      EdgeInsets.zero,
                                                   targetShapeBorder:
                                                       const CircleBorder(),
                                                   tooltipPosition:

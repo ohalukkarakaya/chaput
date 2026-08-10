@@ -447,6 +447,7 @@
   "paywall.purchase_network_failed": "Satın alma için bağlantı kurulamadı.",
   "paywall.purchase_not_configured": "Bu sürümde satın alma yapılandırılmamış.",
   "paywall.product_not_found": "Ürün mağazada bulunamadı.",
+  "paywall.shadow_banned_unavailable": "Bu özellik şu anda kullanılamıyor.",
   "availability.maintenance_title": "Chaput bakımda",
   "availability.maintenance_body": "Kısa bir bakım yapıyoruz. Lütfen biraz sonra tekrar dene.",
   "availability.offline_title": "Bağlantı yok",

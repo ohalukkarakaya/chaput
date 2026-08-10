@@ -437,6 +437,7 @@
   "paywall.purchase_network_failed": "Det gick inte att ansluta till köptjänsten.",
   "paywall.purchase_not_configured": "Köp är inte konfigurerade för den här versionen.",
   "paywall.product_not_found": "Produkten hittades inte i butiken.",
+  "paywall.shadow_banned_unavailable": "Den här funktionen är inte tillgänglig just nu.",
   "availability.maintenance_title": "Chaput underhålls",
   "availability.maintenance_body": "Vi gör några förbättringar. Försök igen lite senare.",
   "availability.offline_title": "Ingen anslutning",

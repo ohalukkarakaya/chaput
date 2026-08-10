@@ -437,6 +437,7 @@
   "paywall.purchase_network_failed": "Ostopalveluun ei saatu yhteyttä.",
   "paywall.purchase_not_configured": "Ostoja ei ole määritetty tälle koontiversiolle.",
   "paywall.product_not_found": "Tuotetta ei löytynyt kaupasta.",
+  "paywall.shadow_banned_unavailable": "Tämä ominaisuus ei ole juuri nyt saatavilla.",
   "availability.maintenance_title": "Chaput on huollossa",
   "availability.maintenance_body": "Teemme pieniä parannuksia. Yritä myöhemmin uudelleen.",
   "availability.offline_title": "Yhteys katkesi",

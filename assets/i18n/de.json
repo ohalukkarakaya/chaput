@@ -437,6 +437,7 @@
   "paywall.purchase_network_failed": "Verbindung zum Kaufdienst konnte nicht hergestellt werden.",
   "paywall.purchase_not_configured": "Käufe sind für diesen Build nicht konfiguriert.",
   "paywall.product_not_found": "Das Produkt wurde im Store nicht gefunden.",
+  "paywall.shadow_banned_unavailable": "Diese Funktion ist derzeit nicht verfügbar.",
   "availability.maintenance_title": "Chaput wird gewartet",
   "availability.maintenance_body": "Wir nehmen gerade Verbesserungen vor. Bitte versuche es später erneut.",
   "availability.offline_title": "Keine Verbindung",

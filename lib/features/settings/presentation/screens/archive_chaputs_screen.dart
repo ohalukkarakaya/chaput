@@ -29,6 +29,13 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     WidgetRef ref,
     PaywallPurchase purchase,
   ) async {
+    if (ref.read(meControllerProvider).value?.user.isShadowBanned == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.t('paywall.shadow_banned_unavailable'))),
+      );
+      return false;
+    }
+
     try {
       final api = ref.read(billingApiProvider);
       BillingVerifyResult? result;
@@ -76,7 +83,19 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     WidgetRef ref,
     String productId,
   ) async {
-    final userId = ref.read(meControllerProvider).value?.user.userId;
+    final me = ref.read(meControllerProvider).value;
+    if (me?.user.isShadowBanned == true) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.t('paywall.shadow_banned_unavailable')),
+          ),
+        );
+      }
+      return null;
+    }
+
+    final userId = me?.user.userId;
     if (userId == null || userId.isEmpty) {
       developer.log('RevenueCat purchase blocked: missing backend user id');
       if (context.mounted) {
@@ -153,8 +172,23 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     };
   }
 
-  Future<bool> _restorePurchasesWithRevenueCat(WidgetRef ref) async {
-    final userId = ref.read(meControllerProvider).value?.user.userId;
+  Future<bool> _restorePurchasesWithRevenueCat(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final me = ref.read(meControllerProvider).value;
+    if (me?.user.isShadowBanned == true) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.t('paywall.shadow_banned_unavailable')),
+          ),
+        );
+      }
+      return false;
+    }
+
+    final userId = me?.user.userId;
     if (userId != null && userId.isNotEmpty) {
       await RevenueCatService.instance.logInWithBackendUserId(userId);
     }
@@ -175,7 +209,19 @@ class ArchiveChaputsScreen extends ConsumerWidget {
     WidgetRef ref, {
     required PaywallReviveTarget reviveTarget,
   }) async {
-    final me = ref.read(meControllerProvider).value;
+    var me = ref.read(meControllerProvider).value;
+    try {
+      me =
+          await ref.read(meControllerProvider.notifier).fetchAndStoreMe() ?? me;
+    } catch (_) {}
+    if (!context.mounted) return null;
+    if (me?.user.isShadowBanned == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.t('paywall.shadow_banned_unavailable'))),
+      );
+      return null;
+    }
+
     final planType = (me?.subscription.plan ?? 'FREE');
     return showModalBottomSheet<PaywallPurchase>(
       context: context,
@@ -189,7 +235,7 @@ class ArchiveChaputsScreen extends ConsumerWidget {
         reviveTarget: reviveTarget,
         onPurchaseProduct: (productId) =>
             _purchaseWithRevenueCat(context, ref, productId),
-        onRestorePurchases: () => _restorePurchasesWithRevenueCat(ref),
+        onRestorePurchases: () => _restorePurchasesWithRevenueCat(context, ref),
       ),
     );
   }

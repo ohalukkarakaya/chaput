@@ -82,6 +82,11 @@ class MeController extends AsyncNotifier<MeResponse?> {
     final storage = ref.read(tokenStorageProvider);
     await storage.saveUserId(userId);
 
+    if (me.user.isShadowBanned) {
+      await RevenueCatService.instance.logOut();
+      return;
+    }
+
     final result = await RevenueCatService.instance.logInWithBackendUserId(
       userId,
       email: me.user.email,

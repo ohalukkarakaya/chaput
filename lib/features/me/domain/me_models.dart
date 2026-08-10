@@ -17,9 +17,15 @@ class MeResponse {
     return MeResponse(
       ok: json['ok'] == true,
       user: MeUser.fromJson((json['user'] ?? const {}) as Map<String, dynamic>),
-      subscription: MeSubscription.fromJson((json['subscription'] ?? const {}) as Map<String, dynamic>),
-      balances: MeBalances.fromJson((json['balances'] ?? const {}) as Map<String, dynamic>),
-      secretAd: MeSecretAd.fromJson((json['secret_ad'] ?? const {}) as Map<String, dynamic>),
+      subscription: MeSubscription.fromJson(
+        (json['subscription'] ?? const {}) as Map<String, dynamic>,
+      ),
+      balances: MeBalances.fromJson(
+        (json['balances'] ?? const {}) as Map<String, dynamic>,
+      ),
+      secretAd: MeSecretAd.fromJson(
+        (json['secret_ad'] ?? const {}) as Map<String, dynamic>,
+      ),
     );
   }
 }
@@ -35,6 +41,7 @@ class MeUser {
   final int treeId;
   final String? profilePhotoKey;
   final String? profilePhotoUrl;
+  final bool isShadowBanned;
 
   MeUser({
     required this.userId,
@@ -47,6 +54,7 @@ class MeUser {
     required this.treeId,
     required this.profilePhotoKey,
     required this.profilePhotoUrl,
+    required this.isShadowBanned,
   });
 
   factory MeUser.fromJson(Map<String, dynamic> json) {
@@ -61,6 +69,7 @@ class MeUser {
       treeId: (json['tree_id'] ?? 0) as int,
       profilePhotoKey: json['profile_photo_key'] as String?,
       profilePhotoUrl: json['profile_photo_url'] as String?,
+      isShadowBanned: json['is_shadow_banned'] == true,
     );
   }
 }

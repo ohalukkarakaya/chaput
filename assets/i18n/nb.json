@@ -437,6 +437,7 @@
   "paywall.purchase_network_failed": "Kunne ikke koble til kjøpstjenesten.",
   "paywall.purchase_not_configured": "Kjøp er ikke konfigurert for denne versjonen.",
   "paywall.product_not_found": "Produktet ble ikke funnet i butikken.",
+  "paywall.shadow_banned_unavailable": "Denne funksjonen er ikke tilgjengelig akkurat nå.",
   "availability.maintenance_title": "Chaput er under vedlikehold",
   "availability.maintenance_body": "Vi gjør noen forbedringer. Prøv igjen litt senere.",
   "availability.offline_title": "Ingen forbindelse",

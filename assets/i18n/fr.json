@@ -437,6 +437,7 @@
   "paywall.purchase_network_failed": "Impossible de se connecter au service d’achat.",
   "paywall.purchase_not_configured": "Les achats ne sont pas configurés pour cette version.",
   "paywall.product_not_found": "Produit introuvable dans la boutique.",
+  "paywall.shadow_banned_unavailable": "Cette fonctionnalité n’est pas disponible pour le moment.",
   "availability.maintenance_title": "Chaput est en maintenance",
   "availability.maintenance_body": "Nous effectuons quelques améliorations. Réessaie un peu plus tard.",
   "availability.offline_title": "Connexion perdue",

@@ -447,6 +447,7 @@
   "paywall.purchase_network_failed": "Could not connect to the purchase service.",
   "paywall.purchase_not_configured": "Purchases are not configured for this build.",
   "paywall.product_not_found": "Product was not found in the store.",
+  "paywall.shadow_banned_unavailable": "This feature is not available right now.",
   "availability.maintenance_title": "Chaput is under maintenance",
   "availability.maintenance_body": "We are making a few improvements. Please try again later.",
   "availability.offline_title": "Connection lost",
