@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:image/image.dart' as img;
 
 class PreparedPhotoUpload {
   const PreparedPhotoUpload({required this.bytes, required this.filename});
@@ -20,56 +19,40 @@ Future<PreparedPhotoUpload> prepareProfilePhotoUpload(String path) async {
 
 Map<String, Object> _prepareProfilePhotoUpload(String path) {
   final sourceBytes = File(path).readAsBytesSync();
-  final decoded = img.decodeImage(sourceBytes);
-  if (decoded == null) {
+  if (sourceBytes.isEmpty) {
     throw Exception('image_decode_failed');
   }
 
-  final oriented = img.bakeOrientation(decoded);
-  final side = oriented.width < oriented.height
-      ? oriented.width
-      : oriented.height;
-  final x = (oriented.width - side) ~/ 2;
-  final y = (oriented.height - side) ~/ 2;
-
-  img.Image working = img.copyCrop(
-    oriented,
-    x: x,
-    y: y,
-    width: side,
-    height: side,
-  );
-
-  const targetBytes = 420 * 1024;
-  final dimensions = <int>[1024, 896, 768, 640, 512];
-  final qualities = <int>[86, 82, 78, 74, 70, 66, 62, 58];
-
-  Uint8List best = Uint8List(0);
-
-  for (final dimension in dimensions) {
-    if (working.width != dimension) {
-      working = img.copyResize(
-        working,
-        width: dimension,
-        height: dimension,
-        interpolation: img.Interpolation.average,
-      );
-    }
-
-    for (final quality in qualities) {
-      final encoded = img.encodeJpg(working, quality: quality);
-      if (best.isEmpty || encoded.length < best.length) {
-        best = encoded;
-      }
-      if (encoded.length <= targetBytes) {
-        return {'bytes': encoded, 'filename': 'profile_photo.jpg'};
-      }
-    }
+  const maxPreparedUploadBytes = 8 * 1024 * 1024;
+  if (sourceBytes.length > maxPreparedUploadBytes) {
+    throw Exception('file_too_large');
   }
 
-  if (best.isEmpty) {
-    throw Exception('image_encode_failed');
-  }
+  return {'bytes': sourceBytes, 'filename': _uploadFilename(sourceBytes)};
+}
 
-  return {'bytes': best, 'filename': 'profile_photo.jpg'};
+String _uploadFilename(Uint8List bytes) {
+  if (_startsWith(bytes, const [0xFF, 0xD8, 0xFF])) {
+    return 'profile_photo.jpg';
+  }
+  if (_startsWith(bytes, const [0x89, 0x50, 0x4E, 0x47])) {
+    return 'profile_photo.png';
+  }
+  if (_startsWith(bytes, const [0x52, 0x49, 0x46, 0x46]) &&
+      bytes.length >= 12 &&
+      bytes[8] == 0x57 &&
+      bytes[9] == 0x45 &&
+      bytes[10] == 0x42 &&
+      bytes[11] == 0x50) {
+    return 'profile_photo.webp';
+  }
+  return 'profile_photo_upload';
+}
+
+bool _startsWith(Uint8List bytes, List<int> signature) {
+  if (bytes.length < signature.length) return false;
+  for (var i = 0; i < signature.length; i++) {
+    if (bytes[i] != signature[i]) return false;
+  }
+  return true;
 }
