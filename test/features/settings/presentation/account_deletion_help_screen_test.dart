@@ -139,7 +139,7 @@ void main() {
     },
   );
 
-  testWidgets('settings support handles booking exit and success', (
+  testWidgets('settings support closes intro before booking exit and success', (
     tester,
   ) async {
     CalendlyBookingRequest? capturedRequest;
@@ -171,9 +171,11 @@ void main() {
     await tester.tap(find.byKey(_closeBookingKey));
     await tester.pumpAndSettle();
 
-    expect(find.text('Talk to us'), findsOneWidget);
-    expect(find.text('Need help with Chaput?'), findsOneWidget);
+    expect(find.text('settings-screen'), findsOneWidget);
+    expect(find.text('Talk to us'), findsNothing);
 
+    await tester.tap(find.byKey(_openSupportKey));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Book a 10 minute call'));
     await tester.pumpAndSettle();
 

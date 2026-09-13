@@ -28,6 +28,7 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
       CalendlyBookingCompletionGuard();
   bool _initialPageReady = false;
   bool _hasError = false;
+  bool _closingWithoutBooking = false;
   int _progress = 0;
   Timer? _readyFallbackTimer;
 
@@ -93,7 +94,7 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
   }
 
   void _handleCalendlyMessage(String message) {
-    if (!mounted) return;
+    if (!mounted || _closingWithoutBooking) return;
     if (isCalendlyLifecycleEventMessage(message)) {
       _markReady();
     }
@@ -109,7 +110,11 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
   }
 
   void _completeBooking() {
-    if (!_completionGuard.markCompletedOnce() || !mounted) return;
+    if (_closingWithoutBooking ||
+        !_completionGuard.markCompletedOnce() ||
+        !mounted) {
+      return;
+    }
     _readyFallbackTimer?.cancel();
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -132,12 +137,44 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
     switch (widget.request.source) {
       case CalendlyBookingSource.accountDeletion:
         ref.read(accountDeletionFlowControllerProvider.notifier).clear();
-        final userId = ref.read(meControllerProvider).value?.user.userId ?? '';
-        context.go(userId.isEmpty ? Routes.home : Routes.profilePath(userId));
+        context.go(_accountDeletionReturnLocation());
         break;
       case CalendlyBookingSource.settingsSupport:
-        context.pop(true);
+        _returnToSettings(booked: true);
         break;
+    }
+  }
+
+  void _finishWithoutBooking() {
+    if (_closingWithoutBooking || _completionGuard.completed || !mounted) {
+      return;
+    }
+    _closingWithoutBooking = true;
+    _readyFallbackTimer?.cancel();
+
+    switch (widget.request.source) {
+      case CalendlyBookingSource.accountDeletion:
+        ref.read(accountDeletionFlowControllerProvider.notifier).clear();
+        context.go(_accountDeletionReturnLocation());
+        break;
+      case CalendlyBookingSource.settingsSupport:
+        _returnToSettings(booked: false);
+        break;
+    }
+  }
+
+  String _accountDeletionReturnLocation() {
+    final userId = ref.read(meControllerProvider).value?.user.userId.trim();
+    return userId == null || userId.isEmpty
+        ? Routes.home
+        : Routes.profilePath(userId);
+  }
+
+  void _returnToSettings({required bool booked}) {
+    if (context.canPop()) {
+      context.pop(booked);
+    } else {
+      context.go(Routes.settings);
     }
   }
 
@@ -156,43 +193,55 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
     final showLoading = !_hasError && !_initialPageReady;
     final progress = (_progress / 100).clamp(0.08, 1.0).toDouble();
 
-    return Scaffold(
-      backgroundColor: AppColors.chaputLightGrey,
-      appBar: AppBar(
+    return PopScope(
+      canPop: widget.request.source == CalendlyBookingSource.settingsSupport,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _finishWithoutBooking();
+      },
+      child: Scaffold(
         backgroundColor: AppColors.chaputLightGrey,
-        foregroundColor: AppColors.chaputBlack,
-        elevation: 0,
-        title: Text(
-          context.t('settings.delete_help_booking_title'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w800),
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            onPressed: _finishWithoutBooking,
+            icon: const Icon(Icons.chevron_left, size: 30),
+          ),
+          backgroundColor: AppColors.chaputLightGrey,
+          foregroundColor: AppColors.chaputBlack,
+          elevation: 0,
+          title: Text(
+            context.t('settings.delete_help_booking_title'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
         ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (!_hasError)
-              AnimatedOpacity(
-                opacity: _initialPageReady ? 1 : 0,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                child: WebViewWidget(controller: _controller),
-              ),
-            if (showLoading)
-              _BookingLoadingOverlay(
-                progress: progress,
-                label: context.t('settings.delete_help_webview_loading'),
-              ),
-            if (_hasError)
-              _BookingErrorState(
-                onRetry: _retry,
-                title: context.t('settings.delete_help_webview_error_title'),
-                body: context.t('settings.delete_help_webview_error_body'),
-              ),
-          ],
+        body: SafeArea(
+          top: false,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (!_hasError)
+                AnimatedOpacity(
+                  opacity: _initialPageReady ? 1 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  child: WebViewWidget(controller: _controller),
+                ),
+              if (showLoading)
+                _BookingLoadingOverlay(
+                  progress: progress,
+                  label: context.t('settings.delete_help_webview_loading'),
+                ),
+              if (_hasError)
+                _BookingErrorState(
+                  onRetry: _retry,
+                  title: context.t('settings.delete_help_webview_error_title'),
+                  body: context.t('settings.delete_help_webview_error_body'),
+                ),
+            ],
+          ),
         ),
       ),
     );

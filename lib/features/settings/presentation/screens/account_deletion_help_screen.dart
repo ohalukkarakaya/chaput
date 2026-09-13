@@ -8,6 +8,7 @@ import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../me/application/me_controller.dart';
+import '../../application/account_deletion_flow_controller.dart';
 import '../../application/calendly_booking.dart';
 
 class AccountDeletionHelpScreen extends ConsumerStatefulWidget {
@@ -25,28 +26,23 @@ class _AccountDeletionHelpScreenState
   bool _openingBooking = false;
   bool _confirmingDelete = false;
 
-  Future<void> _openBooking() async {
+  void _openBooking() {
     if (_openingBooking) return;
     setState(() => _openingBooking = true);
-    try {
-      HapticFeedback.selectionClick();
-      final user = ref.read(meControllerProvider).value?.user;
-      final uri = buildChaputHelpCalendlyUri(
-        fullName: user?.fullName ?? '',
-        email: user?.email ?? '',
-      );
-      await context.push<void>(
-        Routes.calendlyBooking,
-        extra: CalendlyBookingRequest(
-          source: CalendlyBookingSource.accountDeletion,
-          uri: uri,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _openingBooking = false);
-      }
-    }
+    HapticFeedback.selectionClick();
+    final user = ref.read(meControllerProvider).value?.user;
+    final uri = buildChaputHelpCalendlyUri(
+      fullName: user?.fullName ?? '',
+      email: user?.email ?? '',
+    );
+    ref.read(accountDeletionFlowControllerProvider.notifier).clear();
+    context.go(
+      Routes.calendlyBooking,
+      extra: CalendlyBookingRequest(
+        source: CalendlyBookingSource.accountDeletion,
+        uri: uri,
+      ),
+    );
   }
 
   void _deleteAnyway() {

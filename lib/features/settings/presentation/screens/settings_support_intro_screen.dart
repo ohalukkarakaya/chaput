@@ -22,32 +22,22 @@ class _SettingsSupportIntroScreenState
     extends ConsumerState<SettingsSupportIntroScreen> {
   bool _openingBooking = false;
 
-  Future<void> _openBooking() async {
+  void _openBooking() {
     if (_openingBooking) return;
     setState(() => _openingBooking = true);
-    try {
-      HapticFeedback.selectionClick();
-      final user = ref.read(meControllerProvider).value?.user;
-      final uri = buildChaputHelpCalendlyUri(
-        fullName: user?.fullName ?? '',
-        email: user?.email ?? '',
-      );
-      final booked = await context.push<bool>(
-        Routes.calendlyBooking,
-        extra: CalendlyBookingRequest(
-          source: CalendlyBookingSource.settingsSupport,
-          uri: uri,
-        ),
-      );
-      if (!mounted) return;
-      if (booked == true) {
-        context.pop(true);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _openingBooking = false);
-      }
-    }
+    HapticFeedback.selectionClick();
+    final user = ref.read(meControllerProvider).value?.user;
+    final uri = buildChaputHelpCalendlyUri(
+      fullName: user?.fullName ?? '',
+      email: user?.email ?? '',
+    );
+    context.pushReplacement(
+      Routes.calendlyBooking,
+      extra: CalendlyBookingRequest(
+        source: CalendlyBookingSource.settingsSupport,
+        uri: uri,
+      ),
+    );
   }
 
   @override
