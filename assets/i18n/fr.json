@@ -531,5 +531,21 @@
   "permissions.tracking_title": "Aidez-nous à améliorer Chaput",
   "permissions.tracking_body": "Autorisez le suivi afin que nous comprenions quelles campagnes amènent des personnes sur Chaput et que nous améliorions l’expérience. Votre choix n’affecte pas les fonctionnalités principales.",
   "permissions.tracking_confirm": "Autoriser le suivi",
-  "permissions.not_now": "Pas maintenant"
+  "permissions.not_now": "Pas maintenant",
+  "rps.play": "Pierre, feuille, ciseaux",
+  "rps.choose": "Choisis ton coup",
+  "rps.waiting": "En attente de son choix",
+  "rps.won": "Gagné",
+  "rps.lost": "Perdu",
+  "rps.draw": "Égalité",
+  "rps.rematch": "Revanche",
+  "rps.invite": "t’a invité à pierre, feuille, ciseaux",
+  "rps.result.won": "Tu as gagné à pierre, feuille, ciseaux",
+  "rps.result.lost": "Tu as perdu à pierre, feuille, ciseaux",
+  "rps.result.draw": "Égalité à pierre, feuille, ciseaux",
+  "rps.error": "Impossible d’envoyer ton choix. Réessaie.",
+  "rps.updated": "Cette manche a été mise à jour.",
+  "rps.move.0": "Pierre",
+  "rps.move.1": "Feuille",
+  "rps.move.2": "Ciseaux"
 }

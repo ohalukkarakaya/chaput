@@ -51,6 +51,7 @@ final notificationsControllerProvider =
 
 class NotificationsController extends Notifier<NotificationsState> {
   static const _pageSize = 20;
+  int _realtimeRevision = 0;
 
   UserApi get _userApi => ref.read(userApiProvider);
 
@@ -61,9 +62,13 @@ class NotificationsController extends Notifier<NotificationsState> {
   }
 
   Future<void> _loadInitial() async {
+    final revision = _realtimeRevision;
     try {
       final res = await _fetchPage(cursor: null);
+      if (!ref.mounted) return;
       final users = await _hydrateUsers(_actorIds(res.items));
+      if (!ref.mounted) return;
+      if (revision != _realtimeRevision) return _loadInitial();
       state = state.copyWith(
         isLoading: false,
         error: null,
@@ -73,6 +78,7 @@ class NotificationsController extends Notifier<NotificationsState> {
         hasMore: res.items.length == _pageSize && res.nextCursor != null,
       );
     } catch (e, st) {
+      if (!ref.mounted) return;
       log('notifications initial error: $e', stackTrace: st);
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -121,7 +127,9 @@ class NotificationsController extends Notifier<NotificationsState> {
     try {
       final res = await _fetchPage(cursor: state.nextCursor);
       final merged = [...state.items, ...res.items];
+      if (!ref.mounted) return;
       final users = await _hydrateUsers(_actorIds(res.items));
+      if (!ref.mounted) return;
       final mergedUsers = Map<String, LiteUser>.from(state.usersById);
       mergedUsers.addAll(users);
       state = state.copyWith(
@@ -132,6 +140,7 @@ class NotificationsController extends Notifier<NotificationsState> {
         hasMore: res.items.length == _pageSize && res.nextCursor != null,
       );
     } catch (e, st) {
+      if (!ref.mounted) return;
       log('notifications load more error: $e', stackTrace: st);
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -140,8 +149,29 @@ class NotificationsController extends Notifier<NotificationsState> {
   void addFromSocket(AppNotification notif) {
     final exists = state.items.any((e) => e.id == notif.id);
     if (exists) return;
+    bool sameGame(AppNotification item) =>
+        notif.payload['game_id'] != null &&
+        item.payload['game_id'] == notif.payload['game_id'];
+    int round(AppNotification item) =>
+        (item.payload['round'] as num?)?.toInt() ?? 0;
+    if (notif.type == 'rps_invite' &&
+        state.items.any(
+          (item) =>
+              sameGame(item) &&
+              ((item.type == 'rps_result' && round(item) >= round(notif)) ||
+                  (item.type == 'rps_invite' && round(item) > round(notif))),
+        ))
+      return;
+    _realtimeRevision++;
     final nextItems = state.items
-        .where((e) => !_isSameMessageLikeActor(e, notif))
+        .where(
+          (item) =>
+              !_isSameMessageLikeActor(item, notif) &&
+              !(notif.type.startsWith('rps_') &&
+                  item.type == 'rps_invite' &&
+                  sameGame(item) &&
+                  round(item) <= round(notif)),
+        )
         .toList(growable: false);
     state = state.copyWith(items: [notif, ...nextItems]);
   }
@@ -150,7 +180,7 @@ class NotificationsController extends Notifier<NotificationsState> {
     if (actorId == null || actorId.isEmpty) return;
     if (state.usersById.containsKey(actorId)) return;
     final users = await _hydrateUsers([actorId]);
-    if (users.isEmpty) return;
+    if (!ref.mounted || users.isEmpty) return;
     final merged = Map<String, LiteUser>.from(state.usersById)..addAll(users);
     state = state.copyWith(usersById: merged);
   }
@@ -192,6 +222,7 @@ class NotificationsController extends Notifier<NotificationsState> {
 
   void removeLocal(String id) {
     if (id.isEmpty) return;
+    _realtimeRevision++;
     final nextItems = state.items
         .where((e) => e.id != id)
         .toList(growable: false);

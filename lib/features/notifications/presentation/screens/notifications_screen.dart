@@ -1,3 +1,4 @@
+import '../../../rps/rps_control.dart';
 import 'dart:async';
 
 import 'package:chaput/core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
@@ -374,7 +375,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     if (it.type == 'followed' ||
         it.type == 'follow_approved' ||
-        it.type == 'follow_request') {
+        it.type == 'follow_request' ||
+        it.type == 'rps_invite' ||
+        it.type == 'rps_result') {
       final actorId = it.actorId;
       if (actorId == null || actorId.isEmpty) return;
       await context.push(await Routes.profile(actorId));
@@ -559,6 +562,43 @@ class _NotificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.type == 'rps_result') {
+      final own = (item.payload['own_move'] as num?)?.toInt();
+      final other = (item.payload['other_move'] as num?)?.toInt();
+      return _buildRow(
+        context,
+        rpsMessage: context.t('rps.result.${item.payload['outcome']}'),
+        rpsActions: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            [
+              if (own != null && own >= 0 && own < 3) rpsEmojis[own],
+              '·',
+              if (other != null && other >= 0 && other < 3) rpsEmojis[other],
+            ].join(' '),
+            style: const TextStyle(fontSize: 22),
+          ),
+        ),
+      );
+    }
+    if (item.type == 'rps_invite' && item.actorId != null) {
+      return RpsControl(
+        key: ValueKey(item.id),
+        opponentId: item.actorId!.toLowerCase(),
+        notificationId: item.id,
+        notificationRound: (item.payload['round'] as num?)?.toInt(),
+        notificationLayout: (context, caption, actions) =>
+            _buildRow(context, rpsMessage: caption, rpsActions: actions),
+      );
+    }
+    return _buildRow(context);
+  }
+
+  Widget _buildRow(
+    BuildContext context, {
+    String? rpsMessage,
+    Widget? rpsActions,
+  }) {
     final isAdminGift = item.type == 'admin_gift_granted';
     final title = isAdminGift
         ? context.t('notifications.admin_gift_title')
@@ -570,7 +610,7 @@ class _NotificationRow extends StatelessWidget {
     final isDefault =
         actor?.profilePhotoPath == null || actor?.profilePhotoPath == '';
 
-    final message = _buildMessage(context, item);
+    final message = rpsMessage ?? _buildMessage(context, item);
 
     final bubbleColor = isUnread
         ? AppColors.chaputPaleBlue
@@ -644,7 +684,7 @@ class _NotificationRow extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (item.createdAt != null)
+                        if (rpsActions == null && item.createdAt != null)
                           Text(
                             _timeAgo(context, item.createdAt!),
                             maxLines: 1,
@@ -661,16 +701,28 @@ class _NotificationRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      username == null || username.isEmpty
+                      username == null || username.isEmpty || rpsActions != null
                           ? message
                           : '$message • @$username',
-                      maxLines: 2,
+                      maxLines: rpsActions != null ? 4 : 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.chaputBlack.withValues(alpha: 0.65),
                       ),
                     ),
+                    if (rpsActions != null && item.createdAt != null) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        _timeAgo(context, item.createdAt!),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.chaputBlack.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -687,6 +739,13 @@ class _NotificationRow extends StatelessWidget {
                 )
               else
                 const SizedBox(width: 8),
+              if (rpsActions != null) ...[
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: rpsActions,
+                ),
+              ],
               if (onApprove != null || onReject != null) ...[
                 const SizedBox(width: 8),
                 Row(
@@ -720,6 +779,10 @@ class _NotificationRow extends StatelessWidget {
 
   String _buildMessage(BuildContext context, AppNotification n) {
     switch (n.type) {
+      case 'rps_invite':
+        return context.t('rps.invite');
+      case 'rps_result':
+        return context.t('rps.result.${n.payload['outcome']}');
       case 'followed':
         return context.t('notifications.followed');
       case 'follow_request':

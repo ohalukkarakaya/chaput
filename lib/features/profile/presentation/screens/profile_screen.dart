@@ -1,3 +1,4 @@
+import '../../../rps/rps_control.dart';
 import 'dart:async';
 import 'dart:developer';
 import 'dart:math' as math;
@@ -5877,6 +5878,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     ValueListenableBuilder<double>(
                       valueListenable: _chaputSheetExtentListenable,
                       builder: (context, chaputSheetExtent, _) => Positioned(
+                        left: 14,
                         right: 14,
                         bottom: (chaputThreads.isNotEmpty
                             ? (chaputSheetAvailableHeight * chaputSheetExtent +
@@ -5902,187 +5904,228 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                     (_silhouetteMode &&
                                         !showPrivateFollowSheet) ||
                                     isMe ||
-                                    _chaputThreadCreated ||
-                                    hasOurThread ||
-                                    (chaputThreads.isNotEmpty &&
-                                        chaputSheetExtent >
-                                            _chaputSheetMin +
-                                                _chaputSheetCollapsedTapTolerance))
+                                    chaputSheetExtent > _chaputSheetMin + 0.002)
                                 ? const SizedBox.shrink()
-                                : IgnorePointer(
-                                    ignoring:
-                                        !_threeReady ||
-                                        _reviveFlowBusy ||
-                                        _uiFollowLoading,
-                                    child: BlackGlass(
-                                      radius: 16,
-                                      blur: 10,
-                                      opacity: 0.55,
-                                      borderOpacity: 0.12,
-                                      child: Material(
-                                        type: MaterialType.transparency,
-                                        child: InkWell(
-                                          onTap:
-                                              ((_silhouetteMode &&
-                                                      !showPrivateFollowSheet) ||
-                                                  _composerOpen)
-                                              ? null
-                                              : () async {
-                                                  if (showPrivateFollowSheet) {
-                                                    if (isBlocked ||
-                                                        followButtonDisabled) {
-                                                      return;
-                                                    }
-
-                                                    HapticFeedback.selectionClick();
-
-                                                    setState(() {
-                                                      _uiFollowLoading = true;
-                                                      _uiRequestedFollow = true;
-                                                    });
-
-                                                    try {
-                                                      final ctrl = ref.read(
-                                                        followControllerProvider(
-                                                          username,
-                                                        ).notifier,
-                                                      );
-                                                      await ctrl.follow();
-                                                      unawaited(
-                                                        ChaputSoundService
-                                                            .instance
-                                                            .play(
-                                                              ChaputSoundEffect
-                                                                  .refreshRecommendedUser,
-                                                            ),
-                                                      );
-                                                    } catch (error) {
-                                                      if (!mounted) return;
-                                                      setState(
-                                                        () =>
-                                                            _uiRequestedFollow =
-                                                                null,
-                                                      );
-                                                      _handleFollowActionError(
-                                                        error,
-                                                      );
-                                                    } finally {
-                                                      if (!mounted) return;
-                                                      setState(
-                                                        () => _uiFollowLoading =
-                                                            false,
-                                                      );
-                                                    }
-
-                                                    return;
-                                                  }
-                                                  if (decisionHasArchived &&
-                                                      reviveThreadId.length ==
-                                                          32) {
-                                                    await _handleRevivePressed(
-                                                      threadIdHex:
-                                                          reviveThreadId,
-                                                      profileIdHex:
-                                                          profileIdHex,
-                                                      chaputArgs: chaputArgs,
-                                                      targetUser:
-                                                          targetLiteUser,
-                                                    );
-                                                    return;
-                                                  }
-                                                  if (showBindExhausted) {
-                                                    HapticFeedback.selectionClick();
-                                                    final purchase =
-                                                        await _openPaywall(
-                                                          feature:
-                                                              PaywallFeature
-                                                                  .bind,
-                                                        );
-                                                    if (purchase != null) {
-                                                      final ok =
-                                                          await _verifyPurchaseAndApply(
-                                                            purchase,
-                                                          );
-                                                      if (ok) {
-                                                        _prepareComposer();
-                                                      }
-                                                    }
-                                                    return;
-                                                  }
-                                                  await _handleBindPressed(
-                                                    profileId: profileIdHex,
-                                                  );
-                                                },
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 14,
-                                              vertical: 10,
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Expanded(
+                                        child: RpsControl(
+                                          key: ValueKey('rps-$userId'),
+                                          opponentId: userId.toLowerCase(),
+                                        ),
+                                      ),
+                                      if (!_chaputThreadCreated &&
+                                          !hasOurThread) ...[
+                                        const SizedBox(width: 8),
+                                        ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxWidth: math.min(
+                                              160,
+                                              MediaQuery.sizeOf(context).width *
+                                                  .40,
                                             ),
-                                            child: ConstrainedBox(
-                                              constraints: BoxConstraints(
-                                                maxWidth: math.min(
-                                                  220.0,
-                                                  MediaQuery.sizeOf(
-                                                        context,
-                                                      ).width -
-                                                      56,
-                                                ),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    showPrivateFollowSheet
-                                                        ? (requestAlreadySent
-                                                              ? Icons
-                                                                    .schedule_rounded
-                                                              : Icons
-                                                                    .add_rounded)
-                                                        : decisionHasArchived
-                                                        ? Icons.restore
-                                                        : Icons.draw,
-                                                    size: 18,
-                                                    color:
-                                                        AppColors.chaputWhite,
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Flexible(
-                                                    child: Text(
-                                                      showPrivateFollowSheet
-                                                          ? (requestAlreadySent
-                                                                ? context.t(
-                                                                    'profile.follow_request_sent',
-                                                                  )
-                                                                : context.t(
-                                                                    'profile.follow',
-                                                                  ))
-                                                          : decisionHasArchived
-                                                          ? context.t(
-                                                              'profile.bind.restore_archive',
-                                                            )
-                                                          : context.t(
-                                                              'profile.bind.start_one',
+                                          ),
+                                          child: SizedBox(
+                                            height: 44,
+                                            child: IgnorePointer(
+                                              ignoring:
+                                                  !_threeReady ||
+                                                  _reviveFlowBusy ||
+                                                  _uiFollowLoading,
+                                              child: BlackGlass(
+                                                radius: 16,
+                                                blur: 10,
+                                                opacity: 0.55,
+                                                borderOpacity: 0.12,
+                                                child: Material(
+                                                  type:
+                                                      MaterialType.transparency,
+                                                  child: InkWell(
+                                                    onTap:
+                                                        ((_silhouetteMode &&
+                                                                !showPrivateFollowSheet) ||
+                                                            _composerOpen)
+                                                        ? null
+                                                        : () async {
+                                                            if (showPrivateFollowSheet) {
+                                                              if (isBlocked ||
+                                                                  followButtonDisabled) {
+                                                                return;
+                                                              }
+
+                                                              HapticFeedback.selectionClick();
+
+                                                              setState(() {
+                                                                _uiFollowLoading =
+                                                                    true;
+                                                                _uiRequestedFollow =
+                                                                    true;
+                                                              });
+
+                                                              try {
+                                                                final ctrl = ref.read(
+                                                                  followControllerProvider(
+                                                                    username,
+                                                                  ).notifier,
+                                                                );
+                                                                await ctrl
+                                                                    .follow();
+                                                                unawaited(
+                                                                  ChaputSoundService
+                                                                      .instance
+                                                                      .play(
+                                                                        ChaputSoundEffect
+                                                                            .refreshRecommendedUser,
+                                                                      ),
+                                                                );
+                                                              } catch (error) {
+                                                                if (!mounted)
+                                                                  return;
+                                                                setState(
+                                                                  () =>
+                                                                      _uiRequestedFollow =
+                                                                          null,
+                                                                );
+                                                                _handleFollowActionError(
+                                                                  error,
+                                                                );
+                                                              } finally {
+                                                                if (!mounted)
+                                                                  return;
+                                                                setState(
+                                                                  () =>
+                                                                      _uiFollowLoading =
+                                                                          false,
+                                                                );
+                                                              }
+
+                                                              return;
+                                                            }
+                                                            if (decisionHasArchived &&
+                                                                reviveThreadId
+                                                                        .length ==
+                                                                    32) {
+                                                              await _handleRevivePressed(
+                                                                threadIdHex:
+                                                                    reviveThreadId,
+                                                                profileIdHex:
+                                                                    profileIdHex,
+                                                                chaputArgs:
+                                                                    chaputArgs,
+                                                                targetUser:
+                                                                    targetLiteUser,
+                                                              );
+                                                              return;
+                                                            }
+                                                            if (showBindExhausted) {
+                                                              HapticFeedback.selectionClick();
+                                                              final purchase =
+                                                                  await _openPaywall(
+                                                                    feature:
+                                                                        PaywallFeature
+                                                                            .bind,
+                                                                  );
+                                                              if (purchase !=
+                                                                  null) {
+                                                                final ok =
+                                                                    await _verifyPurchaseAndApply(
+                                                                      purchase,
+                                                                    );
+                                                                if (ok) {
+                                                                  _prepareComposer();
+                                                                }
+                                                              }
+                                                              return;
+                                                            }
+                                                            await _handleBindPressed(
+                                                              profileId:
+                                                                  profileIdHex,
+                                                            );
+                                                          },
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 14,
+                                                            vertical: 10,
+                                                          ),
+                                                      child: ConstrainedBox(
+                                                        constraints:
+                                                            BoxConstraints(
+                                                              maxWidth: math.min(
+                                                                220.0,
+                                                                MediaQuery.sizeOf(
+                                                                      context,
+                                                                    ).width -
+                                                                    56,
+                                                              ),
                                                             ),
-                                                      maxLines: 1,
-                                                      softWrap: false,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: const TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color: AppColors
-                                                            .chaputWhite,
+                                                        child: Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            Icon(
+                                                              showPrivateFollowSheet
+                                                                  ? (requestAlreadySent
+                                                                        ? Icons
+                                                                              .schedule_rounded
+                                                                        : Icons
+                                                                              .add_rounded)
+                                                                  : decisionHasArchived
+                                                                  ? Icons
+                                                                        .restore
+                                                                  : Icons.draw,
+                                                              size: 18,
+                                                              color: AppColors
+                                                                  .chaputWhite,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 8,
+                                                            ),
+                                                            Flexible(
+                                                              child: Text(
+                                                                showPrivateFollowSheet
+                                                                    ? (requestAlreadySent
+                                                                          ? context.t(
+                                                                              'profile.follow_request_sent',
+                                                                            )
+                                                                          : context.t(
+                                                                              'profile.follow',
+                                                                            ))
+                                                                    : decisionHasArchived
+                                                                    ? context.t(
+                                                                        'profile.bind.restore_archive',
+                                                                      )
+                                                                    : context.t(
+                                                                        'profile.bind.start_one',
+                                                                      ),
+                                                                maxLines: 1,
+                                                                softWrap: false,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: const TextStyle(
+                                                                  fontSize: 13,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                  color: AppColors
+                                                                      .chaputWhite,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
-                                                ],
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ),
+                                      ],
+                                    ],
                                   ),
                           ),
                         ),

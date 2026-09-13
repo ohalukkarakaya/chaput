@@ -533,5 +533,21 @@
   "permissions.tracking_title": "Help improve Chaput",
   "permissions.tracking_body": "Allow tracking so we can understand which campaigns bring people to Chaput and improve the experience. Your choice will not affect core features.",
   "permissions.tracking_confirm": "Allow tracking",
-  "permissions.not_now": "Not now"
+  "permissions.not_now": "Not now",
+  "rps.play": "Rock Paper Scissors",
+  "rps.choose": "Choose your move",
+  "rps.waiting": "Waiting for their move",
+  "rps.won": "You won",
+  "rps.lost": "You lost",
+  "rps.draw": "Draw",
+  "rps.rematch": "Rematch",
+  "rps.invite": "invited you to Rock Paper Scissors",
+  "rps.result.won": "You won at Rock Paper Scissors",
+  "rps.result.lost": "You lost at Rock Paper Scissors",
+  "rps.result.draw": "Rock Paper Scissors ended in a draw",
+  "rps.error": "Could not send your move. Please try again.",
+  "rps.updated": "This round has changed. The latest state is shown.",
+  "rps.move.0": "Rock",
+  "rps.move.1": "Paper",
+  "rps.move.2": "Scissors"
 }

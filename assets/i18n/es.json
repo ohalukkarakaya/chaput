@@ -531,5 +531,21 @@
   "permissions.tracking_title": "Ayúdanos a mejorar Chaput",
   "permissions.tracking_body": "Permite el seguimiento para que podamos saber qué campañas llevan personas a Chaput y mejorar la experiencia. Tu decisión no afectará las funciones principales.",
   "permissions.tracking_confirm": "Permitir seguimiento",
-  "permissions.not_now": "Ahora no"
+  "permissions.not_now": "Ahora no",
+  "rps.play": "Piedra, papel o tijera",
+  "rps.choose": "Elige tu jugada",
+  "rps.waiting": "Esperando su jugada",
+  "rps.won": "Ganaste",
+  "rps.lost": "Perdiste",
+  "rps.draw": "Empate",
+  "rps.rematch": "Revancha",
+  "rps.invite": "te invitó a piedra, papel o tijera",
+  "rps.result.won": "Ganaste en piedra, papel o tijera",
+  "rps.result.lost": "Perdiste en piedra, papel o tijera",
+  "rps.result.draw": "Empate en piedra, papel o tijera",
+  "rps.error": "No se pudo enviar tu jugada. Inténtalo de nuevo.",
+  "rps.updated": "Esta ronda se ha actualizado.",
+  "rps.move.0": "Piedra",
+  "rps.move.1": "Papel",
+  "rps.move.2": "Tijera"
 }

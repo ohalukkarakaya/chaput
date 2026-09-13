@@ -531,5 +531,21 @@
   "permissions.tracking_title": "Auta meitä parantamaan Chaputia",
   "permissions.tracking_body": "Salli seuranta, jotta ymmärrämme, mitkä kampanjat tuovat ihmisiä Chaputiin, ja voimme parantaa käyttökokemusta. Valintasi ei vaikuta ydintoimintoihin.",
   "permissions.tracking_confirm": "Salli seuranta",
-  "permissions.not_now": "Ei nyt"
+  "permissions.not_now": "Ei nyt",
+  "rps.play": "Kivi, paperi, sakset",
+  "rps.choose": "Valitse siirtosi",
+  "rps.waiting": "Odotetaan vastustajaa",
+  "rps.won": "Voitit",
+  "rps.lost": "Hävisit",
+  "rps.draw": "Tasapeli",
+  "rps.rematch": "Uusinta",
+  "rps.invite": "kutsui sinut pelaamaan kivi, paperi, sakset",
+  "rps.result.won": "Voitit kivi, paperi, sakset -pelissä",
+  "rps.result.lost": "Hävisit kivi, paperi, sakset -pelissä",
+  "rps.result.draw": "Kivi, paperi, sakset päättyi tasapeliin",
+  "rps.error": "Siirtoasi ei voitu lähettää. Yritä uudelleen.",
+  "rps.updated": "Tämä kierros on päivitetty.",
+  "rps.move.0": "Kivi",
+  "rps.move.1": "Paperi",
+  "rps.move.2": "Sakset"
 }

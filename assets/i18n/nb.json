@@ -531,5 +531,21 @@
   "permissions.tracking_title": "Hjelp oss med å forbedre Chaput",
   "permissions.tracking_body": "Tillat sporing slik at vi kan forstå hvilke kampanjer som bringer folk til Chaput og forbedre opplevelsen. Valget ditt påvirker ikke kjernefunksjonene.",
   "permissions.tracking_confirm": "Tillat sporing",
-  "permissions.not_now": "Ikke nå"
+  "permissions.not_now": "Ikke nå",
+  "rps.play": "Stein, saks, papir",
+  "rps.choose": "Velg ditt trekk",
+  "rps.waiting": "Venter på motspilleren",
+  "rps.won": "Du vant",
+  "rps.lost": "Du tapte",
+  "rps.draw": "Uavgjort",
+  "rps.rematch": "Spill igjen",
+  "rps.invite": "inviterte deg til stein, saks, papir",
+  "rps.result.won": "Du vant i stein, saks, papir",
+  "rps.result.lost": "Du tapte i stein, saks, papir",
+  "rps.result.draw": "Uavgjort i stein, saks, papir",
+  "rps.error": "Kunne ikke sende trekket ditt. Prøv igjen.",
+  "rps.updated": "Denne runden er oppdatert.",
+  "rps.move.0": "Stein",
+  "rps.move.1": "Papir",
+  "rps.move.2": "Saks"
 }

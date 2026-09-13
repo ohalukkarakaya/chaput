@@ -531,5 +531,21 @@
   "permissions.tracking_title": "Hjälp oss att förbättra Chaput",
   "permissions.tracking_body": "Tillåt spårning så att vi kan förstå vilka kampanjer som leder människor till Chaput och förbättra upplevelsen. Ditt val påverkar inte kärnfunktionerna.",
   "permissions.tracking_confirm": "Tillåt spårning",
-  "permissions.not_now": "Inte nu"
+  "permissions.not_now": "Inte nu",
+  "rps.play": "Sten, sax, påse",
+  "rps.choose": "Välj ditt drag",
+  "rps.waiting": "Väntar på motspelaren",
+  "rps.won": "Du vann",
+  "rps.lost": "Du förlorade",
+  "rps.draw": "Oavgjort",
+  "rps.rematch": "Spela igen",
+  "rps.invite": "bjöd in dig till sten, sax, påse",
+  "rps.result.won": "Du vann i sten, sax, påse",
+  "rps.result.lost": "Du förlorade i sten, sax, påse",
+  "rps.result.draw": "Oavgjort i sten, sax, påse",
+  "rps.error": "Kunde inte skicka ditt drag. Försök igen.",
+  "rps.updated": "Den här omgången har uppdaterats.",
+  "rps.move.0": "Sten",
+  "rps.move.1": "Påse",
+  "rps.move.2": "Sax"
 }

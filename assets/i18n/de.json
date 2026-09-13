@@ -531,5 +531,21 @@
   "permissions.tracking_title": "Hilf uns, Chaput zu verbessern",
   "permissions.tracking_body": "Erlaube Tracking, damit wir verstehen, welche Kampagnen Menschen zu Chaput bringen und das Erlebnis verbessern können. Deine Wahl beeinflusst die Kernfunktionen nicht.",
   "permissions.tracking_confirm": "Tracking erlauben",
-  "permissions.not_now": "Jetzt nicht"
+  "permissions.not_now": "Jetzt nicht",
+  "rps.play": "Schere, Stein, Papier",
+  "rps.choose": "Wähle deinen Zug",
+  "rps.waiting": "Warte auf den Gegenzug",
+  "rps.won": "Gewonnen",
+  "rps.lost": "Verloren",
+  "rps.draw": "Unentschieden",
+  "rps.rematch": "Revanche",
+  "rps.invite": "hat dich zu Schere, Stein, Papier eingeladen",
+  "rps.result.won": "Du hast bei Schere, Stein, Papier gewonnen",
+  "rps.result.lost": "Du hast bei Schere, Stein, Papier verloren",
+  "rps.result.draw": "Unentschieden bei Schere, Stein, Papier",
+  "rps.error": "Dein Zug konnte nicht gesendet werden. Versuche es erneut.",
+  "rps.updated": "Diese Runde wurde aktualisiert.",
+  "rps.move.0": "Stein",
+  "rps.move.1": "Papier",
+  "rps.move.2": "Schere"
 }

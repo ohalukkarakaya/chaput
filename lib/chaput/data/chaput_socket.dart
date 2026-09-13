@@ -90,6 +90,7 @@ class ChaputSocketClient {
       }
       _isReady = true;
       _flushSubscriptions();
+      _events.add(ChaputSocketEvent('socket.connected', const {}));
       completer.complete();
     } catch (_) {
       _cleanup();

@@ -74,6 +74,10 @@ DeepLinkTarget? chaputNotificationTargetFromRemoteData(
     return DeepLinkTarget(location: Routes.profilePath(actorId));
   }
 
+  if (type == 'rps_invite' || type == 'rps_result') {
+    return const DeepLinkTarget(location: Routes.notifications);
+  }
+
   if (type == 'admin_gift_granted') {
     return const DeepLinkTarget(location: Routes.notifications);
   }
@@ -328,6 +332,10 @@ class _NotificationLifecycleListenerState
     if (ref.read(meControllerProvider).value == null) return;
     final data = message.data.map((key, value) => MapEntry(key, value));
     _handleNotificationSideEffects(data);
+    if (data['type']?.toString().startsWith('rps_') == true &&
+        ref.exists(notificationsControllerProvider)) {
+      ref.invalidate(notificationsControllerProvider);
+    }
     final unread = _readInt(data['unread_count'] ?? data['badge']);
     if (unread != null) {
       ref
@@ -341,6 +349,13 @@ class _NotificationLifecycleListenerState
   }
 
   void _handleSocketEvent(ChaputSocketEvent ev) {
+    if (ev.type == 'rps.changed' || ev.type == 'socket.connected') {
+      if (ref.exists(notificationsControllerProvider)) {
+        ref.invalidate(notificationsControllerProvider);
+      }
+      ref.invalidate(notificationCountControllerProvider);
+      return;
+    }
     if (ev.type != 'notif.created') return;
     _handleNotificationCreated(ev.data);
   }

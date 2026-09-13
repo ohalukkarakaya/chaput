@@ -533,5 +533,21 @@
   "permissions.tracking_title": "Chaput'u geliştirmemize yardımcı ol",
   "permissions.tracking_body": "Hangi kampanyaların Chaput'a kullanıcı getirdiğini anlamamıza ve deneyimi geliştirmemize izin ver. Tercihin temel özellikleri etkilemez.",
   "permissions.tracking_confirm": "İzlemeye izin ver",
-  "permissions.not_now": "Şimdi değil"
+  "permissions.not_now": "Şimdi değil",
+  "rps.play": "Taş kağıt makas",
+  "rps.choose": "Hamleni seç",
+  "rps.waiting": "Karşı taraf bekleniyor",
+  "rps.won": "Kazandın",
+  "rps.lost": "Kaybettin",
+  "rps.draw": "Berabere",
+  "rps.rematch": "Rövanş",
+  "rps.invite": "seni taş kağıt makasa davet etti",
+  "rps.result.won": "Taş kağıt makasta kazandın",
+  "rps.result.lost": "Taş kağıt makasta kaybettin",
+  "rps.result.draw": "Taş kağıt makasta berabere kaldınız",
+  "rps.error": "Hamlen gönderilemedi. Tekrar dene.",
+  "rps.updated": "Bu tur güncellendi. Son durum gösteriliyor.",
+  "rps.move.0": "Taş",
+  "rps.move.1": "Kağıt",
+  "rps.move.2": "Makas"
 }

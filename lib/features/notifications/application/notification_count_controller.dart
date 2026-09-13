@@ -19,7 +19,7 @@ class NotificationCountController extends Notifier<int> {
   Future<void> _refresh() async {
     try {
       final c = await ref.read(notificationApiProvider).countUnread();
-      state = c;
+      if (ref.mounted) state = c;
     } catch (e, st) {
       log('notif count error: $e', stackTrace: st);
     }

@@ -49,6 +49,18 @@ void main() {
       expect(target?.extra, isNull);
     });
 
+    test('opens the invitation inbox for RPS pushes', () {
+      for (final type in ['rps_invite', 'rps_result']) {
+        expect(
+          chaputNotificationTargetFromRemoteData({
+            'type': type,
+            'actor_id': 'PEER',
+          })?.location,
+          '/notifications',
+        );
+      }
+    });
+
     test('opens notifications for gift notifications', () {
       final target = chaputNotificationTargetFromRemoteData({
         'type': 'admin_gift_granted',
