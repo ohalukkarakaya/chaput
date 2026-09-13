@@ -205,7 +205,10 @@ class ChaputThreadSheet extends ConsumerWidget {
                                     : null);
                             final isHiddenForViewer =
                                 thread.isHidden && !isParticipant;
-                            final otherUser = isHiddenForViewer
+                            final shouldMaskOtherUser =
+                                isHiddenForViewer ||
+                                rawOtherUser?.masked == true;
+                            final otherUser = shouldMaskOtherUser
                                 ? LiteUser(
                                     id: otherId,
                                     username: null,
@@ -217,6 +220,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                                         '',
                                     profilePhotoKey: null,
                                     profilePhotoUrl: null,
+                                    masked: true,
                                   )
                                 : rawOtherUser;
 
@@ -603,11 +607,14 @@ class _SheetPage extends StatelessWidget {
                                   isHidden: thread.isHidden,
                                   isSpecial: thread.isSpecial,
                                   isParticipant: isParticipant,
-                                  otherName: (thread.isHidden && !isParticipant)
+                                  otherName:
+                                      (thread.isHidden && !isParticipant) ||
+                                          otherUser?.masked == true
                                       ? context.t('chat.anonymous_user')
                                       : (otherUser?.fullName ?? ''),
                                   otherUsername:
-                                      (thread.isHidden && !isParticipant)
+                                      (thread.isHidden && !isParticipant) ||
+                                          otherUser?.masked == true
                                       ? null
                                       : otherUser?.username,
                                   onOpenProfile: onOpenProfile,
@@ -766,11 +773,12 @@ class _ThreadPage extends ConsumerWidget {
     final isSpecial = thread.isSpecial;
     final viewerIsStarter = thread.starterId == viewerId;
     final isPending = thread.state == 'PENDING';
+    final isOtherMasked = otherUser?.masked == true;
 
-    final otherName = (isHidden && !isParticipant)
+    final otherName = (isHidden && !isParticipant) || isOtherMasked
         ? context.t('chat.anonymous_user')
         : (otherUser?.fullName ?? '');
-    final otherUsername = (isHidden && !isParticipant)
+    final otherUsername = (isHidden && !isParticipant) || isOtherMasked
         ? null
         : otherUser?.username;
     final canReply = isParticipant && (!isPending || !viewerIsStarter);
@@ -976,6 +984,13 @@ class _ThreadHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final identityHidden =
+        (isHidden && !isParticipant) || otherUser?.masked == true;
+    final displayName = identityHidden
+        ? context.t('chat.anonymous_user')
+        : otherName;
+    final displayUsername = identityHidden ? null : otherUsername;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
       child: Row(
@@ -986,9 +1001,9 @@ class _ThreadHeader extends StatelessWidget {
           _AvatarStack(
             ownerUser: ownerUser,
             otherUser: otherUser,
-            hideOther: isHidden && !isParticipant,
+            hideOther: identityHidden,
             onTap: (id) {
-              if (!(isHidden && !isParticipant)) {
+              if (!identityHidden) {
                 onOpenProfile(id, threadId);
               }
             },
@@ -999,7 +1014,7 @@ class _ThreadHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  otherName,
+                  displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   softWrap: false,
@@ -1009,9 +1024,9 @@ class _ThreadHeader extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                if (otherUsername != null && otherUsername!.isNotEmpty)
+                if (displayUsername != null && displayUsername.isNotEmpty)
                   Text(
-                    '@$otherUsername',
+                    '@$displayUsername',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
@@ -1021,9 +1036,8 @@ class _ThreadHeader extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                if ((otherUsername == null || otherUsername!.isEmpty) &&
-                    isHidden &&
-                    !isParticipant)
+                if ((displayUsername == null || displayUsername.isEmpty) &&
+                    identityHidden)
                   Text(
                     context.t('chat.hidden_user_desc'),
                     maxLines: 1,
@@ -1084,7 +1098,7 @@ class _ThreadHeader extends StatelessWidget {
                 ),
               ),
             ),
-          if (!showHideAction && (isHidden || isSpecial))
+          if (!showHideAction && (isHidden || identityHidden || isSpecial))
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -1097,14 +1111,14 @@ class _ThreadHeader extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (isHidden)
+                  if (isHidden || identityHidden)
                     const Icon(
                       Icons.lock,
                       size: 14,
                       color: AppColors.chaputWhite,
                     ),
                   if (isSpecial) ...[
-                    if (isHidden) const SizedBox(width: 6),
+                    if (isHidden || identityHidden) const SizedBox(width: 6),
                     _SuperBadge(),
                   ],
                 ],
@@ -1912,9 +1926,10 @@ class _MessagesListState extends State<_MessagesList> {
           : senderNorm == ownerNorm;
       final senderUser = _resolveUser(g.senderId);
       final forceDefault =
-          widget.isHidden &&
-          !widget.isParticipant &&
-          senderUser == widget.otherUser;
+          senderUser?.masked == true ||
+          (widget.isHidden &&
+              !widget.isParticipant &&
+              senderUser == widget.otherUser);
       final label = dayLabels[i];
       final groupKey = _keyForGroup(
         g.items.isNotEmpty ? g.items.first.id : g.senderId,

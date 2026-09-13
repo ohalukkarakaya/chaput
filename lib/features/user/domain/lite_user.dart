@@ -6,6 +6,7 @@ class LiteUser {
   final String defaultAvatar;
   final String? profilePhotoKey;
   final String? profilePhotoUrl;
+  final bool masked;
 
   const LiteUser({
     required this.id,
@@ -15,6 +16,7 @@ class LiteUser {
     required this.defaultAvatar,
     required this.profilePhotoKey,
     required this.profilePhotoUrl,
+    this.masked = false,
   });
 
   factory LiteUser.fromJson(Map<String, dynamic> j) {
@@ -26,11 +28,14 @@ class LiteUser {
       defaultAvatar: (j['default_avatar'] ?? true) as String,
       profilePhotoKey: j['profile_photo_key'] as String?,
       profilePhotoUrl: j['profile_photo_url'] as String?,
+      masked: j['masked'] == true,
     );
   }
 
   String? get profilePhotoPath {
-    if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty) return profilePhotoUrl;
+    if (profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty) {
+      return profilePhotoUrl;
+    }
     if (profilePhotoKey != null && profilePhotoKey!.isNotEmpty) {
       if (profilePhotoKey!.contains('/')) return profilePhotoKey;
       return '/uploads/profile_photos/$profilePhotoKey';
