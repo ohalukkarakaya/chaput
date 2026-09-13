@@ -35,7 +35,19 @@ class AccountApi {
   }
 
   Future<void> deleteMeHard({required String reason}) async {
-    final r = await _dio.delete('/me/account', data: {'reason': reason});
+    final Response<dynamic> r;
+    try {
+      r = await _dio.delete('/me/account', data: {'reason': reason});
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (e.response?.statusCode == 404 ||
+          (data is Map && data['error'] == 'user_not_found')) {
+        return;
+      }
+      rethrow;
+    }
+    final status = r.statusCode ?? 0;
+    if (status >= 200 && status < 300) return;
     final data = r.data;
     if (data is Map && data['ok'] == true) return;
     throw DioException(

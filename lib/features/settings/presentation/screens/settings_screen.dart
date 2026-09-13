@@ -17,6 +17,7 @@ import '../../../feedback/presentation/feedback_launcher.dart';
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../me/application/me_controller.dart';
+import '../../../me/data/me_api.dart';
 import '../../../notifications/application/push_token_registrar.dart';
 import '../../../social/application/follow_relationship_override.dart';
 import '../../application/account_controller.dart';
@@ -45,6 +46,58 @@ class SettingsScreen extends ConsumerStatefulWidget {
   static Future<void> _clearLocalSession(WidgetRef ref) async {
     await ref.read(tokenStorageProvider).clear();
     ref.read(followRelationshipOverridesProvider.notifier).clear();
+  }
+
+  static Future<void> _unregisterPushTokenBestEffort(
+    WidgetRef ref, {
+    bool serverSide = true,
+  }) async {
+    try {
+      await ref
+          .read(pushTokenRegistrarProvider)
+          .unregisterCurrentDevice(serverSide: serverSide);
+    } catch (_) {
+      // Account deletion may already have removed the server-side session.
+    }
+  }
+
+  static Future<bool> _shouldExitAfterDeleteError(
+    WidgetRef ref,
+    Object error,
+  ) async {
+    final storage = ref.read(tokenStorageProvider);
+    final access = await storage.readAccessToken();
+    final refresh = await storage.readRefreshToken();
+    if ((access == null || access.isEmpty) &&
+        (refresh == null || refresh.isEmpty)) {
+      return true;
+    }
+    if (error is! DioException) return false;
+
+    final status = error.response?.statusCode;
+    final data = error.response?.data;
+    final code = data is Map ? data['error']?.toString() : null;
+    return status == 401 ||
+        status == 404 ||
+        code == 'user_not_found' ||
+        code == 'invalid_refresh' ||
+        await _currentAccountIsGone(ref);
+  }
+
+  static Future<bool> _currentAccountIsGone(WidgetRef ref) async {
+    try {
+      await ref.read(meApiProvider).getMe();
+      return false;
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      return status == 401 || status == 404;
+    } catch (_) {
+      final storage = ref.read(tokenStorageProvider);
+      final access = await storage.readAccessToken();
+      final refresh = await storage.readRefreshToken();
+      return (access == null || access.isEmpty) &&
+          (refresh == null || refresh.isEmpty);
+    }
   }
 
   @override
@@ -300,11 +353,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   )
                                   .clear();
 
+                              var deleteSucceeded = false;
                               try {
                                 await ref
                                     .read(accountControllerProvider.notifier)
                                     .deleteMeHard(reason: reason);
+                                deleteSucceeded = true;
+                              } catch (error, stackTrace) {
+                                debugPrint(
+                                  'Account delete failed: $error\n$stackTrace',
+                                );
+                                if (await SettingsScreen._shouldExitAfterDeleteError(
+                                  ref,
+                                  error,
+                                )) {
+                                  await _exitDeletedAccount();
+                                  return;
+                                }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        context.t('settings.close_failed'),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                              if (!deleteSucceeded) return;
 
+                              try {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -316,16 +394,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 }
 
                                 if (!context.mounted) return;
-                                await _logoutNow(context, ref);
-                              } catch (_) {
+                                await _exitDeletedAccount();
+                              } catch (error, stackTrace) {
+                                debugPrint(
+                                  'Post-delete logout cleanup failed: '
+                                  '$error\n$stackTrace',
+                                );
+                                try {
+                                  await SettingsScreen._clearLocalSession(ref);
+                                } catch (_) {}
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        context.t('settings.close_failed'),
-                                      ),
-                                    ),
-                                  );
+                                  context.go(Routes.onboarding);
                                 }
                               }
                             },
@@ -334,9 +413,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               final storage = ref.read(tokenStorageProvider);
                               final refresh = await storage.readRefreshToken();
 
-                              await ref
-                                  .read(pushTokenRegistrarProvider)
-                                  .unregisterCurrentDevice();
+                              await SettingsScreen._unregisterPushTokenBestEffort(
+                                ref,
+                              );
 
                               if (refresh == null || refresh.isEmpty) {
                                 await SettingsScreen._clearLocalSession(ref);
@@ -428,11 +507,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _exitDeletedAccount() async {
+    final router = GoRouter.of(context);
+    await SettingsScreen._clearLocalSession(ref);
+    if (!mounted) return;
+    // The delete endpoint already revoked the session and server push tokens.
+    unawaited(
+      SettingsScreen._unregisterPushTokenBestEffort(ref, serverSide: false),
+    );
+    ref.invalidate(meControllerProvider);
+    router.go(Routes.onboarding);
+  }
+
   Future<void> _logoutNow(BuildContext context, WidgetRef ref) async {
     final storage = ref.read(tokenStorageProvider);
     final refresh = await storage.readRefreshToken();
 
-    await ref.read(pushTokenRegistrarProvider).unregisterCurrentDevice();
+    await SettingsScreen._unregisterPushTokenBestEffort(ref);
 
     try {
       if (refresh != null && refresh.isNotEmpty) {
