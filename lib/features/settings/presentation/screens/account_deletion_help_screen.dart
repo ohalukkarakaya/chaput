@@ -36,7 +36,14 @@ class _AccountDeletionHelpScreenState
       email: user?.email ?? '',
     );
     ref.read(accountDeletionFlowControllerProvider.notifier).clear();
-    context.go(
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+    }
+    if (router.canPop()) {
+      router.pop();
+    }
+    router.push(
       Routes.calendlyBooking,
       extra: CalendlyBookingRequest(
         source: CalendlyBookingSource.accountDeletion,

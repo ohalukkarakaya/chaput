@@ -137,7 +137,7 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
     switch (widget.request.source) {
       case CalendlyBookingSource.accountDeletion:
         ref.read(accountDeletionFlowControllerProvider.notifier).clear();
-        context.go(_accountDeletionReturnLocation());
+        _returnToAccountDeletionLanding();
         break;
       case CalendlyBookingSource.settingsSupport:
         _returnToSettings(booked: true);
@@ -155,7 +155,7 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
     switch (widget.request.source) {
       case CalendlyBookingSource.accountDeletion:
         ref.read(accountDeletionFlowControllerProvider.notifier).clear();
-        context.go(_accountDeletionReturnLocation());
+        _returnToAccountDeletionLanding();
         break;
       case CalendlyBookingSource.settingsSupport:
         _returnToSettings(booked: false);
@@ -168,6 +168,14 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
     return userId == null || userId.isEmpty
         ? Routes.home
         : Routes.profilePath(userId);
+  }
+
+  void _returnToAccountDeletionLanding() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(_accountDeletionReturnLocation());
+    }
   }
 
   void _returnToSettings({required bool booked}) {
@@ -194,7 +202,7 @@ class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
     final progress = (_progress / 100).clamp(0.08, 1.0).toDouble();
 
     return PopScope(
-      canPop: widget.request.source == CalendlyBookingSource.settingsSupport,
+      canPop: true,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         _finishWithoutBooking();
