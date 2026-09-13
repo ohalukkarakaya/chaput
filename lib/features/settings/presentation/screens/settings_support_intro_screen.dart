@@ -10,20 +10,17 @@ import '../../../../core/ui/responsive/chaput_responsive.dart';
 import '../../../me/application/me_controller.dart';
 import '../../application/calendly_booking.dart';
 
-class AccountDeletionHelpScreen extends ConsumerStatefulWidget {
-  const AccountDeletionHelpScreen({super.key, required this.reason});
-
-  final String reason;
+class SettingsSupportIntroScreen extends ConsumerStatefulWidget {
+  const SettingsSupportIntroScreen({super.key});
 
   @override
-  ConsumerState<AccountDeletionHelpScreen> createState() =>
-      _AccountDeletionHelpScreenState();
+  ConsumerState<SettingsSupportIntroScreen> createState() =>
+      _SettingsSupportIntroScreenState();
 }
 
-class _AccountDeletionHelpScreenState
-    extends ConsumerState<AccountDeletionHelpScreen> {
+class _SettingsSupportIntroScreenState
+    extends ConsumerState<SettingsSupportIntroScreen> {
   bool _openingBooking = false;
-  bool _confirmingDelete = false;
 
   Future<void> _openBooking() async {
     if (_openingBooking) return;
@@ -35,13 +32,17 @@ class _AccountDeletionHelpScreenState
         fullName: user?.fullName ?? '',
         email: user?.email ?? '',
       );
-      await context.push<void>(
+      final booked = await context.push<bool>(
         Routes.calendlyBooking,
         extra: CalendlyBookingRequest(
-          source: CalendlyBookingSource.accountDeletion,
+          source: CalendlyBookingSource.settingsSupport,
           uri: uri,
         ),
       );
+      if (!mounted) return;
+      if (booked == true) {
+        context.pop(true);
+      }
     } finally {
       if (mounted) {
         setState(() => _openingBooking = false);
@@ -49,17 +50,9 @@ class _AccountDeletionHelpScreenState
     }
   }
 
-  void _deleteAnyway() {
-    if (_confirmingDelete) return;
-    setState(() => _confirmingDelete = true);
-    HapticFeedback.mediumImpact();
-    context.pop(true);
-  }
-
   @override
   Widget build(BuildContext context) {
     final responsive = context.responsive;
-    final canDelete = widget.reason.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.chaputLightGrey,
@@ -97,8 +90,7 @@ class _AccountDeletionHelpScreenState
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              context.t('settings.delete_help_title'),
-                              textAlign: TextAlign.left,
+                              context.t('settings.support_intro_title'),
                               style: const TextStyle(
                                 fontSize: 30,
                                 fontWeight: FontWeight.w900,
@@ -107,7 +99,7 @@ class _AccountDeletionHelpScreenState
                             ),
                             const SizedBox(height: 18),
                             Text(
-                              context.t('settings.delete_help_intro'),
+                              context.t('settings.support_intro_question'),
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
@@ -116,7 +108,7 @@ class _AccountDeletionHelpScreenState
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              context.t('settings.delete_help_body'),
+                              context.t('settings.support_intro_body'),
                               style: TextStyle(
                                 color: AppColors.chaputBlack.withValues(
                                   alpha: 0.66,
@@ -156,7 +148,7 @@ class _AccountDeletionHelpScreenState
                                   ),
                                 ),
                                 child: Text(
-                                  context.t('settings.delete_help_book'),
+                                  context.t('settings.support_intro_book'),
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w900,
@@ -166,20 +158,18 @@ class _AccountDeletionHelpScreenState
                             ),
                             const SizedBox(height: 12),
                             TextButton(
-                              onPressed: _confirmingDelete || !canDelete
-                                  ? null
-                                  : _deleteAnyway,
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                Navigator.of(context).maybePop();
+                              },
                               style: TextButton.styleFrom(
-                                foregroundColor: AppColors.chaputErrorRed,
-                                disabledForegroundColor: AppColors
-                                    .chaputErrorRed
-                                    .withValues(alpha: 0.36),
+                                foregroundColor: AppColors.chaputBlack,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
                                 ),
                               ),
                               child: Text(
-                                context.t('settings.delete_help_delete_anyway'),
+                                context.t('settings.support_intro_not_now'),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,

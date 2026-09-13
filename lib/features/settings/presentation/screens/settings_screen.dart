@@ -20,6 +20,7 @@ import '../../../me/application/me_controller.dart';
 import '../../../notifications/application/push_token_registrar.dart';
 import '../../../social/application/follow_relationship_override.dart';
 import '../../application/account_controller.dart';
+import '../../application/account_deletion_flow_controller.dart';
 import 'archive_chaputs_screen.dart';
 import 'blocked_restricted_screen.dart';
 import 'email_change_screen.dart';
@@ -147,6 +148,10 @@ class SettingsScreen extends ConsumerWidget {
                                 triggerSource: 'settings',
                               );
                             },
+                            onOpenSupport: () async {
+                              HapticFeedback.selectionClick();
+                              await context.push<bool>(Routes.settingsSupport);
+                            },
                             onPauseAccount: () async {
                               if (username.isEmpty) {
                                 if (context.mounted) {
@@ -232,12 +237,32 @@ class SettingsScreen extends ConsumerWidget {
                               if (reason == null) return;
                               if (!context.mounted) return;
 
+                              ref
+                                  .read(
+                                    accountDeletionFlowControllerProvider
+                                        .notifier,
+                                  )
+                                  .setPending(reason: reason);
                               final shouldDelete = await context.push<bool>(
                                 Routes.accountDeletionHelp,
                                 extra: {'reason': reason},
                               );
-                              if (shouldDelete != true) return;
                               if (!context.mounted) return;
+                              if (shouldDelete != true) {
+                                ref
+                                    .read(
+                                      accountDeletionFlowControllerProvider
+                                          .notifier,
+                                    )
+                                    .clear();
+                                return;
+                              }
+                              ref
+                                  .read(
+                                    accountDeletionFlowControllerProvider
+                                        .notifier,
+                                  )
+                                  .clear();
 
                               try {
                                 await ref
@@ -802,6 +827,7 @@ class _SettingsContent extends StatelessWidget {
   final VoidCallback onOpenPrivacy;
   final VoidCallback onOpenArchive;
   final VoidCallback onOpenFeedback;
+  final VoidCallback onOpenSupport;
   final VoidCallback onPauseAccount;
   final VoidCallback onCloseAccount;
   final VoidCallback onLogout;
@@ -817,6 +843,7 @@ class _SettingsContent extends StatelessWidget {
     required this.onOpenPrivacy,
     required this.onOpenArchive,
     required this.onOpenFeedback,
+    required this.onOpenSupport,
     required this.onPauseAccount,
     required this.onCloseAccount,
     required this.onLogout,
@@ -971,6 +998,13 @@ class _SettingsContent extends StatelessWidget {
                 title: context.t('settings.row_feedback'),
                 subtitle: context.t('settings.row_feedback_sub'),
                 onTap: onOpenFeedback,
+              ),
+              const SizedBox(height: 8),
+              _SettingsRow(
+                icon: Icons.support_agent_outlined,
+                title: context.t('settings.row_live_support'),
+                subtitle: context.t('settings.row_live_support_sub'),
+                onTap: onOpenSupport,
               ),
 
               const SizedBox(height: 18),

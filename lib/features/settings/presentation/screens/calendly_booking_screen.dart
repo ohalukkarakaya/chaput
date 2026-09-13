@@ -1,25 +1,35 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../../core/router/routes.dart';
+import '../../../me/application/me_controller.dart';
+import '../../application/account_deletion_flow_controller.dart';
+import '../../application/calendly_booking.dart';
 
-class AccountDeletionBookingScreen extends StatefulWidget {
-  const AccountDeletionBookingScreen({super.key, required this.initialUri});
+class CalendlyBookingScreen extends ConsumerStatefulWidget {
+  const CalendlyBookingScreen({super.key, required this.request});
 
-  final Uri initialUri;
+  final CalendlyBookingRequest request;
 
   @override
-  State<AccountDeletionBookingScreen> createState() =>
-      _AccountDeletionBookingScreenState();
+  ConsumerState<CalendlyBookingScreen> createState() =>
+      _CalendlyBookingScreenState();
 }
 
-class _AccountDeletionBookingScreenState
-    extends State<AccountDeletionBookingScreen> {
+class _CalendlyBookingScreenState extends ConsumerState<CalendlyBookingScreen> {
   late final WebViewController _controller;
+  final CalendlyBookingCompletionGuard _completionGuard =
+      CalendlyBookingCompletionGuard();
   bool _initialPageReady = false;
   bool _hasError = false;
   int _progress = 0;
+  Timer? _readyFallbackTimer;
 
   @override
   void initState() {
@@ -27,10 +37,17 @@ class _AccountDeletionBookingScreenState
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(AppColors.chaputLightGrey)
+      ..addJavaScriptChannel(
+        'ChaputCalendly',
+        onMessageReceived: (message) {
+          _handleCalendlyMessage(message.message);
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
             if (!mounted) return;
+            _readyFallbackTimer?.cancel();
             setState(() {
               _hasError = false;
               _initialPageReady = false;
@@ -43,13 +60,21 @@ class _AccountDeletionBookingScreenState
           },
           onPageFinished: (_) {
             if (!mounted || _hasError) return;
-            setState(() {
-              _progress = 100;
-              _initialPageReady = true;
+            setState(() => _progress = 100);
+            _readyFallbackTimer?.cancel();
+            _readyFallbackTimer = Timer(const Duration(milliseconds: 1800), () {
+              if (!mounted || _hasError || _completionGuard.completed) return;
+              _markReady();
             });
           },
           onWebResourceError: (error) {
-            if (error.isForMainFrame == false || !mounted) return;
+            if (!mounted) return;
+            final failedUrl = error.url ?? '';
+            final calendlyAssetFailed =
+                failedUrl.contains('calendly.com') ||
+                failedUrl.contains('assets.calendly.com');
+            if (error.isForMainFrame == false && !calendlyAssetFailed) return;
+            _readyFallbackTimer?.cancel();
             setState(() {
               _hasError = true;
               _initialPageReady = false;
@@ -58,16 +83,72 @@ class _AccountDeletionBookingScreenState
           },
         ),
       )
-      ..loadRequest(widget.initialUri);
+      ..loadHtmlString(buildCalendlyEmbedHtml(widget.request.uri));
+  }
+
+  @override
+  void dispose() {
+    _readyFallbackTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleCalendlyMessage(String message) {
+    if (!mounted) return;
+    if (isCalendlyLifecycleEventMessage(message)) {
+      _markReady();
+    }
+    if (isCalendlyScheduledEventMessage(message)) {
+      _completeBooking();
+    }
+  }
+
+  void _markReady() {
+    if (_initialPageReady || _hasError || !mounted) return;
+    _readyFallbackTimer?.cancel();
+    setState(() => _initialPageReady = true);
+  }
+
+  void _completeBooking() {
+    if (!_completionGuard.markCompletedOnce() || !mounted) return;
+    _readyFallbackTimer?.cancel();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.t('settings.support_booked_title'),
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 2),
+            Text(context.t('settings.support_booked_body')),
+          ],
+        ),
+      ),
+    );
+
+    switch (widget.request.source) {
+      case CalendlyBookingSource.accountDeletion:
+        ref.read(accountDeletionFlowControllerProvider.notifier).clear();
+        final userId = ref.read(meControllerProvider).value?.user.userId ?? '';
+        context.go(userId.isEmpty ? Routes.home : Routes.profilePath(userId));
+        break;
+      case CalendlyBookingSource.settingsSupport:
+        context.pop(true);
+        break;
+    }
   }
 
   void _retry() {
+    _readyFallbackTimer?.cancel();
     setState(() {
       _hasError = false;
       _initialPageReady = false;
       _progress = 0;
     });
-    _controller.loadRequest(widget.initialUri);
+    _controller.loadHtmlString(buildCalendlyEmbedHtml(widget.request.uri));
   }
 
   @override

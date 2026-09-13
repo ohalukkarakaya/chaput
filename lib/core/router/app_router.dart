@@ -11,9 +11,11 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_username_redirect_screen.dart';
 import '../../features/profile/domain/profile_preview.dart';
-import '../../features/settings/presentation/screens/account_deletion_booking_screen.dart';
+import '../../features/settings/application/calendly_booking.dart';
 import '../../features/settings/presentation/screens/account_deletion_help_screen.dart';
+import '../../features/settings/presentation/screens/calendly_booking_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/settings/presentation/screens/settings_support_intro_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../legal/legal_documents.dart';
 import '../legal/legal_webview_screen.dart';
@@ -167,6 +169,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             _fadePage(state: state, child: const SettingsScreen()),
       ),
       GoRoute(
+        path: Routes.settingsSupport,
+        pageBuilder: (context, state) =>
+            _fadePage(state: state, child: const SettingsSupportIntroScreen()),
+      ),
+      GoRoute(
         path: Routes.accountDeletionHelp,
         pageBuilder: (context, state) {
           var reason = '';
@@ -181,20 +188,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: Routes.accountDeletionBooking,
+        path: Routes.calendlyBooking,
         pageBuilder: (context, state) {
-          var uri = Uri.parse(kChaputHelpCalendlyUrl);
+          var request = CalendlyBookingRequest(
+            source: CalendlyBookingSource.settingsSupport,
+            uri: Uri.parse(kChaputHelpCalendlyUrl),
+          );
           final extra = state.extra;
-          if (extra is Map) {
-            final rawUrl = extra['url']?.toString() ?? '';
-            final parsed = Uri.tryParse(rawUrl);
-            if (parsed != null && parsed.hasScheme) {
-              uri = parsed;
-            }
+          if (extra is CalendlyBookingRequest) {
+            request = extra;
           }
           return _fadePage(
             state: state,
-            child: AccountDeletionBookingScreen(initialUri: uri),
+            child: CalendlyBookingScreen(request: request),
           );
         },
       ),
