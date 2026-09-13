@@ -1095,6 +1095,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       return;
     }
 
+    // The tree renderer is recreated after a covered route.
+    // Make the currently focused thread eligible for the normal
+    // focus pipeline again so its anchor is restored correctly.
+    if (_focusAnchor != null && _focusedThreadId != null) {
+      _focusedThreadId = null;
+    }
+
     // A surface whose setup finished while this route was covered never
     // reached a usable frame. Recreate it instead of resuming an incomplete
     // ANGLE scene with stale GPU resources.
@@ -1106,6 +1113,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _lastTreeId = null;
     final treeId = ref.read(profileControllerProvider(widget.userId)).treeId;
     if (treeId == null || treeId.isEmpty) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _isDisposed || _treeSuspendedForCoveredRoute) return;
       _createThreeIfNeeded(treeId);
