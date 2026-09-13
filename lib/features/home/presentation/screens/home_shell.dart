@@ -14,11 +14,14 @@ import '../../../../core/router/routes.dart';
 import '../../../../core/app_availability/app_update_service.dart';
 import '../../../../core/ui/backgrounds/animated_mesh_background.dart';
 import '../../../../core/ui/responsive/chaput_responsive.dart';
+import '../../../../core/ui/widgets/chaput_action_prompt_sheet.dart';
+import '../../../../core/storage/profile_photo_prompt_storage.dart';
 import '../../../../core/storage/tutorial_storage.dart';
 import '../../../../core/review/app_review_service.dart';
 
 import '../../../helpers/string_helpers/format_full_name.dart';
 import '../../../me/application/me_controller.dart';
+import '../../../me/domain/me_models.dart';
 import '../../../notifications/application/notification_badge_service.dart';
 import '../../../notifications/application/notification_count_controller.dart';
 import '../../../notifications/data/notification_api_provider.dart';
@@ -63,6 +66,10 @@ class _HomeShellState extends ConsumerState<HomeShell>
   bool _notificationsBooted = false;
   bool _notificationsBootScheduled = false;
   bool _pendingDeepLinkOpenScheduled = false;
+  bool _profilePhotoPromptCheckQueued = false;
+  bool _profilePhotoPromptCheckInFlight = false;
+  bool _profilePhotoPromptSheetActive = false;
+  String _profilePhotoPromptStateSignature = '';
   bool _reviewPromptScheduled = false;
   bool _reviewPromptCheckInFlight = false;
   bool _homeIntroStarted = false;
@@ -161,7 +168,12 @@ class _HomeShellState extends ConsumerState<HomeShell>
       final showFeedback =
           !_homeFeedbackCompletedInMemory &&
           await storage.shouldShow(expectedUserId, 'home_feedback_gesture');
-      if (!showFeedback || !_isCurrentHomeTutorialUser(expectedUserId)) return;
+      if (!showFeedback || !_isCurrentHomeTutorialUser(expectedUserId)) {
+        if (_isCurrentHomeTutorialUser(expectedUserId)) {
+          _queueProfilePhotoPromptCheck();
+        }
+        return;
+      }
 
       _homeFeedbackTutorialActive = true;
       await _showFeedbackGestureTutorial();
@@ -169,6 +181,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
 
       _homeFeedbackCompletedInMemory = true;
       await storage.markShown(expectedUserId, 'home_feedback_gesture');
+      _queueProfilePhotoPromptCheck();
     } finally {
       if (_homeTutorialUserId == expectedUserId) {
         _homeTutorialCheckInFlight = false;
@@ -179,6 +192,108 @@ class _HomeShellState extends ConsumerState<HomeShell>
 
   bool _isCurrentHomeTutorialUser(String userId) {
     return mounted && userId == _homeTutorialUserId;
+  }
+
+  bool _hasUploadedProfilePhoto(MeResponse me) {
+    final key = me.user.profilePhotoKey?.trim() ?? '';
+    final url = me.user.profilePhotoUrl?.trim() ?? '';
+    return key.isNotEmpty || url.isNotEmpty;
+  }
+
+  void _syncProfilePhotoPromptState(MeResponse me) {
+    final hasProfilePhoto = _hasUploadedProfilePhoto(me);
+    final signature =
+        '${me.user.userId}|${hasProfilePhoto ? 1 : 0}|${me.user.profilePhotoKey ?? ''}|${me.user.profilePhotoUrl ?? ''}';
+    if (signature == _profilePhotoPromptStateSignature) return;
+    _profilePhotoPromptStateSignature = signature;
+
+    unawaited(
+      ref
+          .read(profilePhotoPromptStorageProvider)
+          .recordPhotoState(me.user.userId, hasProfilePhoto: hasProfilePhoto),
+    );
+    _queueProfilePhotoPromptCheck();
+  }
+
+  void _queueProfilePhotoPromptCheck() {
+    if (_profilePhotoPromptCheckQueued || !mounted) return;
+    _profilePhotoPromptCheckQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _profilePhotoPromptCheckQueued = false;
+      if (!mounted) return;
+      unawaited(_tryShowProfilePhotoPrompt());
+    });
+  }
+
+  Future<void> _tryShowProfilePhotoPrompt() async {
+    if (_profilePhotoPromptCheckInFlight ||
+        _profilePhotoPromptSheetActive ||
+        _homeRecommendationTutorialActive ||
+        _homeFeedbackTutorialActive ||
+        _homeIntroCtrl.status != AnimationStatus.completed ||
+        _isHomeShowcaseRunning()) {
+      return;
+    }
+
+    final me = ref.read(meControllerProvider).value;
+    if (me == null) return;
+    final userId = me.user.userId;
+    if (userId.isEmpty || _hasUploadedProfilePhoto(me)) return;
+    if (ref.read(pendingDeepLinkProvider) != null) return;
+    if (ref.read(appAvailabilityProvider).blocksApp) return;
+
+    _profilePhotoPromptCheckInFlight = true;
+    try {
+      final tutorialStorage = ref.read(tutorialStorageProvider);
+      final hasPendingTutorial =
+          await tutorialStorage.shouldShow(userId, 'home_recommended') ||
+          await tutorialStorage.shouldShow(userId, 'home_feedback_gesture');
+      if (!mounted || hasPendingTutorial) return;
+
+      final promptStorage = ref.read(profilePhotoPromptStorageProvider);
+      final shouldPrompt = await promptStorage.shouldPrompt(
+        userId,
+        hasProfilePhoto: false,
+      );
+      if (!mounted || !shouldPrompt) return;
+      if (ref.read(pendingDeepLinkProvider) != null) return;
+      if (ref.read(appAvailabilityProvider).blocksApp) return;
+
+      _profilePhotoPromptSheetActive = true;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+
+      final confirmed = await showChaputActionPromptSheet(
+        context,
+        title: context.t('profile_photo_prompt.title'),
+        body: context.t('profile_photo_prompt.body'),
+        confirmLabel: context.t('profile_photo_prompt.confirm'),
+        cancelLabel: context.t('profile_photo_prompt.cancel'),
+      );
+      await promptStorage.markPromptShown(userId);
+      if (!mounted || !confirmed) return;
+
+      final route = await Routes.profile(userId);
+      if (!mounted) return;
+      context.push(
+        route,
+        extra: {
+          profilePreviewExtraKey: ProfilePreview(
+            id: me.user.userId,
+            username: me.user.username.isEmpty ? null : me.user.username,
+            fullName: me.user.fullName,
+            defaultAvatar: me.user.defaultAvatar ?? '',
+            profilePhotoKey: me.user.profilePhotoKey,
+            profilePhotoUrl: me.user.profilePhotoUrl,
+            isPublic: true,
+          ),
+          Routes.openPhotoSettingsExtraKey: true,
+        },
+      );
+    } finally {
+      _profilePhotoPromptCheckInFlight = false;
+      _profilePhotoPromptSheetActive = false;
+    }
   }
 
   bool _isHomeShowcaseRunning() {
@@ -291,6 +406,11 @@ class _HomeShellState extends ConsumerState<HomeShell>
 
   Future<void> _scheduleReviewPrompt(String userId) async {
     if (_reviewPromptCheckInFlight || _reviewPromptScheduled) return;
+    if (_profilePhotoPromptCheckQueued ||
+        _profilePhotoPromptCheckInFlight ||
+        _profilePhotoPromptSheetActive) {
+      return;
+    }
     _reviewPromptCheckInFlight = true;
 
     final tutorialStorage = ref.read(tutorialStorageProvider);
@@ -321,6 +441,11 @@ class _HomeShellState extends ConsumerState<HomeShell>
         if (!mounted) return;
         if (ref.read(pendingDeepLinkProvider) != null) return;
         if (ref.read(appAvailabilityProvider).blocksApp) return;
+        if (_profilePhotoPromptCheckQueued ||
+            _profilePhotoPromptCheckInFlight ||
+            _profilePhotoPromptSheetActive) {
+          return;
+        }
 
         final action = await showAppReviewPromptSheet(context);
         if (!mounted) return;
@@ -505,12 +630,16 @@ class _HomeShellState extends ConsumerState<HomeShell>
           recommendationDataSettled:
               recommendationState.hasValue || recommendationState.hasError,
         );
+        _syncProfilePhotoPromptState(me);
         _scheduleNotificationsBoot();
         if (ref.watch(pendingDeepLinkProvider) != null) {
           _schedulePendingDeepLinkOpen();
         }
         if (!_reviewPromptScheduled &&
             !_reviewPromptCheckInFlight &&
+            !_profilePhotoPromptCheckQueued &&
+            !_profilePhotoPromptCheckInFlight &&
+            !_profilePhotoPromptSheetActive &&
             meId.isNotEmpty &&
             ref.read(pendingDeepLinkProvider) == null) {
           unawaited(_scheduleReviewPrompt(meId));

@@ -29,8 +29,10 @@ import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import 'package:chaput/core/router/routes.dart';
 
-class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+class SettingsScreen extends ConsumerStatefulWidget {
+  const SettingsScreen({super.key, this.openPhotoOnStart = false});
+
+  final bool openPhotoOnStart;
 
   static const int _closeReasonMinLength = 12;
 
@@ -46,7 +48,41 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _photoIntentScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _schedulePhotoIntentIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.openPhotoOnStart && widget.openPhotoOnStart) {
+      _photoIntentScheduled = false;
+      _schedulePhotoIntentIfNeeded();
+    }
+  }
+
+  void _schedulePhotoIntentIfNeeded() {
+    if (!widget.openPhotoOnStart || _photoIntentScheduled) return;
+    _photoIntentScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 240));
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const PhotoSettingsScreen()),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final meAsync = ref.watch(meControllerProvider);
 
     final mq = MediaQuery.of(context);
@@ -185,15 +221,14 @@ class SettingsScreen extends ConsumerWidget {
                                     .read(accountControllerProvider.notifier)
                                     .freezeMe();
 
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        context.t('settings.pause_success'),
-                                      ),
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      context.t('settings.pause_success'),
                                     ),
-                                  );
-                                }
+                                  ),
+                                );
 
                                 await _logoutNow(context, ref);
                               } catch (_) {
@@ -232,7 +267,8 @@ class SettingsScreen extends ConsumerWidget {
                                 confirmLabel: context.t(
                                   'settings.close_confirm',
                                 ),
-                                minReasonLength: _closeReasonMinLength,
+                                minReasonLength:
+                                    SettingsScreen._closeReasonMinLength,
                               );
                               if (reason == null) return;
                               if (!context.mounted) return;
@@ -294,7 +330,7 @@ class SettingsScreen extends ConsumerWidget {
                               }
                             },
                             onLogout: () async {
-                              await _playDoubleTapHaptic();
+                              await SettingsScreen._playDoubleTapHaptic();
                               final storage = ref.read(tokenStorageProvider);
                               final refresh = await storage.readRefreshToken();
 
@@ -303,7 +339,7 @@ class SettingsScreen extends ConsumerWidget {
                                   .unregisterCurrentDevice();
 
                               if (refresh == null || refresh.isEmpty) {
-                                await _clearLocalSession(ref);
+                                await SettingsScreen._clearLocalSession(ref);
                                 if (context.mounted) {
                                   context.go(Routes.onboarding);
                                 }
@@ -314,17 +350,17 @@ class SettingsScreen extends ConsumerWidget {
                                 final api = ref.read(authApiProvider);
                                 await api.logout(refreshToken: refresh);
 
-                                await _clearLocalSession(ref);
+                                await SettingsScreen._clearLocalSession(ref);
                                 if (context.mounted) {
                                   context.go(Routes.onboarding);
                                 }
                               } on DioException {
-                                await _clearLocalSession(ref);
+                                await SettingsScreen._clearLocalSession(ref);
                                 if (context.mounted) {
                                   context.go(Routes.onboarding);
                                 }
                               } catch (_) {
-                                await _clearLocalSession(ref);
+                                await SettingsScreen._clearLocalSession(ref);
                                 if (context.mounted) {
                                   context.go(Routes.onboarding);
                                 }
@@ -407,7 +443,7 @@ class SettingsScreen extends ConsumerWidget {
       // ignore
     }
 
-    await _clearLocalSession(ref);
+    await SettingsScreen._clearLocalSession(ref);
     if (context.mounted) context.go(Routes.onboarding);
   }
 }

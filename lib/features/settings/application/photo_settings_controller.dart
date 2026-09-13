@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../me/application/me_controller.dart';
+import '../../../core/storage/profile_photo_prompt_storage.dart';
 import '../../user/application/profile_controller.dart';
 import 'photo_upload_preparer.dart';
 import '../data/settings_api.dart';
@@ -140,6 +141,9 @@ class PhotoSettingsController extends Notifier<PhotoSettingsState> {
 
       final meId = _loggedInUserId();
       if (meId != null && meId.isNotEmpty) {
+        await ref
+            .read(profilePhotoPromptStorageProvider)
+            .markPhotoUploaded(meId);
         ref.invalidate(profileControllerProvider(meId));
       }
 
@@ -179,6 +183,9 @@ class PhotoSettingsController extends Notifier<PhotoSettingsState> {
       await ref.read(meControllerProvider.notifier).fetchAndStoreMe();
       final meId = _loggedInUserId();
       if (meId != null && meId.isNotEmpty) {
+        await ref
+            .read(profilePhotoPromptStorageProvider)
+            .markPhotoRemoved(meId);
         ref.invalidate(profileControllerProvider(meId));
       }
       state = state.copyWith(

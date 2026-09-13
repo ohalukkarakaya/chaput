@@ -80,12 +80,14 @@ class ProfileScreen extends ConsumerStatefulWidget {
     this.initialThreadId,
     this.initialMessageId,
     this.initialProfilePreview,
+    this.openPhotoSettingsOnStart = false,
   });
 
   final String userId;
   final String? initialThreadId;
   final String? initialMessageId;
   final ProfilePreview? initialProfilePreview;
+  final bool openPhotoSettingsOnStart;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -149,6 +151,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   late final AnimationController _profileCardCtrl;
   late final Animation<double> _profileCardT;
   bool _profileCardOpen = false;
+  bool _photoSettingsIntentStarted = false;
+  bool _photoSettingsIntentActive = false;
 
   final GlobalKey _profileMenuShowcaseKey = GlobalKey();
   final GlobalKey _settingsShowcaseKey = GlobalKey();
@@ -996,10 +1000,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  void _openSettingsPreservingTree() {
+  void _openSettingsPreservingTree({bool openPhotoOnStart = false}) {
     HapticFeedback.selectionClick();
     unawaited(
-      _pushTreePreservingRoute<void>(() => context.push<void>(Routes.settings)),
+      _pushTreePreservingRoute<void>(
+        () => context.push<void>(
+          Routes.settings,
+          extra: openPhotoOnStart
+              ? {Routes.openPhotoSettingsExtraKey: true}
+              : null,
+        ),
+      ),
     );
   }
 
@@ -1172,6 +1183,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _pendingInitialMessageId = widget.initialMessageId;
       _initialThreadApplied = false;
     }
+    if (!oldWidget.openPhotoSettingsOnStart &&
+        widget.openPhotoSettingsOnStart) {
+      _photoSettingsIntentStarted = false;
+    }
   }
 
   @override
@@ -1201,13 +1216,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     super.dispose();
   }
 
-  void _toggleProfileCard() {
-    HapticFeedback.selectionClick();
-    setState(() => _profileCardOpen = !_profileCardOpen);
+  void _setProfileCardOpen(bool open, {bool haptic = true}) {
+    if (_profileCardOpen == open) return;
+    if (haptic) HapticFeedback.selectionClick();
+    setState(() => _profileCardOpen = open);
     if (_profileCardOpen) {
       _profileCardCtrl.forward(from: 0);
     } else {
       _profileCardCtrl.reverse(from: 1);
+    }
+  }
+
+  void _toggleProfileCard() {
+    _setProfileCardOpen(!_profileCardOpen);
+  }
+
+  void _maybeStartPhotoSettingsIntent({
+    required bool profileReady,
+    required bool isMe,
+  }) {
+    if (!widget.openPhotoSettingsOnStart ||
+        _photoSettingsIntentStarted ||
+        !profileReady ||
+        !isMe) {
+      return;
+    }
+    _photoSettingsIntentStarted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_runPhotoSettingsIntent());
+    });
+  }
+
+  Future<void> _runPhotoSettingsIntent() async {
+    if (_photoSettingsIntentActive) return;
+    _photoSettingsIntentActive = true;
+    try {
+      _activeProfileTutorial = null;
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      if (!mounted) return;
+
+      _setProfileCardOpen(true, haptic: false);
+      await Future<void>.delayed(const Duration(milliseconds: 260));
+      if (!mounted) return;
+
+      await _pushTreePreservingRoute<void>(
+        () => context.push<void>(
+          Routes.settings,
+          extra: {Routes.openPhotoSettingsExtraKey: true},
+        ),
+      );
+    } finally {
+      _photoSettingsIntentActive = false;
     }
   }
 
@@ -1264,6 +1324,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   Future<void> _tryStartNextProfileTutorial() async {
     if (_profileTutorialCheckInFlight ||
         _activeProfileTutorial != null ||
+        _photoSettingsIntentActive ||
         !_profileTutorialProfileReady ||
         _profileTutorialViewerId.isEmpty ||
         _isProfileShowcaseRunning()) {
@@ -4102,6 +4163,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             profilePhotoKey: me.user.profilePhotoKey,
             profilePhotoUrl: me.user.profilePhotoUrl,
           );
+    _maybeStartPhotoSettingsIntent(
+      profileReady:
+          userId.isNotEmpty && viewerId.isNotEmpty && !showPageLoading,
+      isMe: isMe,
+    );
     final profileIdHex = _resolveProfileId(st.profileJson, userId);
     final bool decisionAllowed =
         profileIdHex.length == 32 &&

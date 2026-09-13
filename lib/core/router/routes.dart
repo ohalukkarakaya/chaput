@@ -15,6 +15,7 @@ class Routes {
   static const accountDeletionHelp = '/settings/account-deletion/help';
   static const calendlyBooking = '/settings/calendly-booking';
   static const legal = '/legal';
+  static const openPhotoSettingsExtraKey = 'openPhotoSettings';
 
   static String treePath(String userId) => '/u/$userId';
   static String chaputPath(String chaputId) => '/c/$chaputId';

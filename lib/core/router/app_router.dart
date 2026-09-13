@@ -124,12 +124,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               queryMessageId.isNotEmpty) {
             initialMessageId = queryMessageId;
           }
+          final openPhotoSettingsOnStart =
+              query['open_photo_settings'] == '1' ||
+              (extra is Map && extra[Routes.openPhotoSettingsExtraKey] == true);
           return ProfileScreen(
             key: ValueKey('profile-$userId'),
             userId: userId,
             initialThreadId: initialThreadId,
             initialMessageId: initialMessageId,
             initialProfilePreview: initialProfilePreview,
+            openPhotoSettingsOnStart: openPhotoSettingsOnStart,
           );
         },
       ),
@@ -165,8 +169,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.settings,
-        pageBuilder: (context, state) =>
-            _fadePage(state: state, child: const SettingsScreen()),
+        pageBuilder: (context, state) {
+          final extra = state.extra;
+          final openPhotoOnStart =
+              state.uri.queryParameters['open_photo'] == '1' ||
+              (extra is Map && extra[Routes.openPhotoSettingsExtraKey] == true);
+          return _fadePage(
+            state: state,
+            child: SettingsScreen(openPhotoOnStart: openPhotoOnStart),
+          );
+        },
       ),
       GoRoute(
         path: Routes.settingsSupport,
