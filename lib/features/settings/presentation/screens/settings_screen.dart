@@ -230,6 +230,14 @@ class SettingsScreen extends ConsumerWidget {
                                 minReasonLength: _closeReasonMinLength,
                               );
                               if (reason == null) return;
+                              if (!context.mounted) return;
+
+                              final shouldDelete = await context.push<bool>(
+                                Routes.accountDeletionHelp,
+                                extra: {'reason': reason},
+                              );
+                              if (shouldDelete != true) return;
+                              if (!context.mounted) return;
 
                               try {
                                 await ref
@@ -246,6 +254,7 @@ class SettingsScreen extends ConsumerWidget {
                                   );
                                 }
 
+                                if (!context.mounted) return;
                                 await _logoutNow(context, ref);
                               } catch (_) {
                                 if (context.mounted) {
@@ -675,10 +684,10 @@ class _CloseAccountConfirmDialogState
                 decoration: InputDecoration(
                   alignLabelWithHint: true,
                   floatingLabelBehavior: FloatingLabelBehavior.always,
-                  labelText: context.t('settings.close_reason_label'),
-                  hintText: context.t('settings.close_reason_hint'),
+                  labelText: context.t('settings.delete_reason_label'),
+                  hintText: context.t('settings.delete_reason_hint'),
                   helperText: context.t(
-                    'settings.close_reason_helper',
+                    'settings.delete_reason_helper',
                     params: {'count': widget.minReasonLength.toString()},
                   ),
                   errorText: reasonErrorText,
@@ -732,9 +741,14 @@ class _CloseAccountConfirmDialogState
                           usernameErrorText = null;
                         }
 
-                        if (reason.length < widget.minReasonLength) {
+                        if (reason.isEmpty) {
                           reasonErrorText = context.t(
-                            'settings.close_reason_min',
+                            'settings.delete_reason_required',
+                          );
+                          hasError = true;
+                        } else if (reason.length < widget.minReasonLength) {
+                          reasonErrorText = context.t(
+                            'settings.delete_reason_min',
                             params: {
                               'count': widget.minReasonLength.toString(),
                             },

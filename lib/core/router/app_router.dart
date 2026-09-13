@@ -11,6 +11,8 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_username_redirect_screen.dart';
 import '../../features/profile/domain/profile_preview.dart';
+import '../../features/settings/presentation/screens/account_deletion_booking_screen.dart';
+import '../../features/settings/presentation/screens/account_deletion_help_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../legal/legal_documents.dart';
@@ -163,6 +165,38 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.settings,
         pageBuilder: (context, state) =>
             _fadePage(state: state, child: const SettingsScreen()),
+      ),
+      GoRoute(
+        path: Routes.accountDeletionHelp,
+        pageBuilder: (context, state) {
+          var reason = '';
+          final extra = state.extra;
+          if (extra is Map) {
+            reason = extra['reason']?.toString() ?? '';
+          }
+          return _fadePage(
+            state: state,
+            child: AccountDeletionHelpScreen(reason: reason),
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.accountDeletionBooking,
+        pageBuilder: (context, state) {
+          var uri = Uri.parse(kChaputHelpCalendlyUrl);
+          final extra = state.extra;
+          if (extra is Map) {
+            final rawUrl = extra['url']?.toString() ?? '';
+            final parsed = Uri.tryParse(rawUrl);
+            if (parsed != null && parsed.hasScheme) {
+              uri = parsed;
+            }
+          }
+          return _fadePage(
+            state: state,
+            child: AccountDeletionBookingScreen(initialUri: uri),
+          );
+        },
       ),
       GoRoute(
         path: Routes.notifications,

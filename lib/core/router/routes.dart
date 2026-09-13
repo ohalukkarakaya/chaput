@@ -11,6 +11,9 @@ class Routes {
   static const profileByUsername = '/me/:username';
   static const profileBase = '/profile';
   static const settings = '/settings';
+  static const accountDeletionHelp = '/settings/account-deletion/help';
+  static const accountDeletionBooking =
+      '/settings/account-deletion/help/booking';
   static const legal = '/legal';
 
   static String treePath(String userId) => '/u/$userId';
