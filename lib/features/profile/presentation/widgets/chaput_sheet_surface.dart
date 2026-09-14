@@ -42,7 +42,7 @@ class ChaputSheetSurface extends StatelessWidget {
   static const _tint = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xB8000000), Color(0xD6000000)],
+    colors: [Color(0xDE000000), Color(0xF0000000)],
   );
 
   @override

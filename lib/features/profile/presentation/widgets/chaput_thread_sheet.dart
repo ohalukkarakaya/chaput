@@ -2380,11 +2380,11 @@ class _MessageBubble extends StatelessWidget {
     final isWhisper = message.kind == 'WHISPER';
     final whisperBg = AppColors.chaputLightBlue;
     final whisperFg = AppColors.chaputBlack;
+    // Match the old translucent fills over a solid black sheet, but keep
+    // the bubbles opaque now that the sheet itself has a glass backdrop.
     final bg = isWhisper
         ? whisperBg
-        : (isMine
-              ? AppColors.chaputWhite
-              : AppColors.chaputWhite.withValues(alpha: 0.12));
+        : (isMine ? AppColors.chaputWhite : const Color(0xFF1F1F1F));
     final fg = isWhisper
         ? whisperFg
         : (isMine ? AppColors.chaputBlack : AppColors.chaputWhite);
@@ -2426,9 +2426,7 @@ class _MessageBubble extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isWhisperHidden
-            ? AppColors.chaputWhite.withValues(alpha: 0.08)
-            : bg,
+        color: isWhisperHidden ? const Color(0xFF141414) : bg,
         borderRadius: radius,
         border: Border.all(
           color: AppColors.chaputWhite.withValues(alpha: isMine ? 0.0 : 0.06),
@@ -2561,8 +2559,7 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
 
-    // Hidden whisper text is masked above; the shared sheet surface supplies
-    // the frost without adding a backdrop filter to each scrolling message.
+    // Hidden whisper text is masked above; bubbles need no backdrop filter.
     Widget child = bubble;
 
     child = Align(
