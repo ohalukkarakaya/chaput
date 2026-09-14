@@ -21,7 +21,6 @@ import '../../../../chaput/data/chaput_socket.dart';
 import '../../../../chaput/domain/chaput_message.dart';
 import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../../core/config/env.dart';
-import '../../../../core/utils/backend_time.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/router/route_observer.dart';
 import '../../../../core/i18n/app_localizations.dart';
@@ -600,10 +599,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     if (!active) _scheduleChaputSwipeFeedbackIdle();
   }
 
-  DateTime? _parseSocketTime(dynamic v) {
-    return parseBackendUtcDateTime(v);
-  }
-
   Map<String, dynamic>? _normalizeSocketMap(dynamic value) {
     if (value is! Map) return null;
     return value.map((key, val) => MapEntry(key.toString(), val));
@@ -671,21 +666,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (profileId == null || profileId != _chaputProfileId) return;
       final threadId = data['thread_id']?.toString() ?? '';
       if (threadId.isEmpty) return;
-      final item = ChaputThreadItem(
-        threadId: threadId,
-        threadSlug: data['thread_slug']?.toString() ?? '',
-        userAId: data['user_a_id']?.toString() ?? '',
-        userBId: data['user_b_id']?.toString() ?? '',
-        starterId: data['starter_id']?.toString() ?? '',
-        kind: data['kind']?.toString() ?? 'NORMAL',
-        state: data['state']?.toString() ?? 'OPEN',
-        lastMessageAt: _parseSocketTime(data['last_message_at']),
-        pendingExpiresAt: null,
-        createdAt: _parseSocketTime(data['created_at']),
-        x: null,
-        y: null,
-        z: null,
-      );
+      final item = ChaputThreadItem.fromJson(data);
       final args = _lastChaputArgs;
       String? previousState;
       if (args != null) {
@@ -3197,55 +3178,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         await api.sendMessage(threadIdHex: out.threadId, body: text);
         _playSmallFeedback(ChaputSoundEffect.sendMessage);
 
-        final nextThreads = _stableSessionThreads(
-          profileIdHex: profileId,
-          source: ref.read(chaputThreadsControllerProvider(chaputArgs)).items,
-        );
-        final createdIndex = nextThreads.indexWhere(
-          (t) => t.threadId == out.threadId,
-        );
-        final targetIndex = createdIndex >= 0 ? createdIndex : 0;
-
-        if (mounted) {
-          setState(() {
-            _chaputThreadCreated = true;
-            _chaputActiveIndex = targetIndex;
-          });
-        } else {
-          _chaputThreadCreated = true;
-          _chaputActiveIndex = targetIndex;
-        }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          final currentThreads = _stableSessionThreads(
-            profileIdHex: profileId,
-            source: ref.read(chaputThreadsControllerProvider(chaputArgs)).items,
-          );
-          if (currentThreads.isEmpty) return;
-          final idx = currentThreads.indexWhere(
-            (t) => t.threadId == out.threadId,
-          );
-          final safeIndex = idx >= 0
-              ? idx
-              : (targetIndex < currentThreads.length
-                    ? targetIndex
-                    : currentThreads.length - 1);
-          final targetThread = currentThreads[safeIndex];
-          if (_chaputPageCtrl.hasClients) {
-            final pageIdx = _pageIndexForThreadIndex(safeIndex);
-            _syncChaputFeedbackBasePage(pageIdx);
-            _chaputPageCtrl.jumpToPage(pageIdx);
-          }
-          setState(() => _chaputActiveIndex = safeIndex);
-          _subscribeThreadSocket(targetThread.threadId, profileId);
-          _activeThreadId = targetThread.threadId;
-          _activeThreadIsParticipant = true;
-          _syncTypingSound();
-          _focusToThreadAnchor(targetThread, profileId);
-          _openCreatedThreadSheet();
-          _pendingCreatedThreadId = null;
-        });
+        if (!mounted || _chaputProfileId != profileId) return;
+        _requestThreadSelection(out.threadId);
       }
 
       _msgCtrl.clear();
@@ -3272,6 +3206,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         setState(() => _chaputSendLoading = false);
       }
     }
+  }
+
+  // Only explicit actions on this device select a thread. Socket bumps only
+  // update the list, leaving the counterparty's current selection intact.
+  void _requestThreadSelection(String threadId) {
+    setState(() {
+      _pendingCreatedThreadId = threadId;
+      _pendingInitialThreadId = threadId;
+      _pendingInitialMessageId = null;
+      _initialThreadApplied = false;
+      _chaputThreadCreated = true;
+    });
   }
 
   Future<void> _handleRevivePressed({
@@ -3325,9 +3271,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         if (!ok) return;
       }
 
-      await api.reviveThread(threadIdHex: threadIdHex);
+      final thread = await api.reviveThread(threadIdHex: threadIdHex);
       revived = true;
-      ref.read(chaputThreadsControllerProvider(chaputArgs).notifier).refresh();
+      if (!mounted || _chaputProfileId != profileIdHex) return;
+      _requestThreadSelection(threadIdHex);
+      final controller = ref.read(
+        chaputThreadsControllerProvider(chaputArgs).notifier,
+      );
+      if (thread != null) {
+        controller.upsertThreadFromSocket(thread, chaputArgs);
+      } else {
+        await controller.refresh();
+      }
+      if (!mounted || _chaputProfileId != profileIdHex) return;
       if (_decisionProfileId != null) {
         ref
             .read(chaputDecisionControllerProvider(profileIdHex).notifier)
@@ -4446,8 +4402,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
       if (idx >= 0) {
         _initialThreadApplied = true;
+        _activeThreadId = chaputThreads[idx].threadId;
+        _chaputActiveIndex = idx;
+        _realigningChaputPage = true;
         final targetThreadId = _pendingInitialThreadId;
         final targetMessageId = _pendingInitialMessageId;
+        final localSelection =
+            _pendingCreatedThreadId == chaputThreads[idx].threadId;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_chaputPageCtrl.hasClients) {
@@ -4457,7 +4418,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           } else {
             setState(() => _chaputActiveIndex = idx);
           }
+          _subscribeThreadSocket(chaputThreads[idx].threadId, profileIdHex);
           _focusToThreadAnchor(chaputThreads[idx], profileIdHex);
+          _pendingCreatedThreadId = null;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _realigningChaputPage = false;
+          });
+          WidgetsBinding.instance.scheduleFrame();
           if (targetMessageId != null && targetMessageId.isNotEmpty) {
             _openInitialThreadSheet();
             Future.delayed(const Duration(seconds: 20), () {
@@ -4471,7 +4438,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               }
             });
           } else {
-            _openInitialThreadSheet();
+            if (localSelection) {
+              _openCreatedThreadSheet();
+            } else {
+              _openInitialThreadSheet();
+            }
             Future.delayed(const Duration(milliseconds: 1200), () {
               if (!mounted) return;
               if (_pendingInitialThreadId == targetThreadId &&

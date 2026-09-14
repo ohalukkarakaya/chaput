@@ -32,5 +32,11 @@ List<ChaputThreadItem> orderChaputSession({
     }
     existing.add(t.threadId);
   }
-  return [...personal, ...ids].map((id) => byId[id]!).toList(growable: false);
+  final orderedIds = [...personal, ...ids];
+  // The socket may insert the local action's thread before its HTTP response.
+  // Still promote it when the local selection request arrives afterward.
+  if (createdThreadId != null && orderedIds.remove(createdThreadId)) {
+    orderedIds.insert(0, createdThreadId);
+  }
+  return orderedIds.map((id) => byId[id]!).toList(growable: false);
 }

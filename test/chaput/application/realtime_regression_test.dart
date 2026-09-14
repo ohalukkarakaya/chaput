@@ -65,6 +65,123 @@ class _Users extends UserApi {
 }
 
 void main() {
+  test(
+    'new-thread HTTP ID matches its socket event before optimistic insertion',
+    () async {
+      final dio = Dio();
+      final id = 'ab' * 16;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (request, handler) {
+            handler.resolve(
+              Response(
+                requestOptions: request,
+                statusCode: 200,
+                data: {'ok': true, 'thread_id': id, 'already_exists': false},
+              ),
+            );
+          },
+        ),
+      );
+      final started = await ChaputApi(dio).startThread(profileIdHex: 'profile');
+      final event = ChaputSocketEvent('chaput.thread.bump', {'thread_id': id});
+      expect(started.threadId, event.data['thread_id']);
+    },
+  );
+
+  test(
+    'revive response provides immediate snapshot without a list reload',
+    () async {
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (request, handler) {
+            handler.resolve(
+              Response(
+                requestOptions: request,
+                statusCode: 200,
+                data: {
+                  'ok': true,
+                  'thread': {
+                    'thread_id': 'revived',
+                    'user_a_id': 'owner',
+                    'user_b_id': 'me',
+                    'starter_id': 'me',
+                    'state': 'PENDING',
+                    'kind': 'NORMAL',
+                    'pending_expires_at': '2026-09-18 12:00:00',
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final revived = await ChaputApi(dio).reviveThread(threadIdHex: 'revived');
+      expect(revived!.threadId, 'revived');
+      expect(revived.starterId, 'me');
+      expect(revived.state, 'PENDING');
+      expect(revived.pendingExpiresAt, DateTime.utc(2026, 9, 18, 12));
+    },
+  );
+
+  test(
+    'local selection promotes thread even if its socket event arrived first',
+    () {
+      final source = [thread('a'), thread('revived', user: 'me'), thread('b')];
+      final local = orderChaputSession(
+        previousIds: ['a', 'revived', 'b'],
+        source: source,
+        viewerId: 'me',
+        createdThreadId: 'revived',
+      );
+      expect(local.map((t) => t.threadId), ['revived', 'a', 'b']);
+      final remote = orderChaputSession(
+        previousIds: ['a', 'revived', 'b'],
+        source: source,
+        viewerId: 'owner',
+      );
+      expect(remote.map((t) => t.threadId), ['a', 'revived', 'b']);
+    },
+  );
+
+  test(
+    'revival socket updates starter and expiry on an already visible thread',
+    () {
+      final api = _Api();
+      final container = ProviderContainer(
+        overrides: [chaputApiProvider.overrideWithValue(api)],
+      );
+      addTearDown(container.dispose);
+      final args = ChaputThreadsArgs(
+        profileId: 'profile',
+        viewerId: 'me',
+        ownerId: 'owner',
+        restricted: false,
+      );
+      final provider = chaputThreadsControllerProvider(args);
+      container.listen(provider, (_, _) {});
+      final ctrl = container.read(provider.notifier);
+      ctrl.addThreadOptimistic(
+        thread('revived', user: 'me').copyWith(starterId: 'owner'),
+        args,
+      );
+      final deadline = DateTime.utc(2026, 9, 18, 12);
+      ctrl.upsertThreadFromSocket(
+        thread(
+          'revived',
+          user: 'me',
+          state: 'PENDING',
+        ).copyWith(pendingExpiresAt: deadline),
+        args,
+      );
+      final revived = container.read(provider).items.single;
+      expect(revived.starterId, 'me');
+      expect(revived.pendingExpiresAt, deadline);
+      expect(revived.state, 'PENDING');
+    },
+  );
+
   test('all socket event IDs match REST without modifying message text', () {
     final lower = 'ab' * 16;
     final upper = lower.toUpperCase();

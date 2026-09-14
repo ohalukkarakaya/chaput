@@ -323,6 +323,7 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
         .map((t) {
           if (t.threadId != item.threadId) return t;
           return t.copyWith(
+            starterId: item.starterId.isNotEmpty ? item.starterId : t.starterId,
             threadSlug: item.threadSlug.isNotEmpty
                 ? item.threadSlug
                 : t.threadSlug,

@@ -32,6 +32,7 @@ class ChaputThreadItem {
   final double? z;
 
   ChaputThreadItem copyWith({
+    String? starterId,
     String? threadSlug,
     String? kind,
     String? state,
@@ -47,7 +48,7 @@ class ChaputThreadItem {
       threadSlug: threadSlug ?? this.threadSlug,
       userAId: userAId,
       userBId: userBId,
-      starterId: starterId,
+      starterId: starterId ?? this.starterId,
       kind: kind ?? this.kind,
       state: state ?? this.state,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,

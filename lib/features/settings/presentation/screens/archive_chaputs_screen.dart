@@ -455,6 +455,12 @@ class ArchiveChaputsScreen extends ConsumerWidget {
                                                 ),
                                               ),
                                             );
+                                            context.push(
+                                              Routes.profilePath(
+                                                it.otherUserId,
+                                              ),
+                                              extra: {'threadId': it.threadId},
+                                            );
                                           }
                                         },
                                   busy: isBusy,

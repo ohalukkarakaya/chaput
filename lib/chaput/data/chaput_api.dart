@@ -1,3 +1,4 @@
+import '../../core/utils/hex_id.dart';
 import 'package:dio/dio.dart';
 
 import '../domain/chaput_decision.dart';
@@ -110,7 +111,7 @@ class ChaputApi {
     if (data is Map<String, dynamic>) {
       if (data['ok'] == true) {
         return (
-          threadId: data['thread_id']?.toString() ?? '',
+          threadId: canonicalHexId(data['thread_id']?.toString() ?? ''),
           threadSlug: data['thread_slug']?.toString() ?? '',
           alreadyExists: data['already_exists'] == true,
         );
@@ -233,10 +234,15 @@ class ChaputApi {
     throw Exception('bad_node_response');
   }
 
-  Future<void> reviveThread({required String threadIdHex}) async {
+  Future<ChaputThreadItem?> reviveThread({required String threadIdHex}) async {
     final res = await _dio.post('/chaput/threads/$threadIdHex/revive');
     final data = res.data;
-    if (data is Map<String, dynamic> && data['ok'] == true) return;
+    if (data is Map<String, dynamic> && data['ok'] == true) {
+      final thread = data['thread'];
+      return thread is Map<String, dynamic>
+          ? ChaputThreadItem.fromJson(thread)
+          : null; // Compatibility with servers that only return {ok: true}.
+    }
     if (data is Map<String, dynamic>) {
       throw Exception(data['error'] ?? 'revive_error');
     }
