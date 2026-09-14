@@ -55,6 +55,7 @@ import '../../../social/application/follow_controller.dart';
 import '../profile_composer_visibility.dart';
 import '../utils/profile_tree_bounds.dart';
 import '../utils/tree_model_cache.dart';
+import '../utils/tree_unlock_reveal.dart';
 import '../widgets/black_glass.dart';
 import '../widgets/chaput_composer_bar.dart';
 import '../widgets/chaput_composer_options_sheet.dart';
@@ -67,6 +68,7 @@ import '../widgets/profile_gallery_strip.dart';
 import '../widgets/profile_stat_chip.dart';
 import '../widgets/profile_avatar_hero.dart';
 import '../widgets/tree_silhouette_shimmer.dart';
+import '../widgets/tree_unlock_mist.dart';
 import 'follow_list_screen.dart';
 import '../../../social/application/follow_list_controller.dart';
 import '../widgets/subscription_replace_sheet.dart';
@@ -307,6 +309,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   // ===== SILHOUETTE MODE =====
   bool _silhouetteMode = false;
   bool _silhouetteApplied = false;
+  final TreeUnlockReveal _treeUnlockReveal = TreeUnlockReveal();
 
   // ===== COMPOSER OPTIONS =====
   bool _anonMode = false; // "Kimliğini gizle"
@@ -434,7 +437,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   // orijinal material'ları saklamak için
-  final Map<three.Mesh, dynamic> _origMaterials = {};
+  final Map<three.Mesh, three.Material?> _origMaterials = {};
 
   @override
   void initState() {
@@ -1164,6 +1167,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _resetChaputSwipeFeedback();
       _treeSuspendedForCoveredRoute = false;
       _disposeThree(); // user değiştiyse 3D sıfırla
+      _silhouetteMode = false;
       _lastTreeId = null;
       _threeError = null;
       _threeReady = false;
@@ -1202,6 +1206,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
     _disposeThree();
     _focusScreen.dispose();
+    _treeUnlockReveal.dispose();
     _profileCardCtrl.dispose();
     _msgCtrl.removeListener(_onComposerTextChanged);
     _msgCtrl.dispose();
@@ -1492,6 +1497,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   void _disposeThree({bool cancelPending = true}) {
+    _treeUnlockReveal.finish();
     if (cancelPending) {
       _threeCreateTimer?.cancel();
       _threeCreateTimer = null;
@@ -1549,6 +1555,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       late final three.ThreeJS js;
       js = three.ThreeJS(
+        // The profile already supplies a tree-shaped loading placeholder.
+        loadingWidget: const SizedBox.shrink(),
         // Use native device pixel density. The old 1.0 multiplier visibly
         // downsampled the tree on high-density displays.
         setup: () => _setup(threeJsRef: js, treeId: treeId, epoch: epoch),
@@ -1769,6 +1777,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       threeJsRef.addAnimationEvent((dt) {
         if (!_isCurrentThreeRequest(threeJsRef, epoch)) return;
+        _treeUnlockReveal.advance(dt);
         _tickCenterShift(dt);
         _tickSnap(dt);
         _updateCamera(threeJsRef, dt);
@@ -3676,12 +3685,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     _updateFocusScreenPosition(js, dt);
   }
 
-  void _applySilhouetteIfNeeded() {
+  void _applySilhouetteIfNeeded({bool animateReveal = false}) {
     final g = _treeGroup;
     if (g == null) return;
 
     if (_silhouetteMode) {
       if (_silhouetteApplied) return;
+      _treeUnlockReveal.finish();
       _silhouetteApplied = true;
 
       g.traverse((obj) {
@@ -3704,7 +3714,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
       // geri döndür
       for (final e in _origMaterials.entries) {
+        final silhouette = e.key.material;
         e.key.material = e.value;
+        if (!identical(silhouette, e.value)) silhouette?.dispose();
+      }
+      if (animateReveal) {
+        _treeUnlockReveal.start(_origMaterials.values.nonNulls);
       }
     }
   }
@@ -4255,8 +4270,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_silhouetteMode != silhouetteMode) {
-        _silhouetteMode = silhouetteMode;
-        _applySilhouetteIfNeeded();
+        setState(() {
+          _silhouetteMode = silhouetteMode;
+          _applySilhouetteIfNeeded(
+            animateReveal:
+                !silhouetteMode &&
+                _threeReady &&
+                !MediaQuery.disableAnimationsOf(context),
+          );
+        });
       }
     });
 
@@ -4851,6 +4873,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 ),
                               ),
                             ),
+                    ),
+
+                    Positioned.fill(
+                      child: TreeUnlockMist(progress: _treeUnlockReveal),
                     ),
 
                     // Gesture ALANI (top bar ALTINDAN başlar)

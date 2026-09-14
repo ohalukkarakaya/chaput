@@ -452,7 +452,9 @@ class _NotificationLifecycleListenerState
     final providerKeys = <String>{userId, userId.toLowerCase()};
     for (final key in providerKeys) {
       if (ref.exists(profileControllerProvider(key))) {
-        ref.invalidate(profileControllerProvider(key));
+        // Keep the visible profile/tree (and its subscription identity) while
+        // refreshing the newly granted access in the background.
+        unawaited(ref.read(profileControllerProvider(key).notifier).refetch());
       }
       if (ref.exists(chaputDecisionControllerProvider(key))) {
         ref.invalidate(chaputDecisionControllerProvider(key));
