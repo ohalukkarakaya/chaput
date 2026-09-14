@@ -56,6 +56,7 @@ import '../profile_composer_visibility.dart';
 import '../utils/profile_tree_bounds.dart';
 import '../utils/tree_model_cache.dart';
 import '../utils/tree_unlock_reveal.dart';
+import '../utils/chaput_session_order.dart';
 import '../widgets/black_glass.dart';
 import '../widgets/chaput_composer_bar.dart';
 import '../widgets/chaput_composer_options_sheet.dart';
@@ -206,6 +207,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   Timer? _typingIdleTimer;
   String? _typingSentThreadId;
   bool _typingSent = false;
+  DateTime? _typingLastSentAt;
   bool _typingSoundActive = false;
   String? _typingSoundThreadId;
 
@@ -325,6 +327,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   List<String> _sessionThreadOrderIds = const [];
   String? _pendingCreatedThreadId;
   final PageController _chaputPageCtrl = PageController();
+  bool _realigningChaputPage = false;
   static const double _chaputSwipeHapticThreshold = 0.34;
   int _chaputFeedbackBasePageIndex = 0;
   int? _chaputHapticTargetPageIndex;
@@ -396,43 +399,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       return source;
     }
 
-    final byId = <String, ChaputThreadItem>{
-      for (final thread in source)
-        if (thread.threadId.isNotEmpty) thread.threadId: thread,
-    };
-    final nextOrder = _sessionThreadOrderIds
-        .where(byId.containsKey)
-        .toList(growable: true);
-    final seen = nextOrder.toSet();
-
-    for (final thread in source) {
-      final tid = thread.threadId;
-      if (tid.isEmpty || seen.contains(tid)) continue;
-      if (_pendingCreatedThreadId != null && tid == _pendingCreatedThreadId) {
-        nextOrder.insert(0, tid);
-      } else {
-        nextOrder.add(tid);
-      }
-      seen.add(tid);
-    }
-
-    _sessionThreadOrderIds = nextOrder.toList(growable: false);
-
-    final ordered = <ChaputThreadItem>[];
-    for (final tid in _sessionThreadOrderIds) {
-      final thread = byId[tid];
-      if (thread != null) {
-        ordered.add(thread);
-      }
-    }
-    if (ordered.length == source.length) {
-      return ordered;
-    }
-    for (final thread in source) {
-      if (!ordered.any((it) => it.threadId == thread.threadId)) {
-        ordered.add(thread);
-      }
-    }
+    final ordered = orderChaputSession(
+      previousIds: _sessionThreadOrderIds,
+      source: source,
+      viewerId: _lastChaputArgs?.viewerId ?? '',
+      createdThreadId: _pendingCreatedThreadId,
+    );
+    _sessionThreadOrderIds = ordered
+        .map((t) => t.threadId)
+        .toList(growable: false);
     return ordered;
   }
 
@@ -657,6 +632,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<void> _handleSocketEvent(ChaputSocketEvent ev) async {
+    if (!mounted || _isDisposed) return;
+    if (ev.type == 'chaput.connection.ready') {
+      final args = _lastChaputArgs;
+      final threadId = _activeThreadId;
+      if (args != null && _socketProfileId == args.profileId) {
+        unawaited(
+          ref.read(chaputThreadsControllerProvider(args).notifier).refresh(),
+        );
+        if (threadId != null) {
+          unawaited(
+            ref
+                .read(
+                  chaputMessagesControllerProvider(
+                    ChaputMessagesArgs(
+                      threadId: threadId,
+                      profileId: args.profileId,
+                    ),
+                  ).notifier,
+                )
+                .refresh(),
+          );
+          if (_activeThreadIsParticipant) {
+            unawaited(
+              ref
+                  .read(chaputApiProvider)
+                  .markThreadRead(threadIdHex: threadId)
+                  .catchError((_) {}),
+            );
+          }
+        }
+      }
+      return;
+    }
     final data = ev.data;
     if (ev.type == 'chaput.thread.bump') {
       final profileId = data['profile_id']?.toString();
@@ -691,32 +699,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ref
             .read(chaputThreadsControllerProvider(args).notifier)
             .upsertThreadFromSocket(item, args);
-        final missingIds = <String>{};
-        if (!ref
-            .read(chaputThreadsControllerProvider(args))
-            .usersById
-            .containsKey(item.userAId)) {
-          missingIds.add(item.userAId);
-        }
-        if (!ref
-            .read(chaputThreadsControllerProvider(args))
-            .usersById
-            .containsKey(item.userBId)) {
-          missingIds.add(item.userBId);
-        }
-        if (missingIds.isNotEmpty) {
-          final api = ref.read(userApiProvider);
-          final res = await api.batchLite(
-            userIds: missingIds.toList(growable: false),
-          );
-          final map = <String, LiteUser>{};
-          for (final u in res.items) {
-            map[u.id] = u;
-          }
-          ref
-              .read(chaputThreadsControllerProvider(args).notifier)
-              .addUsers(map);
-        }
       }
       if (_chaputProfileId != null &&
           _activeThreadId == threadId &&
@@ -736,6 +718,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               )
               .refresh(),
         );
+      }
+      if (args != null) {
+        try {
+          final missingIds = <String>{};
+          if (!ref
+              .read(chaputThreadsControllerProvider(args))
+              .usersById
+              .containsKey(item.userAId)) {
+            missingIds.add(item.userAId);
+          }
+          if (!ref
+              .read(chaputThreadsControllerProvider(args))
+              .usersById
+              .containsKey(item.userBId)) {
+            missingIds.add(item.userBId);
+          }
+          if (missingIds.isNotEmpty) {
+            final api = ref.read(userApiProvider);
+            final res = await api.batchLite(
+              userIds: missingIds.toList(growable: false),
+            );
+            final map = <String, LiteUser>{};
+            for (final u in res.items) {
+              map[u.id] = u;
+            }
+            ref
+                .read(chaputThreadsControllerProvider(args).notifier)
+                .addUsers(map);
+          }
+        } catch (_) {
+          // User metadata must not interrupt thread/message delivery.
+        }
       }
       return;
     }
@@ -900,6 +914,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         _removeTypingUser(threadId, userIdNorm);
         return;
       }
+      // Apply immediately; fetching an avatar must not delay typing or sound.
+      if (isTyping) {
+        _setTypingUser(threadId, userIdNorm);
+      } else {
+        _removeTypingUser(threadId, userIdNorm);
+      }
       final argsThreads = _lastChaputArgs;
       if (argsThreads != null) {
         final state = ref.read(chaputThreadsControllerProvider(argsThreads));
@@ -916,11 +936,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             }
           } catch (_) {}
         }
-      }
-      if (isTyping) {
-        _setTypingUser(threadId, userIdNorm);
-      } else {
-        _removeTypingUser(threadId, userIdNorm);
       }
     }
   }
@@ -3564,7 +3579,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void _sendTyping(String threadId, bool isTyping) {
     if (threadId.isEmpty) return;
     if (isTyping) {
-      if (_typingSent && _typingSentThreadId == threadId) return;
+      final now = DateTime.now();
+      if (_typingSent &&
+          _typingSentThreadId == threadId &&
+          _typingLastSentAt != null &&
+          now.difference(_typingLastSentAt!) < const Duration(seconds: 2)) {
+        return;
+      }
+      _typingLastSentAt = now;
       _typingSent = true;
       _typingSentThreadId = threadId;
     } else {
@@ -4473,16 +4495,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       if (preservedIndex >= 0) {
         resolvedActiveThreadIndex = preservedIndex;
         if (preservedIndex != _chaputActiveIndex) {
+          // Update every consumer in this build before focusing/subscribing.
+          // Otherwise the old numeric index briefly selects a different thread.
+          _chaputActiveIndex = preservedIndex;
+          _realigningChaputPage = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            if (_chaputActiveIndex != preservedIndex) {
-              setState(() => _chaputActiveIndex = preservedIndex);
-            }
             if (_chaputPageCtrl.hasClients) {
-              final pageIdx = _pageIndexForThreadIndex(preservedIndex);
+              final pageIdx = _pageIndexForThreadIndex(_chaputActiveIndex);
               _syncChaputFeedbackBasePage(pageIdx);
               _chaputPageCtrl.jumpToPage(pageIdx);
             }
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _realigningChaputPage = false;
+            });
+            WidgetsBinding.instance.scheduleFrame();
           });
         }
       } else if (resolvedActiveThreadIndex >= chaputThreads.length) {
@@ -4687,6 +4714,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         }
                       },
                       onPageChanged: (pageIndex, thread) async {
+                        if (_realigningChaputPage) return;
                         _syncChaputFeedbackBasePage(pageIndex);
                         final threadIndex = _threadIndexForPageIndex(pageIndex);
                         if (threadIndex < chaputThreads.length) {

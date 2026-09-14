@@ -92,7 +92,9 @@ class _ChaputReplyBarState extends State<ChaputReplyBar> {
   }
 
   void _setTyping(bool isTyping) {
-    if (isTyping == _typingSent) return;
+    // Keep forwarding activity; the socket sender throttles heartbeat updates.
+    // Sending only the first true lets the receiver's expiry hide long typing.
+    if (!isTyping && !_typingSent) return;
     _typingSent = isTyping;
     widget.onTypingChanged?.call(isTyping);
   }

@@ -5,12 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../core/config/env.dart';
+import '../../core/utils/hex_id.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/storage/secure_storage_provider.dart';
 import '../../features/auth/data/auth_api.dart';
 
 class ChaputSocketEvent {
-  ChaputSocketEvent(this.type, this.data);
+  ChaputSocketEvent(this.type, Map<String, dynamic> data)
+    : data = canonicalSocketIds(data);
   final String type;
   final Map<String, dynamic> data;
 }
@@ -90,6 +92,7 @@ class ChaputSocketClient {
       }
       _isReady = true;
       _flushSubscriptions();
+      _events.add(ChaputSocketEvent('chaput.connection.ready', const {}));
       completer.complete();
     } catch (_) {
       _cleanup();

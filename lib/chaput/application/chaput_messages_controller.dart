@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/chaput_api.dart';
 import '../domain/chaput_message.dart';
+import '../../core/utils/hex_id.dart';
 import '../../features/me/application/me_controller.dart';
 import 'chaput_decision_controller.dart';
 
 class ChaputMessagesArgs {
-  ChaputMessagesArgs({required this.threadId, required this.profileId});
+  ChaputMessagesArgs({required String threadId, required String profileId})
+    : threadId = canonicalHexId(threadId),
+      profileId = canonicalHexId(profileId);
 
   final String threadId;
   final String profileId;
@@ -87,6 +90,7 @@ class ChaputMessagesController extends Notifier<ChaputMessagesState> {
         profileIdHex: arg.profileId,
         limit: 30,
       );
+      if (!ref.mounted) return;
       _lastLoadCursor = null;
       state = state.copyWith(
         isLoading: false,
@@ -96,6 +100,7 @@ class ChaputMessagesController extends Notifier<ChaputMessagesState> {
       );
     } catch (e, st) {
       log('chaput messages load error: $e', stackTrace: st);
+      if (!ref.mounted) return;
       state = state.copyWith(isLoading: false, error: 'load_failed');
     }
   }
@@ -292,6 +297,7 @@ class ChaputMessagesController extends Notifier<ChaputMessagesState> {
   Future<void> refreshAfterSocketMessage(String messageId) async {
     if (messageId.isEmpty) return;
     await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!ref.mounted) return;
     if (state.items.any((m) => m.id == messageId)) return;
     await refresh();
   }
@@ -443,7 +449,15 @@ class ChaputMessagesController extends Notifier<ChaputMessagesState> {
     List<ChaputMessage> primary,
     List<ChaputMessage> fallback,
   ) {
-    final merged = _dedupe([...primary, ...fallback]);
+    final readIds = fallback
+        .where((m) => m.readByOther)
+        .map((m) => m.id)
+        .toSet();
+    final merged = _dedupe([
+      for (final m in primary)
+        readIds.contains(m.id) ? _copyMessage(m, readByOther: true) : m,
+      ...fallback,
+    ]);
     merged.sort((a, b) {
       final at = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final bt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -479,7 +493,7 @@ class ChaputMessagesController extends Notifier<ChaputMessagesState> {
       likeCount: likeCount ?? m.likeCount,
       likedByMe: likedByMe ?? m.likedByMe,
       delivered: delivered ?? m.delivered,
-      readByOther: readByOther ?? m.readByOther,
+      readByOther: m.readByOther || (readByOther ?? false),
       topLikers: topLikers ?? m.topLikers,
     );
   }

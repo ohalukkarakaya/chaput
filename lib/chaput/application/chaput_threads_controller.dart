@@ -84,6 +84,13 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
   final ChaputThreadsArgs arg;
 
   ChaputApi get _api => ref.read(chaputApiProvider);
+  int _revision = 0;
+  int _loadRequest = 0;
+  final Map<String, int> _changedThreads = {};
+
+  void _recordChange(String threadId) {
+    _changedThreads[threadId] = ++_revision;
+  }
 
   @override
   ChaputThreadsState build() {
@@ -92,22 +99,43 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
   }
 
   Future<void> _loadInitial(ChaputThreadsArgs arg) async {
+    final revision = _revision;
+    final request = ++_loadRequest;
     try {
       final res = await _api.listThreads(
         profileIdHex: arg.profileId,
         limit: 20,
       );
-      final items = _reorder(res.items, arg);
-      final users = await _hydrateUsers(items);
+      if (!ref.mounted || request != _loadRequest) return;
+      var users = <String, LiteUser>{};
+      try {
+        users = await _hydrateUsers(res.items, existing: state.usersById);
+      } catch (e, st) {
+        log('chaput user hydration error: $e', stackTrace: st);
+      }
+      if (!ref.mounted || request != _loadRequest) return;
+      final byId = {for (final t in res.items) t.threadId: t};
+      final current = {for (final t in state.items) t.threadId: t};
+      for (final entry in _changedThreads.entries) {
+        if (entry.value <= revision) continue;
+        final latest = current[entry.key];
+        if (latest == null) {
+          byId.remove(entry.key);
+        } else {
+          byId[entry.key] = latest;
+        }
+      }
+      final items = _reorder(byId.values.toList(), arg);
       state = state.copyWith(
         isLoading: false,
         items: items,
-        usersById: users,
+        usersById: {...state.usersById, ...users},
         nextCursor: res.nextCursor,
         clearError: true,
       );
     } catch (e, st) {
       log('chaput threads load error: $e', stackTrace: st);
+      if (!ref.mounted || request != _loadRequest) return;
       state = state.copyWith(isLoading: false, error: 'load_failed');
     }
   }
@@ -147,6 +175,7 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
 
   void updateThreadKind(String threadId, String kind) {
     if (threadId.isEmpty) return;
+    _recordChange(threadId);
     final nextItems = state.items
         .map((t) => t.threadId == threadId ? t.copyWith(kind: kind) : t)
         .toList(growable: false);
@@ -159,6 +188,7 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
     DateTime? pendingExpiresAt,
   }) {
     if (threadId.isEmpty) return;
+    _recordChange(threadId);
     final nextItems = state.items
         .map(
           (t) => t.threadId == threadId
@@ -171,6 +201,7 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
 
   void removeThread(String threadId) {
     if (threadId.isEmpty) return;
+    _recordChange(threadId);
     final nextItems = state.items
         .where((t) => t.threadId != threadId)
         .toList(growable: false);
@@ -270,6 +301,7 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
 
   void addThreadOptimistic(ChaputThreadItem item, ChaputThreadsArgs arg) {
     if (item.threadId.isEmpty) return;
+    _recordChange(item.threadId);
     final all = [item, ...state.items];
     final deduped = _dedupe(all);
     final reordered = _reorder(deduped, arg);
@@ -278,6 +310,7 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
 
   void upsertThreadFromSocket(ChaputThreadItem item, ChaputThreadsArgs arg) {
     if (item.threadId.isEmpty) return;
+    _recordChange(item.threadId);
 
     final exists = state.items.any((t) => t.threadId == item.threadId);
     if (!exists) {

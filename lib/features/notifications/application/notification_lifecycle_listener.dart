@@ -269,9 +269,9 @@ class _NotificationLifecycleListenerState
             .read(notificationApiProvider)
             .resetBadge(allowUnauthorized: true);
         if (ref.exists(notificationCountControllerProvider)) {
-          ref
+          await ref
               .read(notificationCountControllerProvider.notifier)
-              .updateFromSocket(0);
+              .refresh();
         }
       }
     } catch (_) {

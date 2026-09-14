@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:chaput/features/notifications/application/notification_count_controller.dart';
 import 'package:chaput/features/notifications/data/notification_api.dart';
 import 'package:chaput/features/notifications/data/notification_api_provider.dart';
@@ -8,6 +9,27 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'resume refresh preserves count and cannot overwrite a newer socket count',
+    () async {
+      final api = _DelayedNotificationApi();
+      final container = ProviderContainer(
+        overrides: [notificationApiProvider.overrideWithValue(api)],
+      );
+      addTearDown(container.dispose);
+      container.listen(notificationCountControllerProvider, (_, _) {});
+      api.pending.removeAt(0).complete(7);
+      await Future<void>.delayed(Duration.zero);
+      final ctrl = container.read(notificationCountControllerProvider.notifier);
+      final refresh = ctrl.refresh();
+      expect(container.read(notificationCountControllerProvider), 7);
+      ctrl.updateFromSocket(8);
+      api.pending.removeAt(0).complete(7);
+      await refresh;
+      expect(container.read(notificationCountControllerProvider), 8);
+    },
+  );
 
   test(
     'updates in-app unread count without writing the app icon badge',
@@ -56,6 +78,17 @@ void main() {
       expect(calls, isEmpty);
     },
   );
+}
+
+class _DelayedNotificationApi extends NotificationApi {
+  _DelayedNotificationApi() : super(Dio());
+  final pending = <Completer<int>>[];
+  @override
+  Future<int> countUnread() {
+    final result = Completer<int>();
+    pending.add(result);
+    return result.future;
+  }
 }
 
 class _FakeNotificationApi extends NotificationApi {

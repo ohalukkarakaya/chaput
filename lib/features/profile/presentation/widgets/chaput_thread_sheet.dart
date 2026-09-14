@@ -182,6 +182,13 @@ class ChaputThreadSheet extends ConsumerWidget {
                         child: ChaputSheetGroup(
                           child: PageView.builder(
                             controller: pageController,
+                            findChildIndexCallback: (key) {
+                              if (key is! ValueKey<String>) return null;
+                              final index = threads.indexWhere(
+                                (t) => t.threadId == key.value,
+                              );
+                              return index < 0 ? null : index;
+                            },
                             onPageChanged: (index) {
                               onPageChanged(index, threads[index]);
                             },
@@ -284,6 +291,7 @@ class ChaputThreadSheet extends ConsumerWidget {
                               }
 
                               return AnimatedBuilder(
+                                key: ValueKey(thread.threadId),
                                 animation: pageController,
                                 builder: (ctx, _) {
                                   double page = pageController.initialPage
