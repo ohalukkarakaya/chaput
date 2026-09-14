@@ -663,9 +663,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final data = ev.data;
     if (ev.type == 'chaput.thread.bump') {
       final profileId = data['profile_id']?.toString();
-      if (profileId == null || profileId != _chaputProfileId) return;
       final threadId = data['thread_id']?.toString() ?? '';
       if (threadId.isEmpty) return;
+      if (data['state'] == 'ARCHIVED' &&
+          (profileId == _chaputProfileId || _socketThreadId == threadId)) {
+        final args = _lastChaputArgs;
+        if (args != null) _applyThreadArchived(threadId, args);
+        return;
+      }
+      if (profileId == null || profileId != _chaputProfileId) return;
       final item = ChaputThreadItem.fromJson(data);
       final args = _lastChaputArgs;
       String? previousState;
@@ -2964,6 +2970,72 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
+  void _applyThreadArchived(String threadId, ChaputThreadsArgs args) {
+    if (!mounted || _chaputProfileId != args.profileId) return;
+    final controller = ref.read(chaputThreadsControllerProvider(args).notifier);
+    final wasVisible = ref
+        .read(chaputThreadsControllerProvider(args))
+        .items
+        .any((thread) => thread.threadId == threadId);
+    final wasActive = _activeThreadId == threadId;
+    if (!wasVisible && !wasActive) return; // Duplicate profile/thread delivery.
+    _clearTypingForThread(threadId);
+    if (_typingSentThreadId == threadId) {
+      _typingIdleTimer?.cancel();
+      _sendTyping(threadId, false);
+    }
+    if (_socketThreadId == threadId) {
+      _socketClient.unsubscribeThread(threadId);
+      _socketThreadId = null;
+    }
+    setState(() {
+      if (_pendingInitialThreadId == threadId) {
+        _pendingInitialThreadId = null;
+        _pendingInitialMessageId = null;
+      }
+      if (_pendingCreatedThreadId == threadId) _pendingCreatedThreadId = null;
+      if (wasActive) {
+        FocusScope.of(context).unfocus();
+        _msgCtrl.clear();
+        _composerOpen = false;
+        _draftAnchor = null;
+        _replyWhisperMode = false;
+        _replyTarget = null;
+        _replyTargetThreadId = null;
+        _activeThreadId = null;
+        _activeThreadIsParticipant = false;
+        _focusedThreadId = null;
+        _focusAnchor = null;
+        _focusScreen.value = null;
+        _snapActive = false;
+        _chaputActiveIndex = 0;
+        _realigningChaputPage = true;
+      }
+    });
+    controller.removeThread(threadId);
+    if (wasActive) {
+      _stopTypingSound();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _chaputProfileId != args.profileId) return;
+        if (_chaputPageCtrl.hasClients) {
+          _syncChaputFeedbackBasePage(0);
+          _chaputPageCtrl.jumpToPage(0);
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _realigningChaputPage = false;
+        });
+        WidgetsBinding.instance.scheduleFrame();
+      });
+    }
+    if (_decisionProfileId == args.profileId) {
+      unawaited(
+        ref
+            .read(chaputDecisionControllerProvider(args.profileId).notifier)
+            .fetchDecision(),
+      );
+    }
+  }
+
   Future<void> _archiveThread({
     required ChaputThreadItem thread,
     required String profileIdHex,
@@ -2983,29 +3055,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           .archiveThread(threadIdHex: thread.threadId);
       if (!mounted) return;
 
-      setState(() {
-        _chaputActiveIndex = 0;
-        _replyWhisperMode = false;
-        _replyTarget = null;
-        _replyTargetThreadId = null;
-      });
-
-      final threadsNotifier = ref.read(
-        chaputThreadsControllerProvider(chaputArgs).notifier,
-      );
-      threadsNotifier.removeThread(thread.threadId);
-      if (_chaputPageCtrl.hasClients) {
-        _syncChaputFeedbackBasePage(0);
-        _chaputPageCtrl.jumpToPage(0);
-      }
-      unawaited(threadsNotifier.refresh());
-      if (_decisionProfileId != null) {
-        unawaited(
-          ref
-              .read(chaputDecisionControllerProvider(profileIdHex).notifier)
-              .fetchDecision(),
-        );
-      }
+      _applyThreadArchived(thread.threadId, chaputArgs);
       _showGlassToast(
         context.t('profile.toast.chaput_archived'),
         icon: Icons.archive_outlined,

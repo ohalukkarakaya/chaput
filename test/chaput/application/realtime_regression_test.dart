@@ -66,6 +66,44 @@ class _Users extends UserApi {
 
 void main() {
   test(
+    'archive removes thread immediately and stale API cannot restore it',
+    () async {
+      final api = _Api();
+      final container = ProviderContainer(
+        overrides: [
+          chaputApiProvider.overrideWithValue(api),
+          userApiProvider.overrideWithValue(_Users()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final args = ChaputThreadsArgs(
+        profileId: 'profile',
+        viewerId: 'me',
+        ownerId: 'owner',
+        restricted: false,
+      );
+      final provider = chaputThreadsControllerProvider(args);
+      container.listen(provider, (_, _) {});
+      final ctrl = container.read(provider.notifier);
+      ctrl.addThreadOptimistic(thread('archived'), args);
+      ctrl.addThreadOptimistic(thread('keep'), args);
+      ctrl.upsertThreadFromSocket(thread('archived', state: 'ARCHIVED'), args);
+      expect(container.read(provider).items.map((t) => t.threadId), ['keep']);
+      api.threads.complete((
+        items: [thread('archived'), thread('keep')],
+        nextCursor: null,
+      ));
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(provider).items.map((t) => t.threadId), ['keep']);
+      ctrl.upsertThreadFromSocket(thread('archived', state: 'PENDING'), args);
+      expect(
+        container.read(provider).items.length,
+        2,
+      ); // Explicit revival still works.
+    },
+  );
+
+  test(
     'new-thread HTTP ID matches its socket event before optimistic insertion',
     () async {
       final dio = Dio();

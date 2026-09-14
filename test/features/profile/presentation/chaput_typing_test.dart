@@ -21,6 +21,40 @@ void main() {
   setUpAll(() async {
     translations = await AppLocalizations.load(const Locale('en'));
   });
+  testWidgets('removing archived thread clears its draft and stops typing', (
+    tester,
+  ) async {
+    final signals = <bool>[];
+    Widget page(String threadId) => MaterialApp(
+      localizationsDelegates: [_Translations(translations)],
+      home: Scaffold(
+        body: ChaputReplyBar(
+          key: ValueKey(threadId),
+          onSend: (_, _) async {},
+          onWhisperPaywall: () async {},
+          canWhisper: false,
+          whisperMode: false,
+          onToggleWhisper: () async {},
+          onTypingChanged: signals.add,
+        ),
+      ),
+    );
+    await tester.pumpWidget(page('archived'));
+    await tester.enterText(find.byType(TextField), 'unfinished draft');
+    expect(signals.last, isTrue);
+    await tester.pumpWidget(page('next'));
+    expect(signals.last, isFalse);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
+    );
+    await tester.pumpWidget(page('archived'));
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets('typing continues beyond receiver expiry and stops after idle', (
     tester,
   ) async {

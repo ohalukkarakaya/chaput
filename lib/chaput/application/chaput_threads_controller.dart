@@ -310,6 +310,10 @@ class ChaputThreadsController extends Notifier<ChaputThreadsState> {
 
   void upsertThreadFromSocket(ChaputThreadItem item, ChaputThreadsArgs arg) {
     if (item.threadId.isEmpty) return;
+    if (item.state == 'ARCHIVED') {
+      removeThread(item.threadId);
+      return;
+    }
     _recordChange(item.threadId);
 
     final exists = state.items.any((t) => t.threadId == item.threadId);
