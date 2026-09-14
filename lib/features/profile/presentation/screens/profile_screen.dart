@@ -34,7 +34,7 @@ import '../../../me/application/me_controller.dart';
 import '../../../reports/data/reports_api.dart';
 import '../../../reports/presentation/widgets/report_content_sheet.dart';
 import '../../../revenuecat/data/revenue_cat_service.dart';
-import '../../../settings/application/photo_upload_preparer.dart';
+import '../../../settings/presentation/screens/photo_crop_screen.dart';
 import '../../../settings/data/account_api.dart';
 import '../../../helpers/string_helpers/safe_text_rules.dart';
 import '../../../user/domain/lite_user.dart';
@@ -184,6 +184,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   bool? _uiRequestedFollow;
   String? _lastFollowStateSyncSignature;
   bool _galleryUploading = false;
+  bool _galleryPickingPhoto = false;
   String? _galleryDeletingPhotoId;
 
   // ===== COMPOSER (Chaput bağla) =====
@@ -2300,21 +2301,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<void> _addProfileGalleryPhoto() async {
-    if (_galleryUploading || _galleryDeletingPhotoId != null) return;
-
+    if (_galleryPickingPhoto ||
+        _galleryUploading ||
+        _galleryDeletingPhotoId != null) {
+      return;
+    }
+    _galleryPickingPhoto = true;
     HapticFeedback.selectionClick();
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 88,
-      maxWidth: 1600,
-    );
-    if (picked == null) return;
-    if (!mounted) return;
-
-    setState(() => _galleryUploading = true);
     try {
-      final prepared = await prepareProfilePhotoUpload(picked.path);
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 88,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+      if (picked == null || !mounted) return;
+      final prepared = await showPhotoCropScreen(context, path: picked.path);
+      if (prepared == null || !mounted) return;
+      setState(() => _galleryUploading = true);
       final file = MultipartFile.fromBytes(
         prepared.bytes,
         filename: prepared.filename,
@@ -2333,6 +2337,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         duration: const Duration(seconds: 2),
       );
     } finally {
+      _galleryPickingPhoto = false;
       if (mounted) setState(() => _galleryUploading = false);
     }
   }
@@ -2341,7 +2346,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     ProfileGalleryPhoto photo,
     List<ProfileGalleryPhoto> currentPhotos,
   ) async {
-    if (_galleryUploading || _galleryDeletingPhotoId != null) return;
+    if (_galleryPickingPhoto ||
+        _galleryUploading ||
+        _galleryDeletingPhotoId != null) {
+      return;
+    }
 
     HapticFeedback.selectionClick();
     final previous = List<ProfileGalleryPhoto>.from(currentPhotos);

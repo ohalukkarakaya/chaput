@@ -11,30 +11,53 @@ import 'package:chaput/core/ui/widgets/shimmer_skeleton.dart';
 import '../../../me/application/me_controller.dart';
 import '../../application/photo_settings_controller.dart';
 import 'package:chaput/core/i18n/app_localizations.dart';
+import 'photo_crop_screen.dart';
 
-class PhotoSettingsScreen extends ConsumerWidget {
+class PhotoSettingsScreen extends ConsumerStatefulWidget {
   const PhotoSettingsScreen({super.key});
 
-  Future<void> _pickAndUpload(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<PhotoSettingsScreen> createState() =>
+      _PhotoSettingsScreenState();
+}
+
+class _PhotoSettingsScreenState extends ConsumerState<PhotoSettingsScreen> {
+  bool _pickingPhoto = false;
+
+  Future<void> _pickAndUpload() async {
+    if (_pickingPhoto || ref.read(photoSettingsControllerProvider).isLoading) {
+      return;
+    }
+    setState(() => _pickingPhoto = true);
     HapticFeedback.selectionClick();
-    final ctrl = ref.read(photoSettingsControllerProvider.notifier);
-
-    final picker = ImagePicker();
-    final x = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 88,
-      maxWidth: 1600,
-    );
-    if (x == null) return;
-
-    final ok = await ctrl.uploadPhotoFromPath(x.path);
-    if (!context.mounted) return;
-
-    if (ok) {
-      HapticFeedback.mediumImpact();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.t('photo.updated'))));
+    try {
+      final x = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 88,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+      if (x == null || !mounted) return;
+      final prepared = await showPhotoCropScreen(context, path: x.path);
+      if (prepared == null || !mounted) return;
+      final ok = await ref
+          .read(photoSettingsControllerProvider.notifier)
+          .uploadPhoto(prepared);
+      if (!mounted) return;
+      if (ok) {
+        HapticFeedback.mediumImpact();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.t('photo.updated'))));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.t('photo.load_failed'))));
+      }
+    } finally {
+      if (mounted) setState(() => _pickingPhoto = false);
     }
   }
 
@@ -155,7 +178,7 @@ class PhotoSettingsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final meAsync = ref.watch(meControllerProvider);
     final st = ref.watch(photoSettingsControllerProvider);
 
@@ -290,9 +313,9 @@ class PhotoSettingsScreen extends ConsumerWidget {
                               SizedBox(
                                 height: 52,
                                 child: ElevatedButton.icon(
-                                  onPressed: st.isLoading
+                                  onPressed: st.isLoading || _pickingPhoto
                                       ? null
-                                      : () => _pickAndUpload(context, ref),
+                                      : _pickAndUpload,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.chaputBlack,
                                     foregroundColor: AppColors.chaputWhite,
@@ -320,7 +343,10 @@ class PhotoSettingsScreen extends ConsumerWidget {
                               SizedBox(
                                 height: 52,
                                 child: OutlinedButton.icon(
-                                  onPressed: (!hasPhoto || st.isLoading)
+                                  onPressed:
+                                      (!hasPhoto ||
+                                          st.isLoading ||
+                                          _pickingPhoto)
                                       ? null
                                       : () => _confirmDelete(context, ref),
                                   style: OutlinedButton.styleFrom(

@@ -9,6 +9,40 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/routes.dart';
 import '../feedback_launcher.dart';
 
+/// Suspends the global pinch shortcut while an interactive screen is mounted.
+class FeedbackGestureBlocker extends StatefulWidget {
+  const FeedbackGestureBlocker({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<FeedbackGestureBlocker> createState() => _FeedbackGestureBlockerState();
+}
+
+class _FeedbackGestureBlockerState extends State<FeedbackGestureBlocker> {
+  _GlobalFeedbackTriggerState? _trigger;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final trigger = context
+        .findAncestorStateOfType<_GlobalFeedbackTriggerState>();
+    if (identical(trigger, _trigger)) return;
+    _trigger?._changeGestureBlockers(-1);
+    _trigger = trigger;
+    _trigger?._changeGestureBlockers(1);
+  }
+
+  @override
+  void dispose() {
+    _trigger?._changeGestureBlockers(-1);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class GlobalFeedbackTrigger extends ConsumerStatefulWidget {
   const GlobalFeedbackTrigger({
     super.key,
@@ -32,7 +66,14 @@ class _GlobalFeedbackTriggerState extends ConsumerState<GlobalFeedbackTrigger> {
   final Map<int, Offset> _pointers = <int, Offset>{};
   double? _initialDistance;
   bool _hasTriggered = false;
+  int _gestureBlockers = 0;
   BuildContext? _routeContext;
+
+  void _changeGestureBlockers(int delta) {
+    _gestureBlockers += delta;
+    _pointers.clear();
+    _resetGesture();
+  }
 
   String get _currentRouteLocation {
     final routeContext = _routeContext;
@@ -76,6 +117,7 @@ class _GlobalFeedbackTriggerState extends ConsumerState<GlobalFeedbackTrigger> {
   }
 
   void _handlePointerDown(PointerDownEvent event) {
+    if (_gestureBlockers > 0) return;
     _pointers[event.pointer] = event.position;
     if (_pointers.length > _requiredPointers) {
       _resetGesture();
@@ -92,6 +134,7 @@ class _GlobalFeedbackTriggerState extends ConsumerState<GlobalFeedbackTrigger> {
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
+    if (_gestureBlockers > 0) return;
     _pointers[event.pointer] = event.position;
 
     if (_isGestureBlockedRoute) return;

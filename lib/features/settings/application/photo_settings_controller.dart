@@ -122,7 +122,7 @@ class PhotoSettingsController extends Notifier<PhotoSettingsState> {
     return meAsync.maybeWhen(data: (me) => me?.user.userId, orElse: () => null);
   }
 
-  Future<bool> uploadPhotoFromPath(String path) async {
+  Future<bool> uploadPhoto(PreparedPhotoUpload prepared) async {
     state = state.copyWith(
       isLoading: true,
       busyAction: 'upload',
@@ -130,7 +130,6 @@ class PhotoSettingsController extends Notifier<PhotoSettingsState> {
     );
 
     try {
-      final prepared = await prepareProfilePhotoUpload(path);
       final file = MultipartFile.fromBytes(
         prepared.bytes,
         filename: prepared.filename,
