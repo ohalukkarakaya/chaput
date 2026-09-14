@@ -19,7 +19,7 @@ import '../../../../chaput/domain/chaput_thread.dart';
 import '../../../feedback/presentation/feedback_launcher.dart';
 import '../../../user/domain/lite_user.dart';
 import '../../../../core/ui/chaput_circle_avatar/chaput_circle_avatar.dart';
-import 'black_glass.dart';
+import 'chaput_sheet_surface.dart';
 import 'sheet_handle.dart';
 
 class ChaputThreadSheet extends ConsumerWidget {
@@ -179,130 +179,134 @@ class ChaputThreadSheet extends ConsumerWidget {
                           }
                           return false;
                         },
-                        child: PageView.builder(
-                          controller: pageController,
-                          onPageChanged: (index) {
-                            onPageChanged(index, threads[index]);
-                          },
-                          itemCount: threads.length,
-                          itemBuilder: (ctx, index) {
-                            final thread = threads[index];
-                            final isParticipant =
-                                thread.userAId == viewerId ||
-                                thread.userBId == viewerId;
-                            final otherId = thread.userAId == ownerId
-                                ? thread.userBId
-                                : thread.userBId == ownerId
-                                ? thread.userAId
-                                : (thread.userAId == viewerId
-                                      ? thread.userBId
-                                      : thread.userAId);
-                            final ownerUser = usersById[ownerId];
-                            final rawOtherUser =
-                                usersById[otherId] ??
-                                (viewerUser != null && otherId == viewerUser!.id
-                                    ? viewerUser
-                                    : null);
-                            final isHiddenForViewer =
-                                thread.isHidden && !isParticipant;
-                            final shouldMaskOtherUser =
-                                isHiddenForViewer ||
-                                rawOtherUser?.masked == true;
-                            final otherUser = shouldMaskOtherUser
-                                ? LiteUser(
-                                    id: otherId,
-                                    username: null,
-                                    fullName: ctx.t('chat.anonymous_user'),
-                                    bio: null,
-                                    defaultAvatar:
-                                        rawOtherUser?.defaultAvatar ??
-                                        ownerUser?.defaultAvatar ??
-                                        '',
-                                    profilePhotoKey: null,
-                                    profilePhotoUrl: null,
-                                    masked: true,
-                                  )
-                                : rawOtherUser;
+                        child: ChaputSheetGroup(
+                          child: PageView.builder(
+                            controller: pageController,
+                            onPageChanged: (index) {
+                              onPageChanged(index, threads[index]);
+                            },
+                            itemCount: threads.length,
+                            itemBuilder: (ctx, index) {
+                              final thread = threads[index];
+                              final isParticipant =
+                                  thread.userAId == viewerId ||
+                                  thread.userBId == viewerId;
+                              final otherId = thread.userAId == ownerId
+                                  ? thread.userBId
+                                  : thread.userBId == ownerId
+                                  ? thread.userAId
+                                  : (thread.userAId == viewerId
+                                        ? thread.userBId
+                                        : thread.userAId);
+                              final ownerUser = usersById[ownerId];
+                              final rawOtherUser =
+                                  usersById[otherId] ??
+                                  (viewerUser != null &&
+                                          otherId == viewerUser!.id
+                                      ? viewerUser
+                                      : null);
+                              final isHiddenForViewer =
+                                  thread.isHidden && !isParticipant;
+                              final shouldMaskOtherUser =
+                                  isHiddenForViewer ||
+                                  rawOtherUser?.masked == true;
+                              final otherUser = shouldMaskOtherUser
+                                  ? LiteUser(
+                                      id: otherId,
+                                      username: null,
+                                      fullName: ctx.t('chat.anonymous_user'),
+                                      bio: null,
+                                      defaultAvatar:
+                                          rawOtherUser?.defaultAvatar ??
+                                          ownerUser?.defaultAvatar ??
+                                          '',
+                                      profilePhotoKey: null,
+                                      profilePhotoUrl: null,
+                                      masked: true,
+                                    )
+                                  : rawOtherUser;
 
-                            Widget child = _SheetPage(
-                              thread: thread,
-                              ownerUser: ownerUser,
-                              otherUser: otherUser,
-                              viewerUser: viewerUser,
-                              viewerId: viewerId,
-                              isParticipant: isParticipant,
-                              profileId: profileId,
-                              profileUsername: profileUsername,
-                              initialThreadId: initialThreadId,
-                              initialMessageId: initialMessageId,
-                              onOpenProfile: onOpenProfile,
-                              onSendMessage: onSendMessage,
-                              onMakeHidden: onMakeHidden,
-                              onArchiveThread: onArchiveThread,
-                              onReportThread: onReportThread,
-                              onReportMessage: onReportMessage,
-                              canMakeHidden: canMakeHidden,
-                              onOpenWhisperPaywall: onOpenWhisperPaywall,
-                              replyOverlay: replyOverlay,
-                              whisperCredits: whisperCredits,
-                              onReplyMessage: onReplyMessage,
-                              typingUsersByThread: typingUsersByThread,
-                              onReplyJumpStarted: onReplyJumpStarted,
-                              onInitialMessageRevealed:
-                                  onInitialMessageRevealed,
-                              onActionSheetVisibilityChanged:
-                                  onActionSheetVisibilityChanged,
-                            );
-
-                            if (swipeShowcaseKey != null &&
-                                activeThreadId == thread.threadId) {
-                              child = Showcase.withWidget(
-                                key: swipeShowcaseKey!,
-                                targetPadding: EdgeInsets.zero,
-                                targetBorderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(22),
-                                ),
-                                overlayColor: AppColors.chaputBlack,
-                                overlayOpacity: 0.68,
-                                tooltipPosition: TooltipPosition.top,
-                                toolTipMargin: 16,
-                                targetTooltipGap: 12,
-                                container: ChaputTutorialCard(
-                                  title: ctx.t('showcase.chaput_swipe_title'),
-                                  body: ctx.t('showcase.chaput_swipe_body'),
-                                  onTap: onSwipeTutorialTap,
-                                  preview: const TickerMode(
-                                    enabled: true,
-                                    child: _ChaputSwipePreview(),
-                                  ),
-                                ),
-                                child: child,
+                              Widget child = _SheetPage(
+                                thread: thread,
+                                ownerUser: ownerUser,
+                                otherUser: otherUser,
+                                viewerUser: viewerUser,
+                                viewerId: viewerId,
+                                isParticipant: isParticipant,
+                                profileId: profileId,
+                                profileUsername: profileUsername,
+                                initialThreadId: initialThreadId,
+                                initialMessageId: initialMessageId,
+                                onOpenProfile: onOpenProfile,
+                                onSendMessage: onSendMessage,
+                                onMakeHidden: onMakeHidden,
+                                onArchiveThread: onArchiveThread,
+                                onReportThread: onReportThread,
+                                onReportMessage: onReportMessage,
+                                canMakeHidden: canMakeHidden,
+                                onOpenWhisperPaywall: onOpenWhisperPaywall,
+                                replyOverlay: replyOverlay,
+                                whisperCredits: whisperCredits,
+                                onReplyMessage: onReplyMessage,
+                                typingUsersByThread: typingUsersByThread,
+                                onReplyJumpStarted: onReplyJumpStarted,
+                                onInitialMessageRevealed:
+                                    onInitialMessageRevealed,
+                                onActionSheetVisibilityChanged:
+                                    onActionSheetVisibilityChanged,
                               );
-                            }
 
-                            return AnimatedBuilder(
-                              animation: pageController,
-                              builder: (ctx, _) {
-                                double page = pageController.initialPage
-                                    .toDouble();
-                                if (pageController.hasClients) {
-                                  page =
-                                      pageController.page ??
-                                      pageController.initialPage.toDouble();
-                                }
-                                final delta = (page - index).abs().clamp(
-                                  0.0,
-                                  1.0,
-                                );
-                                final scale = 1.0 - (delta * 0.08);
-                                return Transform.scale(
-                                  scale: scale,
-                                  alignment: Alignment.bottomCenter,
+                              if (swipeShowcaseKey != null &&
+                                  activeThreadId == thread.threadId) {
+                                child = Showcase.withWidget(
+                                  key: swipeShowcaseKey!,
+                                  targetPadding: EdgeInsets.zero,
+                                  targetBorderRadius:
+                                      const BorderRadius.vertical(
+                                        top: Radius.circular(22),
+                                      ),
+                                  overlayColor: AppColors.chaputBlack,
+                                  overlayOpacity: 0.68,
+                                  tooltipPosition: TooltipPosition.top,
+                                  toolTipMargin: 16,
+                                  targetTooltipGap: 12,
+                                  container: ChaputTutorialCard(
+                                    title: ctx.t('showcase.chaput_swipe_title'),
+                                    body: ctx.t('showcase.chaput_swipe_body'),
+                                    onTap: onSwipeTutorialTap,
+                                    preview: const TickerMode(
+                                      enabled: true,
+                                      child: _ChaputSwipePreview(),
+                                    ),
+                                  ),
                                   child: child,
                                 );
-                              },
-                            );
-                          },
+                              }
+
+                              return AnimatedBuilder(
+                                animation: pageController,
+                                builder: (ctx, _) {
+                                  double page = pageController.initialPage
+                                      .toDouble();
+                                  if (pageController.hasClients) {
+                                    page =
+                                        pageController.page ??
+                                        pageController.initialPage.toDouble();
+                                  }
+                                  final delta = (page - index).abs().clamp(
+                                    0.0,
+                                    1.0,
+                                  );
+                                  final scale = 1.0 - (delta * 0.08);
+                                  return Transform.scale(
+                                    scale: scale,
+                                    alignment: Alignment.bottomCenter,
+                                    child: child,
+                                  );
+                                },
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
@@ -572,128 +576,115 @@ class _SheetPage extends StatelessWidget {
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final compact = constraints.maxHeight < 180;
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.chaputBlack,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(22),
-              ),
-              border: Border.all(
-                color: AppColors.chaputWhite.withValues(alpha: 0.10),
-              ),
-            ),
-            child: compact
-                ? Padding(
-                    padding: const EdgeInsets.only(bottom: 0),
-                    child: SizedBox(
-                      height: constraints.maxHeight,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          if (constraints.maxHeight >= 80) ...[
-                            const SizedBox(height: 6),
-                            const SheetHandle(),
-                          ],
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: SizedBox(
-                                width: constraints.maxWidth,
-                                child: _ThreadHeader(
-                                  ownerUser: ownerUser,
-                                  otherUser: otherUser,
-                                  isHidden: thread.isHidden,
-                                  isSpecial: thread.isSpecial,
-                                  isParticipant: isParticipant,
-                                  otherName:
-                                      (thread.isHidden && !isParticipant) ||
-                                          otherUser?.masked == true
-                                      ? context.t('chat.anonymous_user')
-                                      : (otherUser?.fullName ?? ''),
-                                  otherUsername:
-                                      (thread.isHidden && !isParticipant) ||
-                                          otherUser?.masked == true
-                                      ? null
-                                      : otherUser?.username,
-                                  onOpenProfile: onOpenProfile,
-                                  threadId: thread.threadId,
-                                  showHideAction:
-                                      isParticipant && !thread.isHidden,
-                                  canMakeHidden: canMakeHidden,
-                                  onMakeHidden: () => onMakeHidden(thread),
-                                  onArchiveThread: () =>
-                                      onArchiveThread(thread),
-                                  onReportThread: () => onReportThread(thread),
-                                  onShareThread: () => _shareThread(
-                                    context,
-                                    profileUsername,
-                                    thread.sharePathSegment,
-                                  ),
-                                  canArchiveThread:
-                                      isParticipant &&
-                                      (thread.state == 'OPEN' ||
-                                          thread.state == 'PENDING'),
-                                  canReportThread: isParticipant,
-                                  canShareThread: profileUsername.isNotEmpty,
-                                  compact: true,
-                                  onActionSheetVisibilityChanged:
-                                      onActionSheetVisibilityChanged,
+        return ChaputSheetSurface(
+          grouped: true,
+          child: compact
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 0),
+                  child: SizedBox(
+                    height: constraints.maxHeight,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        if (constraints.maxHeight >= 80) ...[
+                          const SizedBox(height: 6),
+                          const SheetHandle(),
+                        ],
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              width: constraints.maxWidth,
+                              child: _ThreadHeader(
+                                ownerUser: ownerUser,
+                                otherUser: otherUser,
+                                isHidden: thread.isHidden,
+                                isSpecial: thread.isSpecial,
+                                isParticipant: isParticipant,
+                                otherName:
+                                    (thread.isHidden && !isParticipant) ||
+                                        otherUser?.masked == true
+                                    ? context.t('chat.anonymous_user')
+                                    : (otherUser?.fullName ?? ''),
+                                otherUsername:
+                                    (thread.isHidden && !isParticipant) ||
+                                        otherUser?.masked == true
+                                    ? null
+                                    : otherUser?.username,
+                                onOpenProfile: onOpenProfile,
+                                threadId: thread.threadId,
+                                showHideAction:
+                                    isParticipant && !thread.isHidden,
+                                canMakeHidden: canMakeHidden,
+                                onMakeHidden: () => onMakeHidden(thread),
+                                onArchiveThread: () => onArchiveThread(thread),
+                                onReportThread: () => onReportThread(thread),
+                                onShareThread: () => _shareThread(
+                                  context,
+                                  profileUsername,
+                                  thread.sharePathSegment,
                                 ),
+                                canArchiveThread:
+                                    isParticipant &&
+                                    (thread.state == 'OPEN' ||
+                                        thread.state == 'PENDING'),
+                                canReportThread: isParticipant,
+                                canShareThread: profileUsername.isNotEmpty,
+                                compact: true,
+                                onActionSheetVisibilityChanged:
+                                    onActionSheetVisibilityChanged,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : Padding(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 6),
-                        const SheetHandle(),
-                        Expanded(
-                          child: _ThreadPage(
-                            thread: thread,
-                            ownerUser: ownerUser,
-                            otherUser: otherUser,
-                            viewerUser: viewerUser,
-                            viewerId: viewerId,
-                            isParticipant: isParticipant,
-                            profileId: profileId,
-                            profileUsername: profileUsername,
-                            initialMessageId:
-                                (initialThreadId != null &&
-                                    initialMessageId != null &&
-                                    thread.matchesShareRef(initialThreadId))
-                                ? initialMessageId
-                                : null,
-                            onOpenProfile: onOpenProfile,
-                            onSendMessage: onSendMessage,
-                            onMakeHidden: onMakeHidden,
-                            onArchiveThread: onArchiveThread,
-                            onReportThread: onReportThread,
-                            onReportMessage: onReportMessage,
-                            canMakeHidden: canMakeHidden,
-                            onOpenWhisperPaywall: onOpenWhisperPaywall,
-                            replyOverlay: replyOverlay,
-                            whisperCredits: whisperCredits,
-                            onReplyMessage: onReplyMessage,
-                            typingUsers:
-                                typingUsersByThread[thread.threadId] ??
-                                const [],
-                            onReplyJumpStarted: onReplyJumpStarted,
-                            onInitialMessageRevealed: onInitialMessageRevealed,
-                            onActionSheetVisibilityChanged:
-                                onActionSheetVisibilityChanged,
                           ),
                         ),
                       ],
                     ),
                   ),
-          ),
+                )
+              : Padding(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 6),
+                      const SheetHandle(),
+                      Expanded(
+                        child: _ThreadPage(
+                          thread: thread,
+                          ownerUser: ownerUser,
+                          otherUser: otherUser,
+                          viewerUser: viewerUser,
+                          viewerId: viewerId,
+                          isParticipant: isParticipant,
+                          profileId: profileId,
+                          profileUsername: profileUsername,
+                          initialMessageId:
+                              (initialThreadId != null &&
+                                  initialMessageId != null &&
+                                  thread.matchesShareRef(initialThreadId))
+                              ? initialMessageId
+                              : null,
+                          onOpenProfile: onOpenProfile,
+                          onSendMessage: onSendMessage,
+                          onMakeHidden: onMakeHidden,
+                          onArchiveThread: onArchiveThread,
+                          onReportThread: onReportThread,
+                          onReportMessage: onReportMessage,
+                          canMakeHidden: canMakeHidden,
+                          onOpenWhisperPaywall: onOpenWhisperPaywall,
+                          replyOverlay: replyOverlay,
+                          whisperCredits: whisperCredits,
+                          onReplyMessage: onReplyMessage,
+                          typingUsers:
+                              typingUsersByThread[thread.threadId] ?? const [],
+                          onReplyJumpStarted: onReplyJumpStarted,
+                          onInitialMessageRevealed: onInitialMessageRevealed,
+                          onActionSheetVisibilityChanged:
+                              onActionSheetVisibilityChanged,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
         );
       },
     );
@@ -1252,71 +1243,62 @@ class _ThreadActionSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = context.responsive.bottomSheetInnerPadding();
-    return ClipRRect(
+    return ChaputSheetSurface(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withValues(alpha: 0.82),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(
-              color: AppColors.chaputWhite.withValues(alpha: 0.10),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SheetHandle(),
-              if (canShare)
-                _GlassActionTile(
-                  icon: Icons.ios_share_rounded,
-                  title: context.t('chat.action.share_thread'),
-                  subtitle: context.t('chat.action.share_thread_sub'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onShare();
-                  },
-                ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(),
+            if (canShare)
               _GlassActionTile(
-                icon: Icons.bug_report_outlined,
-                title: context.t('settings.row_feedback'),
-                subtitle: context.t('settings.row_feedback_sub'),
+                icon: Icons.ios_share_rounded,
+                title: context.t('chat.action.share_thread'),
+                subtitle: context.t('chat.action.share_thread_sub'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  Future.microtask(
-                    () => showAppFeedbackSheet(
-                      hostContext,
-                      ref,
-                      triggerSource: 'thread_actions_menu',
-                    ),
-                  );
+                  onShare();
                 },
               ),
-              if (canArchive)
-                _GlassActionTile(
-                  icon: Icons.archive_outlined,
-                  title: context.t('chat.action.archive'),
-                  subtitle: context.t('chat.action.archive_sub'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onArchive();
-                  },
-                ),
-              if (canReport)
-                _GlassActionTile(
-                  icon: Icons.flag_outlined,
-                  title: context.t('chat.action.report'),
-                  subtitle: context.t('chat.action.report_sub'),
-                  isDestructive: true,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onReport();
-                  },
-                ),
-            ],
-          ),
+            _GlassActionTile(
+              icon: Icons.bug_report_outlined,
+              title: context.t('settings.row_feedback'),
+              subtitle: context.t('settings.row_feedback_sub'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Future.microtask(() {
+                  if (!hostContext.mounted) return;
+                  return showAppFeedbackSheet(
+                    hostContext,
+                    ref,
+                    triggerSource: 'thread_actions_menu',
+                  );
+                });
+              },
+            ),
+            if (canArchive)
+              _GlassActionTile(
+                icon: Icons.archive_outlined,
+                title: context.t('chat.action.archive'),
+                subtitle: context.t('chat.action.archive_sub'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onArchive();
+                },
+              ),
+            if (canReport)
+              _GlassActionTile(
+                icon: Icons.flag_outlined,
+                title: context.t('chat.action.report'),
+                subtitle: context.t('chat.action.report_sub'),
+                isDestructive: true,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onReport();
+                },
+              ),
+          ],
         ),
       ),
     );
@@ -1345,80 +1327,70 @@ class _MessageActionSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = context.responsive.bottomSheetInnerPadding();
-    return ClipRRect(
+    return ChaputSheetSurface(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withValues(alpha: 0.82),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(
-              color: AppColors.chaputWhite.withValues(alpha: 0.10),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SheetHandle(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.chaputWhite.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: AppColors.chaputWhite.withValues(alpha: 0.08),
-                    ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SheetHandle(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.chaputWhite.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.chaputWhite.withValues(alpha: 0.08),
                   ),
-                  child: Text(
-                    message.body,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.chaputWhite,
-                      fontWeight: FontWeight.w700,
-                      height: 1.35,
-                    ),
+                ),
+                child: Text(
+                  message.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.chaputWhite,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
                   ),
                 ),
               ),
-              if (canReply)
-                _GlassActionTile(
-                  icon: Icons.reply_rounded,
-                  title: context.t('chat.action.reply'),
-                  subtitle: context.t('chat.action.reply_sub'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onReply();
-                  },
-                ),
-              if (canShowLikes)
-                _GlassActionTile(
-                  icon: Icons.favorite_border_rounded,
-                  title: context.t('chat.action.likes'),
-                  subtitle: context.t('chat.action.likes_sub'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onShowLikes();
-                  },
-                ),
-              if (canReport)
-                _GlassActionTile(
-                  icon: Icons.flag_outlined,
-                  title: context.t('chat.action.report_message'),
-                  subtitle: context.t('chat.action.report_message_sub'),
-                  isDestructive: true,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onReport();
-                  },
-                ),
-            ],
-          ),
+            ),
+            if (canReply)
+              _GlassActionTile(
+                icon: Icons.reply_rounded,
+                title: context.t('chat.action.reply'),
+                subtitle: context.t('chat.action.reply_sub'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onReply();
+                },
+              ),
+            if (canShowLikes)
+              _GlassActionTile(
+                icon: Icons.favorite_border_rounded,
+                title: context.t('chat.action.likes'),
+                subtitle: context.t('chat.action.likes_sub'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onShowLikes();
+                },
+              ),
+            if (canReport)
+              _GlassActionTile(
+                icon: Icons.flag_outlined,
+                title: context.t('chat.action.report_message'),
+                subtitle: context.t('chat.action.report_message_sub'),
+                isDestructive: true,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onReport();
+                },
+              ),
+          ],
         ),
       ),
     );
@@ -1553,10 +1525,14 @@ class _SmallAvatar extends StatelessWidget {
     return SizedBox(
       width: 36,
       height: 36,
-      child: BlackGlass(
-        radius: 18,
-        borderOpacity: 0.25,
-        opacity: 0.4,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.chaputBlack.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.chaputWhite.withValues(alpha: 0.25),
+          ),
+        ),
         child: Center(
           child: ChatComposerAvatar(
             avatarUrl: imageUrl,
@@ -2585,15 +2561,9 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
 
-    Widget child = isWhisperHidden
-        ? ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: bubble,
-            ),
-          )
-        : bubble;
+    // Hidden whisper text is masked above; the shared sheet surface supplies
+    // the frost without adding a backdrop filter to each scrolling message.
+    Widget child = bubble;
 
     child = Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,

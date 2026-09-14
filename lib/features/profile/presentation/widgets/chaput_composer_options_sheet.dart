@@ -1,6 +1,6 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+
+import 'chaput_sheet_surface.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/i18n/app_localizations.dart';
@@ -30,46 +30,34 @@ class ComposerOptionsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = context.responsive.bottomSheetInnerPadding();
 
-    return ClipRRect(
+    return ChaputSheetSurface(
       borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppColors.chaputBlack.withValues(alpha: 0.70),
-            border: Border.all(
-              color: AppColors.chaputWhite.withValues(alpha: 0.10),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          top: 10,
+          bottom: bottomInset,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ComposerOptionTile(
+              title: context.t('chat.option_anon_title'),
+              subtitle: context.t('chat.option_anon_sub'),
+              value: anonEnabled,
+              onChanged: onToggleAnon,
+              onBlocked: onPaywallAnon,
             ),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 12,
-              right: 12,
-              top: 10,
-              bottom: bottomInset,
+            const SizedBox(height: 6),
+            _ComposerOptionTile(
+              title: context.t('chat.option_highlight_title'),
+              subtitle: context.t('chat.option_highlight_sub'),
+              value: highlightEnabled,
+              onChanged: onToggleHighlight,
+              onBlocked: onPaywallBoost,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ComposerOptionTile(
-                  title: context.t('chat.option_anon_title'),
-                  subtitle: context.t('chat.option_anon_sub'),
-                  value: anonEnabled,
-                  onChanged: onToggleAnon,
-                  onBlocked: onPaywallAnon,
-                ),
-                const SizedBox(height: 6),
-                _ComposerOptionTile(
-                  title: context.t('chat.option_highlight_title'),
-                  subtitle: context.t('chat.option_highlight_sub'),
-                  value: highlightEnabled,
-                  onChanged: onToggleHighlight,
-                  onBlocked: onPaywallBoost,
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
